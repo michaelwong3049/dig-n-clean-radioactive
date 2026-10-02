@@ -39,6 +39,15 @@ RareDrop.GAP_MAX = 6 * 60
 -- How long a drop waits for somebody before it sinks back.
 RareDrop.LIFETIME = 4 * 60
 
+-- How much longer the drop takes to pull out of the ground than the same nuke would
+-- normally (DigService's `required`). Paired with Config/Detonation's RARE_DROP_* fuse
+-- so the haul is long enough for other players to show up and contest it.
+RareDrop.PULL_MULT = 3
+-- And never quicker than this many seconds for anyone mashing at Detonation.REF_CPS
+-- with their own magnet, however strong -- so a top-tier magnet cannot snatch it
+-- before anyone else arrives. Must sit well under Detonation.RARE_DROP_MIN * ARM_AT.
+RareDrop.MIN_PULL_SECONDS = 20
+
 -- The drop's aura, as the server builds it, carries its rarity under this attribute
 -- and streams to every client wherever they stand (ModelStreamingMode.Persistent),
 -- so anybody can see it from across the map: the client lights it without waiting for

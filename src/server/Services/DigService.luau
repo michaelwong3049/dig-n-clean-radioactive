@@ -1421,6 +1421,20 @@ local function stepPlayer(player: Player, dt: number)
 	if rarity == "Common" and gripDeficit == 0 then
 		required *= HOME_COMMON_EASE
 	end
+	-- THE ANNOUNCED DROP is a heavier haul (Config/RareDrop.PULL_MULT), so the race to
+	-- it turns into a fight over it. Its fuse is lengthened to match (below). A top
+	-- magnet would still rip a shallow drop out in a couple of seconds, so the rope is
+	-- also floored at MIN_PULL_SECONDS of THIS player's own magnet mashed at REF_CPS
+	-- (no 2x Dig Power in that rate, so the pass still pulls it faster).
+	if signal.rareDrop then
+		required *= RareDrop.PULL_MULT
+		local grip = GRIP_FALLOFF ^ gripDeficit
+		local rate = (stats.draw * grip - PULL_DRAG_RATE)
+			+ DetonationConfig.REF_CPS * PULL_YANK_PER_CLICK * stats.pullSpeed * grip
+		if rate > 0 then
+			required = math.max(required, RareDrop.MIN_PULL_SECONDS * rate)
+		end
+	end
 
 	local progress = digProgress[player] or 0
 
@@ -1447,7 +1461,16 @@ local function stepPlayer(player: Player, dt: number)
 	local fuseWindow: number? = nil
 	if isLocked then
 		local item = Items.get(itemId)
-		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid)
+		fuseWindow = if signal.rareDrop
+			then Detonation.rareDropWindowFor(
+				rarity,
+				item.weight,
+				signal.depth,
+				signal.soil,
+				signal.uid,
+				RareDrop.PULL_MULT
+			)
+			else Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid)
 		local claim = fuseClaims[signal.uid]
 		if claim == nil or (fuseWindow :: number) < claim.window then
 			fuseClaims[signal.uid] = {

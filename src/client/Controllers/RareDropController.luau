@@ -4,16 +4,18 @@
 
 	PURE PRESENTATION. The server (RareDropService) decides what, where and who got it;
 	this reads the ReplicatedStorage attributes it publishes and draws ONE line of text,
-	no box (the user's pick off the font mockup: Gotham Black, whole line in the
-	rarity's colour, dark outline):
+	no box (the user's pick off the font mockup: Gotham Black, dark outline):
 
-	  WHEN A DROP GOES IN  "A Legendary has appeared in Ooze Marsh!" for ANNOUNCE_HOLD
-	                       (10s), then gone: nothing stays on screen while the drop is
-	                       live, and a late joiner sees nothing.
+	  WHEN A DROP GOES IN  "A Giga Pristine Legendary has spawned in Ooze Marsh!" for
+	                       ANNOUNCE_HOLD (10s), then gone: nothing stays on screen while
+	                       the drop is live, and a late joiner sees nothing. Its qualities
+	                       come BEFORE the rarity, each word in its own colour
+	                       (QUALITY_COLOR), the rarity in the rarity's colour.
 	  WHEN IT ENDS         who claimed it, or that it blew up, or that it sank back.
 
-	An Anomaly has no single colour: its line runs Rarity.ANOMALY_SPECTRUM across a
-	UIGradient that scrolls while it is up.
+	The line is a row of word labels, not one rich-text label, so an Anomaly's rarity
+	word can run Rarity.ANOMALY_SPECTRUM across its own scrolling UIGradient without
+	tinting the quality words beside it.
 
 	Settings' RARE DROP ANNOUNCEMENTS (Config/Prefs rareDrops) filters what is drawn:
 	"all", "mine" (only the line when YOU claim one) or "off". The drop's glow in the
@@ -51,20 +53,21 @@ local LINE_Y = 0.14
 local LINE_W = 1200
 local LINE_H = 52
 
--- The drop's buffs (Config/RareDrop), one row of words over the line, each in the
--- colour the wash stamp and stand sticker give it.
-local BUFF_SIZE = 28
-local BUFF_H = 36
-local BUFF_GAP = "  +  "
-local BUFF_COLOR: { [string]: Color3 } = {
-	GIGA = Color3.fromHex("FACC15"),
-	OVERSIZED = Color3.fromHex("F59E0B"),
-	PRISTINE = Color3.fromHex("7DF9FF"),
-	IRRADIATED = Color3.fromHex("A3FF3C"),
-	FUSED = Color3.fromHex("FF8A3D"),
+-- Space between the line's words, design px.
+local WORD_GAP = 11
+
+-- The drop's buffs (Config/RareDrop.buffWords), each its own colour in the line, and
+-- none of them a rarity's colour (Legendary is amber, Mythic red, Epic violet) so a
+-- quality never reads as a second rarity. GIGA and OVERSIZED never appear together.
+local QUALITY_COLOR: { [string]: Color3 } = {
+	GIGA = Color3.fromHex("FACC15"), -- gold
+	OVERSIZED = Color3.fromHex("FDE68A"), -- pale gold
+	PRISTINE = Color3.fromHex("7DF9FF"), -- ice cyan
+	IRRADIATED = Color3.fromHex("A3FF3C"), -- toxic lime
+	FUSED = Color3.fromHex("FF6FB5"), -- hot pink
 }
 
--- How much of the Anomaly spectrum spans the line at once, and how many gradient
+-- How much of the Anomaly spectrum spans a word at once, and how many gradient
 -- keypoints carry it.
 local RAINBOW_SPAN = 0.6
 local RAINBOW_KEYS = 8
@@ -74,12 +77,14 @@ local OUT = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local ANNOUNCE_HOLD = 10
 local OUTCOME_HOLD = 3.6
 
+type Word = { text: string, color: Color3, rainbow: boolean? }
+
 local ui: {
 	card: CanvasGroup,
 	cardScale: UIScale,
-	line: TextLabel,
-	buffs: TextLabel,
-	rainbow: UIGradient,
+	row: Frame,
+	fit: UIScale,
+	layout: UIListLayout,
 }? = nil
 
 local cardToken = 0
@@ -95,9 +100,14 @@ local function stageName(stageId: number?): string
 	return if ok and def then def.name else "the field"
 end
 
---- "A Legendary", "An Epic", "An Anomaly".
-local function withArticle(rarity: string): string
-	return (if string.find(rarity, "^[AEIOU]") then "An " else "A ") .. rarity
+--- "A" or "An" for the word that follows it.
+local function articleFor(word: string): string
+	return if string.find(word, "^[AEIOUaeiou]") then "An" else "A"
+end
+
+--- "GIGA" -> "Giga".
+local function titleCase(word: string): string
+	return string.upper(string.sub(word, 1, 1)) .. string.lower(string.sub(word, 2))
 end
 
 local function build(): ScreenGui
@@ -114,7 +124,7 @@ local function build(): ScreenGui
 	card.Name = "Card"
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
 	card.Position = UDim2.fromScale(0.5, LINE_Y)
-	card.Size = UDim2.fromOffset(LINE_W, BUFF_H + LINE_H + 16)
+	card.Size = UDim2.fromOffset(LINE_W, LINE_H + 16)
 	card.BackgroundTransparency = 1
 	card.GroupTransparency = 1
 	card.Visible = false
@@ -122,54 +132,42 @@ local function build(): ScreenGui
 	local cardScale = Instance.new("UIScale")
 	cardScale.Parent = card
 
-	local line = Instance.new("TextLabel")
-	line.Name = "Line"
-	line.BackgroundTransparency = 1
-	line.AnchorPoint = Vector2.new(0.5, 1)
-	line.Position = UDim2.new(0.5, 0, 1, -8)
-	line.Size = UDim2.fromOffset(LINE_W, LINE_H)
-	line.Font = FONT
-	line.TextSize = TEXT_SIZE
-	line.TextColor3 = WHITE
-	line.TextXAlignment = Enum.TextXAlignment.Center
-	line.Parent = card
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = INK
-	stroke.Thickness = STROKE
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent = line
-
-	local buffs = Instance.new("TextLabel")
-	buffs.Name = "Buffs"
-	buffs.BackgroundTransparency = 1
-	buffs.AnchorPoint = Vector2.new(0.5, 0)
-	buffs.Position = UDim2.new(0.5, 0, 0, 8)
-	buffs.Size = UDim2.fromOffset(LINE_W, BUFF_H)
-	buffs.Font = FONT
-	buffs.TextSize = BUFF_SIZE
-	buffs.TextColor3 = WHITE
-	buffs.RichText = true
-	buffs.TextXAlignment = Enum.TextXAlignment.Center
-	buffs.Visible = false
-	buffs.Parent = card
-	local buffStroke = Instance.new("UIStroke")
-	buffStroke.Color = INK
-	buffStroke.Thickness = STROKE
-	buffStroke.LineJoinMode = Enum.LineJoinMode.Round
-	buffStroke.Parent = buffs
-
-	-- Off unless the line is an Anomaly's; the text is white under it so the
-	-- gradient's colours come through as they are.
-	local rainbow = Instance.new("UIGradient")
-	rainbow.Enabled = false
-	rainbow.Parent = line
+	-- The words, side by side and centred. `fit` shrinks the row when a long line
+	-- (four buffs and a long stage name) would run past LINE_W.
+	local row = Instance.new("Frame")
+	row.Name = "Line"
+	row.BackgroundTransparency = 1
+	row.AnchorPoint = Vector2.new(0.5, 0.5)
+	row.Position = UDim2.fromScale(0.5, 0.5)
+	row.Size = UDim2.fromOffset(LINE_W, LINE_H)
+	row.Parent = card
+	local fit = Instance.new("UIScale")
+	fit.Parent = row
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, WORD_GAP)
+	layout.Parent = row
+	-- `fit` scales the row and its words alike, so this ratio does not move when it
+	-- is applied: no feedback loop. Re-run whenever the words (or the screen) change.
+	local function refit()
+		local width = layout.AbsoluteContentSize.X
+		local room = row.AbsoluteSize.X
+		if width > 0 and room > 0 then
+			fit.Scale = math.min(1, room / width)
+		end
+	end
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refit)
+	row:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
 
 	ui = {
 		card = card,
 		cardScale = cardScale,
-		line = line,
-		buffs = buffs,
-		rainbow = rainbow,
+		row = row,
+		fit = fit,
+		layout = layout,
 	}
 	return gui
 end
@@ -194,36 +192,48 @@ local function startRainbow(gradient: UIGradient)
 	end)
 end
 
---- "GIGA PRISTINE" -> the buff row's rich text, each word in its own colour.
-local function buffRow(words: string): string
-	local parts = {}
-	for _, word in string.split(words, " ") do
-		if word ~= "" then
-			local color = BUFF_COLOR[word] or WHITE
-			table.insert(parts, `<font color="#{color:ToHex()}">{word}</font>`)
-		end
+--- One word of the line, outlined like the rest of the HUD's hero text.
+local function wordLabel(word: Word, order: number): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = "Word"
+	label.LayoutOrder = order
+	label.BackgroundTransparency = 1
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.Size = UDim2.fromOffset(0, LINE_H)
+	label.Font = FONT
+	label.TextSize = TEXT_SIZE
+	label.Text = word.text
+	-- White under the spectrum so its colours come through as they are.
+	label.TextColor3 = if word.rainbow then WHITE else word.color
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = INK
+	stroke.Thickness = STROKE
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+	if word.rainbow then
+		local gradient = Instance.new("UIGradient")
+		gradient.Parent = label
+		startRainbow(gradient)
 	end
-	return table.concat(parts, BUFF_GAP)
+	return label
 end
 
---- `rainbow` = an Anomaly's line: white text under the scrolling spectrum. `buffs` =
---- the drop's buff words for the row above it (announcements only).
-local function showLine(text: string, color: Color3, rainbow: boolean, hold: number, buffs: string?)
+--- Lay `words` out as the line and bring it up for `hold` seconds.
+local function showLine(words: { Word }, hold: number)
 	local u = ui
 	if u == nil then
 		return
 	end
 	cardToken += 1
 	local mine = cardToken
-	u.line.Text = text
-	u.buffs.Visible = buffs ~= nil and buffs ~= ""
-	u.buffs.Text = if buffs then buffRow(buffs) else ""
-	u.line.TextColor3 = if rainbow then WHITE else color
-	u.rainbow.Enabled = rainbow
-	if rainbow then
-		startRainbow(u.rainbow)
-	else
-		stopRainbow()
+	stopRainbow()
+	for _, child in u.row:GetChildren() do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+	for order, word in words do
+		wordLabel(word, order).Parent = u.row
 	end
 	u.card.Visible = true
 	u.card.GroupTransparency = 1
@@ -244,6 +254,11 @@ local function showLine(text: string, color: Color3, rainbow: boolean, hold: num
 	end)
 end
 
+--- The whole line as one word in one colour (the outcome lines).
+local function plainLine(text: string, color: Color3, rainbow: boolean, hold: number)
+	showLine({ { text = text, color = color, rainbow = rainbow } }, hold)
+end
+
 --- A fresh drop went in: announce it. Only on a live change, never on join -- the
 --- news is old by then.
 local function onLive()
@@ -259,13 +274,24 @@ local function onLive()
 	local buffs = ReplicatedStorage:GetAttribute(RareDrop.BUFFS_ATTR)
 	local tier = if type(rarity) == "string" then rarity else "Epic"
 	Sfx.play("rareDrop")
-	showLine(
-		`{withArticle(tier)} has appeared in {stageName(if type(stage) == "number" then stage else nil)}!`,
-		colorOf(tier),
-		tier == "Anomaly",
-		ANNOUNCE_HOLD,
-		if type(buffs) == "string" then buffs else nil
-	)
+
+	-- "A Giga Pristine Legendary has spawned in Ooze Marsh!": the qualities first, each
+	-- in its own colour, then the rarity in the rarity's.
+	local words: { Word } = {}
+	if type(buffs) == "string" then
+		for _, buff in string.split(buffs, " ") do
+			if buff ~= "" then
+				table.insert(words, { text = titleCase(buff), color = QUALITY_COLOR[buff] or WHITE })
+			end
+		end
+	end
+	table.insert(words, { text = tier, color = colorOf(tier), rainbow = tier == "Anomaly" })
+	table.insert(words, 1, { text = articleFor(words[1].text), color = WHITE })
+	table.insert(words, {
+		text = `has spawned in {stageName(if type(stage) == "number" then stage else nil)}!`,
+		color = WHITE,
+	})
+	showLine(words, ANNOUNCE_HOLD)
 end
 
 local function onOutcome()
@@ -282,11 +308,11 @@ local function onOutcome()
 		return
 	end
 	if who then
-		showLine(`{if you then "You" else who} got the {tier}!`, colorOf(tier), tier == "Anomaly", OUTCOME_HOLD)
+		plainLine(`{if you then "You" else who} got the {tier}!`, colorOf(tier), tier == "Anomaly", OUTCOME_HOLD)
 	elseif outcome == "blown" then
-		showLine(`The {tier} blew up in the ground!`, Color3.fromHex("FF6B3D"), false, OUTCOME_HOLD)
+		plainLine(`The {tier} blew up in the ground!`, Color3.fromHex("FF6B3D"), false, OUTCOME_HOLD)
 	else
-		showLine(`The {tier} sank back unclaimed`, Color3.fromHex("9AA3AE"), false, OUTCOME_HOLD)
+		plainLine(`The {tier} sank back unclaimed`, Color3.fromHex("9AA3AE"), false, OUTCOME_HOLD)
 	end
 end
 

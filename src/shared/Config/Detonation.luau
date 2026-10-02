@@ -95,6 +95,16 @@ Detonation.RARITY_WINDOW = {
 Detonation.WEIGHT_WINDOW_EXP = 0.5
 Detonation.WEIGHT_REF_KG = 25
 
+-- THE ANNOUNCED DROP (Config/RareDrop) BURNS ITS OWN, MUCH LONGER FUSE. The whole server
+-- was told where it is, so its pull is meant to be a standoff, not a three-second
+-- snatch: the rope is RareDrop.PULL_MULT times longer and the fuse rolls (off the uid,
+-- like the temper) anywhere in RARE_DROP_MIN..RARE_DROP_MAX -- long enough for others to
+-- arrive and fight over it. The fairness floor still applies (at the drop's longer
+-- rope), up to RARE_DROP_CAP. Never a troll.
+Detonation.RARE_DROP_MIN = 40
+Detonation.RARE_DROP_MAX = 60
+Detonation.RARE_DROP_CAP = 120
+
 -- The point of no return, as a fraction of the window. Before it the release is free;
 -- at it the nuke arms and the release stops working (DigService's lock handler).
 Detonation.ARM_AT = 0.8
