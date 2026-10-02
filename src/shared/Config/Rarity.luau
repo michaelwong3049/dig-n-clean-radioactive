@@ -155,6 +155,8 @@ end
 -- comes from then nudge it up or down, and the total is clamped. A modifier left out
 -- of STAR_MODIFIER moves nothing. The scale is strict on purpose: a Stage 4 Legendary
 -- Pristine is a good find (6) but 8-10 is kept for rare, late-stage, well-rolled copies.
+-- It moves in HALF STARS: the size and stage nudges come in 0.5 steps and the total is
+-- snapped to the nearest half. Client/StarRow draws the half as a real half star.
 Rarity.MAX_STARS = 10
 
 Rarity.STAR_MODIFIER = {
@@ -170,14 +172,17 @@ Rarity.STAR_MODIFIER = {
 Rarity.STAR_SIZE = {
 	{ min = 2.2, stars = 2 },
 	{ min = 1.6, stars = 1 },
+	{ min = 1.25, stars = 0.5 },
 	{ below = 0.8, stars = -1 },
+	{ below = 0.95, stars = -0.5 },
 } :: { { min: number?, below: number?, stars: number } }
 
 -- The nudge for the stage a nuke comes from (its home stage, Items.stageOf), indexed by
 -- stage id; a stage past the end reads the last entry. Early-stage finds rate lower for
--- being early: Stages 1-3 -2, 4-6 -1, 7-9 none, 10-12 +1. No stage (a crate, a surface
--- that doesn't know the item) moves nothing.
-Rarity.STAR_STAGE = { -2, -2, -2, -1, -1, -1, 0, 0, 0, 1, 1, 1 } :: { number }
+-- being early, climbing half a star every stage or two: -2 at Stages 1-2, -1 at 4-5,
+-- none at 8-9, +1 at 12. No stage (a crate, a surface that doesn't know the item)
+-- moves nothing.
+Rarity.STAR_STAGE = { -2, -2, -1.5, -1, -1, -0.5, -0.5, 0, 0, 0.5, 0.5, 1 } :: { number }
 
 --- How many stars a find rates. `modifier`, `payload`, `bonus` and `stage` are
 --- optional: leave them out (a crate, a surface with no uid) and it is the plain rarity
@@ -202,13 +207,7 @@ function Rarity.stars(name: string?, modifier: string?, payload: number?, bonus:
 	if type(stage) == "number" and stage >= 1 then
 		stars += Rarity.STAR_STAGE[math.min(math.floor(stage), #Rarity.STAR_STAGE)]
 	end
-	return math.clamp(stars, 1, Rarity.MAX_STARS)
-end
-
---- The star rating as text, one filled star each ("★★★★"). Empty for an unknown or
---- missing rarity.
-function Rarity.starText(name: string?, modifier: string?, payload: number?, bonus: { string }?, stage: number?): string
-	return string.rep("\u{2605}", Rarity.stars(name, modifier, payload, bonus, stage))
+	return math.clamp(math.floor(stars * 2 + 0.5) / 2, 1, Rarity.MAX_STARS)
 end
 
 function Rarity.byOrder(order: number): (string, RarityDef)

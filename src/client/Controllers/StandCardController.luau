@@ -567,6 +567,21 @@ local function draw(card: Card)
 		}
 		if on then
 			text(body, `Star{i}`, "\u{2605}", L.starOn, STYLE.star, 1.8, slot)
+		elseif i - 0.5 <= lit then
+			-- A half star: a full-size dim star, with a lit one clipped to its left half.
+			text(body, `Star{i}`, "\u{2605}", L.starOn, WHITE, 0, slot).TextTransparency = 0.55
+			local clip = Instance.new("Frame")
+			clip.Name = `HalfStar{i}`
+			clip.BackgroundTransparency = 1
+			clip.ClipsDescendants = true
+			clip.Position = slot.position
+			clip.Size = UDim2.fromOffset(L.starW / 2, L.starH)
+			clip.ZIndex = 5
+			clip.Parent = body
+			text(clip, "Star", "\u{2605}", L.starOn, STYLE.star, 1.8, {
+				size = UDim2.fromOffset(L.starW, L.starH),
+				z = 5,
+			})
 		else
 			text(body, `Star{i}`, "\u{2605}", L.starOff, WHITE, 0, slot).TextTransparency = 0.55
 		end

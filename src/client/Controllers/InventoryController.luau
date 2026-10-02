@@ -62,6 +62,7 @@ local Bombing = require(Shared.Bombing)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local StarLine = require(script.Parent.Parent.StarLine)
 local Sfx = require(script.Parent.Parent.Sfx)
 local ItemArt = require(script.Parent.Parent.ItemArt)
 local Dock = UIKit.Dock
@@ -1006,7 +1007,7 @@ showCard = function(slot: any?)
 	ui.cardTitle.Text = if unknown then "???" else item.name
 	tint(ui.cardTitle, "TextColor3", rarityColor(item.rarity), item.rarity)
 	tint(ui.cardStroke, "Color", rarityColor(item.rarity), item.rarity)
-	ui.cardStars.Text = string.rep("\u{2605}", stats.stars)
+	StarLine.set(ui.cardStars, stats.stars)
 	-- What it pays on a stand (CarryService's undamped `perSecond`): nil while it is
 	-- still crusted (worth "???" like its name) or Slagged (a stand won't take it).
 	local perSecond = item.perSecond
@@ -1116,7 +1117,7 @@ function Inventory.dropBomb(confirmed: boolean?)
 		ui.confirmName.Text = held.name
 		tint(ui.confirmName, "TextColor3", rarityColor(held.rarity), held.rarity)
 		tint(ui.confirmStroke, "Color", rarityColor(held.rarity), held.rarity)
-		ui.confirmStars.Text = `{string.rep("\u{2605}", Bombing.statsFor(held).stars)}  {string.upper(held.rarity)}`
+		StarLine.set(ui.confirmStars, Bombing.statsFor(held).stars, { after = string.upper(held.rarity) })
 		ui.confirm.Visible = true
 		return
 	end

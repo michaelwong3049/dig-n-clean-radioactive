@@ -32,6 +32,7 @@ local Merge = require(Shared.Config.Merge)
 local Tuning = require(Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
+local StarLine = require(script.Parent.StarLine)
 local ItemArt = require(script.Parent.ItemArt)
 
 local TraderPanel = {}
@@ -104,16 +105,11 @@ local function rarityColor(name: string?): Color3
 	return if def then def.color else SKIN.dim
 end
 
---- This find's stars: its rarity tier, nudged by its quality and its size roll, then
---- any Merge Reactor stars in their own colour. RichText.
-local function starText(item: any): string
+--- This find's star rating: its rarity tier, nudged by its quality, size roll and
+--- home stage (drawn with half stars by StarLine).
+local function ratingOf(item: any): number
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
-	local rating = Rarity.starText(item.rarity, item.modifier, payload, item.bonus, Items.stageOf(item.itemId))
-	local merged = if type(item.merge) == "number" then item.merge else 0
-	if merged <= 0 then
-		return rating
-	end
-	return `{rating} <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
+	return Rarity.stars(item.rarity, item.modifier, payload, item.bonus, Items.stageOf(item.itemId))
 end
 
 local function text(parent: Instance, props: { [string]: any }): TextLabel
@@ -528,8 +524,14 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		nameLabel.Text = item.name
 		nameLabel.TextColor3 = if item.clean then color else SKIN.crustText
 		local sub = row:FindFirstChild("Sub") :: TextLabel
-		local kg = if type(item.weight) == "number" then `  <font color="#{SKIN.text:ToHex()}">{UIKit.formatKg(item.weight)}</font>` else ""
-		sub.Text = `<font color="#{color:ToHex()}">{item.rarity or ""}</font>  <font color="#{SKIN.amber:ToHex()}">{starText(item)}</font>{kg}`
+		local kg = if type(item.weight) == "number" then `<font color="#{SKIN.text:ToHex()}">{UIKit.formatKg(item.weight)}</font>` else ""
+		StarLine.set(sub, ratingOf(item), {
+			color = SKIN.amber,
+			before = `<font color="#{color:ToHex()}">{item.rarity or ""}</font>`,
+			trail = if type(item.merge) == "number" then item.merge else 0,
+			trailColor = Merge.COLOR,
+			after = kg,
+		})
 		;(row:FindFirstChild("Crusted") :: TextLabel).Visible = not item.clean
 		;(row:FindFirstChild("Price") :: TextLabel).Text = money(item.value or 0)
 		local tick = row:FindFirstChild("Tick") :: Frame

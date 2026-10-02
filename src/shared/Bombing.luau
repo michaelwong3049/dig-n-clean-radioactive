@@ -66,10 +66,10 @@ end
 
 -- The DAMAGE/RADIUS row a bomb reads: the rating WITHOUT its stage nudge (the stage
 -- already scales the blast through Detonation.stageMults) and capped at the table's
--- length, so the 10-star rating didn't rebalance bombs.
+-- length, so the 10-star rating didn't rebalance bombs. A half star rounds down.
 local function powerOf(item: any): number
 	local payload = if item.uid then Payload.forUid(item.uid) else nil
-	return math.clamp(Rarity.stars(item.rarity, item.modifier, payload, item.bonus), 1, #Cfg.DAMAGE)
+	return math.clamp(math.floor(Rarity.stars(item.rarity, item.modifier, payload, item.bonus)), 1, #Cfg.DAMAGE)
 end
 
 --- Everything a nuke does as a bomb. `item` needs rarity, modifier and uid (a bag
@@ -101,7 +101,7 @@ end
 --- stars at a neutral size roll, no modifier, no per-uid variance -- but its home
 --- stage's multipliers, like every real copy.
 function Bombing.averageFor(item: any): (number, number)
-	local stars = math.clamp(Rarity.stars(item.rarity, nil, 1), 1, #Cfg.DAMAGE)
+	local stars = math.clamp(math.floor(Rarity.stars(item.rarity, nil, 1)), 1, #Cfg.DAMAGE)
 	local hitMult, radiusMult = Detonation.stageMults(stageOf(item))
 	return math.floor(Cfg.DAMAGE[stars] * hitMult + 0.5), math.floor(Cfg.RADIUS[stars] * radiusMult * 10 + 0.5) / 10
 end

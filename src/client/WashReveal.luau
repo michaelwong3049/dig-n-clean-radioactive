@@ -43,6 +43,7 @@ local Crates = require(Shared.Config.Crates)
 local Tuning = require(Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
+local StarLine = require(script.Parent.StarLine)
 local Prefs = require(script.Parent.Prefs)
 
 local WashReveal = {}
@@ -522,19 +523,23 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		size = UDim2.fromOffset(600, 28),
 		position = UDim2.fromScale(0.5, 0.87),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		text = Rarity.starText(
-			found.rarity,
-			found.modifier,
-			if type(found.uid) == "string" then Payload.forUid(found.uid) else nil,
-			found.bonus,
-			Items.stageOf(found.itemId)
-		),
+		text = "",
 		font = UIKit.Font.hero,
 		textSize = 26,
 		xAlign = Enum.TextXAlignment.Center,
 		color = T.GOLD,
 		visible = false,
 	})
+	StarLine.set(
+		stars,
+		Rarity.stars(
+			found.rarity,
+			found.modifier,
+			if type(found.uid) == "string" then Payload.forUid(found.uid) else nil,
+			found.bonus,
+			Items.stageOf(found.itemId)
+		)
+	)
 	local starsScale = scaler(stars)
 
 	-- NEW HEAVIEST: this one out-weighs the index's record for it (IdentifyService's

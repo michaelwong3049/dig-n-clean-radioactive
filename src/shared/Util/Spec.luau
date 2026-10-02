@@ -529,6 +529,12 @@ function Spec.run(): boolean
 				and Rarity.stars("Anomaly", "Pristine", 1, nil, 12) == Rarity.MAX_STARS
 				and Rarity.MAX_STARS == 10
 		)
+		check(
+			"§stars move in half stars (S3 Rare 2.5, a 1.3x roll +0.5, a 0.9x roll -0.5)",
+			Rarity.stars("Rare", nil, 1, nil, 3) == 2.5
+				and Rarity.stars("Rare", nil, 1.3) == 4.5
+				and Rarity.stars("Rare", nil, 0.9) == 3.5
+		)
 
 		-- The Merge Reactor (Config/Merge): harder per level, pity and luck help but
 		-- are capped, a crit is part of a success and only exists while +2 fits, and
