@@ -559,7 +559,8 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- right-aligned against the shaft, so naming what you hooked costs no height.
 -- DetectorController's SHAFT_* / READOUT_* derive the whole interior from this one size.
 --
--- 386x474 (442 + 32 of taller sky for a bigger magnet), UP FROM 320x290, and the taller box is the price of the shaft. It is still
+-- 340x474 (442 + 32 of taller sky for a bigger magnet; 386 -> 340 wide on request, the readout column
+-- still clears its widest line, "let go before the line" at 145), UP FROM 320x290, and the taller box is the price of the shaft. It is still
 -- a floating stack with nothing drawn behind it, and it still keeps off the middle:
 -- see HAULPANEL_CENTRE_GAP for where it sits and HAULPANEL_RIGHT for the tiles.
 --
@@ -567,7 +568,7 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- lucky: DigService releases the lock the instant the bag fills (its RELEASE 3), and
 -- the only other line the status can carry is the buried-too-deep one, which needs
 -- `not hasSignal` -- so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(386, 474)
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(340, 474)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.

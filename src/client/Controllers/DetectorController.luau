@@ -158,7 +158,7 @@ local HAULBUTTON_Y = Dock.HAULPANEL_SIZE.Y.Offset - HAULBUTTON_HEIGHT
 -- here that would clip rather than merely look cramped.
 local READOUT_GAP = 14
 local READOUT_WIDTH = SHAFT_X - SHAFT_STROKE - READOUT_GAP
-local RELEASE_WIDTH = 132 -- the red LET GO plate, right-aligned in the readout column
+local RELEASE_WIDTH = 120 -- the red LET GO plate, right-aligned in the readout column
 local READOUT_TOP = 96 -- the rarity word's row; everything else hangs below it
 local METRES_TEXT = 50 -- the "1.9 m" headline: the number being watched
 -- "%.1f" metres, the unit at half size. RichText, so the label is built without the
