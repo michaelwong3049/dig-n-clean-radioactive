@@ -335,12 +335,12 @@ Items.DEFS = {
 		name = "Blueprint Nuke",
 		flavor = "Half-burnt plans marked with three stars and no name.",
 		rarity = "Legendary",
-		odds = 1250, -- 1 in N per dig in a stocking stage
+		odds = 3750, -- 1 in N per dig in a stocking stage
 		weight = 6,
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 63000,
+		baseValue = 126000,
 		model = "ImportedNuke",
 	},
 	{
@@ -348,12 +348,12 @@ Items.DEFS = {
 		name = "Prototype Nuke",
 		flavor = "A test rig nobody switched off. The orb in the window is still spinning.",
 		rarity = "Legendary",
-		odds = 3000, -- 1 in N per dig in a stocking stage
+		odds = 9000, -- 1 in N per dig in a stocking stage
 		weight = 8,
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 125000,
+		baseValue = 250000,
 		model = "ImportedNuke",
 	},
 
@@ -535,12 +535,12 @@ Items.DEFS = {
 		name = "Vault Nuke",
 		flavor = "Whatever was worth a bank vault is still attached.",
 		rarity = "Legendary",
-		odds = 3000, -- 1 in N per dig in a stocking stage
+		odds = 9000, -- 1 in N per dig in a stocking stage
 		weight = 420,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 150000,
+		baseValue = 300000,
 		model = "ImportedNuke",
 	},
 
@@ -700,12 +700,12 @@ Items.DEFS = {
 		name = "Diamond Nuke",
 		flavor = "Catches light nobody else out here can see.",
 		rarity = "Legendary",
-		odds = 3500, -- 1 in N per dig in a stocking stage
+		odds = 10500, -- 1 in N per dig in a stocking stage
 		weight = 5,
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 75000,
+		baseValue = 150000,
 		model = "ImportedNuke",
 	},
 	{
@@ -772,12 +772,12 @@ Items.DEFS = {
 		name = "Reactor Nuke",
 		flavor = "The whole reason there's a Belt and not something worse.",
 		rarity = "Legendary",
-		odds = 5000, -- 1 in N per dig in a stocking stage
+		odds = 15000, -- 1 in N per dig in a stocking stage
 		weight = 200,
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 120000,
+		baseValue = 240000,
 		model = "ImportedNuke",
 	},
 
@@ -925,13 +925,13 @@ Items.DEFS = {
 		name = "Core Nuke",
 		flavor = "Warm through three layers of metal. Never once cooled.",
 		rarity = "Legendary",
-		odds = 6000, -- 1 in N per dig in a stocking stage
+		odds = 18000, -- 1 in N per dig in a stocking stage
 		weight = 160,
 		sizeMult = 1.8, -- bigger
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 130000,
+		baseValue = 260000,
 		model = "ImportedNuke",
 	},
 	-- The fourth rocket (Stage 4 has none): Legendary here, Mythic Booster in Stage 6.
@@ -940,12 +940,12 @@ Items.DEFS = {
 		name = "Cruise Nuke",
 		flavor = "Wings folded out, course locked in, fuel long gone.",
 		rarity = "Legendary",
-		odds = 5000, -- 1 in N per dig in a stocking stage
+		odds = 15000, -- 1 in N per dig in a stocking stage
 		weight = 120,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 100000,
+		baseValue = 200000,
 		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
@@ -954,12 +954,12 @@ Items.DEFS = {
 		name = "Atomic Bomb",
 		flavor = "Still glowing. Still humming. Exactly as dangerous as the day it was made.",
 		rarity = "Mythic",
-		odds = 50000, -- 1 in N per dig in a stocking stage
+		odds = 150000, -- 1 in N per dig in a stocking stage
 		weight = 220,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 600000,
+		baseValue = 1200000,
 		sizeMult = 3.5, -- really big, far past every other nuke: it's the Atomic Bomb
 		model = "ImportedNuke",
 	},
@@ -1068,12 +1068,12 @@ Items.DEFS = {
 		name = "Sky-Glow Nuke",
 		flavor = "Lights up the crater at night, all by itself.",
 		rarity = "Legendary",
-		odds = 6000, -- 1 in N per dig in a stocking stage
+		odds = 18000, -- 1 in N per dig in a stocking stage
 		weight = 80,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 140000,
+		baseValue = 280000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1107,12 +1107,12 @@ Items.DEFS = {
 		name = "Mini Nuke",
 		flavor = "Bright yellow, comically oversized, and definitely not armed. Probably.",
 		rarity = "Legendary",
-		odds = 9000, -- 1 in N per dig in a stocking stage
+		odds = 27000, -- 1 in N per dig in a stocking stage
 		weight = 290,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 160000,
+		baseValue = 320000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1120,12 +1120,12 @@ Items.DEFS = {
 		name = "Booster Nuke",
 		flavor = "Four boosters strapped on and a porthole with nobody behind it.",
 		rarity = "Mythic",
-		odds = 45000, -- 1 in N per dig in a stocking stage
+		odds = 135000, -- 1 in N per dig in a stocking stage
 		weight = 300,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 750000,
+		baseValue = 1500000,
 		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
@@ -1134,12 +1134,12 @@ Items.DEFS = {
 		name = "Cosmic Nuke",
 		flavor = "A single glowing hand, pointing at nothing in particular.",
 		rarity = "Mythic",
-		odds = 60000, -- 1 in N per dig in a stocking stage
+		odds = 180000, -- 1 in N per dig in a stocking stage
 		weight = 5,
 		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
-		baseValue = 930000,
+		baseValue = 1860000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1292,13 +1292,13 @@ Items.DEFS = {
 		name = "Phoenix Nuke",
 		flavor = "Winged, gilded, and already warm to the touch.",
 		rarity = "Legendary",
-		odds = 9000, -- 1 in N per dig in a stocking stage
+		odds = 27000, -- 1 in N per dig in a stocking stage
 		weight = 110,
 		sizeMult = 1.4, -- bigger
 		stages = { 7 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 400000,
+		baseValue = 800000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1306,13 +1306,13 @@ Items.DEFS = {
 		name = "Eclipse Nuke",
 		flavor = "A black core ringed in fire. Don't look straight at it.",
 		rarity = "Mythic",
-		odds = 50000, -- 1 in N per dig in a stocking stage
+		odds = 150000, -- 1 in N per dig in a stocking stage
 		weight = 80,
 		sizeMult = 1.8, -- bigger
 		stages = { 7 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 2000000,
+		baseValue = 4000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1453,13 +1453,13 @@ Items.DEFS = {
 		name = "Submarine Nuke",
 		flavor = "Surfaced from somewhere it was never meant to leave.",
 		rarity = "Legendary",
-		odds = 9000, -- 1 in N per dig in a stocking stage
+		odds = 27000, -- 1 in N per dig in a stocking stage
 		weight = 300,
 		sizeMult = 2.2, -- bigger
 		stages = { 8 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 1000000,
+		baseValue = 2000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1467,13 +1467,13 @@ Items.DEFS = {
 		name = "Abyssal Nuke",
 		flavor = "Its lure glows in the dark. Don't follow it.",
 		rarity = "Mythic",
-		odds = 50000, -- 1 in N per dig in a stocking stage
+		odds = 150000, -- 1 in N per dig in a stocking stage
 		weight = 260,
 		sizeMult = 1.8, -- bigger
 		stages = { 8 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 5000000,
+		baseValue = 10000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1601,12 +1601,12 @@ Items.DEFS = {
 		name = "Chandelier Nuke",
 		flavor = "Every candle lit, every crystal a warhead.",
 		rarity = "Legendary",
-		odds = 9000, -- 1 in N per dig in a stocking stage
+		odds = 27000, -- 1 in N per dig in a stocking stage
 		weight = 280,
 		stages = { 9 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 2500000,
+		baseValue = 5000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1614,13 +1614,13 @@ Items.DEFS = {
 		name = "Fulgurite Nuke",
 		flavor = "Lightning struck the sand and left this behind.",
 		rarity = "Mythic",
-		odds = 50000, -- 1 in N per dig in a stocking stage
+		odds = 150000, -- 1 in N per dig in a stocking stage
 		weight = 260,
 		sizeMult = 1.7, -- bigger
 		stages = { 9 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 12500000,
+		baseValue = 25000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1708,12 +1708,12 @@ Items.DEFS = {
 		name = "Dragon Egg Nuke",
 		flavor = "Something inside is hatching. It breathes fire.",
 		rarity = "Legendary",
-		odds = 9000, -- 1 in N per dig in a stocking stage
+		odds = 27000, -- 1 in N per dig in a stocking stage
 		weight = 320,
 		stages = { 11 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 15000000,
+		baseValue = 30000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1721,12 +1721,12 @@ Items.DEFS = {
 		name = "Tesla Coil Nuke",
 		flavor = "Arcs jump from the toroid to anything that moves.",
 		rarity = "Legendary",
-		odds = 14000, -- 1 in N per dig in a stocking stage
+		odds = 42000, -- 1 in N per dig in a stocking stage
 		weight = 280,
 		stages = { 11 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 22000000,
+		baseValue = 44000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1734,13 +1734,13 @@ Items.DEFS = {
 		name = "Rift Heart Nuke",
 		flavor = "A crystal heart ripped from the rift. It still beats.",
 		rarity = "Mythic",
-		odds = 50000, -- 1 in N per dig in a stocking stage
+		odds = 150000, -- 1 in N per dig in a stocking stage
 		weight = 280,
 		sizeMult = 1.8, -- bigger
 		stages = { 11 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 78000000,
+		baseValue = 156000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1748,13 +1748,13 @@ Items.DEFS = {
 		name = "Black Hole Nuke",
 		flavor = "The light bends round it and never comes back.",
 		rarity = "Mythic",
-		odds = 75000, -- 1 in N per dig in a stocking stage
+		odds = 225000, -- 1 in N per dig in a stocking stage
 		weight = 400,
 		sizeMult = 2.2, -- bigger
 		stages = { 11 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 110000000,
+		baseValue = 220000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1816,12 +1816,12 @@ Items.DEFS = {
 		name = "Mushroom Cloud Nuke",
 		flavor = "A tiny cloud still rolls over its cap.",
 		rarity = "Legendary",
-		odds = 9000, -- 1 in N per dig in a stocking stage
+		odds = 27000, -- 1 in N per dig in a stocking stage
 		weight = 320,
 		stages = { 12 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 37000000,
+		baseValue = 74000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1829,12 +1829,12 @@ Items.DEFS = {
 		name = "Meltdown Nuke",
 		flavor = "Control rods pulled, core wide open.",
 		rarity = "Legendary",
-		odds = 14000, -- 1 in N per dig in a stocking stage
+		odds = 42000, -- 1 in N per dig in a stocking stage
 		weight = 280,
 		stages = { 12 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 54000000,
+		baseValue = 108000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1842,12 +1842,12 @@ Items.DEFS = {
 		name = "Solar Flare Nuke",
 		flavor = "A sun in a shell, with a planet in orbit.",
 		rarity = "Mythic",
-		odds = 50000, -- 1 in N per dig in a stocking stage
+		odds = 150000, -- 1 in N per dig in a stocking stage
 		weight = 280,
 		stages = { 12 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 190000000,
+		baseValue = 380000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1855,12 +1855,12 @@ Items.DEFS = {
 		name = "Ground Zero Nuke",
 		flavor = "The crater it came from is still glowing.",
 		rarity = "Mythic",
-		odds = 75000, -- 1 in N per dig in a stocking stage
+		odds = 225000, -- 1 in N per dig in a stocking stage
 		weight = 400,
 		stages = { 12 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 270000000,
+		baseValue = 540000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1975,12 +1975,12 @@ Items.DEFS = {
 		name = "Crystal Drill Nuke",
 		flavor = "A tracked driller that bored its way in and stayed.",
 		rarity = "Legendary",
-		odds = 9000, -- 1 in N per dig in a stocking stage
+		odds = 27000, -- 1 in N per dig in a stocking stage
 		weight = 320,
 		stages = { 10 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 6100000,
+		baseValue = 12200000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1988,12 +1988,12 @@ Items.DEFS = {
 		name = "Crystal Spider Nuke",
 		flavor = "It still has its fangs, and its legs.",
 		rarity = "Legendary",
-		odds = 14000, -- 1 in N per dig in a stocking stage
+		odds = 42000, -- 1 in N per dig in a stocking stage
 		weight = 260,
 		stages = { 10 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 8500000,
+		baseValue = 17000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -2001,12 +2001,12 @@ Items.DEFS = {
 		name = "Venom Serpent Nuke",
 		flavor = "Coiled tight, hood up, venom on the fangs.",
 		rarity = "Mythic",
-		odds = 50000, -- 1 in N per dig in a stocking stage
+		odds = 150000, -- 1 in N per dig in a stocking stage
 		weight = 300,
 		stages = { 10 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 31000000,
+		baseValue = 62000000,
 		model = "ImportedNuke",
 	},
 	{
