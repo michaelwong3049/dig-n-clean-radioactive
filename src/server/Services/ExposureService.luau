@@ -24,13 +24,25 @@
 
 	THE LABEL OVER THE BAG IS DRAWN BY EACH CLIENT (DroppedBagController), not here, so
 	it can reach the owner from anywhere and everyone else only up close. The bag
-	carries what it needs as attributes: OwnerId, OwnerName, Items, ExpiresAt.
+	carries what it needs as attributes: OwnerId, OwnerName, Items, ExpiresAt, Protected.
+
+	RECOVER BAG (Tuning.BAG_RECOVER_PRODUCT_ID) puts a dropped bag's whole contents back
+	in the owner's carry for Robux. Two things keep it from duplicating items or selling
+	an empty bag:
+	  - ONE TABLE, MOVED ONCE. A bag's items live only in bagContents[bag]. A steal and
+	    the purchase grant both take them out of that table, synchronously, so whichever
+	    runs first has them and the other finds nothing. The grant never copies.
+	  - THE OWNER GETS A HEAD START. For Tuning.BAG_STEAL_GRACE seconds after the drop
+	    only the owner may take from it, and pressing Recover HOLDS the bag (no steals,
+	    no time-out) until the purchase dialog closes or the receipt lands, capped at
+	    Tuning.BAG_RECOVER_HOLD_MAX seconds per bag. The server opens the prompt itself,
+	    after the hold is in place, so there is no gap between the two.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local Debris = game:GetService("Debris")
+local MarketplaceService = game:GetService("MarketplaceService")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -61,6 +73,8 @@ local HazardService = require(script.Parent.HazardService)
 -- Read ONLY to tell a base's shower (owner-only) from a camp one. ExhibitService never
 -- requires this file, so there is no cycle.
 local ExhibitService = require(script.Parent.ExhibitService)
+-- Recover Bag's receipt. ProductService requires only DataService and SfxService.
+local ProductService = require(script.Parent.ProductService)
 
 local ExposureService = {}
 
@@ -91,6 +105,13 @@ local bagContents: { [Instance]: { any } } = {}
 -- Who has already taken from each dropped bag that was not theirs, so the Thief
 -- mastery's `bagsStolen` counts a bag once however many trips it takes to empty.
 local bagThieves: { [Instance]: { [Player]: boolean } } = {}
+-- Per dropped bag: when it dropped (for the steal grace) and its Recover hold, if one
+-- is running -- `holdStart` set while the owner's purchase dialog is open, `holdUsed`
+-- the seconds already spent of Tuning.BAG_RECOVER_HOLD_MAX.
+type BagMeta = { droppedAt: number, holdStart: number?, holdUsed: number }
+local bagMeta: { [Instance]: BagMeta } = {}
+-- The bag each player's open Recover purchase is for.
+local pendingRecover: { [Player]: Instance } = {}
 
 -- ── Kills (the Bomber mastery, Config/Masteries) ─────────────────────────────
 --
@@ -239,6 +260,58 @@ local function itemsText(n: number): string
 	return if n == 1 then "1 item" else `{n} items`
 end
 
+--- Whether the owner's Recover hold is still running on this bag.
+local function isHeld(bag: Instance): boolean
+	local meta = bagMeta[bag]
+	if meta == nil or meta.holdStart == nil then
+		return false
+	end
+	return os.clock() - meta.holdStart < Tuning.BAG_RECOVER_HOLD_MAX - meta.holdUsed
+end
+
+--- Only the owner may take from it right now: the steal grace, or a Recover hold.
+local function isProtected(bag: Instance): boolean
+	local meta = bagMeta[bag]
+	if meta == nil then
+		return false
+	end
+	return os.clock() - meta.droppedAt < Tuning.BAG_STEAL_GRACE or isHeld(bag)
+end
+
+--- Mirror isProtected onto the bag for the other clients' prompt wording.
+local function refreshProtected(bag: Instance)
+	if bag.Parent ~= nil then
+		bag:SetAttribute("Protected", isProtected(bag))
+	end
+end
+
+--- End a Recover hold, banking the time it used against the per-bag cap.
+local function releaseHold(bag: Instance)
+	local meta = bagMeta[bag]
+	if meta and meta.holdStart then
+		meta.holdUsed = math.min(Tuning.BAG_RECOVER_HOLD_MAX, meta.holdUsed + (os.clock() - meta.holdStart))
+		meta.holdStart = nil
+	end
+	refreshProtected(bag)
+end
+
+--- Time a bag out at its deadline -- unless a Recover hold is running, in which case
+--- look again when the hold can no longer be (the dialog closing releases it sooner).
+local function expireLater(bag: Instance, delay: number)
+	task.delay(delay, function()
+		if bag.Parent == nil or bagContents[bag] == nil then
+			return
+		end
+		local meta = bagMeta[bag]
+		if isHeld(bag) and meta and meta.holdStart then
+			local left = Tuning.BAG_RECOVER_HOLD_MAX - meta.holdUsed - (os.clock() - meta.holdStart)
+			expireLater(bag, math.max(left, 0) + 0.1)
+			return
+		end
+		bag:Destroy()
+	end)
+end
+
 local function giveBagTo(bag: BasePart, taker: Player)
 	local contents = bagContents[bag]
 	if contents == nil then
@@ -247,6 +320,13 @@ local function giveBagTo(bag: BasePart, taker: Player)
 
 	local data = DataService.data(taker)
 	if data == nil then
+		return
+	end
+
+	-- The owner's head start (header, "RECOVER BAG"): nobody else for the first few
+	-- seconds, or while the owner's Recover purchase is open.
+	if bag:GetAttribute("OwnerId") ~= taker.UserId and isProtected(bag) then
+		noticeRemote:FireClient(taker, "this bag is protected for a moment")
 		return
 	end
 
@@ -440,7 +520,10 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	end)
 
 	bagContents[bag] = dropped
-	Debris:AddItem(bag, BAG_LIFETIME)
+	bagMeta[bag] = { droppedAt = os.clock(), holdUsed = 0 }
+	bag:SetAttribute("Protected", true)
+	task.delay(Tuning.BAG_STEAL_GRACE + 0.05, refreshProtected, bag)
+	expireLater(bag, BAG_LIFETIME)
 
 	-- The owner's "get it back" tracker (BagTrackerController). Sent as a position and
 	-- a server-clock deadline rather than the part itself: the bag lies where you fell
@@ -461,10 +544,98 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	bag.Destroying:Connect(function()
 		bagContents[bag] = nil
 		bagThieves[bag] = nil
+		bagMeta[bag] = nil
+		for who, pending in pendingRecover do
+			if pending == bag then
+				pendingRecover[who] = nil
+			end
+		end
 		tellOwner(bag, { gone = true })
 	end)
 
 	return #dropped
+end
+
+-- ── Recover Bag (Robux) ────────────────────────────────────────────────
+
+--- The owner pressed Recover on the bag with this BagId: hold it, then open the
+--- purchase prompt (header, "RECOVER BAG").
+local function requestRecover(player: Player, bagId: any)
+	if type(bagId) ~= "string" or Tuning.BAG_RECOVER_PRODUCT_ID == 0 then
+		return
+	end
+	local bag: Instance? = nil
+	for candidate, contents in bagContents do
+		if candidate:GetAttribute("BagId") == bagId and #contents > 0 then
+			bag = candidate
+			break
+		end
+	end
+	if bag == nil or bag:GetAttribute("OwnerId") ~= player.UserId then
+		return
+	end
+
+	-- One open purchase per player: switching to another bag lets the first one go.
+	local previous = pendingRecover[player]
+	if previous and previous ~= bag then
+		releaseHold(previous)
+	end
+	pendingRecover[player] = bag
+
+	local meta = bagMeta[bag]
+	if meta and meta.holdStart == nil and meta.holdUsed < Tuning.BAG_RECOVER_HOLD_MAX then
+		meta.holdStart = os.clock()
+		refreshProtected(bag)
+		-- Run out of hold with the dialog still up: thieves are let back in.
+		task.delay(Tuning.BAG_RECOVER_HOLD_MAX - meta.holdUsed + 0.05, refreshProtected, bag)
+	end
+	MarketplaceService:PromptProductPurchase(player, Tuning.BAG_RECOVER_PRODUCT_ID)
+end
+
+--- ProductService grant: every item left in the player's bag goes back into their carry,
+--- past capacity if need be (they paid for all of it). Mutates and destroys only, never
+--- yields, so no steal can land between taking the items and recording the receipt.
+local function grantRecover(player: Player, data: any)
+	local bag = pendingRecover[player]
+	pendingRecover[player] = nil
+	if bag == nil or bagContents[bag] == nil or #bagContents[bag] == 0 then
+		-- Bought from a bag that has since gone: the owner's newest one still lying out.
+		bag = nil
+		local newestAt = -math.huge
+		for candidate, contents in bagContents do
+			local expiresAt = candidate:GetAttribute("ExpiresAt")
+			if candidate:GetAttribute("OwnerId") == player.UserId and #contents > 0
+				and type(expiresAt) == "number" and expiresAt > newestAt then
+				bag, newestAt = candidate, expiresAt
+			end
+		end
+	end
+
+	if bag == nil then
+		warn(`[bag] {player.Name} bought Recover Bag with no bag left to recover`)
+		task.defer(function()
+			if player.Parent then
+				noticeRemote:FireClient(player, "your bag was already gone")
+			end
+		end)
+		return
+	end
+
+	local contents = bagContents[bag] :: { any }
+	-- Out of the table before anything else can see it: this IS the anti-dupe.
+	bagContents[bag] = nil
+	for _, item in contents do
+		table.insert(data.carry, item)
+	end
+	local count = #contents
+	table.clear(contents)
+	print(`[bag] {player.Name} recovered {count} item(s) with Robux`)
+	bag:Destroy()
+	task.defer(function()
+		if player.Parent then
+			noticeRemote:FireClient(player, `bag recovered: {itemsText(count)} back in your pack`)
+		end
+	end)
 end
 
 -- ── Blackout ───────────────────────────────────────────────────────────
@@ -932,6 +1103,8 @@ function ExposureService.init()
 	blackoutRemote = Net.get("Blackout")
 	droppedBagRemote = Net.get("DroppedBag")
 	noticeRemote = Net.get("Notice")
+	-- In init, not start, so no receipt can land before this is registered.
+	ProductService.register(Tuning.BAG_RECOVER_PRODUCT_ID, grantRecover)
 end
 
 function ExposureService.start()
@@ -945,6 +1118,11 @@ function ExposureService.start()
 		jumpOverrides[player] = nil
 		immune[player] = nil
 		lastKillOf[player] = nil
+		local pending = pendingRecover[player]
+		pendingRecover[player] = nil
+		if pending then
+			releaseHold(pending)
+		end
 		for _, thieves in bagThieves do
 			thieves[player] = nil
 		end
@@ -979,6 +1157,21 @@ function ExposureService.start()
 	for _, player in Players:GetPlayers() do
 		watchPlayer(player)
 	end
+
+	Net.get("RecoverBag").OnServerEvent:Connect(requestRecover)
+	-- Dialog closed without buying: let the bag go. Bought: keep holding until the
+	-- receipt's grant takes it (it may land either side of this).
+	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
+		if productId ~= Tuning.BAG_RECOVER_PRODUCT_ID or purchased then
+			return
+		end
+		local player = Players:GetPlayerByUserId(userId)
+		local bag = player and pendingRecover[player]
+		if player and bag then
+			pendingRecover[player] = nil
+			releaseHold(bag)
+		end
+	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)
 		-- Once per interval for the whole server, not once per player per tick.

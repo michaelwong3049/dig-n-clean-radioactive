@@ -8,6 +8,11 @@
 	anchor behind it (the server has already moved you by the time this starts). About
 	four seconds, and a click or tap after SKIP_AT jumps straight to the fade.
 
+	RECOVER BAG (BagRecover) is up from the first moment a bag dropped, not on the
+	timeline with the rest: the bag is yours alone for only Tuning.BAG_STEAL_GRACE
+	seconds, and pressing it inside that window holds the bag until you have bought.
+	Pressing it is not a skip.
+
 	ONE COLOUR PER DEATH, the same split the HUD keeps (HudController's header):
 	radiation is GREEN, aura burn is WHITE (warm, so the text is not a hole in the
 	screen), and a blast is ORANGE. Burn and blast open on a white flash first -- heat,
@@ -23,13 +28,18 @@
 	centre, not its AnchorPoint), grown along its own line as the pen reaches it.
 ]]
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+
+local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
 local Sfx = require(script.Parent.Sfx)
 local Prefs = require(script.Parent.Prefs)
+local BagRecover = require(script.Parent.BagRecover)
 
 local DeathScreen = {}
 
@@ -50,8 +60,10 @@ local TRACE_Y = -150 -- the flat line
 local TITLE_Y = 10
 local CAUSE_Y = 82
 local BAG_Y = 122
-local WAKE_Y = 200
-local BAR_Y = 226
+local RECOVER_Y = 176
+local RECOVER_AT = 0.15
+local WAKE_Y = 228
+local BAR_Y = 254
 local BAR_W, BAR_H = 440, 10
 local RISE = 14 -- the cause and bag lines come up this far as they fade in
 
@@ -211,6 +223,19 @@ local function build(): ScreenGui
 	local fillRound = trackRound:Clone()
 	fillRound.Parent = fill
 
+	-- Over the scanlines and vignette (7, 8), under the flash (10).
+	local recoverHolder = frame(canvas, "Recover", BACKGROUND, 9)
+	recoverHolder.BackgroundTransparency = 1
+	recoverHolder.AnchorPoint = Vector2.new(0.5, 0.5)
+	recoverHolder.Position = UDim2.new(0.5, 0, 0.5, RECOVER_Y)
+	recoverHolder.Size = UDim2.fromOffset(220, 58)
+	recoverHolder.Visible = false
+	local recover = BagRecover.button(recoverHolder, "RECOVER BAG")
+	recover.button.Size = UDim2.fromScale(1, 1)
+	BagRecover.onChanged(function()
+		recover.refresh()
+	end)
+
 	local skip = text(canvas, "Skip", Enum.Font.FredokaOne, 15, DIM, 0, 20)
 	skip.AnchorPoint = Vector2.new(0.5, 1)
 	skip.Position = UDim2.new(0.5, 0, 1, -26)
@@ -252,6 +277,8 @@ local function build(): ScreenGui
 		track = track,
 		fill = fill,
 		skip = skip,
+		recoverHolder = recoverHolder,
+		recover = recover,
 		scan = scan,
 		vignette = vignette,
 		flash = flash,
@@ -382,6 +409,8 @@ local function render(t: number)
 	ui.fill.Size = UDim2.fromScale(ramp(t, BAR_AT, BAR_END - BAR_AT), 1)
 
 	ui.skip.TextTransparency = if t < FADE_AT then fade(0.3, ramp(t, SKIP_AT, 0.3)) else 1
+	-- Gone with the fade; the bag tracker pill carries the same button from then on.
+	ui.recoverHolder.Visible = playing.recoverable and t >= RECOVER_AT and t < FADE_AT
 
 	ui.scan.Visible = out > 0.5
 	ui.vignette.Visible = out > 0.5
@@ -424,7 +453,7 @@ function DeathScreen.play(info: any)
 
 	-- Every death's bag is up for grabs (ExposureService.dropBag); race them to it.
 	ui.bag.Text = if dropped > 0 and info.looted
-		then `Your whole bag dropped where you fell  \u{00B7}  {plural(dropped, "item", "items")}, anyone can steal {if dropped == 1 then "it" else "them"}`
+		then `Your whole bag dropped where you fell  \u{00B7}  {plural(dropped, "item", "items")}, recover {if dropped == 1 then "it" else "them"} before anyone steals {if dropped == 1 then "it" else "them"}`
 		elseif dropped > 0 then `Dropped {plural(dropped, "item", "items")} where you fell  \u{00B7}  1:30 to get {if dropped == 1 then "it" else "them"} back`
 		else "Nothing lost"
 
@@ -437,7 +466,13 @@ function DeathScreen.play(info: any)
 	ui.gui.Enabled = true
 	buildTrace(accent)
 
-	local run = { started = os.clock(), cause = cause, conn = nil }
+	ui.recover.refresh()
+	local run = {
+		started = os.clock(),
+		cause = cause,
+		conn = nil,
+		recoverable = dropped > 0 and Tuning.BAG_RECOVER_PRODUCT_ID ~= 0,
+	}
 	playing = run
 	render(0)
 	run.conn = RunService.Heartbeat:Connect(function()
@@ -472,6 +507,16 @@ function DeathScreen.start()
 			or input.KeyCode == Enum.KeyCode.ButtonA
 			or input.KeyCode == Enum.KeyCode.ButtonB
 		local t = os.clock() - playing.started
+		-- A press on RECOVER BAG is a purchase, not a skip.
+		local holder = ui.recoverHolder
+		if holder.Visible then
+			local at, size = holder.AbsolutePosition, holder.AbsoluteSize
+			-- input.Position is under the top-bar inset; this gui ignores the inset.
+			local p = Vector2.new(input.Position.X, input.Position.Y) + GuiService:GetGuiInset()
+			if p.X >= at.X and p.X <= at.X + size.X and p.Y >= at.Y and p.Y <= at.Y + size.Y then
+				return
+			end
+		end
 		if pressed and t >= SKIP_AT and t < FADE_AT then
 			playing.started = os.clock() - FADE_AT
 		end

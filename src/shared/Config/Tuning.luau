@@ -626,4 +626,19 @@ Tuning.INDEX_COMPLETE_CASH_LATE = 1.2
 --- recover. ExposureService.giveBagTo enforces it; DroppedBagController words the prompt.
 Tuning.STEAL_MIN_STAGE = 4
 
+--- RECOVER BAG, the Robux product that puts a dropped bag's whole contents back in
+--- your carry wherever you are (ExposureService; the button is on the death screen and
+--- the bag tracker pill). 0 = not set up: the buttons read SOON and nothing registers.
+Tuning.BAG_RECOVER_PRODUCT_ID = 3716083374
+
+--- Seconds after a bag drops in which ONLY its owner may take from it, so they have
+--- time to press Recover before anyone can grab it.
+Tuning.BAG_STEAL_GRACE = 3
+
+--- While the owner's Recover purchase dialog is open the bag is held: nobody can steal
+--- it and it cannot time out, so a purchase never lands on a bag someone emptied
+--- mid-dialog. Capped at this many seconds in total per bag, so pressing Recover and
+--- leaving the dialog up cannot shield a bag from thieves for long.
+Tuning.BAG_RECOVER_HOLD_MAX = 30
+
 return Tuning
