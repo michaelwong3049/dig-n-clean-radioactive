@@ -69,7 +69,7 @@ local PANEL = {
 	buyHover = Color3.fromHex("9257F5"),
 	-- An owned pass's button: the clover's green, so "you have this" reads at a glance.
 	buyOwned = Color3.fromHex("2F9E4A"),
-	-- Card colours. Each pass has its own (PASS_TINT); cash is green, crates by kind.
+	-- Card colours. Passes sit on see-through black; cash is green, crates by kind.
 	tileEdge = Color3.fromHex("1A1A1A"),
 	cashTile = Color3.fromHex("2EA552"),
 	nukeTile = Color3.fromHex("E8711C"),
@@ -110,16 +110,6 @@ local CRATE_H = 216
 local ROBUX = utf8.char(0xE002)
 local BUY_H = 54
 local BUY_TEXT = 28
--- Each pass card's colour, keyed by Config/GamePasses key, picked to sit behind its picture.
-local PASS_TINT: { [string]: Color3 } = {
-	cash = Color3.fromHex("2EA552"),
-	luck = Color3.fromHex("17A589"),
-	digPower = Color3.fromHex("E0413A"),
-	speed = Color3.fromHex("F0A20F"),
-	backpack = Color3.fromHex("EE7A1E"),
-	bombDamage = Color3.fromHex("D81B60"),
-	instantClean = Color3.fromHex("1E88E5"),
-}
 local PASS_H = 200
 local PASS_ART = 140
 -- Each pack's card colour, keyed by Config/Packs key: warm for the cheap one, royal
@@ -631,7 +621,8 @@ local function buildPasses(parent: Instance)
 			local card = Instance.new("Frame")
 			card.Name = `Pass_{pass.key}`
 			card.LayoutOrder = slot
-			card.BackgroundColor3 = PASS_TINT[pass.key] or PANEL.cashTile
+			card.BackgroundColor3 = Color3.new(0, 0, 0)
+			card.BackgroundTransparency = 0.45
 			card.BorderSizePixel = 0
 			card.ZIndex = 12
 			card.Parent = frame
@@ -641,12 +632,27 @@ local function buildPasses(parent: Instance)
 			local art = Instance.new("ImageLabel")
 			art.Name = "Art"
 			art.BackgroundTransparency = 1
-			art.Image = pass.image
+			-- 2x Speed wears the HUD's walk-speed shoe, with an x2 beside it.
+			art.Image = if pass.key == "speed" then Artwork.IMAGE.speedShoe else pass.image
 			art.ScaleType = Enum.ScaleType.Fit
 			art.Size = UDim2.fromOffset(PASS_ART, PASS_ART)
 			art.Position = UDim2.fromOffset(10, 46)
 			art.ZIndex = 13
 			art.Parent = card
+			if pass.key == "speed" then
+				art.Size = UDim2.fromOffset(PASS_ART - 30, PASS_ART - 30)
+				art.Position = UDim2.fromOffset(6, 61)
+				inked(card, {
+					Name = "Times",
+					Text = "x2",
+					Font = PANEL.headline,
+					TextSize = 40,
+					TextColor3 = PANEL.white,
+					Size = UDim2.fromOffset(56, 44),
+					Position = UDim2.fromOffset(PASS_ART - 30, 94),
+					ZIndex = 14,
+				})
+			end
 			inked(card, {
 				Name = "PassName",
 				Text = pass.name,
