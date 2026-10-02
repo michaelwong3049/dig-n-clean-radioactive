@@ -2654,18 +2654,18 @@ end
 ---
 --- Everything is inside `look`, so a swap to the next rung takes the old glow with it.
 local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { string } } } = {
-	[2] = { color = "5BE36B", light = 0.6, parts = { "_side_rail_L", "_side_rail_R" } },
-	[3] = { color = "3AA8FF", light = 0.9, parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R" } },
+	[2] = { color = "5BE36B", light = 0.25, parts = { "_side_rail_L", "_side_rail_R" } },
+	[3] = { color = "3AA8FF", light = 0.35, parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R" } },
 	[4] = {
 		color = "FFC21A",
-		light = 1.3,
+		light = 0.5,
 		parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R", "_motor_hood", "Slat" },
 	},
 	-- The diamond model brings its own crystals and neon strips, so those are what glow;
 	-- its uprights and hood keep their texture, which is most of what makes it diamond.
 	[5] = {
 		color = "8EF4FF",
-		light = 1.6,
+		light = 0.6,
 		parts = {
 			"_neon_strip_L",
 			"_neon_strip_R",
@@ -2680,7 +2680,7 @@ local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { strin
 	},
 }
 
-local TREADMILL_NEON_DIM = 0.4
+local TREADMILL_NEON_DIM = 0.7
 
 local function addTreadmillFx(look: Model, belt: BasePart, tier: number, model: string)
 	local glow = TREADMILL_GLOW[tier]
