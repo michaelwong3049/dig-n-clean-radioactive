@@ -37,12 +37,12 @@ local EDGE_TRANSPARENCY_HOVER = 0.15
 
 -- The picture's square box, centred in the tile. No caption under it, on request, so
 -- the drawn symbol (which runs to the edge of its square) fills most of the tile.
-local ICON_SIZE = 40
+local ICON_SIZE = 48
 
 -- The glow picture's diameter and how see-through it is. Its alpha falls to nothing
 -- at the rim, so it can be a little wider than the tile's top band without an edge.
 -- At 0.3 it reads about as strong as the old disc stack did; hover brightens it.
-local GLOW_SIZE = 50
+local GLOW_SIZE = 60
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 

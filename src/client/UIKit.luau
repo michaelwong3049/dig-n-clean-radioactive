@@ -486,8 +486,8 @@ end
 --
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN, THEN TO THE RIGHT
 -- EDGE. It briefly stacked above CashController's badge on the left; it now sits
--- standalone on the MIDDLE-RIGHT as the square Index tile, its top edge on
--- Dock.SIDE_TOP_Y (centred instead on a short screen, Dock.SIDE_TOP_MIN_HEIGHT). The
+-- standalone on the MIDDLE-RIGHT in the tile column, centred on the right edge
+-- (Dock.sideColumnTop). The
 -- speed/cash column it once lined up with is in the bottom-left corner now
 -- (Dock.CASH_BOTTOM / Dock.SPEED_BOTTOM). Its own size lives in IndexController.
 --
@@ -674,60 +674,33 @@ function Dock.sideLift(): number
 	return UIKit.touchCorner().Y
 end
 
--- THE LINE THE RIGHT-EDGE TILES HANG FROM, as an offset from screen middle.
--- IndexController hangs the Index tile from it. It used to be read off the left column
--- (the column's top edge, back when the column sat on the vertical centre, so both sides
--- started level). PINNED AT -68, the value it last had, when the column moved to the
--- bottom-left corner: the tiles were placed and checked against it, and nothing about
--- them changed.
---
--- TOP-ALIGNED RATHER THAN CENTRED. This was first done so the Index tile would clear
--- the haul widget's rarity readout, back when the two shared the right edge; the haul
--- widget now stops short of the tile column entirely (HAULPANEL_RIGHT), but the tiles
--- stay hung from this line.
-Dock.SIDE_TOP_Y = -68
--- ...and the shortest design screen that line is used on. Below it the hang stops
--- working in both directions: the readout climbs into it as the screen shortens, and
--- under ~460 the tile rises into the Settings gear in the corner above. So a shorter
--- screen gets the whole tile column back on the vertical centre (Dock.sideColumnTop),
--- where both leave it room. Every screen the HUD scales up on is DESIGN_SCREEN.Y (720) tall
--- or more in design pixels, so this only bites on a small window or a phone, where
--- the MIN_SCALE floor leaves the design canvas shorter than that.
-Dock.SIDE_TOP_MIN_HEIGHT = 700
-
 -- The square tiles on the right edge: Gear, Nukes, Warp in ONE column, top to bottom
 -- (HudTile builds them; Index and Shop moved to the left-column bars). Picture only, no
 -- caption, on request: it was a 2x2 grid of 62px captioned tiles, and before that one
 -- 80px column. The haul widget measures its clearance against the column's width
--- (HAULPANEL_RIGHT).
-Dock.SIDE_TILE_SIZE = 48
+-- (HAULPANEL_RIGHT). 48 -> 58, a little bigger, on request.
+Dock.SIDE_TILE_SIZE = 58
 Dock.SIDE_GRID_COLUMNS = 1
 Dock.SIDE_GRID_ROWS = 3
--- The space between two tiles: wider than the dock's shared GAP, on request.
-Dock.SIDE_TILE_GAP = 30
+-- The space between two tiles: wider than the dock's shared GAP, on request (30 -> 40).
+Dock.SIDE_TILE_GAP = 40
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
--- How far the grid sits BELOW the line it is hung from (the cash badge's top, or the
--- centre on a short screen). Was 40; raised to -10 (above the line) on request.
-Dock.SIDE_GRID_DROP = -10
 -- The Settings gear's bottom edge in the top-right corner (SettingsController: 12 down,
 -- one SIDE_TILE_SIZE tall), measured from the bottom of the topbar inset, not the
 -- screen top.
 Dock.CORNER_BUTTON_BOTTOM = 12 + Dock.SIDE_TILE_SIZE
 
 --- The right-hand tile grid's TOP edge, in design px from the vertical centre of a
---- canvas `height` design px tall. Hung SIDE_GRID_DROP under SIDE_TOP_Y on a tall enough screen; below
---- SIDE_TOP_MIN_HEIGHT the WHOLE grid is centred instead, so its bottom row stays clear
---- of the hotbar and a touch screen's jump button -- but never so high that the top row
---- runs up into the Settings gear above it. Every tile places itself from this one line
+--- canvas `height` design px tall. CENTRED ON THE RIGHT EDGE, on request (it used to
+--- hang from a fixed line, SIDE_TOP_Y -68, a little above centre) -- but never so high
+--- that the top row runs up into the Settings gear in the corner above it, which only
+--- bites on a short window or a phone. Every tile places itself from this one line
 --- (Dock.sideTileCentre).
 function Dock.sideColumnTop(height: number): number
-	if height >= Dock.SIDE_TOP_MIN_HEIGHT then
-		return Dock.SIDE_TOP_Y + Dock.SIDE_GRID_DROP
-	end
 	local inset = GuiService:GetGuiInset().Y / UIKit.scale()
 	local underGear = inset + Dock.CORNER_BUTTON_BOTTOM + Dock.GAP - height / 2
-	return math.max(-Dock.SIDE_GRID_HEIGHT / 2 + Dock.SIDE_GRID_DROP, underGear)
+	return math.max(-Dock.SIDE_GRID_HEIGHT / 2, underGear)
 end
 
 --- The CENTRE of grid tile `slot` (1-3, top to bottom), as a position on
@@ -776,7 +749,7 @@ Dock.HAULPANEL_BOTTOM = Dock.VITALS_CLEAR
 Dock.HAULPANEL_CENTRE_GAP = 100
 
 -- ...UNLESS THAT WOULD RUN IT UNDER THE INDEX/SHOP TILES. The shaft is 442 tall, which
--- reaches up past the tiles hung on the right edge (Dock.SIDE_TOP_Y down), so on a
+-- reaches up past the tiles hung on the right edge (Dock.sideColumnTop down), so on a
 -- screen too narrow to fit the panel between centre + CENTRE_GAP and the tile column,
 -- it slides left only as far as it must to stop one GAP short of that column. This is
 -- that clearance, as an inset from the right screen edge.
