@@ -23,7 +23,8 @@
 	anyone's trail. The route is PathfindingService's, recomputed every couple of seconds
 	while you move (sooner once you stray), and it falls back to a straight line when
 	there is no path (the target inside a tub, say). The ribbon's near end is joined to
-	your feet every frame (JOIN_AHEAD), so it moves with you, never with the repaths.
+	your feet every frame, straight to the furthest corner you have a clear line to
+(SIGHT_*), so it moves with you, never with the repaths.
 	Every ribbon point is raycast onto whatever floor is really there. It is built from plain parts and a SurfaceGui, with no uploaded
 	textures, and no Neon: it is guidance, not an effect.
 ]]
@@ -73,7 +74,7 @@ local SKIN = {
 -- AuraWarningController read its rect to stack themselves underneath it.
 -- ON REQUEST (from a reference shot): the pill became a FULL-WIDTH dark band that
 -- fades out to both screen edges, with big white words in a heavy black outline.
-local BANNER_Y = 98
+local BANNER_Y = 114 -- ON REQUEST: nudged down from 98
 local BANNER_H = 96
 local BANNER_SHADE = 0.35 -- the band's BackgroundTransparency at its middle
 local BANNER_FADE = 0.28 -- fraction of the width each side spends fading out
@@ -101,7 +102,7 @@ local STAGE_DRIFT = 30
 -- Pathfinding snaps to a 4-stud grid, so every new route lies a little differently from
 -- the last one. Asking less often is most of what keeps the trail still under you, and
 -- the rest is ROUTE_BLEND.
-local REPATH_SECONDS = 2.5
+local REPATH_SECONDS = 1.2
 local REPATH_MOVE = 3 -- studs moved before a repath is worth it
 local OFF_ROUTE = 4
 local OFF_ROUTE_SECONDS = 0.5
@@ -118,18 +119,34 @@ local HEAD_EASE = 10
 -- past the point you are level with, then follows the route. Pathfinding only shapes
 -- the far part, so a slow or late route never holds the near end still.
 local JOIN_AHEAD = 6
+-- LINE OF SIGHT (ON REQUEST: the arrows have to point where you really need to go and
+-- follow you live). Pathfinding's 4-stud grid left the arrows wandering a couple of
+-- studs off the true line and a few degrees off the goal. So every route is pulled
+-- tight (pullTight) to straight runs wherever nothing solid is in the way, and EVERY
+-- FRAME the trail runs from your feet straight to the furthest corner of the route you
+-- have a clear line to, which is usually the target itself. The test is a sphere swept
+-- at waist height that only collidable parts can stop, so kerbs and see-through props
+-- don't count but walls and fences do.
+local SIGHT_LIFT = 2.4
+local SIGHT_RADIUS = 1.2
+local SIGHT_CHECKS = 6 -- corners tested per frame, furthest first
+local PULL_WINDOW = 16 -- waypoints looked ahead per corner when pulling a route tight
+local SIGHT_EASE = 16 -- how fast the trail swings to a newly seen corner (per second)
 -- The last arrow stops this far short of the route's end, clear of the ring.
 local CHEVRON_END_PAD = 1.5
-local CHEVRON_GAP = 4.5
+local CHEVRON_GAP = 4
 local CHEVRON_SPEED = 7 -- studs/sec along the ribbon
-local CHEVRON_MAX = 24
+local CHEVRON_MAX = 28
 -- ON REQUEST (from a reference shot): fat, flat, glowing white chevrons, like arrow
 -- decals lit from below. Neon is the exception to "guidance, not an effect" here.
-local CHEVRON_ARM = 1.9
-local CHEVRON_THICK = 0.75
+-- ON REQUEST (stronger): bigger and fully opaque, with a dark outline (one Highlight
+-- over all of them) so they read on pale floors too.
+local CHEVRON_ARM = 2.6
+local CHEVRON_THICK = 1
 local CHEVRON_ANGLE = math.rad(45)
+local CHEVRON_PARK = CFrame.new(0, -5000, 0) -- where unused arrows wait, out of the outline
 local RING_SIZE = 9
-local MARKER_HEIGHT = 7 -- over the target's floor
+local MARKER_HEIGHT = 8 -- over the target's floor
 local GUIDE_FOLDER = "TutorialGuide"
 
 type State = { step: Tutorial.StepId, holding: boolean, plot: number? }
@@ -408,6 +425,8 @@ local jointPool: { BasePart } = {}
 local liveLegs = 0
 local liveJoints = 0
 local chevrons: { { BasePart } } = {}
+-- The chevrons live in one Model so a single Highlight outlines all of them.
+local arrows: Model? = nil
 local ring: BasePart? = nil
 local ringPulses: { Frame } = {}
 local marker: Model? = nil
@@ -472,6 +491,16 @@ local function ensureGuide(): Folder
 	ring = nil
 	marker = nil
 	markerLabel = nil
+	local model = Instance.new("Model")
+	model.Name = "Arrows"
+	local outline = Instance.new("Highlight")
+	outline.FillTransparency = 1
+	outline.OutlineColor = SKIN.ink
+	outline.OutlineTransparency = 0
+	outline.DepthMode = Enum.HighlightDepthMode.Occluded
+	outline.Parent = model
+	model.Parent = folder
+	arrows = model
 	return folder
 end
 
@@ -522,9 +551,9 @@ local function buildMarker(folder: Folder): (Model, TextLabel)
 	local model = Instance.new("Model")
 	model.Name = "Marker"
 
-	local depth, headH, headHalfW = 0.9, 2.0, 1.5
+	local depth, headH, headHalfW = 1.2, 2.8, 2.1
 	local shaft = localPart("Shaft", model)
-	shaft.Size = Vector3.new(depth, 1.8, 1.2)
+	shaft.Size = Vector3.new(depth, 2.4, 1.6)
 	shaft.Color = SKIN.amber
 	local wedgeA = Instance.new("WedgePart")
 	local wedgeB = Instance.new("WedgePart")
@@ -604,6 +633,10 @@ local function setGuideVisible(showRibbon: boolean, showRing: boolean, showMarke
 			arm.Transparency = if showRibbon then arm.Transparency else 1
 		end
 	end
+	local outline = arrows and arrows:FindFirstChildOfClass("Highlight")
+	if outline then
+		outline.Enabled = showRibbon
+	end
 	if ring then
 		local gui = ring:FindFirstChildOfClass("SurfaceGui")
 		if gui then
@@ -630,6 +663,7 @@ local function clearGuide()
 	table.clear(jointPool)
 	table.clear(chevrons)
 	table.clear(ringPulses)
+	arrows = nil
 	table.clear(route)
 	table.clear(routeLen)
 	table.clear(baseRoute)
@@ -680,6 +714,65 @@ local function floorAt(p: Vector3): Vector3
 		rayParams.FilterDescendantsInstances = ignore
 	end
 	return p
+end
+
+-- Line of sight: only collidable parts block it (RespectCanCollide), so the guide's
+-- own parts, see-through Display cubes and decor that players walk through never do.
+local sightParams = RaycastParams.new()
+sightParams.FilterType = Enum.RaycastFilterType.Exclude
+sightParams.RespectCanCollide = true
+
+--- Keep every character out of the sight tests. Called before each batch of them.
+local function refreshSight()
+	local ignore: { Instance } = {}
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			table.insert(ignore, other.Character)
+		end
+	end
+	sightParams.FilterDescendantsInstances = ignore
+end
+
+--- Could you walk straight from floor point `a` to floor point `b`? A sphere swept at
+--- waist height: walls and fences stop it, kerbs and steps below it do not.
+local function clearLine(a: Vector3, b: Vector3): boolean
+	local lift = Vector3.new(0, SIGHT_LIFT, 0)
+	local delta = b - a
+	if delta.Magnitude < 0.5 then
+		return true
+	end
+	return Workspace:Spherecast(a + lift, SIGHT_RADIUS, delta, sightParams) == nil
+end
+
+--- The floor right under an arrow, one ray, so arrows on a straight run over a bump
+--- or a step sit on it instead of sinking in or floating.
+local function snapFloor(p: Vector3): Vector3
+	local hit = Workspace:Raycast(p + Vector3.new(0, 3, 0), Vector3.new(0, -7, 0), sightParams)
+	return if hit then hit.Position else p
+end
+
+--- Pull a pathfinding route tight: from each corner, jump to the furthest later
+--- waypoint (up to PULL_WINDOW ahead) with a clear straight line to it. What is left
+--- is the real corners, joined by true straight runs.
+local function pullTight(points: { Vector3 }): { Vector3 }
+	if #points <= 2 then
+		return points
+	end
+	refreshSight()
+	local out = { points[1] }
+	local i = 1
+	while i < #points do
+		local k = i + 1
+		for j = math.min(#points, i + PULL_WINDOW), i + 2, -1 do
+			if clearLine(points[i], points[j]) then
+				k = j
+				break
+			end
+		end
+		table.insert(out, points[k])
+		i = k
+	end
+	return out
 end
 
 -- ── Targets ─────────────────────────────────────────────────────────────────────
@@ -989,7 +1082,7 @@ local function repath(from: Vector3, goal: Vector3)
 			table.clear(fromLen)
 		end
 		-- headLeft is NOT reset: it is measured from the target, which both routes share.
-		fill(baseRoute, baseLen, simplify(points))
+		fill(baseRoute, baseLen, simplify(pullTight(points)))
 	end)
 end
 
@@ -1071,18 +1164,36 @@ local function stepGuide(dt: number)
 	end
 	local joinAt = math.clamp(routeTotal - (headLeft - JOIN_AHEAD), 0, routeTotal)
 	local joinWanted = along(joinAt)
-	local joinNow = joinPoint
-	if joinNow == nil then
-		joinNow = joinWanted
-	else
-		joinNow = joinNow:Lerp(joinWanted, 1 - math.exp(-HEAD_EASE * dt))
-	end
-	joinPoint = joinNow
+	local ease = HEAD_EASE
 	-- Your feet's height from the character itself, not a raycast: a ray here lands on
 	-- every pebble and fence rail you pass and pops the ribbon's end up and down.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local hip = if humanoid then humanoid.HipHeight else 2
 	local feet = root.Position - Vector3.new(0, root.Size.Y / 2 + hip, 0)
+	-- LIVE LINE OF SIGHT: the furthest of the next few corners ahead of you that you
+	-- could walk straight to. The trail runs dead straight at it from wherever you are
+	-- this frame, so it swings with you as you walk, and on an open run that corner
+	-- is the target itself.
+	refreshSight()
+	local checked = 0
+	for i = 2, #route do
+		if routeLen[i] > onRoute + 0.5 then
+			if checked >= SIGHT_CHECKS then
+				break
+			end
+			checked += 1
+			if clearLine(feet, route[i]) then
+				joinWanted, joinAt, ease = route[i], routeLen[i], SIGHT_EASE
+			end
+		end
+	end
+	local joinNow = joinPoint
+	if joinNow == nil then
+		joinNow = joinWanted
+	else
+		joinNow = joinNow:Lerp(joinWanted, 1 - math.exp(-ease * dt))
+	end
+	joinPoint = joinNow
 	buildView(feet, joinNow, joinAt)
 	drawRibbon()
 
@@ -1097,7 +1208,7 @@ local function stepGuide(dt: number)
 	while #chevrons < wanted do
 		local arms = {}
 		for _ = 1, 2 do
-			local arm = localPart("Chevron", folder)
+			local arm = localPart("Chevron", arrows or folder)
 			arm.Color = Color3.fromHex("F4FFE8")
 			arm.Material = Enum.Material.Neon
 			arm.Size = Vector3.new(CHEVRON_THICK, 0.07, CHEVRON_ARM)
@@ -1115,11 +1226,16 @@ local function stepGuide(dt: number)
 	for i, arms in chevrons do
 		local d = total - CHEVRON_END_PAD - (i - 1) * CHEVRON_GAP - (CHEVRON_GAP - phase)
 		if i > wanted or d < start then
-			arms[1].Transparency = 1
-			arms[2].Transparency = 1
+			-- Parked out of sight too: the outline would still trace an invisible arm.
+			for _, arm in arms do
+				arm.Transparency = 1
+				table.insert(parts, arm)
+				table.insert(cframes, CHEVRON_PARK)
+			end
 			continue
 		end
 		local p, dir = alongIn(view, viewLen, d)
+		p = snapFloor(p)
 		-- Fade in over the first two studs of ribbon and out over the last arrow gap.
 		local fade = math.clamp(math.min((d - start) / 2, (total - CHEVRON_END_PAD - d) / CHEVRON_GAP * 3), 0, 1)
 		local lifted = p + Vector3.new(0, RIBBON_LIFT + 0.05, 0)
@@ -1128,8 +1244,8 @@ local function stepGuide(dt: number)
 		table.insert(cframes, base * tip * CFrame.new(-sa * back, 0, ca * back) * CFrame.Angles(0, -CHEVRON_ANGLE, 0))
 		table.insert(parts, arms[2])
 		table.insert(cframes, base * tip * CFrame.new(sa * back, 0, ca * back) * CFrame.Angles(0, CHEVRON_ANGLE, 0))
-		arms[1].Transparency = 1 - 0.9 * fade
-		arms[2].Transparency = 1 - 0.9 * fade
+		arms[1].Transparency = 1 - fade
+		arms[2].Transparency = 1 - fade
 	end
 	if #parts > 0 then
 		Workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
