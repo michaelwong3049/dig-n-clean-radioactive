@@ -285,14 +285,14 @@ local function paint()
 	if view.nextReq == nil then
 		-- No top level any more (Config/Treadmill), so this is only a readout that has
 		-- not arrived whole. Show the total rather than a bar to nowhere.
-		ui.walk.Text = `Walk speed {view.walk}`
+		ui.walk.Text = `Walk Speed {view.walk}`
 		ui.need.Text = `{Speed.format(points)} Speed`
 	else
 		local from, to = view.current or 0, view.nextReq or 1
 		-- The fill glides on the unstepped count; only the number steps.
 		progress = math.clamp((Speed.smoothPoints() - from) / math.max(to - from, 1), 0, 1)
 		local eta = if view.rate > 0 then `  |  {view.walk + 1} in {formatEta((to - points) / view.rate)}` else ""
-		ui.walk.Text = `Walk speed {view.walk}{eta}`
+		ui.walk.Text = `Walk Speed {view.walk}{eta}`
 		-- Counted from 0 each level: Speed earned into THIS level over what it costs,
 		-- never the lifetime total.
 		ui.need.Text = `{Speed.format(math.max(points - from, 0))} / {Speed.format(to - from)}`
@@ -421,7 +421,7 @@ local function popWalkUp(walk: number)
 		textSize = 30,
 		color = STYLE.walkUp,
 		xAlign = Enum.TextXAlignment.Center,
-		text = `Walk speed {walk}!`,
+		text = `Walk Speed {walk}!`,
 		stroke = 3.5,
 		zIndex = 10,
 	})
