@@ -179,7 +179,7 @@ for _, track in Gear.TRACKS do
 	CARD_SLOTS = math.max(CARD_SLOTS, Gear.maxTier(track))
 end
 local CARD_WIDTH = 500
-local CARD_HEIGHT = 500
+local CARD_HEIGHT = 580
 local CARD_GAP = 18
 -- How much of each neighbour shows at the panel's edges on a full-width panel. On a
 -- viewport too narrow for the ceiling, the panel narrows and the peeks go first; the
@@ -296,6 +296,10 @@ local FIT_TOP = 12
 local PANEL_LIFT = 32
 -- The trader's counter rides higher still, on request.
 local TRADER_LIFT = 64
+-- The gear stalls grew ~104px taller (taller card, roomier header and gaps), and on
+-- request all of it went UPWARD: lifting by half the growth keeps the bottom edge
+-- exactly where it sat before.
+local SHOP_LIFT = PANEL_LIFT + 52
 local FIT_BOTTOM = UIKit.Dock.HOTBAR_BOTTOM + UIKit.Dock.HOTBAR_HEIGHT + UIKit.Dock.GAP
 
 local ui = {}
@@ -433,7 +437,7 @@ end
 --- use — a stat block that rebuilt its children on every StationState tick would churn
 --- forty frames' worth of instances ten times a second.
 local STAT_ROWS = 5
-local STAT_CHIP_HEIGHT = 58
+local STAT_CHIP_HEIGHT = 66
 local STAT_CHIP_GAP = 8
 local STAT_CHIP_PAD = 11
 local STAT_LABEL_SIZE = 12
@@ -447,15 +451,15 @@ local BAR_FLOOR = 0.06
 -- well took whatever they left, so the Aura's four rows cut the picture to 460x172 and
 -- the Detector's three to 460x212. Now the stats share one row of chips whatever their
 -- count, the name row lost its divider, the button lost 6px, and every track gets the
--- same 472x308 picture.
+-- same 472x344 picture (the panel grew 80px upward for it, with roomier gaps).
 local CARD_INSET = 14
 local CARD_NAME_INSET = 18
-local CARD_NAME_TOP = 4
-local CARD_NAME_HEIGHT = 44
-local CARD_ART_TOP = 50
-local CARD_ROW_GAP = 10
-local CARD_BUY_HEIGHT = 50
-local CARD_BUY_BOTTOM = 14
+local CARD_NAME_TOP = 12
+local CARD_NAME_HEIGHT = 46
+local CARD_ART_TOP = 68
+local CARD_ROW_GAP = 16
+local CARD_BUY_HEIGHT = 52
+local CARD_BUY_BOTTOM = 18
 local CARD_BUY_TOP = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT
 local CARD_CHIPS_TOP = CARD_BUY_TOP - CARD_ROW_GAP - STAT_CHIP_HEIGHT
 local CARD_ART_WIDTH = CARD_WIDTH - 2 * CARD_INSET
@@ -569,7 +573,7 @@ local function makeStatChip(parent: Instance, order: number): Frame
 
 	UIKit.label(chip, {
 		name = "StatLabel",
-		position = UDim2.fromOffset(STAT_CHIP_PAD, 6),
+		position = UDim2.fromOffset(STAT_CHIP_PAD, 9),
 		size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, 14),
 		font = FIELD.label,
 		textSize = STAT_LABEL_SIZE,
@@ -581,7 +585,7 @@ local function makeStatChip(parent: Instance, order: number): Frame
 
 	UIKit.label(chip, {
 		name = "StatValue",
-		position = UDim2.fromOffset(STAT_CHIP_PAD, 18),
+		position = UDim2.fromOffset(STAT_CHIP_PAD, 24),
 		size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, 20),
 		font = FIELD.label,
 		textSize = STAT_VALUE_SIZE,
@@ -596,7 +600,7 @@ local function makeStatChip(parent: Instance, order: number): Frame
 	local track = Instance.new("Frame")
 	track.Name = "StatTrack"
 	track.AnchorPoint = Vector2.new(0, 1)
-	track.Position = UDim2.new(0, STAT_CHIP_PAD, 1, -6)
+	track.Position = UDim2.new(0, STAT_CHIP_PAD, 1, -9)
 	track.Size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, STAT_BAR_HEIGHT)
 	track.BackgroundColor3 = FIELD.rule
 	track.BorderSizePixel = 0
@@ -943,7 +947,10 @@ local function build(): ScreenGui
 		-- that leaves its bottom edge under the hotbar.
 		local overlap = (screenHeight + height * fit) / 2 - (screenHeight - FIT_BOTTOM)
 		local headroom = (screenHeight - height * fit) / 2 - FIT_TOP
-		local want = if ui.trader ~= nil and ui.trader.frame.Visible then TRADER_LIFT else PANEL_LIFT
+		local want = if ui.trader ~= nil and ui.trader.frame.Visible
+			then TRADER_LIFT
+			elseif ui.shop ~= nil and ui.shop.Visible then SHOP_LIFT
+			else PANEL_LIFT
 		local lift = math.max(0, overlap, math.min(want, headroom))
 		panel.Position = UDim2.new(0.5, 0, 0.5, -lift)
 	end
@@ -978,7 +985,7 @@ local function build(): ScreenGui
 
 	local shopLayout = Instance.new("UIListLayout")
 	shopLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	shopLayout.Padding = UDim.new(0, 10)
+	shopLayout.Padding = UDim.new(0, 16)
 	shopLayout.Parent = shop
 
 	-- ── The shop's own header ────────────────────────────────────────
@@ -994,7 +1001,7 @@ local function build(): ScreenGui
 	local header = Instance.new("Frame")
 	header.Name = "ShopHeader"
 	header.LayoutOrder = 0
-	header.Size = UDim2.new(1, 0, 0, 48)
+	header.Size = UDim2.new(1, 0, 0, 60)
 	header.BackgroundTransparency = 1
 	header.Parent = shop
 	ui.shopHeader = header
@@ -1038,7 +1045,7 @@ local function build(): ScreenGui
 	UIKit.label(header, {
 		name = "WalletLabel",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -WALLET_INSET, 0, 3),
+		position = UDim2.new(1, -WALLET_INSET, 0, 8),
 		size = UDim2.fromOffset(200, 14),
 		font = FIELD.label,
 		textSize = 12,
@@ -1052,7 +1059,7 @@ local function build(): ScreenGui
 	ui.shopCash = UIKit.label(header, {
 		name = "Cash",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -WALLET_INSET, 0, 18),
+		position = UDim2.new(1, -WALLET_INSET, 0, 24),
 		size = UDim2.fromOffset(200, 30),
 		font = FIELD.headline,
 		textSize = 26,
@@ -1816,7 +1823,7 @@ local function render()
 	ui.locker.frame.Visible = atLocker
 	ui.merge.frame.Visible = atMerge
 	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge
-	ui.fitPanel() -- the trader sits higher than the other modes (TRADER_LIFT)
+	ui.fitPanel() -- the trader and the stalls each sit higher than the rest (TRADER_LIFT, SHOP_LIFT)
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
 	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
