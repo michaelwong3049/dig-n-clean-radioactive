@@ -115,7 +115,7 @@ local COOL_SHADE = Color3.fromHex("000000")
 -- The "+$X/s" tag over the nuke in your own hands (only you see it).
 local HELD_ITEM_NAME = "HeldItem" -- ToolService's name for whatever is in your hands
 local RATE_TAG_LIFT = 1.2 -- studs above the held model's bounding box
-local RATE_TAG_SIZE = UDim2.fromOffset(200, 34)
+local RATE_TAG_SIZE = UDim2.fromOffset(200, 56) -- star line (22) over the rate (34)
 -- Dropping a nuke this rare or better asks "are you sure?" first.
 local CONFIRM_FROM = Rarity.DEFS.Rare.order
 local CONFIRM_WIDTH = 340
@@ -1481,7 +1481,7 @@ end
 
 -- ── Held rate tag ───────────────────────────────────────────────────
 
---- "+$X/s" over the nuke in YOUR hands. The BillboardGui lives in your PlayerGui and
+--- Star rating + "+$X/s" over the nuke in YOUR hands. The BillboardGui lives in your PlayerGui and
 --- is adorned to the held model, so nobody else ever sees it. Hidden for crates, for
 --- a crusted find (its worth is "???" until washed) and for anything a stand won't take.
 local function refreshRateTag()
@@ -1508,6 +1508,7 @@ local function refreshRateTag()
 	tag.Adornee = anchor
 	tag.StudsOffsetWorldSpace = Vector3.new(0, top - anchor.Position.Y + RATE_TAG_LIFT, 0)
 	ui.rateTagText.Text = `+{formatRate(item.perSecond)}`
+	StarLine.set(ui.rateTagStars, Bombing.statsFor(item).stars)
 	tag.Enabled = true
 end
 
@@ -1521,9 +1522,19 @@ local function buildRateTag(playerGui: Instance)
 	tag.Enabled = false
 	tag.Parent = playerGui
 	ui.rateTag = tag
+	ui.rateTagStars = UIKit.label(tag, {
+		name = "Stars",
+		size = UDim2.new(1, 0, 0, 22),
+		font = UIKit.Font.title,
+		textSize = 20,
+		color = STAR_GOLD,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
+	})
 	ui.rateTagText = UIKit.label(tag, {
 		name = "Rate",
-		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromOffset(0, 22),
+		size = UDim2.new(1, 0, 0, 34),
 		font = UIKit.Font.hero,
 		textSize = 26,
 		color = COLOR.green,
