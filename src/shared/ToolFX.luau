@@ -212,7 +212,7 @@ end
 -- ── Toxic Twilight presets ────────────────────────────────────────────────────
 --
 -- The sixteen imported rungs Twilight's shops sell (Detector 10-15, Magnet 7-11,
--- Cleaner 8-12). Same rules as above -- one idea per tool, taken from what its
+-- Cleaner 7-11). Same rules as above -- one idea per tool, taken from what its
 -- model is (a molten core puffs heat, a void swallows light) -- but a step
 -- LOUDER than the Base Camp rungs, by request: these are the endgame tools, so
 -- sizes run ~1.3x and rates higher. Each preset is a property table on top of

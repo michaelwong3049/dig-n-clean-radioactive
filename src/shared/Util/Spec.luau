@@ -1723,16 +1723,17 @@ function Spec.run(): boolean
 	check("Toxic Twilight sells magnet tiers 7-11, in the art pack's order", twilightMagnetsOk)
 
 	-- Twilight's five hoses, pinned by name for the same reason: the templates
-	-- (Assets/HoseModels/T8-T12) were made for exactly this order, the user's.
+	-- (Assets/HoseModels/T8-T12, via ToolModels/Hose's ART_SLOTS) were made for
+	-- exactly this order, the user's. Tiers 7-11 since the Ultrasonic Jet was cut.
 	local twilightHosesWant = { "Singularity Nozzle", "Cryo Nova", "Solar Forge", "Quantum Rift", "Celestial Deluge" }
 	local twilightHosesHave = Gear.tiersAt("Cleaner", "twilight")
 	local twilightHosesOk = #twilightHosesHave == #twilightHosesWant
 	for slot, tier in twilightHosesHave do
-		if Gear.tier("Cleaner", tier).name ~= twilightHosesWant[slot] or tier ~= 7 + slot then
+		if Gear.tier("Cleaner", tier).name ~= twilightHosesWant[slot] or tier ~= 6 + slot then
 			twilightHosesOk = false
 		end
 	end
-	check("Toxic Twilight sells hose tiers 8-12, in the user's order", twilightHosesOk)
+	check("Toxic Twilight sells hose tiers 7-11, in the user's order", twilightHosesOk)
 
 	-- Twilight's five auras, pinned by name: AuraLook's shapes (aurora, torus, wings,
 	-- seraph, vortex) are drawn per tier in exactly this order. Dusk Corona was cut
