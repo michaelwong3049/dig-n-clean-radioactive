@@ -133,10 +133,10 @@ local CRATE_IMAGE: { [string]: string } = {
 	nuke3 = "rbxassetid://117104417851806", -- Void Nuke Crate
 	liquid2 = "rbxassetid://107641217252136", -- Isotope Chem Crate
 }
--- The Mystery crates have no picture of their own yet; each borrows one of its kind's.
+-- The Mystery (random) crates' own pictures.
 local MYSTERY_IMAGE: { [string]: string } = {
-	nuke = CRATE_IMAGE.nuke3,
-	liquid = CRATE_IMAGE.liquid2,
+	nuke = "rbxassetid://79316421520511", -- Fusion Core
+	liquid = "rbxassetid://74469368864240", -- Nitro Fuel
 }
 
 --- A crate picture filling `well`, `inset` in from its edges.
