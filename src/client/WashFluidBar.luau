@@ -30,11 +30,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Liquids = require(ReplicatedStorage.Shared.Config.Liquids)
 local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
+local RobuxButton = require(script.Parent.RobuxButton)
 
 local WashFluidBar = {}
 
@@ -98,6 +100,16 @@ local TAG = {
 	gap = 8,
 }
 
+-- The Instant Clean pass button (Config/GamePasses), off the bar's right end and
+-- centred on it, on request. The wash view locks the pointer, so on a keyboard it is
+-- pressed with `key` (shown on a keycap at its corner); on touch it is tapped.
+local PASS = {
+	gap = 16,
+	size = Vector2.new(168, 56),
+	key = Enum.KeyCode.R,
+	keycap = 26,
+}
+
 local FX = {
 	punch = 0.06, -- the bar grows this much when a patch pops
 	punchTime = 0.22,
@@ -133,6 +145,7 @@ type Bar = {
 	name: TextLabel,
 	count: Frame,
 	countText: TextLabel,
+	pass: RobuxButton.Button,
 
 	-- What the server last said, and what is on screen easing toward it.
 	uid: string?,
@@ -364,6 +377,31 @@ local function build(canvas: Instance): Bar
 		zIndex = 4,
 	})
 
+	local pass = RobuxButton.pass(root, "instantClean", "Instant Clean")
+	pass.button.Name = "InstantCleanPass"
+	pass.button.Position = UDim2.fromOffset(BAR.size.X + PASS.gap, (BAR.size.Y - PASS.size.Y) / 2)
+	pass.button.Size = UDim2.fromOffset(PASS.size.X, PASS.size.Y)
+	if not UIKit.isTouch() then
+		local keycap = frame(pass.button, "Keycap", UDim2.fromOffset(PASS.keycap, PASS.keycap), UDim2.fromOffset(-PASS.keycap / 2, -PASS.keycap / 2), Color3.new(1, 1, 1), 5)
+		local keyCorner = Instance.new("UICorner")
+		keyCorner.CornerRadius = UDim.new(0, 6)
+		keyCorner.Parent = keycap
+		ink(keycap, 2)
+		UIKit.label(keycap, {
+			name = "Key",
+			size = UDim2.fromScale(1, 1),
+			font = Enum.Font.GothamBlack,
+			textSize = 16,
+			color = INK,
+			xAlign = Enum.TextXAlignment.Center,
+			text = PASS.key.Name,
+			outline = false,
+			strokeTransparency = 1,
+			shadow = false,
+			zIndex = 6,
+		})
+	end
+
 	return {
 		root = root,
 		punch = punch,
@@ -384,6 +422,7 @@ local function build(canvas: Instance): Bar
 		name = name,
 		count = count,
 		countText = countText,
+		pass = pass,
 
 		uid = nil,
 		patchCount = 0,
@@ -554,6 +593,14 @@ function WashFluidBar.mount(canvas: Instance)
 			if bar and bar.root.Parent then
 				bar.root.Position = barPosition()
 			end
+		end)
+		-- The pass button's key, while the bar is up. Typing into a text box is not a press.
+		UserInputService.InputBegan:Connect(function(input, processed)
+			local bar = current
+			if processed or input.KeyCode ~= PASS.key or bar == nil or not bar.root.Visible then
+				return
+			end
+			bar.pass.press()
 		end)
 	end
 end

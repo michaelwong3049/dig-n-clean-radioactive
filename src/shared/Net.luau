@@ -264,6 +264,10 @@ local REMOTES: { [string]: string } = {
 	-- walk to cap at, or 0 for full speed. The confirmed value comes back on SpeedState
 	-- (`walkCap`), so there is no echo remote of its own.
 	WalkCap = "RemoteEvent",
+	-- The red cash button on a treadmill's upgrade sign (client TreadmillSignController):
+	-- "buy my next belt". No payload: the server prices the rung the save is on, and
+	-- checks the player owns the base and is standing by its sign.
+	TreadmillBuy = "RemoteEvent", -- client -> server, no payload
 
 	-- Nuke models on demand (Services/ModelCacheService, Shared/ItemModels). The
 	-- templates live in ServerStorage so nobody downloads all 10k parts at join; a

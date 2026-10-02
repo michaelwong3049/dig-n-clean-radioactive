@@ -23,14 +23,22 @@
 
 	YOUR OWN BELT ONLY. A base's treadmill trains, and sells rungs to, its owner alone
 	(on request — it used to train anyone). StationService treats someone else's belt
-	as no station at all, so stepping on it starts nothing, and wireConsole refuses its
-	console. The cleansing station is gated the same way (WashService.begin).
+	as no station at all, so stepping on it starts nothing, and onBuy only ever sells
+	from the buyer's own sign. The cleansing station is gated the same way (WashService.begin).
 
 	ACCESS IS FREE. It used to be bought (Treadmill.UNLOCK_PRICE, now 0) before any belt
 	paid a player anything; on request every player now has it from the start, and
 	older saves are unlocked on load (DataService.onLoaded below). The lock itself is
 	kept for `/train lock`: a locked player earns on no belt, their own or anyone
-	else's, and the console's first press unlocks them (TreadmillService.buy).
+	else's, and the sign's first press unlocks them (TreadmillService.buy).
+
+	THE UPGRADE SIGN, NOT A PROMPT. A navy board beside the belt (build/Plots
+	ensureUpgradeSign) with a red cash button and a purple Robux one, drawn and pressed
+	on the client (TreadmillSignController), on request in place of the console's E
+	prompt. The cash button is Net.TreadmillBuy, so unlike a ProximityPrompt nothing
+	enforces range for us: onBuy checks the base is theirs and they are by its sign.
+	The Robux button is a Developer Product per rung (Treadmill.PRODUCTS), granted
+	through ProductService (grantRobuxRung).
 
 	WHAT THE UPGRADE BUYS is `rate` — Speed per second (Config/Treadmill) — not Speed
 	itself. Cash cannot buy a single level anywhere in this game; it can only buy a
@@ -44,9 +52,9 @@
 	construction rather than by validation.
 ]]
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
@@ -60,15 +68,11 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 local ExhibitService = require(script.Parent.ExhibitService)
+local ProductService = require(script.Parent.ProductService)
 
 local TreadmillService = {}
 
 local STATION_KIND = "treadmill"
-
---- Matches Kit.TREADMILL_TAG. Hardcoded rather than required for the same reason
---- ShopService hardcodes UPGRADE_TAG: build/ is server-only and a Services/ file that
---- requires it drags the whole builder into every service's dependency graph.
-local UPGRADE_TAG = "TreadmillUpgrade"
 
 --- How often a trainee's readout is re-sent while they run. The Speed total moves
 --- every tick, but the client counts it up locally from `rate` between pushes (see
@@ -77,8 +81,15 @@ local UPGRADE_TAG = "TreadmillUpgrade"
 local PUSH_INTERVAL = 1
 
 local stateRemote: any = nil
-local resultRemote: any = nil
 local noticeRemote: any = nil
+
+--- How far from its sign's board a press of the cash button still counts. The board
+--- reads from across the strip, so this is generous; it only stops a press from the
+--- other side of the map.
+local SIGN_REACH = 30
+--- One cash press per player per this many seconds: a double click buys one rung.
+local BUY_COOLDOWN = 0.4
+local lastBuy: { [Player]: number } = {}
 
 --- Who is standing on a belt right now. Written only by the StationService edge, so
 --- it cannot drift from what the world thinks — and read by the tick loop as its
@@ -228,38 +239,72 @@ function TreadmillService.buy(player: Player): (boolean, string)
 	local bought = Treadmill.tier(data.treadmill)
 	ExhibitService.refreshTreadmill(player)
 	push(player)
-	return true, `{bought.name} installed — +{Treadmill.rateText(bought.rate)} Speed/s (paid ${price})`
+	return true, `{bought.name} installed — +{Treadmill.rateText(bought.rate)} Speed/s (paid {Treadmill.priceText(price)})`
+end
+
+--- A rung bought with Robux (Treadmill.PRODUCTS): rung `tier`, with nothing spent.
+--- Runs inside ProductService's receipt step, so it only touches `data` and never
+--- yields; the world and the readout follow in a deferred step. Already on that rung
+--- or past it (bought for cash between the prompt and the receipt) still gets them
+--- one rung up -- they paid for an upgrade -- unless there is none left.
+local function grantRobuxRung(player: Player, data: any, tier: number)
+	local current = math.clamp(math.floor(data.treadmill or 1), 1, Treadmill.maxTier())
+	data.treadmillUnlocked = true
+	data.treadmill = if current < tier then tier else math.min(current + 1, Treadmill.maxTier())
+	local bought = Treadmill.tier(data.treadmill)
+	task.defer(function()
+		if player.Parent == nil then
+			return
+		end
+		ExhibitService.refreshTreadmill(player)
+		push(player)
+		noticeRemote:FireClient(player, `{string.upper(bought.name)} INSTALLED`)
+	end)
 end
 
 -- ── Bootstrap ──────────────────────────────────────────────────────────
 
---- Connect one console's prompt to the purchase. Built by build/Plots.buildTreadmill
---- and saved with the place; wired here at boot. The same build-time/runtime split
---- every station uses, and the reason a rebuilt plot needs no service change.
-local function wireConsole(part: Instance)
-	if not part:IsA("BasePart") then
+--- The plot's upgrade sign board (build/Plots ensureUpgradeSign), or nil.
+local function signBoard(index: number): BasePart?
+	local row = Workspace:FindFirstChild("Plots")
+	local plot = row and row:FindFirstChild(`Plot{index}`)
+	local treadmill = plot and plot:FindFirstChild("Treadmill", true)
+	local sign = treadmill and treadmill:FindFirstChild("UpgradeSign")
+	local board = sign and sign:FindFirstChild("Board")
+	return if board and board:IsA("BasePart") then board else nil
+end
+
+--- Net.TreadmillBuy: the sign's red cash button. Their own base only, standing by its
+--- sign, not mid-tutorial (the walkthrough keeps the treadmill's purchase shut, as
+--- Tutorial.promptOpen did for the old console prompt).
+local function onBuy(player: Player)
+	local now = os.clock()
+	if now - (lastBuy[player] or 0) < BUY_COOLDOWN then
 		return
 	end
-	local prompt = part:FindFirstChildOfClass("ProximityPrompt")
-	if prompt == nil then
-		warn(`[treadmill] {part:GetFullName()} is tagged for upgrades but has no ProximityPrompt — nobody can buy from it`)
+	lastBuy[player] = now
+
+	if Tutorial.isActive(player) then
+		noticeRemote:FireClient(player, "FINISH THE TUTORIAL FIRST")
+		return
+	end
+	local index = ExhibitService.plotOf(player)
+	local board = if index then signBoard(index) else nil
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if board == nil or root == nil or not root:IsA("BasePart") then
+		return
+	end
+	if (root.Position - board.Position).Magnitude > SIGN_REACH then
+		noticeRemote:FireClient(player, "WALK UP TO YOUR TREADMILL'S SIGN")
 		return
 	end
 
-	prompt.Triggered:Connect(function(player: Player)
-		if not Tutorial.promptOpen(player, prompt) then
-			return
-		end
-		if not ExhibitService.ownsPlotStation(player, ExhibitService.plotIndexOf(part)) then
-			resultRemote:FireClient(player, "that's someone else's treadmill \u{2014} train at your own base")
-			return
-		end
-		local ok, message = TreadmillService.buy(player)
-		resultRemote:FireClient(player, message)
-		if ok then
-			print(`[treadmill] {player.Name}: {message}`)
-		end
-	end)
+	local ok, message = TreadmillService.buy(player)
+	noticeRemote:FireClient(player, string.upper(message))
+	if ok then
+		print(`[treadmill] {player.Name}: {message}`)
+	end
 end
 
 --- The walk-speed picker (Net.WalkCap). A number is the walk to cap at; 0, or anything
@@ -290,29 +335,27 @@ end
 
 function TreadmillService.init()
 	stateRemote = Net.get("SpeedState")
-	-- The console answers on the same channel every other world purchase does, so a
-	-- refused upgrade reads exactly like a refused rung at a shop rack.
-	resultRemote = Net.get("StationResult")
-	-- The hotbar popup ("INVENTORY FULL"), for telling a locked player why the belt
-	-- under them is not paying.
+	-- The hotbar popup ("INVENTORY FULL"): the sign has no panel to answer in, so a
+	-- bought or refused rung is said here, as is a locked player's dead belt.
 	noticeRemote = Net.get("Notice")
+	-- In init, not start: ProductService.start() switches ProcessReceipt on, and a
+	-- receipt landing before a rung was registered would be bounced.
+	for tier = 2, Treadmill.maxTier() do
+		ProductService.register(Treadmill.productFor(tier), function(player, data)
+			grantRobuxRung(player, data, tier)
+		end)
+	end
 end
 
 function TreadmillService.start()
-	-- Tag-indexed and live, not a one-shot Workspace walk: World.rebuild() can be run
-	-- from the command bar mid-session and a console built then would otherwise sit
-	-- inert until the next server start. Straight out of ShopService.start.
-	for _, part in CollectionService:GetTagged(UPGRADE_TAG) do
-		wireConsole(part)
-	end
-	CollectionService:GetInstanceAddedSignal(UPGRADE_TAG):Connect(wireConsole)
+	Net.get("TreadmillBuy").OnServerEvent:Connect(onBuy)
 
 	StationService.onChanged(function(player, kind, _id, previousKind)
 		if kind == STATION_KIND then
 			local data = DataService.data(player)
 			if data and not data.treadmillUnlocked then
 				-- Locked: say how to fix it, once per step-on, and pay nothing.
-				noticeRemote:FireClient(player, `UNLOCK THE TREADMILL AT ITS SCREEN · {Treadmill.unlockPriceText()}`)
+				noticeRemote:FireClient(player, `UNLOCK THE TREADMILL AT ITS SIGN · {Treadmill.unlockPriceText()}`)
 				return
 			end
 			training[player] = true
@@ -346,6 +389,7 @@ function TreadmillService.start()
 		training[player] = nil
 		lastPush[player] = nil
 		lastPick[player] = nil
+		lastBuy[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, step, "treadmill")

@@ -55,6 +55,7 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 local Speed = require(script.Parent.SpeedController)
+local RobuxButton = require(script.Parent.Parent.RobuxButton)
 
 local Treadmill = {}
 
@@ -109,6 +110,10 @@ local LAYOUT = {
 	shoe = 28,
 	gainTextSize = 22,
 	gainEvery = 0.1, -- seconds between gain popups while the belt runs
+	-- The 2x Speed pass button, off the bar's right end and centred on it.
+	passGap = 14,
+	passW = 128,
+	passH = 52,
 }
 
 local ROUND = UDim.new(0.5, 0)
@@ -261,6 +266,13 @@ local function build(): Frame?
 		textSize = 18,
 		xAlign = Enum.TextXAlignment.Center,
 	})
+
+	-- The 2x Speed pass (Config/GamePasses: training x2) right where it pays off, on
+	-- request. Purple with its Robux price; a grey OWNED once bought.
+	local pass = RobuxButton.pass(root, "speed", "2x Speed")
+	pass.button.Name = "SpeedPass"
+	pass.button.Position = UDim2.fromOffset(L.barW + L.passGap, (L.barH - L.passH) / 2)
+	pass.button.Size = UDim2.fromOffset(L.passW, L.passH)
 
 	return root
 end

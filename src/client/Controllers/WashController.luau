@@ -346,6 +346,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local WashFluidBar = require(script.Parent.Parent.WashFluidBar)
+local RobuxButton = require(script.Parent.Parent.RobuxButton) -- the Instant Clean button's prompt frees the pointer
 local WashReveal = require(script.Parent.Parent.WashReveal)
 local Sfx = require(script.Parent.Parent.Sfx)
 local WashWeakSpots = require(script.Parent.Parent.WashWeakSpots)
@@ -2164,8 +2165,16 @@ local function onRender(dt: number)
 	-- write at session start is stamped back to Default on the very next frame and the
 	-- cursor comes loose. Guarded on the read so it is not a property write per frame
 	-- in the ordinary case where it already holds.
-	if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
-		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+	-- EXCEPT while a Robux prompt is up (WashFluidBar's Instant Clean button): Roblox's
+	-- purchase dialog needs a cursor to press Buy with. The look and the spray both
+	-- stand still until it closes.
+	local prompting = RobuxButton.prompting()
+	local behavior = if prompting then Enum.MouseBehavior.Default else Enum.MouseBehavior.LockCenter
+	if UserInputService.MouseBehavior ~= behavior then
+		UserInputService.MouseBehavior = behavior
+	end
+	if UserInputService.MouseIconEnabled ~= prompting then
+		UserInputService.MouseIconEnabled = prompting
 	end
 
 	-- Other players walking in mid-wash, and an Anomaly's banner colour.
@@ -2521,7 +2530,7 @@ function Wash.start()
 	-- exists to expose. Not gated on `gameProcessedEvent` — a locked, hidden cursor
 	-- cannot be over a GUI for one to have swallowed it.
 	UserInputService.InputChanged:Connect(function(input)
-		if not viewActive then
+		if not viewActive or RobuxButton.prompting() then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -2567,7 +2576,7 @@ function Wash.start()
 		-- Spraying waits for the camera. During the entry wipe the screen is covered and
 		-- there is nothing to aim at yet, so a click there would spend the player's
 		-- charge on whichever patch the server picked by default, unseen.
-		if processed or not viewActive then
+		if processed or not viewActive or RobuxButton.prompting() then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
