@@ -2,14 +2,17 @@
 	BagTrackerController.luau — "get your bag back": where your dropped bag is and how
 	long it has left (option 7 of the death-screen mockup round, paired with Flatline).
 
-	Going down to radiation drops your unwashed haul where you fell, for ninety seconds,
-	for anyone to grab (ExposureService). The death screen says so once; this keeps
-	saying it after you wake up at camp:
+	Going down drops your whole bag where you fell, for ninety seconds, for anyone to
+	steal (ExposureService). The death screen says so once; this keeps saying it after
+	you wake up at camp:
 	  - a pill at the top of the screen: YOUR BAG, how many items are left in it, the
 	    countdown (red under LOW_SECONDS), and how far away it is with an arrow that
 	    points at it from where the camera is looking;
-	  - a tall light column over the bag and a countdown label on it, drawn on YOUR
-	    client only -- everyone else already sees the bag and its own label.
+	  - a tall light column over the bag and a BagCard on it, drawn on YOUR client
+	    only and from any distance -- everyone else gets theirs close up only
+	    (DroppedBagController);
+	  - a red toast when someone steals from it, naming them ("Sam stole 3 items from
+	    your bag"), and the thief's name on the pill (Net.DroppedBag stolenBy).
 	It goes the moment the bag is emptied (by you or anyone) or times out.
 
 	FED BY Net.DroppedBag, NOT BY FINDING THE PART. The bag lies where you fell and you
@@ -36,6 +39,8 @@ local Net = require(Shared.Net)
 local Stages = require(Shared.Config.Stages)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local BagCard = require(script.Parent.Parent.BagCard)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local BagTrackerController = {}
 
@@ -66,7 +71,9 @@ local RED = UIKit.C.red
 
 local COLUMN_HEIGHT = 60
 local COLUMN_WIDTH = 2.6
-local LABEL_SIZE = Vector2.new(170, 40) -- the column's billboard, design px
+
+local TOAST_H = 58
+local TOAST_SECONDS = 4.5
 
 local POP = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
@@ -77,21 +84,16 @@ type Bag = {
 	items: number,
 	column: BasePart,
 	billboard: BillboardGui,
-	timer: TextLabel,
+	card: BagCard.Card,
+	thief: string?,
 }
 
 local bags: { [string]: Bag } = {}
 local ui: any = {}
 local shown = false
 
-local function clock(seconds: number): string
-	local s = math.max(0, math.ceil(seconds))
-	return string.format("%d:%02d", s // 60, s % 60)
-end
-
-local function plural(n: number): string
-	return if n == 1 then "1 item" else `{n} items`
-end
+local clock = BagCard.clock
+local plural = BagCard.items
 
 local function newest(): Bag?
 	local best: Bag? = nil
@@ -146,31 +148,14 @@ local function addColumn(bag: any)
 	billboard.StudsOffsetWorldSpace = Vector3.new(0, -COLUMN_HEIGHT / 2 + 7, 0)
 	billboard.LightInfluence = 0
 	billboard.Parent = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
-	local canvas = UIKit.billboardCanvas(billboard, LABEL_SIZE)
-
-	local card = UIKit.panel(canvas, {
-		name = "Card",
-		size = UDim2.fromScale(1, 1),
-		color = SLATE,
-		transparency = 0,
-		strokeColor = INK,
-		strokeThickness = 3,
-		cornerRadius = UDim.new(0, 12),
-	})
-	local timer = UIKit.label(card, {
-		name = "Text",
-		size = UDim2.fromScale(1, 1),
-		font = Enum.Font.LuckiestGuy,
-		textSize = 22,
-		color = Color3.new(1, 1, 1),
-		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
-	})
-	timer.RichText = true
+	local canvas = UIKit.billboardCanvas(billboard, BagCard.SIZE)
+	local card = BagCard.build(canvas, BAG_GREEN)
+	card.title.Text = "Your bag"
+	card.title.TextColor3 = BAG_GREEN
 
 	bag.column = column
 	bag.billboard = billboard
-	bag.timer = timer
+	bag.card = card
 end
 
 local function removeBag(id: string)
@@ -275,14 +260,71 @@ local function build(): ScreenGui
 	local scale = Instance.new("UIScale")
 	scale.Parent = root
 
-	local title = label(root, "Title", Enum.Font.LuckiestGuy, 22, BAG_GREEN, 0, 1)
-	title.Text = "YOUR BAG"
-	local items = label(root, "Items", Enum.Font.FredokaOne, 17, GREY, 0, 2)
+	local title = label(root, "Title", Enum.Font.GothamBlack, 20, BAG_GREEN, 0, 1)
+	title.Text = "Your bag"
+	local items = label(root, "Items", Enum.Font.GothamBlack, 16, GREY, 0, 2)
 	-- Fixed width, so the pill does not twitch as 1:10 turns into 1:09.
-	local timer = label(root, "Timer", Enum.Font.LuckiestGuy, 32, Color3.new(1, 1, 1), 76, 3)
-	local arrow = label(root, "Arrow", Enum.Font.FredokaOne, 22, Color3.new(1, 1, 1), 24, 4)
+	local timer = label(root, "Timer", Enum.Font.GothamBlack, 28, Color3.new(1, 1, 1), 72, 3)
+	local arrow = label(root, "Arrow", Enum.Font.GothamBlack, 20, Color3.new(1, 1, 1), 24, 4)
 	arrow.Text = "\u{25B2}"
-	local distance = label(root, "Distance", Enum.Font.FredokaOne, 19, GREY, 0, 5)
+	local distance = label(root, "Distance", Enum.Font.GothamBlack, 17, GREY, 0, 5)
+	-- "Stolen by Sam" once someone has had a go at it; hidden until then.
+	local thief = label(root, "Thief", Enum.Font.GothamBlack, 16, RED, 0, 6)
+	thief.Visible = false
+
+	-- The theft toast, under the pill: a dark slab with a red edge and strip.
+	local toast = UIKit.panel(canvas, {
+		name = "StolenToast",
+		size = UDim2.fromOffset(0, TOAST_H),
+		anchorPoint = Vector2.new(0.5, 0),
+		position = UDim2.new(0.5, 0, 0, TOP_Y + PILL_H + 10),
+		color = SLATE,
+		transparency = 0,
+		strokeColor = RED,
+		strokeThickness = 3,
+		cornerRadius = UDim.new(0, 12),
+		visible = false,
+	})
+	toast.AutomaticSize = Enum.AutomaticSize.X
+	local toastPad = Instance.new("UIPadding")
+	toastPad.PaddingLeft = UDim.new(0, 26)
+	toastPad.PaddingRight = UDim.new(0, 20)
+	toastPad.Parent = toast
+	local toastStrip = Instance.new("Frame")
+	toastStrip.Name = "Strip"
+	toastStrip.AnchorPoint = Vector2.new(0, 0.5)
+	toastStrip.Position = UDim2.new(0, -17, 0.5, 0)
+	toastStrip.Size = UDim2.new(0, 5, 1, -18)
+	toastStrip.BackgroundColor3 = RED
+	toastStrip.BorderSizePixel = 0
+	toastStrip.Parent = toast
+	local stripRound = Instance.new("UICorner")
+	stripRound.CornerRadius = UDim.new(1, 0)
+	stripRound.Parent = toastStrip
+	local toastTitle = UIKit.label(toast, {
+		name = "Title",
+		size = UDim2.fromOffset(0, 24),
+		position = UDim2.fromOffset(0, 7),
+		font = Enum.Font.GothamBlack,
+		textSize = 19,
+		color = RED,
+		shadow = false,
+		text = "Bag stolen!",
+	})
+	toastTitle.AutomaticSize = Enum.AutomaticSize.X
+	local toastBody = UIKit.label(toast, {
+		name = "Body",
+		size = UDim2.fromOffset(0, 20),
+		position = UDim2.fromOffset(0, 31),
+		font = Enum.Font.GothamBlack,
+		textSize = 15,
+		color = Color3.new(1, 1, 1),
+		shadow = false,
+	})
+	toastBody.AutomaticSize = Enum.AutomaticSize.X
+	toastBody.RichText = true
+	local toastScale = Instance.new("UIScale")
+	toastScale.Parent = toast
 
 	ui = {
 		canvas = canvas,
@@ -292,8 +334,40 @@ local function build(): ScreenGui
 		timer = timer,
 		arrow = arrow,
 		distance = distance,
+		thief = thief,
+		toast = toast,
+		toastBody = toastBody,
+		toastScale = toastScale,
 	}
 	return gui
+end
+
+-- ── The theft toast ─────────────────────────────────────────────────────────
+
+local toastSerial = 0
+
+local function escape(text: string): string
+	return (text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+end
+
+local function showStolen(thief: string, count: number, left: number)
+	toastSerial += 1
+	local serial = toastSerial
+	local rest = if left > 0 then `  \u{00B7}  {plural(left)} left` else ""
+	ui.toastBody.Text = `<font color="#{BAG_GREEN:ToHex()}">{escape(thief)}</font> stole {plural(count)} from your bag{rest}`
+	-- Under the pill when it is up, else where the pill would sit.
+	local top = if shown then ui.root.Position.Y.Offset + PILL_H + 10 else clearTop()
+	ui.toast.Position = UDim2.new(0.5, 0, 0, top)
+	ui.toast.Visible = true
+	ui.toastScale.Scale = 0.6
+	TweenService:Create(ui.toastScale, POP, { Scale = 1 }):Play()
+	Sfx.play("denied")
+
+	task.delay(TOAST_SECONDS, function()
+		if serial == toastSerial then
+			ui.toast.Visible = false
+		end
+	end)
 end
 
 local function setShown(on: boolean)
@@ -322,9 +396,7 @@ local function step(dt: number)
 	end
 
 	for _, bag in bags do
-		local left = bag.expiresAt - now
-		local colour = if left <= LOW_SECONDS then RED else Color3.new(1, 1, 1)
-		bag.timer.Text = `YOUR BAG <font color="#{colour:ToHex()}">{clock(left)}</font>`
+		bag.card.detail.Text = BagCard.detailText(bag.items, bag.expiresAt - now, LOW_SECONDS)
 		-- A slow breath on the column, so it reads as a signal rather than scenery.
 		bag.column.Transparency = 0.6 + 0.12 * math.sin(now * 4)
 	end
@@ -339,6 +411,8 @@ local function step(dt: number)
 	ui.timer.Text = clock(left)
 	ui.timer.TextColor3 = if left <= LOW_SECONDS then RED else Color3.new(1, 1, 1)
 	ui.items.Text = plural(bag.items)
+	ui.thief.Visible = bag.thief ~= nil
+	ui.thief.Text = if bag.thief then `Stolen by {bag.thief}` else ""
 
 	-- Distance and heading from wherever you are, relative to where the camera looks,
 	-- flat on the ground: straight up the screen means straight ahead.
@@ -373,6 +447,14 @@ function BagTrackerController.start()
 		if type(id) ~= "string" then
 			return
 		end
+		-- Told before any "gone", even for the take that empties the bag.
+		if type(payload.stolenBy) == "string" then
+			showStolen(payload.stolenBy, payload.stolenCount or 0, payload.items or 0)
+			if bags[id] then
+				bags[id].thief = payload.stolenBy
+			end
+		end
+
 		if payload.gone then
 			removeBag(id)
 		elseif payload.position then
