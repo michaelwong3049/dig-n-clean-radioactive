@@ -72,7 +72,7 @@ LuckBoost.MAX_BANKED_SECONDS = 24 * 60 * 60
 -- for everyone on the server, with the buyer named in a notice to all. It reuses the
 -- event clock, so the sky, the clover's countdown and the x4 stack all just work.
 -- 0 = not set up yet (the Shop card shows SOON). Test with /luckevent.
-LuckBoost.SERVER_PRODUCT_ID = 0
+LuckBoost.SERVER_PRODUCT_ID = 3716086129
 LuckBoost.SERVER_SECONDS = 15 * 60
 -- Bought boosts stack onto a running aurora, up to this much left on the clock.
 LuckBoost.SERVER_MAX_SECONDS = 2 * 60 * 60
