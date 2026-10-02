@@ -35,6 +35,9 @@ local DataService = {}
 -- Serialize before you store.
 local TEMPLATE = {
 	cash = 0,
+	-- Lifetime cash earned: every credit EconomyService pays out, never reduced by
+	-- spending. The global Top Cash board ranks on this (Services/LeaderboardService).
+	cashEarned = 0,
 	xp = 0,
 	level = 1,
 
