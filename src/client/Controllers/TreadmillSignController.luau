@@ -43,8 +43,8 @@ local GREEN = Color3.fromHex("6CF24A")
 local RED = Color3.fromHex("E5281F")
 local RED_HOVER = Color3.fromHex("FF4A3D")
 
--- Board px: the board is 8 x 4.4 studs at PIXELS_PER_STUD.
-local PIXELS_PER_STUD = 50
+-- Board px: the face is laid out at W x H and stretched over whatever size the board
+-- is (build/Plots UPGRADE_SIGN), so the sign can be resized without touching this.
 local W, H = 400, 220
 local LAYOUT = {
 	titleY = 8,
@@ -159,7 +159,7 @@ local function build(board: BasePart, treadmill: Instance, plot: number?): Sign?
 	gui.Adornee = board
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = PIXELS_PER_STUD
+	gui.PixelsPerStud = W / board.Size.X
 	gui.LightInfluence = 0
 	gui.MaxDistance = DRAW_DISTANCE
 	gui.ResetOnSpawn = false
