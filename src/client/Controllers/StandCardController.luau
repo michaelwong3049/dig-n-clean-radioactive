@@ -61,10 +61,8 @@ local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
 
 local STYLE = {
-	-- The words (rarity, name, stickers) are the panels' Gotham Black; the numbers
-	-- (rate, kg, crating clock) stay in the rounder FredokaOne.
-	wordFont = Enum.Font.GothamBlack,
-	font = Enum.Font.FredokaOne,
+	-- Every word and number on the card is the panels' Gotham Black.
+	font = Enum.Font.GothamBlack,
 	coinFont = Enum.Font.LuckiestGuy, -- the "$" on the coin, as CashController draws it
 	-- The cash badge's rate pill and coin, so a stand's $/s reads as the same money.
 	pill = Color3.fromHex("FF7A1A"),
@@ -279,7 +277,7 @@ local function shape(parent: Instance, name: string, x: number, y: number, w: nu
 	return make(name, Vector2.new(x, y), color, z)
 end
 
---- A line of text in the card's voice: FredokaOne (unless told otherwise) with a
+--- A line of text in the card's voice: Gotham Black (unless told otherwise) with a
 --- rounded INK outline. `stroke = 0` for none.
 local function text(
 	parent: Instance,
@@ -388,7 +386,7 @@ local function padlock(parent: Instance, x: number, y: number, holeColor: Color3
 end
 
 local function sticker(parent: Instance, name: string, label: string, color: Color3, cx: number, cy: number, tilt: number)
-	local w = textWidth(label, L.stickerSize, STYLE.wordFont) + 14
+	local w = textWidth(label, L.stickerSize, STYLE.font) + 14
 	-- Keep a long one ("PREWAR SEALED") on the card rather than hanging off its edge.
 	cx = math.clamp(cx, w / 2 + 2, L.width - w / 2 - 2)
 	local chip = shape(parent, name, cx, cy, w, L.stickerH, color, {
@@ -399,7 +397,7 @@ local function sticker(parent: Instance, name: string, label: string, color: Col
 		centre = true,
 		rotation = tilt,
 	})
-	text(chip, "Label", label, L.stickerSize, INK, 0, { font = STYLE.wordFont, z = 8 })
+	text(chip, "Label", label, L.stickerSize, INK, 0, { z = 8 })
 end
 
 --- Fill the rarity word, and start its shimmer if the tier has one.
@@ -533,7 +531,6 @@ local function draw(card: Card)
 
 	-- Rarity word and the star rating: the tier, nudged by this copy's quality and size.
 	local rarityLabel = text(body, "Rarity", string.upper(rarityId), L.raritySize, color, 2.3, {
-		font = STYLE.wordFont,
 		position = UDim2.fromOffset(0, L.rarityY),
 		size = UDim2.new(1, 0, 0, L.rarityH),
 	})
@@ -593,8 +590,8 @@ local function draw(card: Card)
 
 	-- The ribbon, sized to its name, with its tails tucked behind each end.
 	local nameSize = L.nameSize
-	local bannerW = math.clamp(textWidth(def.name, nameSize, STYLE.wordFont) + L.bannerPad, L.bannerMin, L.bannerMax)
-	while nameSize > L.nameMin and textWidth(def.name, nameSize, STYLE.wordFont) > bannerW - 24 do
+	local bannerW = math.clamp(textWidth(def.name, nameSize, STYLE.font) + L.bannerPad, L.bannerMin, L.bannerMax)
+	while nameSize > L.nameMin and textWidth(def.name, nameSize, STYLE.font) > bannerW - 24 do
 		nameSize -= 1
 	end
 	local bannerX = mid - bannerW / 2
@@ -619,7 +616,6 @@ local function draw(card: Card)
 		paintAnomaly(card.anomaly, Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE))
 	end
 	text(banner, "ItemName", def.name, nameSize, WHITE, 3, {
-		font = STYLE.wordFont,
 		position = UDim2.fromOffset(0, L.nameDrop),
 	})
 
