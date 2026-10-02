@@ -26,7 +26,7 @@
 
 local GamePasses = {}
 
-export type Pass = { key: string, id: number, name: string, image: string, blurb: string }
+export type Pass = { key: string, id: number, name: string, image: string, blurb: string, color: Color3 }
 
 GamePasses.BACKPACK_SLOTS = 50
 GamePasses.BOMB_DAMAGE = 1.5
@@ -37,15 +37,17 @@ GamePasses.CASH = 2
 
 -- In Shop order. Ids are the Creator Dashboard's Pass IDs (Monetization -> Passes);
 -- 0 = not set up yet, and the card shows COMING SOON. `image` is the card's picture,
--- drawn in tools/hud-icons (pass_*.svg) like the HUD's other symbols.
+-- drawn in tools/hud-icons (pass_*.svg) like the HUD's other symbols. `color` tints
+-- the card's name: cash green, luck clover, dig orange, speed blue, bag leather,
+-- bomb red, clean water cyan.
 local PASSES: { Pass } = {
-	{ key = "cash", id = 2006306411, name = "2x Cash", image = "rbxassetid://130869946174411", blurb = "Sales and stand income" },
-	{ key = "luck", id = 2005322454, name = "2x Luck", image = "rbxassetid://75584960857266", blurb = "Dig and wash luck" },
-	{ key = "digPower", id = 2006432462, name = "2x Dig Power", image = "rbxassetid://129327782508122", blurb = "Hauls come up faster" },
-	{ key = "speed", id = 2005118459, name = "2x Speed", image = "rbxassetid://124080874092600", blurb = "Treadmills train 2x faster" },
-	{ key = "backpack", id = 2006444530, name = "+50 Backpack Slots", image = "rbxassetid://86368048642838", blurb = "Bigger bag, forever" },
-	{ key = "bombDamage", id = 2006456437, name = "1.5x Bomb Damage", image = "rbxassetid://103781789657404", blurb = "Every bomb hits harder" },
-	{ key = "instantClean", id = 2006714459, name = "Instant Clean", image = "rbxassetid://119627521657381", blurb = "Crust breaks on contact" },
+	{ key = "cash", id = 2006306411, name = "2x Cash", image = "rbxassetid://130869946174411", blurb = "Sales and stand income", color = Color3.fromRGB(90, 230, 90) },
+	{ key = "luck", id = 2005322454, name = "2x Luck", image = "rbxassetid://75584960857266", blurb = "Dig and wash luck", color = Color3.fromRGB(80, 220, 140) },
+	{ key = "digPower", id = 2006432462, name = "2x Dig Power", image = "rbxassetid://129327782508122", blurb = "Hauls come up faster", color = Color3.fromRGB(255, 150, 50) },
+	{ key = "speed", id = 2005118459, name = "2x Speed", image = "rbxassetid://124080874092600", blurb = "Treadmills train 2x faster", color = Color3.fromRGB(80, 200, 255) },
+	{ key = "backpack", id = 2006444530, name = "+50 Backpack Slots", image = "rbxassetid://86368048642838", blurb = "Bigger bag, forever", color = Color3.fromRGB(205, 160, 105) },
+	{ key = "bombDamage", id = 2006456437, name = "1.5x Bomb Damage", image = "rbxassetid://103781789657404", blurb = "Every bomb hits harder", color = Color3.fromRGB(255, 75, 60) },
+	{ key = "instantClean", id = 2006714459, name = "Instant Clean", image = "rbxassetid://119627521657381", blurb = "Crust breaks on contact", color = Color3.fromRGB(120, 235, 255) },
 }
 
 GamePasses.PASSES = PASSES
