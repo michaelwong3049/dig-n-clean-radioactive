@@ -8,7 +8,7 @@
 	visible to everyone without replicating UI instances from the server.
 
 	THE STAR BADGE sits over the name: "★ 4.2", the average star rating of
-	what that player is carrying (the BagStars / BagNukes attributes CarryService
+	the best three nukes that player is carrying (the BagStars / BagNukes attributes CarryService
 	publishes on the Player). A bomb death drops the whole bag for anyone to grab
 	(ExposureService), so this is how a bomber sizes up a target (Services/BombService).
 	Its own billboard, reaching further than the name, so you can pick a target from
