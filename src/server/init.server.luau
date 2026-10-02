@@ -20,6 +20,7 @@ local SERVICES = script.Services
 local ORDER = {
 	"ModelCacheService", -- FIRST: moves the nuke templates out of ReplicatedStorage before anyone joins
 	"DataService", -- everything downstream needs a profile
+	"PlayerCollisionService", -- players phase through each other; standalone
 	"SfxService", -- one-shot sound cues for one player + the SOUND EFFECTS setting; needs Data
 	"PrefsService", -- the Settings panel's prefs (graphics, shake, rad effects, flashing, volumes, rare drops); needs Data
 	"IdentifyService", -- "???" -> a name; the index write lives here and nowhere else
