@@ -67,6 +67,9 @@ export type Spec = {
 	iconDrop: number?,
 	-- Optional: a caller that wires its own click (IndexController) leaves it out.
 	onActivated: (() -> ())?,
+	-- Optional: a fixed spot (the button's centre) instead of a slot in the column —
+	-- the Settings gear in the top-right corner. `slot` is then unused.
+	position: UDim2?,
 	-- Optional: build a wide bar in the LEFT column instead of a grid square, stacked
 	-- on the left edge's middle (1 = lower, 2 = upper). `slot` is then unused.
 	leftRow: number?,
@@ -165,12 +168,16 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 			zIndex = 8,
 		}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
 	else
-		local function place()
-			local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-			button.Position = Dock.sideTileCentre(spec.slot, height)
+		if spec.position then
+			button.Position = spec.position
+		else
+			local function place()
+				local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
+				button.Position = Dock.sideTileCentre(spec.slot, height)
+			end
+			canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+			place()
 		end
-		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-		place()
 
 		-- The glow and the picture, both on the tile's centre.
 		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)

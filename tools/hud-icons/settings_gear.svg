@@ -1,0 +1,15 @@
+<svg viewBox="0 0 100 100" width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#e8edf3"/><stop offset="0.55" stop-color="#aeb8c4"/><stop offset="1" stop-color="#7d8896"/>
+</linearGradient>
+<linearGradient id="hub" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#8fe36a"/><stop offset="1" stop-color="#3f9a2c"/>
+</linearGradient>
+</defs>
+<path d="M81.8 38.0 L93.1 41.3 L93.1 58.7 L81.8 62.0 L81.0 64.0 L86.7 74.3 L74.3 86.7 L64.0 81.0 L62.0 81.8 L58.7 93.1 L41.3 93.1 L38.0 81.8 L36.0 81.0 L25.7 86.7 L13.3 74.3 L19.0 64.0 L18.2 62.0 L6.9 58.7 L6.9 41.3 L18.2 38.0 L19.0 36.0 L13.3 25.7 L25.7 13.3 L36.0 19.0 L38.0 18.2 L41.3 6.9 L58.7 6.9 L62.0 18.2 L64.0 19.0 L74.3 13.3 L86.7 25.7 L81.0 36.0 Z" fill="url(#steel)" stroke="#12161d" stroke-width="5" stroke-linejoin="round"/>
+<circle cx="50" cy="50" r="22" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3"/>
+<circle cx="50" cy="50" r="14" fill="url(#hub)" stroke="#12161d" stroke-width="5"/>
+<circle cx="50" cy="50" r="5" fill="#12161d"/>
+<path d="M41 44 A10 10 0 0 1 48 39" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

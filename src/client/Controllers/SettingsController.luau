@@ -56,6 +56,8 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local HudTile = require(script.Parent.Parent.HudTile)
+local Artwork = require(script.Parent.Parent.HudArtwork)
 local Prefs = require(script.Parent.Parent.Prefs)
 local Rarity = require(Shared.Config.Rarity)
 
@@ -67,21 +69,35 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
-local PANEL_SIZE = Vector2.new(430, 556)
+local PANEL_SIZE = Vector2.new(560, 668)
 -- Where a tab's rows start (under the title and the tab strip), and a row's height.
-local TABS_Y = 50
-local TABS_H = 34
-local CONTENT_Y = TABS_Y + TABS_H + 14
-local ROW_H = 44
-local ROW_GAP = 10
+local TABS_Y = 60
+local TABS_H = 42
+local CONTENT_Y = TABS_Y + TABS_H + 18
+local ROW_H = 54
+local ROW_GAP = 12
+
+-- THE PANEL'S TYPE: Gotham Black throughout, in normal (sentence) case, on request —
+-- one weight at four sizes rather than UIKit's three-weight scale.
+local FONT = Enum.Font.GothamBlack
+local SIZE = {
+	title = 36, -- "Settings"
+	row = 22, -- a row's name
+	button = 18, -- switches, tabs, values
+	option = 16, -- the narrower option buttons
+	hint = 15, -- the line under a row's name
+}
+-- A row's switch, and each button of an option row.
+local SWITCH_W, SWITCH_H = 120, 40
+local OPTION_W, OPTION_GAP = 76, 6
 -- Settings' REDUCE FLASHING slows the Anomaly colour cycle by this much (every reader
 -- takes Rarity.ANOMALY_CYCLE fresh each frame).
 local ANOMALY_SLOW = 4
 -- The base colour section's height; the aura row sits under it.
-local COLOUR_SECTION_H = 300
-local SV_SIZE = Vector2.new(232, 158)
-local HUE_W = 26
-local GAP = 14
+local COLOUR_SECTION_H = 340
+local SV_SIZE = Vector2.new(300, 190)
+local HUE_W = 32
+local GAP = 16
 
 -- The picker's live HSV, plus whether the COMMITTED base colour is a real hue or the
 -- neutral (never-picked / reset) state. `dragging` (any track) makes the preview show
@@ -143,7 +159,7 @@ local function applyPreview()
 
 	local live = state.committed or state.dragging
 	ui.swatch.BackgroundColor3 = if live then picked else (state.fallback or NEUTRAL)
-	ui.hexLabel.Text = if live then "#" .. hexOf(picked) elseif state.fallback then "auto" else "not set"
+	ui.hexLabel.Text = if live then "#" .. hexOf(picked) elseif state.fallback then "Auto" else "Not set"
 end
 
 -- ── Commit ──────────────────────────────────────────────────────────
@@ -152,7 +168,7 @@ end
 --- confirmed value back on Net.PlotColor, which `onServerColor` reconciles — so this
 --- does NOT optimistically set `state.committed`; it waits for the echo.
 local function commit(hex: string)
-	setStatus(if hex == "" then "resetting\u{2026}" else "saving\u{2026}")
+	setStatus(if hex == "" then "Resetting\u{2026}" else "Saving\u{2026}")
 	Net.get("PlotColor"):FireServer(hex)
 end
 
@@ -174,7 +190,7 @@ local function onServerColor(hex: any, fallback: any)
 		if ok then
 			state.h, state.s, state.v = parsed:ToHSV()
 			state.committed = true
-			setStatus("saved \u{2713}")
+			setStatus("Saved \u{2713}")
 		end
 	end
 	applyPreview()
@@ -187,7 +203,7 @@ local function applyAura()
 	if switch == nil then
 		return
 	end
-	switch.Text = if aura.pending or not aura.known then "\u{2026}" elseif aura.hidden then "ON" else "OFF"
+	switch.Text = if aura.pending or not aura.known then "\u{2026}" elseif aura.hidden then "On" else "Off"
 	switch.BackgroundColor3 = if aura.hidden then UIKit.C.selected else UIKit.C.empty
 	switch.TextColor3 = if aura.hidden then UIKit.C.text else UIKit.C.dim
 end
@@ -212,33 +228,33 @@ end
 local function buildAuraRow(section: Instance)
 	UIKit.label(section, {
 		name = "SectionTitle",
-		size = UDim2.new(1, -120, 0, 24),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		size = UDim2.new(1, -SWITCH_W - 12, 0, 28),
+		font = FONT,
+		textSize = SIZE.row,
 		color = UIKit.C.text,
-		text = "HIDE MY AURA",
+		text = "Hide my aura",
 		zIndex = 12,
 	})
 
 	UIKit.label(section, {
 		name = "SectionHint",
-		position = UDim2.fromOffset(0, 24),
-		size = UDim2.new(1, -120, 0, 18),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		position = UDim2.fromOffset(0, 28),
+		size = UDim2.new(1, -SWITCH_W - 12, 0, 20),
+		font = FONT,
+		textSize = SIZE.hint,
 		color = UIKit.C.dim,
-		text = "off for everyone \u{2014} it still protects you",
+		text = "Off for everyone \u{2014} it still protects you",
 		zIndex = 12,
 	})
 
 	local switch = UIKit.button(section, {
 		name = "AuraSwitch",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 4),
-		size = UDim2.fromOffset(108, 34),
+		position = UDim2.new(1, 0, 0, 6),
+		size = UDim2.fromOffset(SWITCH_W, SWITCH_H),
 		text = "\u{2026}",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
+		font = FONT,
+		textSize = SIZE.button,
 		color = UIKit.C.dim,
 		fillColor = UIKit.C.empty,
 		fillTransparency = 0,
@@ -258,7 +274,7 @@ local function applySound()
 		return
 	end
 	local on = not sound.muted
-	switch.Text = if sound.pending or not sound.known then "\u{2026}" elseif on then "ON" else "OFF"
+	switch.Text = if sound.pending or not sound.known then "\u{2026}" elseif on then "On" else "Off"
 	switch.BackgroundColor3 = if on then UIKit.C.selected else UIKit.C.empty
 	switch.TextColor3 = if on then UIKit.C.text else UIKit.C.dim
 end
@@ -283,33 +299,33 @@ end
 local function buildSoundRow(section: Instance)
 	UIKit.label(section, {
 		name = "SectionTitle",
-		size = UDim2.new(1, -120, 0, 24),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		size = UDim2.new(1, -SWITCH_W - 12, 0, 28),
+		font = FONT,
+		textSize = SIZE.row,
 		color = UIKit.C.text,
-		text = "SOUND EFFECTS",
+		text = "Sound effects",
 		zIndex = 12,
 	})
 
 	UIKit.label(section, {
 		name = "SectionHint",
-		position = UDim2.fromOffset(0, 24),
-		size = UDim2.new(1, -120, 0, 18),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		position = UDim2.fromOffset(0, 28),
+		size = UDim2.new(1, -SWITCH_W - 12, 0, 20),
+		font = FONT,
+		textSize = SIZE.hint,
 		color = UIKit.C.dim,
-		text = "every sound in the game, for you only",
+		text = "Every sound in the game, for you only",
 		zIndex = 12,
 	})
 
 	local switch = UIKit.button(section, {
 		name = "SoundSwitch",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 4),
-		size = UDim2.fromOffset(108, 34),
+		position = UDim2.new(1, 0, 0, 6),
+		size = UDim2.fromOffset(SWITCH_W, SWITCH_H),
 		text = "\u{2026}",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
+		font = FONT,
+		textSize = SIZE.button,
 		color = UIKit.C.dim,
 		fillColor = UIKit.C.empty,
 		fillTransparency = 0,
@@ -327,19 +343,19 @@ end
 local function rowText(row: Instance, title: string, hint: string, rightW: number)
 	UIKit.label(row, {
 		name = "SectionTitle",
-		size = UDim2.new(1, -rightW - 12, 0, 24),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		size = UDim2.new(1, -rightW - 12, 0, 28),
+		font = FONT,
+		textSize = SIZE.row,
 		color = UIKit.C.text,
 		text = title,
 		zIndex = 12,
 	})
 	UIKit.label(row, {
 		name = "SectionHint",
-		position = UDim2.fromOffset(0, 24),
-		size = UDim2.new(1, -rightW - 12, 0, 18),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		position = UDim2.fromOffset(0, 28),
+		size = UDim2.new(1, -rightW - 12, 0, 20),
+		font = FONT,
+		textSize = SIZE.hint,
 		color = UIKit.C.dim,
 		text = hint,
 		zIndex = 12,
@@ -356,11 +372,11 @@ local function switchButton(row: Instance, name: string, width: number, x: UDim)
 	local button = UIKit.button(row, {
 		name = name,
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(x, UDim.new(0, 4)),
-		size = UDim2.fromOffset(width, 34),
+		position = UDim2.new(x, UDim.new(0, 6)),
+		size = UDim2.fromOffset(width, SWITCH_H),
 		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
+		font = FONT,
+		textSize = SIZE.button,
 		color = UIKit.C.dim,
 		fillColor = UIKit.C.empty,
 		fillTransparency = 0,
@@ -372,19 +388,19 @@ end
 
 --- ON / OFF for a flag pref.
 local function flagRow(row: Instance, key: string, title: string, hint: string)
-	rowText(row, title, hint, 108)
-	local button = switchButton(row, "Switch", 108, UDim.new(1, 0))
+	rowText(row, title, hint, SWITCH_W)
+	local button = switchButton(row, "Switch", SWITCH_W, UDim.new(1, 0))
 	button.MouseButton1Click:Connect(function()
 		Prefs.set(key, not Prefs.get(key))
 	end)
 	Prefs.observe(key, function(on)
-		paintSwitch(button, on == true, if on then "ON" else "OFF")
+		paintSwitch(button, on == true, if on then "On" else "Off")
 	end)
 end
 
 --- One button per option, side by side; the chosen one lit.
 local function choiceRow(row: Instance, key: string, title: string, hint: string, options: { { string } })
-	local each, gap = 64, 4
+	local each, gap = OPTION_W, OPTION_GAP
 	local width = #options * each + (#options - 1) * gap
 	rowText(row, title, hint, width)
 	local buttons = {}
@@ -392,7 +408,7 @@ local function choiceRow(row: Instance, key: string, title: string, hint: string
 		local value, label = option[1], option[2]
 		local right = (#options - i) * (each + gap)
 		local button = switchButton(row, "Option_" .. value, each, UDim.new(1, -right))
-		button.TextSize = UIKit.TextSize.caption
+		button.TextSize = SIZE.option
 		button.MouseButton1Click:Connect(function()
 			Prefs.set(key, value)
 		end)
@@ -408,14 +424,14 @@ end
 --- A 0..100% slider for a volume pref. Drags apply live (the sound moves under your
 --- finger) and save once, on release.
 local function volumeRow(row: Instance, key: string, title: string)
-	local labelW, valueW = 112, 52
+	local labelW, valueW = 150, 64
 
 	UIKit.label(row, {
 		name = "SectionTitle",
-		position = UDim2.fromOffset(0, 8),
-		size = UDim2.fromOffset(labelW, 24),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		position = UDim2.fromOffset(0, 13),
+		size = UDim2.fromOffset(labelW, 28),
+		font = FONT,
+		textSize = SIZE.row,
 		color = UIKit.C.text,
 		text = title,
 		zIndex = 12,
@@ -423,10 +439,10 @@ local function volumeRow(row: Instance, key: string, title: string)
 	local value = UIKit.label(row, {
 		name = "Value",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 8),
-		size = UDim2.fromOffset(valueW, 24),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
+		position = UDim2.new(1, 0, 0, 13),
+		size = UDim2.fromOffset(valueW, 28),
+		font = FONT,
+		textSize = SIZE.button,
 		color = UIKit.C.dim,
 		text = "",
 		zIndex = 12,
@@ -446,7 +462,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 	track.Name = "Track"
 	track.AnchorPoint = Vector2.new(0, 0.5)
 	track.Position = UDim2.fromScale(0, 0.5)
-	track.Size = UDim2.new(1, 0, 0, 10)
+	track.Size = UDim2.new(1, 0, 0, 12)
 	track.BackgroundColor3 = UIKit.C.empty
 	track.BorderSizePixel = 0
 	track.ZIndex = 12
@@ -468,7 +484,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 	local knob = Instance.new("Frame")
 	knob.Name = "Knob"
 	knob.AnchorPoint = Vector2.new(0.5, 0.5)
-	knob.Size = UDim2.fromOffset(20, 20)
+	knob.Size = UDim2.fromOffset(24, 24)
 	knob.BackgroundColor3 = UIKit.C.text
 	knob.BorderSizePixel = 0
 	knob.ZIndex = 14
@@ -737,11 +753,11 @@ local function buildColorPicker(section: Instance)
 	end)
 
 	-- Preview swatch + hex, and the two commit buttons, in the strip under the square.
-	local footerY = SV_SIZE.Y + 18
+	local footerY = SV_SIZE.Y + 20
 
 	local swatch = Instance.new("Frame")
 	swatch.Name = "Swatch"
-	swatch.Size = UDim2.fromOffset(46, 46)
+	swatch.Size = UDim2.fromOffset(54, 54)
 	swatch.Position = UDim2.fromOffset(0, footerY)
 	swatch.BackgroundColor3 = NEUTRAL
 	swatch.BorderSizePixel = 0
@@ -758,21 +774,21 @@ local function buildColorPicker(section: Instance)
 
 	ui.hexLabel = UIKit.label(section, {
 		name = "Hex",
-		position = UDim2.fromOffset(58, footerY),
-		size = UDim2.fromOffset(120, 22),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
+		position = UDim2.fromOffset(66, footerY + 2),
+		size = UDim2.fromOffset(140, 24),
+		font = FONT,
+		textSize = SIZE.button,
 		color = UIKit.C.text,
-		text = "not set",
+		text = "Not set",
 		zIndex = 12,
 	})
 
 	ui.status = UIKit.label(section, {
 		name = "Status",
-		position = UDim2.fromOffset(58, footerY + 24),
-		size = UDim2.fromOffset(200, 18),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		position = UDim2.fromOffset(66, footerY + 30),
+		size = UDim2.fromOffset(200, 20),
+		font = FONT,
+		textSize = SIZE.hint,
 		color = UIKit.C.dim,
 		text = "",
 		zIndex = 12,
@@ -780,11 +796,11 @@ local function buildColorPicker(section: Instance)
 
 	local apply = UIKit.button(section, {
 		name = "Apply",
-		position = UDim2.fromOffset(SV_SIZE.X + GAP + HUE_W - 132, footerY),
-		size = UDim2.fromOffset(132, 34),
-		text = "APPLY",
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
+		position = UDim2.fromOffset(SV_SIZE.X + GAP + HUE_W - 170, footerY),
+		size = UDim2.fromOffset(170, SWITCH_H),
+		text = "Apply",
+		font = FONT,
+		textSize = SIZE.row,
 		color = UIKit.C.text,
 		fillColor = UIKit.C.selected,
 		fillTransparency = 0,
@@ -797,11 +813,11 @@ local function buildColorPicker(section: Instance)
 
 	local reset = UIKit.button(section, {
 		name = "Reset",
-		position = UDim2.fromOffset(SV_SIZE.X + GAP + HUE_W - 132, footerY + 42),
-		size = UDim2.fromOffset(132, 28),
-		text = "RESET TO DEFAULT",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		position = UDim2.fromOffset(SV_SIZE.X + GAP + HUE_W - 170, footerY + SWITCH_H + 8),
+		size = UDim2.fromOffset(170, 32),
+		text = "Reset to default",
+		font = FONT,
+		textSize = SIZE.hint,
 		color = UIKit.C.dim,
 		fillColor = UIKit.C.empty,
 		fillTransparency = 0.2,
@@ -818,28 +834,28 @@ local function build(): ScreenGui
 	gui.Name = "SettingsHud"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = false
-	gui.DisplayOrder = 90
+	gui.DisplayOrder = 110 -- with the other full panels (Index, Shop, Nukes): over the vitals and the tutorial banner
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button: a small gear, top-RIGHT corner — clear of the top-centre warp bar
-	-- (WarpController) and the full bottom-left dock column. The right-edge tile column
-	-- keeps below it on short screens (Dock.CORNER_BUTTON_BOTTOM is its 12 + 44).
+	-- The button: a gear tile, top-RIGHT corner — clear of the top-centre warp bar
+	-- (WarpController) and the full bottom-left dock column. The same glow-orb tile as
+	-- the right-edge column (HudTile), lifted into this gui so it sits under the topbar
+	-- inset like the panel does. The column keeps below it on short screens
+	-- (Dock.CORNER_BUTTON_BOTTOM).
 	local canvas = UIKit.canvas(gui)
 
-	local button = UIKit.button(canvas, {
+	local half = UIKit.Dock.SIDE_TILE_SIZE / 2
+	local tileGui, button = HudTile.build({
 		name = "SettingsButton",
-		size = UDim2.fromOffset(44, 44),
-		position = UDim2.new(1, -12, 0, 12),
-		anchorPoint = Vector2.new(1, 0),
-		text = "\u{2699}",
-		font = Enum.Font.SourceSansBold, -- Gotham has no gear glyph; SourceSans does
-		textSize = 26,
-		color = UIKit.C.text,
-		fillColor = UIKit.C.panel,
-		fillTransparency = 0.1,
-		cornerRadius = UIKit.Radius.card,
-		zIndex = 4,
+		caption = "Settings",
+		slot = 1,
+		position = UDim2.new(1, -12 - half, 0, 12 + half),
+		color = Color3.fromHex("9FB4C8"),
+		light = Color3.fromHex("DCE6F0"),
+		image = Artwork.IMAGE.settingsGear,
 	})
+	button.Parent = canvas
+	tileGui:Destroy()
 
 	local panel = UIKit.panel(canvas, {
 		name = "Panel",
@@ -847,7 +863,7 @@ local function build(): ScreenGui
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		color = UIKit.C.panel,
-		transparency = 0.05,
+		transparency = 0,
 		cornerRadius = UIKit.Radius.panel,
 		strokeThickness = UIKit.Stroke.thick,
 		zIndex = 10,
@@ -856,19 +872,19 @@ local function build(): ScreenGui
 	ui.panel = panel
 
 	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 20)
-	padding.PaddingBottom = UDim.new(0, 20)
-	padding.PaddingLeft = UDim.new(0, 24)
-	padding.PaddingRight = UDim.new(0, 24)
+	padding.PaddingTop = UDim.new(0, 24)
+	padding.PaddingBottom = UDim.new(0, 24)
+	padding.PaddingLeft = UDim.new(0, 28)
+	padding.PaddingRight = UDim.new(0, 28)
 	padding.Parent = panel
 
 	UIKit.label(panel, {
 		name = "Title",
-		size = UDim2.new(1, -40, 0, 40),
-		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.hero,
+		size = UDim2.new(1, -50, 0, 46),
+		font = FONT,
+		textSize = SIZE.title,
 		color = UIKit.C.text,
-		text = "SETTINGS",
+		text = "Settings",
 		zIndex = 11,
 	})
 
@@ -876,10 +892,10 @@ local function build(): ScreenGui
 		name = "Close",
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.fromScale(1, 0),
-		size = UDim2.fromOffset(32, 32),
+		size = UDim2.fromOffset(40, 40),
 		text = "X",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		font = FONT,
+		textSize = SIZE.row,
 		color = UIKit.C.text,
 		fillColor = UIKit.C.empty,
 		cornerRadius = UIKit.Radius.slot,
@@ -896,12 +912,13 @@ local function build(): ScreenGui
 	strip.Parent = panel
 
 	local TABS = { "GENERAL", "GRAPHICS", "AUDIO" }
+	local TAB_LABEL = { GENERAL = "General", GRAPHICS = "Graphics", AUDIO = "Audio" }
 	local pages: { [string]: Frame } = {}
 	local tabButtons: { [string]: TextButton } = {}
 	local function choose(name: string)
 		for tab, page in pages do
 			page.Visible = tab == name
-			paintSwitch(tabButtons[tab], tab == name, tab)
+			paintSwitch(tabButtons[tab], tab == name, TAB_LABEL[tab])
 		end
 	end
 	for i, name in TABS do
@@ -910,9 +927,9 @@ local function build(): ScreenGui
 			-- Three equal tabs with a 6px gap between them, flush to both edges.
 			position = UDim2.new((i - 1) / #TABS, (i - 1) * 2, 0, 0),
 			size = UDim2.new(1 / #TABS, -4, 1, 0),
-			text = name,
-			font = UIKit.Font.title,
-			textSize = UIKit.TextSize.body,
+			text = TAB_LABEL[name],
+			font = FONT,
+			textSize = SIZE.button,
 			color = UIKit.C.dim,
 			fillColor = UIKit.C.empty,
 			fillTransparency = 0,
@@ -954,29 +971,29 @@ local function build(): ScreenGui
 
 	UIKit.label(section, {
 		name = "SectionTitle",
-		size = UDim2.new(1, 0, 0, 24),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		size = UDim2.new(1, 0, 0, 28),
+		font = FONT,
+		textSize = SIZE.row,
 		color = UIKit.C.text,
-		text = "BASE COLOUR",
+		text = "Base colour",
 		zIndex = 12,
 	})
 
 	UIKit.label(section, {
 		name = "SectionHint",
-		position = UDim2.fromOffset(0, 24),
-		size = UDim2.new(1, 0, 0, 18),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		position = UDim2.fromOffset(0, 28),
+		size = UDim2.new(1, 0, 0, 20),
+		font = FONT,
+		textSize = SIZE.hint,
 		color = UIKit.C.dim,
-		text = "the accent on your base — trim, nameplate, station signs",
+		text = "The accent on your base: trim, nameplate, station signs",
 		zIndex = 12,
 	})
 
 	local pickerHost = Instance.new("Frame")
 	pickerHost.Name = "Picker"
-	pickerHost.Position = UDim2.fromOffset(0, 52)
-	pickerHost.Size = UDim2.new(1, 0, 1, -52)
+	pickerHost.Position = UDim2.fromOffset(0, 60)
+	pickerHost.Size = UDim2.new(1, 0, 1, -60)
 	pickerHost.BackgroundTransparency = 1
 	pickerHost.ZIndex = 11
 	pickerHost.Parent = section
@@ -986,42 +1003,42 @@ local function build(): ScreenGui
 	local y = COLOUR_SECTION_H + 8
 	buildAuraRow(row(general, "Aura", y))
 	y += step
-	choiceRow(row(general, "RareDrops", y), "rareDrops", "RARE DROPS", "the drop announcements", {
-		{ "all", "ALL" },
-		{ "mine", "MINE" },
-		{ "off", "OFF" },
+	choiceRow(row(general, "RareDrops", y), "rareDrops", "Rare drops", "Which drop alerts you see", {
+		{ "all", "All" },
+		{ "mine", "Mine" },
+		{ "off", "Off" },
 	})
 
 	-- GRAPHICS
 	local graphics = pages.GRAPHICS
 	y = 0
-	choiceRow(row(graphics, "Graphics", y), "graphics", "GRAPHICS", "low helps slower devices", {
-		{ "low", "LOW" },
-		{ "med", "MED" },
-		{ "high", "HIGH" },
+	choiceRow(row(graphics, "Graphics", y), "graphics", "Graphics", "Low helps slower devices", {
+		{ "low", "Low" },
+		{ "med", "Med" },
+		{ "high", "High" },
 	})
 	y += step
-	choiceRow(row(graphics, "RadFx", y), "radFx", "RADIATION FX", "screen effects; damage is unchanged", {
-		{ "reduced", "LESS" },
-		{ "full", "FULL" },
+	choiceRow(row(graphics, "RadFx", y), "radFx", "Radiation effects", "On-screen only; damage is unchanged", {
+		{ "reduced", "Less" },
+		{ "full", "Full" },
 	})
 	y += step
-	flagRow(row(graphics, "Shake", y), "shake", "SCREEN SHAKE", "blasts and radiation wobble")
+	flagRow(row(graphics, "Shake", y), "shake", "Screen shake", "Blasts and radiation wobble")
 	y += step
-	flagRow(row(graphics, "Flashing", y), "reduceFlashing", "REDUCE FLASHING", "dims screen flashes, slows rainbows")
+	flagRow(row(graphics, "Flashing", y), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
 	local audio = pages.AUDIO
 	y = 0
 	buildSoundRow(row(audio, "Sound", y))
 	y += step
-	volumeRow(row(audio, "Master", y), "volMaster", "MASTER")
+	volumeRow(row(audio, "Master", y), "volMaster", "Master")
 	y += step
-	volumeRow(row(audio, "Effects", y), "volSfx", "EFFECTS")
+	volumeRow(row(audio, "Effects", y), "volSfx", "Effects")
 	y += step
-	volumeRow(row(audio, "Interface", y), "volUi", "INTERFACE")
+	volumeRow(row(audio, "Interface", y), "volUi", "Interface")
 	y += step
-	volumeRow(row(audio, "Geiger", y), "volGeiger", "GEIGER")
+	volumeRow(row(audio, "Geiger", y), "volGeiger", "Geiger")
 
 	choose("GENERAL")
 
