@@ -39,6 +39,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local DigService = require(script.Parent.DigService)
 local WashService = require(script.Parent.WashService)
 local LiquidService = require(script.Parent.LiquidService)
+local CarryService = require(script.Parent.CarryService)
 
 local CrateService = {}
 
@@ -101,7 +102,12 @@ local function openNuke(player: Player, data: any, crateId: string)
 		reel[i] = { itemId = id, name = entry.name, rarity = entry.rarity }
 	end
 
-	local value = EconomyService.valueOf(carried, StatResolver.get(data))
+	local stats = StatResolver.get(data)
+	local value = EconomyService.valueOf(carried, stats)
+	-- The prize as the hotbar describes it (CarryService.describe), so the result
+	-- sheet's kg, $/s and bomb stats (Shared/Bombing.statsFor on the client) are the
+	-- very numbers its hotbar card will show.
+	local described = CarryService.describe(carried, stats)
 	opening[player] = true
 	openedRemote:FireClient(player, {
 		crate = crateId,
@@ -115,6 +121,15 @@ local function openNuke(player: Player, data: any, crateId: string)
 		modifier = carried.modifier,
 		value = value,
 		firstFind = first,
+		item = {
+			uid = described.uid,
+			itemId = itemId,
+			rarity = described.rarity,
+			modifier = described.modifier,
+			bonus = described.bonus,
+			weight = described.weight,
+			perSecond = described.perSecond,
+		},
 	})
 	print(`[crate] {player.Name} opened a {Crates.get(crateId).name}: {carried.modifier} {def.rarity} {def.name}`)
 

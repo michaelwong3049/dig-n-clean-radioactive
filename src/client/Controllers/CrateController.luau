@@ -47,6 +47,15 @@
 	    preload pauses while a crate is open), and the landing waits up to PRIZE_WAIT
 	    for them.
 
+	THE RESULT IS A STAT SHEET (mockup option 2). On landing the nuke glides left and a
+	sheet slides in on the right: the name with its kg beside it (big, on request), the
+	tier / modifier / NEW FIND chips, a 10-star row that fills in, EARNS and WORTH, and
+	bars for damage, radius and fuse -- each against the best a nuke from that nuke's
+	home stage can roll -- then cooldown and the flavour line. The numbers come from the
+	same `CarryService.describe` record the hotbar gets (CrateOpen's `item`) run
+	through the same Shared/Bombing.statsFor the hotbar card uses, so the sheet and the
+	card can never disagree.
+
 	THE MESHES ARE PRELOADED BEFORE YOU OPEN ANYTHING. A nuke whose mesh this client has
 	never downloaded draws as nothing the first time it flicks past (the Clockwork and
 	Reactor nukes showed as an empty glow in testing). So the imported nuke templates
@@ -59,6 +68,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local TextService = game:GetService("TextService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -70,6 +80,9 @@ local Crates = require(Shared.Config.Crates)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
+local Bombing = require(Shared.Bombing)
+local BombConfig = require(Shared.Config.Bombing)
+local Detonation = require(Shared.Detonation)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -83,7 +96,6 @@ local CrateController = {}
 
 local INK = Color3.fromHex("0B0E09")
 local CHIP_FILL = Color3.fromHex("1B2217")
-local CHIP_STROKE = Color3.fromHex("2D3827")
 local HOT_STROKE = Color3.fromHex("FF8A4C")
 local HOT_TEXT = Color3.fromHex("FFB38A")
 
@@ -95,7 +107,17 @@ local VIEW_X = 640
 local VIEW_Y = 272
 local VIEW = 300
 local RAY_COUNT = 9
-local HOLD_SECONDS = 3.2
+local HOLD_SECONDS = 5
+--- Where the nuke glides to when the sheet comes in, and the sheet itself (design px).
+local SHEET_VIEW_X = 400
+local SHEET_VIEW_Y = 330
+local SHEET_X = 640
+local SHEET_W = 560
+local SHEET_H = 484
+local SHEET_PAD = 24
+local STAR_SIZE = 30
+local GOLD = Color3.fromHex("FFD34D")
+local MONEY = Color3.fromHex("4ADE80")
 local FADE_SECONDS = 0.25
 local REEL_FROM = 3
 local OVERSHOOT = 0.35
@@ -510,6 +532,218 @@ local function buildView(root: Frame)
 	round(shadow, UDim.new(0.5, 0))
 end
 
+--- A left-to-right row of pills.
+local function chipRow(parent: Instance, name: string, size: UDim2, position: UDim2): Frame
+	local row = plainFrame(parent, name, size, position, Vector2.zero)
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 8)
+	layout.Parent = row
+	return row
+end
+
+--- A caption over a value, in a tinted box (EARNS, WORTH).
+local function moneyBox(parent: Instance, name: string, x: number, caption: string, fill: Color3, captionColour: Color3, valueColour: Color3): TextLabel
+	local box = UIKit.panel(parent, {
+		name = name,
+		size = UDim2.fromOffset((SHEET_W - 2 * SHEET_PAD - 16) / 2, 84),
+		position = UDim2.fromOffset(x, 164),
+		color = fill,
+		transparency = 0,
+		cornerRadius = UDim.new(0, 14),
+		strokeColor = UIKit.C.outline,
+		strokeThickness = 2,
+	})
+	UIKit.label(box, {
+		name = "Caption",
+		size = UDim2.new(1, -24, 0, 20),
+		position = UDim2.fromOffset(14, 10),
+		text = caption,
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.caption,
+		color = captionColour,
+		outline = false,
+		strokeTransparency = 1,
+	})
+	return UIKit.label(box, {
+		name = "Value",
+		size = UDim2.new(1, -24, 0, 40),
+		position = UDim2.fromOffset(14, 32),
+		text = "",
+		font = UIKit.Font.hero,
+		textSize = 30,
+		color = valueColour,
+	})
+end
+
+--- One stat with a bar under it. Returns the value label and the bar's fill.
+local function statBar(parent: Instance, name: string, y: number): (TextLabel, Frame)
+	UIKit.label(parent, {
+		name = `{name}Caption`,
+		size = UDim2.fromOffset(200, 20),
+		position = UDim2.fromOffset(SHEET_PAD, y),
+		text = string.upper(name),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		outline = false,
+		strokeTransparency = 1,
+	})
+	local value = UIKit.label(parent, {
+		name = `{name}Value`,
+		size = UDim2.fromOffset(200, 20),
+		position = UDim2.new(1, -SHEET_PAD, 0, y),
+		anchorPoint = Vector2.new(1, 0),
+		text = "",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.body,
+		xAlign = Enum.TextXAlignment.Right,
+	})
+	local track = UIKit.panel(parent, {
+		name = `{name}Track`,
+		size = UDim2.new(1, -2 * SHEET_PAD, 0, 10),
+		position = UDim2.fromOffset(SHEET_PAD, y + 24),
+		color = UIKit.C.empty,
+		transparency = 0,
+		cornerRadius = UDim.new(1, 0),
+		strokeThickness = 0,
+	})
+	local fill = UIKit.panel(track, {
+		name = "Fill",
+		size = UDim2.fromScale(0, 1),
+		color = Color3.new(1, 1, 1),
+		transparency = 0,
+		cornerRadius = UDim.new(1, 0),
+		strokeThickness = 0,
+	})
+	return value, fill
+end
+
+--- The result sheet (mockup option 2), hidden until a landing. A CanvasGroup so the
+--- whole sheet fades in as one.
+local function buildSheet(root: Frame)
+	local sheet = Instance.new("CanvasGroup")
+	sheet.Name = "Sheet"
+	sheet.BackgroundColor3 = UIKit.C.panel
+	sheet.BackgroundTransparency = 0.06
+	sheet.BorderSizePixel = 0
+	sheet.Size = UDim2.fromOffset(SHEET_W, SHEET_H)
+	sheet.Position = UDim2.fromOffset(SHEET_X, SHEET_VIEW_Y)
+	sheet.AnchorPoint = Vector2.new(0, 0.5)
+	sheet.ZIndex = 5
+	sheet.Visible = false
+	sheet.Parent = root
+	round(sheet, UDim.new(0, 22))
+	ui.sheetStroke = outline(sheet, UIKit.C.outline, 3)
+	ui.sheet = sheet
+
+	-- The name with its kg right beside it, bigger than the old corner readout, on
+	-- request. Both size to their text; `paintSheet` shrinks the name to make room.
+	local titleRow = plainFrame(sheet, "Title", UDim2.new(1, -2 * SHEET_PAD, 0, 52), UDim2.fromOffset(SHEET_PAD, 18), Vector2.zero)
+	local titleLayout = Instance.new("UIListLayout")
+	titleLayout.FillDirection = Enum.FillDirection.Horizontal
+	titleLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	titleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	titleLayout.Padding = UDim.new(0, 14)
+	titleLayout.Parent = titleRow
+	ui.sheetName = UIKit.label(titleRow, {
+		name = "NukeName",
+		size = UDim2.fromOffset(0, 52),
+		text = "",
+		font = UIKit.Font.hero,
+		textSize = 40,
+		-- No drop-shadow copy: it keeps its first TextSize, and the name shrinks to fit.
+		shadow = false,
+	})
+	ui.sheetName.AutomaticSize = Enum.AutomaticSize.X
+	ui.sheetName.LayoutOrder = 1
+	ui.sheetKg = UIKit.label(titleRow, {
+		name = "Kg",
+		size = UDim2.fromOffset(0, 52),
+		text = "",
+		font = UIKit.Font.hero,
+		textSize = 30,
+		color = GOLD,
+	})
+	ui.sheetKg.AutomaticSize = Enum.AutomaticSize.X
+	ui.sheetKg.LayoutOrder = 2
+
+	ui.sheetChips = chipRow(sheet, "Chips", UDim2.new(1, -2 * SHEET_PAD, 0, 28), UDim2.fromOffset(SHEET_PAD, 76))
+
+	-- Ten star slots: a dim star, and a lit one clipped to how much of it is earned
+	-- (Rarity.stars comes in half steps), each popping in when the sheet lands.
+	local starRow = plainFrame(sheet, "Stars", UDim2.new(1, -2 * SHEET_PAD, 0, STAR_SIZE), UDim2.fromOffset(SHEET_PAD, 118), Vector2.zero)
+	ui.stars = {}
+	for index = 1, 10 do
+		local slot = plainFrame(starRow, `Star{index}`, UDim2.fromOffset(STAR_SIZE, STAR_SIZE), UDim2.fromOffset((index - 1) * (STAR_SIZE + 4), 0), Vector2.zero)
+		local pop = Instance.new("UIScale")
+		pop.Parent = slot
+		local function glyph(parent: Instance, colour: Color3, transparency: number): TextLabel
+			local label = UIKit.label(parent, {
+				name = "Glyph",
+				size = UDim2.fromOffset(STAR_SIZE, STAR_SIZE),
+				text = "\u{2605}",
+				font = UIKit.Font.hero,
+				textSize = STAR_SIZE,
+				color = colour,
+				xAlign = Enum.TextXAlignment.Center,
+				shadow = false,
+			})
+			label.TextTransparency = transparency
+			return label
+		end
+		glyph(slot, Color3.new(1, 1, 1), 0.82)
+		local clip = plainFrame(slot, "Lit", UDim2.fromScale(0, 1), UDim2.fromScale(0, 0), Vector2.zero)
+		clip.ClipsDescendants = true
+		glyph(clip, GOLD, 0)
+		ui.stars[index] = { lit = clip, pop = pop }
+	end
+
+	local boxWidth = (SHEET_W - 2 * SHEET_PAD - 16) / 2
+	ui.sheetEarns = moneyBox(sheet, "Earns", SHEET_PAD, "EARNS", Color3.fromHex("14301C"), Color3.fromHex("86EFAC"), MONEY)
+	ui.sheetWorth = moneyBox(sheet, "Worth", SHEET_PAD + boxWidth + 16, "WORTH", Color3.fromHex("2A2410"), Color3.fromHex("FDE68A"), GOLD)
+
+	ui.bars = {}
+	for index, name in { "Damage", "Radius", "Fuse" } do
+		local value, fill = statBar(sheet, name, 268 + (index - 1) * 46)
+		ui.bars[index] = { value = value, fill = fill }
+	end
+	UIKit.label(sheet, {
+		name = "CooldownCaption",
+		size = UDim2.fromOffset(200, 20),
+		position = UDim2.fromOffset(SHEET_PAD, 406),
+		text = "COOLDOWN",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		outline = false,
+		strokeTransparency = 1,
+	})
+	ui.sheetCooldown = UIKit.label(sheet, {
+		name = "CooldownValue",
+		size = UDim2.fromOffset(200, 20),
+		position = UDim2.new(1, -SHEET_PAD, 0, 406),
+		anchorPoint = Vector2.new(1, 0),
+		text = "",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.body,
+		xAlign = Enum.TextXAlignment.Right,
+	})
+	ui.sheetFlavour = UIKit.label(sheet, {
+		name = "Flavour",
+		size = UDim2.new(1, -2 * SHEET_PAD, 0, 40),
+		position = UDim2.fromOffset(SHEET_PAD, 434),
+		text = "",
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.body - 1,
+		color = Color3.fromHex("C9D3C2"),
+	})
+	ui.sheetFlavour.TextWrapped = true
+	ui.sheetFlavour.TextYAlignment = Enum.TextYAlignment.Top
+end
+
 local function buildResult(root: Frame)
 	local top = VIEW_Y + VIEW / 2 + 22
 	ui.header = UIKit.label(root, {
@@ -548,65 +782,8 @@ local function buildResult(root: Frame)
 	ui.cycleTierPill.AnchorPoint = Vector2.new(0.5, 0)
 	ui.cycleTierPill.Position = UDim2.fromScale(0.5, 0)
 
-	local result = plainFrame(root, "Result", UDim2.fromOffset(760, 180), UDim2.fromOffset(VIEW_X, top - 6), Vector2.new(0.5, 0))
-	result.ZIndex = 5
-	result.Visible = false
-	ui.result = result
 	ui.sparks = {}
-
-	local nameBox = plainFrame(result, "NameBox", UDim2.fromOffset(760, 56), UDim2.fromScale(0.5, 0), Vector2.new(0.5, 0))
-	ui.nameBox = nameBox
-	ui.nameScale = Instance.new("UIScale")
-	ui.nameScale.Parent = nameBox
-	ui.name = UIKit.label(nameBox, {
-		name = "NukeName",
-		size = UDim2.fromScale(1, 1),
-		text = "",
-		font = UIKit.Font.hero,
-		textSize = 48,
-		xAlign = Enum.TextXAlignment.Center,
-	})
-
-	local tierBox = plainFrame(result, "TierBox", UDim2.fromOffset(240, 26), UDim2.new(0.5, 0, 0, 60), Vector2.new(0.5, 0))
-	ui.tierScale = Instance.new("UIScale")
-	ui.tierScale.Parent = tierBox
-	ui.tierPill, ui.tierText = pill(tierBox, "Tier", "", UIKit.TextSize.caption, 26, UIKit.C.dim, INK)
-	ui.tierPill.AnchorPoint = Vector2.new(0.5, 0)
-	ui.tierPill.Position = UDim2.fromScale(0.5, 0)
-
-	ui.flavour = UIKit.label(result, {
-		name = "Flavour",
-		size = UDim2.fromOffset(720, 20),
-		position = UDim2.new(0.5, 0, 0, 94),
-		anchorPoint = Vector2.new(0.5, 0),
-		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
-		color = Color3.fromHex("C9D3C2"),
-		xAlign = Enum.TextXAlignment.Center,
-	})
-
-	local chips = plainFrame(result, "Chips", UDim2.fromOffset(760, 30), UDim2.new(0.5, 0, 0, 122), Vector2.new(0.5, 0))
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 6)
-	layout.Parent = chips
-	ui.chips = chips
-
-	ui.detail = UIKit.label(result, {
-		name = "Detail",
-		size = UDim2.fromOffset(720, 20),
-		position = UDim2.new(0.5, 0, 0, 160),
-		anchorPoint = Vector2.new(0.5, 0),
-		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
-		color = UIKit.C.dim,
-		xAlign = Enum.TextXAlignment.Center,
-	})
+	buildSheet(root)
 end
 
 local function build()
@@ -732,7 +909,7 @@ local function animateAmbient(dt: number)
 end
 
 --- Sparks flying out of the crate in the rarity's colour and the crate's.
-local function burst(primary: Color3, secondary: Color3, count: number, spread: number)
+local function burst(primary: Color3, secondary: Color3, count: number, spread: number, origin: Vector2)
 	local palette = { primary, primary, secondary, Color3.new(1, 1, 1) }
 	for index = 1, count do
 		local size = math.random(6, 16)
@@ -742,7 +919,7 @@ local function burst(primary: Color3, secondary: Color3, count: number, spread: 
 		spark.BackgroundColor3 = palette[(index % #palette) + 1]
 		spark.Size = UDim2.fromOffset(size, size)
 		spark.AnchorPoint = Vector2.new(0.5, 0.5)
-		spark.Position = UDim2.fromOffset(VIEW_X, VIEW_Y)
+		spark.Position = UDim2.fromOffset(origin.X, origin.Y)
 		spark.Rotation = math.random(0, 90)
 		spark.ZIndex = 6
 		spark.Parent = ui.root
@@ -752,8 +929,8 @@ local function burst(primary: Color3, secondary: Color3, count: number, spread: 
 		local speed = spread * (0.4 + 0.6 * math.random())
 		table.insert(ui.sparks, {
 			frame = spark,
-			x = VIEW_X,
-			y = VIEW_Y,
+			x = origin.X,
+			y = origin.Y,
 			vx = math.cos(angle) * speed,
 			vy = math.sin(angle) * speed - spread * 0.35,
 			size = size,
@@ -783,31 +960,151 @@ local function close(token: number)
 	end)
 end
 
-local function fillChips(payload: any): { Frame }
-	for _, child in ui.chips:GetChildren() do
+--- The sheet's chips: the tier, then the modifier and NEW FIND when there are any.
+local function fillChips(payload: any, colour: Color3): { Frame }
+	for _, child in ui.sheetChips:GetChildren() do
 		if child:IsA("Frame") then
 			child:Destroy()
 		end
 	end
+	local made = {}
+	local tier = pill(ui.sheetChips, "Tier", string.upper(payload.rarity or ""), UIKit.TextSize.caption, 26, colour, INK)
+	tier.LayoutOrder = 1
+	table.insert(made, tier)
 	local specs = {}
 	if payload.modifier and payload.modifier ~= "None" then
-		local label = string.upper(payload.modifier)
-		table.insert(specs, { text = label, hot = true })
-	end
-	if type(payload.value) == "number" then
-		table.insert(specs, { text = `WORTH {formatCash(payload.value)}`, hot = false })
+		table.insert(specs, string.upper(payload.modifier))
 	end
 	if payload.firstFind then
-		table.insert(specs, { text = "NEW FIND", hot = true })
+		table.insert(specs, "NEW FIND")
 	end
-	local made = {}
-	for index, spec in specs do
-		local chip = pill(ui.chips, `Chip{index}`, spec.text, UIKit.TextSize.body, 30, CHIP_FILL, if spec.hot then HOT_TEXT else UIKit.C.text)
-		chip.LayoutOrder = index
-		outline(chip, if spec.hot then HOT_STROKE else CHIP_STROKE, 2)
+	for index, text in specs do
+		local chip = pill(ui.sheetChips, `Chip{index}`, text, UIKit.TextSize.caption, 26, CHIP_FILL, HOT_TEXT)
+		chip.LayoutOrder = index + 1
+		outline(chip, HOT_STROKE, 2)
 		table.insert(made, chip)
 	end
 	return made
+end
+
+--- "$2.00/s" up to "$1.2T/s", the hotbar card's ladder (InventoryController.formatRate).
+local function formatRate(perSecond: number): string
+	if perSecond >= 1_000_000_000_000 then
+		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)
+	elseif perSecond >= 1_000_000_000 then
+		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
+	elseif perSecond >= 1_000_000 then
+		return string.format("$%.1fM/s", perSecond / 1_000_000)
+	elseif perSecond >= 1000 then
+		return string.format("$%.1fK/s", perSecond / 1000)
+	elseif perSecond >= 100 then
+		return string.format("$%.0f/s", perSecond)
+	elseif perSecond >= 10 then
+		return string.format("$%.1f/s", perSecond)
+	end
+	return string.format("$%.2f/s", perSecond)
+end
+
+--- How far along each bar runs: the stat against the best a nuke from this one's home
+--- stage can roll (top-power row x the stage's multiplier x the biggest size roll x the
+--- top of the variance). Fuse is the other way round: shorter is better.
+local function barFractions(itemId: string?, stats: any): (number, number, number)
+	local homeStage = 1
+	if itemId and Items.has(itemId) then
+		homeStage = Items.homeStage(Items.get(itemId))
+	end
+	local hitMult, radiusMult = Detonation.stageMults(homeStage)
+	local top = BombConfig.SIZE_MAX * (1 + BombConfig.VARIANCE)
+	local damage = stats.damage / (BombConfig.DAMAGE[#BombConfig.DAMAGE] * hitMult * top)
+	local radius = stats.radius / (BombConfig.RADIUS[#BombConfig.RADIUS] * radiusMult * top)
+	local slowest = BombConfig.FUSE_BY_RARITY[1] + BombConfig.FUSE_SPREAD + (BombConfig.FUSE_SIZE_BONUS.GIGA or 0)
+	local fastest = BombConfig.FUSE_BY_RARITY[#BombConfig.FUSE_BY_RARITY] - BombConfig.FUSE_SPREAD
+	local fuse = (slowest - stats.fuse) / (slowest - fastest)
+	return math.clamp(damage, 0.06, 1), math.clamp(radius, 0.06, 1), math.clamp(fuse, 0.06, 1)
+end
+
+--- Fill the sheet from a CrateOpen payload and play it in: slide + fade, the stars
+--- popping in one by one, the bars growing.
+local function paintSheet(payload: any, colour: Color3)
+	local item = if type(payload.item) == "table" then payload.item else { rarity = payload.rarity, itemId = payload.result }
+	local bomberMult = Players.LocalPlayer:GetAttribute("MasteryBombDamage")
+	local stats = Bombing.statsFor(item, if type(bomberMult) == "number" then bomberMult else nil)
+
+	-- Name and kg on one line: the kg keeps its size and the name shrinks to fit.
+	local kgText = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""
+	ui.sheetKg.Text = kgText
+	local room = SHEET_W - 2 * SHEET_PAD - 14
+		- TextService:GetTextSize(kgText, 30, UIKit.Font.hero, Vector2.new(10000, 100)).X - 6
+	local name = payload.name or ""
+	local size = 40
+	while size > 22 and TextService:GetTextSize(name, size, UIKit.Font.hero, Vector2.new(10000, 100)).X > room do
+		size -= 2
+	end
+	ui.sheetName.TextSize = size
+	ui.sheetName.Text = name
+	ui.sheetName.TextColor3 = colour
+	ui.sheetStroke.Color = colour:Lerp(UIKit.C.outline, 0.45)
+
+	local chips = fillChips(payload, colour)
+	for index, chip in chips do
+		local grow = Instance.new("UIScale")
+		grow.Scale = 0
+		grow.Parent = chip
+		task.delay(0.3 + index * 0.08, function()
+			tween(grow, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+		end)
+	end
+
+	local stars = tonumber(stats.stars) or 1
+	for index, star in ui.stars do
+		local earned = math.clamp(stars - (index - 1), 0, 1)
+		earned = if earned >= 1 then 1 elseif earned >= 0.5 then 0.5 else 0
+		star.lit.Size = UDim2.fromScale(earned, 1)
+		if earned > 0 then
+			star.pop.Scale = 0.01
+			task.delay(0.45 + index * 0.07, function()
+				tween(star.pop, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+			end)
+		else
+			star.pop.Scale = 1
+		end
+	end
+
+	if type(item.perSecond) == "number" then
+		ui.sheetEarns.Text = formatRate(item.perSecond)
+		ui.sheetEarns.TextColor3 = MONEY
+	else
+		ui.sheetEarns.Text = "NOTHING"
+		ui.sheetEarns.TextColor3 = UIKit.C.dim
+	end
+	ui.sheetWorth.Text = if type(payload.value) == "number" then formatCash(payload.value) else "?"
+
+	local damage, radius, fuse = barFractions(item.itemId, stats)
+	local rows = {
+		{ text = tostring(stats.damage), fraction = damage },
+		{ text = `{stats.radius} studs`, fraction = radius },
+		{ text = `{stats.fuse}s`, fraction = fuse },
+	}
+	for index, row in rows do
+		local bar = ui.bars[index]
+		bar.value.Text = row.text
+		bar.fill.BackgroundColor3 = colour
+		bar.fill.Size = UDim2.fromScale(0, 1)
+		task.delay(0.5 + index * 0.1, function()
+			tween(bar.fill, 0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Size = UDim2.fromScale(row.fraction, 1) })
+		end)
+	end
+	ui.sheetCooldown.Text = `{stats.cooldown}s`
+	ui.sheetFlavour.Text = payload.flavor or ""
+
+	local sheet = ui.sheet
+	sheet.Position = UDim2.fromOffset(SHEET_X + 50, SHEET_VIEW_Y)
+	sheet.GroupTransparency = 1
+	sheet.Visible = true
+	tween(sheet, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, {
+		Position = UDim2.fromOffset(SHEET_X, SHEET_VIEW_Y),
+		GroupTransparency = 0,
+	})
 end
 
 local function reveal(payload: any, token: number)
@@ -843,44 +1140,17 @@ local function reveal(payload: any, token: number)
 	ui.ring.Transparency = 0.15
 	tween(ui.ringFrame, 0.7, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Size = UDim2.fromOffset(VIEW * 1.7, VIEW * 1.7) })
 	tween(ui.ring, 0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Thickness = 1, Transparency = 1 })
-	burst(colour, crateColour, 22 + rank * 7, 240 + rank * 25)
+	-- The nuke glides left to make room for the sheet, and everything that hangs off
+	-- its centre (glow, rays, ring) goes with it; the sparks burst from where it lands.
+	local glide = UDim2.fromOffset(SHEET_VIEW_X, SHEET_VIEW_Y)
+	for _, thing in { ui.viewHolder, ui.rays, ui.bloom, ui.ringFrame } do
+		tween(thing, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Position = glide })
+	end
+	burst(colour, crateColour, 22 + rank * 7, 240 + rank * 25, Vector2.new(SHEET_VIEW_X, SHEET_VIEW_Y))
 	ui.land.PlaybackSpeed = 0.85 + 0.07 * rank
 	ui.land:Play()
 
-	ui.tierPill.BackgroundColor3 = colour
-	ui.tierText.Text = string.upper(payload.rarity or "")
-	ui.name.Text = payload.name or ""
-	ui.name.TextColor3 = colour
-	ui.flavour.Text = payload.flavor or ""
-	ui.detail.Text = "sealed and clean \u{2014} in your bag, ready to sell or display"
-	local chips = fillChips(payload)
-	ui.result.Visible = true
-
-	-- The name eases up and fades in rather than slamming down from twice its size;
-	-- the tier chip pops in just after it.
-	ui.nameScale.Scale = 1.15
-	tween(ui.nameScale, 0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Scale = 1 })
-	ui.nameBox.Position = UDim2.new(0.5, 0, 0, 18)
-	tween(ui.nameBox, 0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Position = UDim2.fromScale(0.5, 0) })
-	ui.name.TextTransparency = 1
-	tween(ui.name, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { TextTransparency = 0 })
-	local nameStroke = ui.name:FindFirstChildOfClass("UIStroke")
-	if nameStroke then
-		nameStroke.Transparency = 1
-		tween(nameStroke, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 0 })
-	end
-	ui.tierScale.Scale = 0.01
-	task.delay(0.12, function()
-		tween(ui.tierScale, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-	end)
-	for index, chip in chips do
-		local grow = Instance.new("UIScale")
-		grow.Scale = 0
-		grow.Parent = chip
-		task.delay(0.15 + index * 0.09, function()
-			tween(grow, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-		end)
-	end
+	paintSheet(payload, colour)
 
 	task.delay(HOLD_SECONDS, close, token)
 end
@@ -1008,11 +1278,15 @@ local function play(payload: any)
 	local first = reel[from]
 	ui.header.Text = string.upper(crate.name)
 	ui.header.TextColor3 = Color3.fromHex(crate.color)
-	ui.result.Visible = false
+	ui.sheet.Visible = false
 	ui.cycle.Visible = true
 	ui.cycle.Text = ""
 	ui.cycleTier.Visible = false
 	ui.viewHolder.Position = ui.viewHome
+	local centre = UDim2.fromOffset(VIEW_X, VIEW_Y)
+	ui.rays.Position = centre
+	ui.bloom.Position = centre
+	ui.ringFrame.Position = centre
 	ui.viewScale.Scale = 1
 	for _, bar in ui.rayBars do
 		bar.BackgroundTransparency = 0.82
