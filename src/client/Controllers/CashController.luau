@@ -47,15 +47,22 @@
 	NO INCOME LINE. A pale-green "+$/s" used to hang under the balance (IncomeState);
 	the user asked for it gone. Stand payouts still pop their small quiet "+$X" off the
 	balance, so the income stays visible as it lands.
+
+	2x CASH TIME (Config/CashBoost, bought in a pack) is a small green pill over the
+	bundle's top edge: "2x 59:12", or "4x" when the 2x Cash pass stacks on it. It reads
+	the end time CashBoostService puts on the Player and shows only while one runs.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
+local CashBoost = require(Shared.Config.CashBoost)
+local GamePasses = require(Shared.Config.GamePasses)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -97,6 +104,14 @@ local LAYOUT = {
 	valueMinTextSize = 28, -- floor for setValueText's shrink-to-fit
 	valueStroke = 3.5, -- 6 was asked to be thinner, then 4 scaled with the text
 	textDrop = Vector2.new(2, 3),
+}
+
+-- The 2x cash pill over the bundle, in the clover pill's green.
+local BOOST_PILL = {
+	width = 84,
+	height = 22,
+	textSize = 15,
+	color = Color3.fromHex("2E7D32"),
 }
 
 local COUNT_TWEEN = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -202,6 +217,34 @@ local function build(): ScreenGui
 	end)
 
 	Artwork.droppedPicture(badge, "Bundle", Artwork.IMAGE.cashBundle, L.icon, L.iconDrop, 3)
+
+	-- The 2x cash pill, over the bundle (see the header). Hidden until a boost runs.
+	local pill = UIKit.panel(badge, {
+		name = "CashBoost",
+		size = UDim2.fromOffset(BOOST_PILL.width, BOOST_PILL.height),
+		-- Over the bundle's top edge: the row sits on the screen's bottom edge, so
+		-- the foot would be cut off.
+		position = UDim2.fromOffset(0, 6),
+		anchorPoint = Vector2.new(0, 0.5),
+		color = BOOST_PILL.color,
+		transparency = 0,
+		cornerRadius = UDim.new(0.5, 0),
+		strokeColor = INK,
+		strokeThickness = 2,
+		zIndex = 12,
+	})
+	pill.Visible = false
+	ui.boostPill = pill
+	ui.boostText = UIKit.label(pill, {
+		name = "Time",
+		size = UDim2.fromScale(1, 1),
+		font = STYLE.valueFont,
+		textSize = BOOST_PILL.textSize,
+		color = WHITE,
+		shadow = false,
+		text = "",
+		zIndex = 13,
+	})
 
 	ui.value = UIKit.hudNumber(badge, {
 		name = "Value",
@@ -402,10 +445,39 @@ local function setBalance(amount: number, source: string?)
 	end
 end
 
+--- Show, count down or hide the 2x cash pill off CashBoostService's end time.
+local function refreshBoost()
+	local player = Players.LocalPlayer
+	local ends = player:GetAttribute(CashBoost.PERSONAL_ATTR)
+	local left = if type(ends) == "number" then ends - Workspace:GetServerTimeNow() else 0
+	if left <= 0 then
+		ui.boostPill.Visible = false
+		return
+	end
+	local s = math.ceil(left)
+	local h, m, r = s // 3600, (s % 3600) // 60, s % 60
+	local clock = if h > 0 then string.format("%d:%02d:%02d", h, m, r) else string.format("%d:%02d", m, r)
+	local mult = CashBoost.MULT * (if player:GetAttribute(GamePasses.attr("cash")) == true then GamePasses.CASH else 1)
+	ui.boostText.Text = `{mult}x {clock}`
+	ui.boostPill.Visible = true
+end
+
 function Cash.start()
 	local player = Players.LocalPlayer
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")
+
+	player:GetAttributeChangedSignal(CashBoost.PERSONAL_ATTR):Connect(refreshBoost)
+	player:GetAttributeChangedSignal(GamePasses.attr("cash")):Connect(refreshBoost)
+	refreshBoost()
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if ui.boostPill.Visible then
+				refreshBoost()
+			end
+		end
+	end)
 
 	Net.get("CashState").OnClientEvent:Connect(function(amount: number, source: string?)
 		setBalance(amount or 0, source)

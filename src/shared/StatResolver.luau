@@ -33,6 +33,7 @@ local Liquids = require(Config.Liquids)
 local Treadmill = require(Config.Treadmill)
 local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
+local CashBoost = require(Config.CashBoost)
 local IndexProgress = require(script.Parent.IndexProgress)
 local Mastery = require(script.Parent.Mastery)
 
@@ -58,6 +59,9 @@ export type Profile = {
 	-- Banked seconds of the bought Lucky Clover (Config/LuckBoost). Optional for the
 	-- same reason as the two above; absent means no clover running.
 	luckBoostLeft: number?,
+	-- Banked seconds of 2x cash from a pack (Config/CashBoost). Optional for the same
+	-- reason; absent means none running.
+	cashBoostLeft: number?,
 	-- The index's found set (itemId -> true). Optional for the same reason; absent
 	-- means no stage complete, so no index cash bonus.
 	discovered: { [string]: boolean }?,
@@ -187,7 +191,9 @@ function StatResolver.get(profile: Profile): Stats
 	-- roll and the wash pad exactly like the aurora and the clover (Config/GamePasses).
 	local luckBoost = LuckBoost.multiplier(StatResolver.luckEventActive(), (profile.luckBoostLeft or 0) > 0)
 		* (if GamePasses.owns(profile, "luck") then GamePasses.LUCK else 1)
-	local passCash = if GamePasses.owns(profile, "cash") then GamePasses.CASH else 1
+	-- The 2x Cash pass and a pack's timed 2x cash stack (x4), like luck's sources do.
+	local passCash = (if GamePasses.owns(profile, "cash") then GamePasses.CASH else 1)
+		* CashBoost.multiplier((profile.cashBoostLeft or 0) > 0)
 	local liquidId, liquid = liquidFor(profile)
 	-- A completed stage's index pays in cash (Tuning.INDEX_COMPLETE_CASH), on every
 	-- sale and every stand's income alike -- both multipliers below take it.

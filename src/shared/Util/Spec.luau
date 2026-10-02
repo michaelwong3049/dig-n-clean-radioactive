@@ -38,6 +38,8 @@ local Treadmill = require(Config.Treadmill)
 local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
+local CashBoost = require(Config.CashBoost)
+local Packs = require(Config.Packs)
 local RareDrop = require(Config.RareDrop)
 local Masteries = require(Config.Masteries)
 local Crates = require(Config.Crates)
@@ -2626,6 +2628,67 @@ function Spec.run(): boolean
 				seen[pass.key] = true
 			end
 			check("§pass every pass has its own key and id", unique)
+		end
+
+		-- A pack's timed 2x cash (Config/CashBoost): both payouts double, nothing else
+		-- moves, it stacks with the 2x Cash pass (x4), and spent time is no boost.
+		do
+			local boosted = StatResolver.get({ level = 1, gear = {}, perks = {}, cashBoostLeft = 60 })
+			local both = StatResolver.get({ level = 1, gear = {}, perks = {}, cashBoostLeft = 60, passes = { cash = true } })
+			local spent = StatResolver.get({ level = 1, gear = {}, perks = {}, cashBoostLeft = 0 })
+			check(
+				"§cashboost doubles sales and stand income and nothing else",
+				math.abs(boosted.sellMultiplier / plain.sellMultiplier - CashBoost.MULT) < 1e-9
+					and math.abs(boosted.yieldMultiplier / plain.yieldMultiplier - CashBoost.MULT) < 1e-9
+					and boosted.luckBoost == plain.luckBoost
+					and boosted.capacity == plain.capacity
+			)
+			check(
+				"§cashboost stacks with the 2x Cash pass",
+				math.abs(both.sellMultiplier / plain.sellMultiplier - CashBoost.MULT * GamePasses.CASH) < 1e-9
+			)
+			check("§cashboost spent time is no boost", spent.sellMultiplier == plain.sellMultiplier)
+		end
+
+		-- The packs (Config/Packs): real crates, own keys and ids, and the contents the
+		-- user named (2026-10-02).
+		do
+			local ok, seen = true, {}
+			for _, pack in Packs.PACKS do
+				if seen[pack.key] or seen[pack.id] then
+					ok = false
+				end
+				seen[pack.key] = true
+				seen[pack.id] = true
+				for _, crateId in pack.crates do
+					if not Crates.has(crateId) then
+						ok = false
+					end
+				end
+			end
+			check("§pack every pack has its own key and id, and only real crates", ok)
+			local starter, pro = Packs.byKey("starter"), Packs.byKey("pro")
+			check(
+				"§pack Starter: $200K, 2x Isotope Chem + 1x Field Nuke, 30 min luck",
+				starter ~= nil
+					and starter.cash == 200_000
+					and #starter.crates == 3
+					and starter.luckSeconds == 30 * 60
+					and starter.cashBoostSeconds == 0
+			)
+			check(
+				"§pack Pro: $5M, 2x Quicksilver + 2x Void + 1x Cobalt, 1 hr luck + 1 hr cash",
+				pro ~= nil
+					and pro.cash == 5_000_000
+					and #pro.crates == 5
+					and pro.luckSeconds == 60 * 60
+					and pro.cashBoostSeconds == 60 * 60
+			)
+			local counts = Packs.crateCounts(pro :: Packs.Pack)
+			check(
+				"§pack crateCounts folds repeats in order",
+				#counts == 3 and counts[1].crateId == "liquid4" and counts[1].count == 2 and counts[3].count == 1
+			)
 		end
 
 		-- The Violet Aurora sits OVER every stage's sky (Config/Sky.blend), so every

@@ -38,6 +38,8 @@ local Camps = require(Shared.Config.Camps)
 local Treadmill = require(Shared.Config.Treadmill)
 local LuckBoost = require(Shared.Config.LuckBoost)
 local GamePasses = require(Shared.Config.GamePasses)
+local CashBoost = require(Shared.Config.CashBoost)
+local Packs = require(Shared.Config.Packs)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -55,6 +57,8 @@ local CrateService = require(script.Parent.CrateService)
 local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 local GamePassService = require(script.Parent.GamePassService)
+local CashBoostService = require(script.Parent.CashBoostService)
+local PackService = require(script.Parent.PackService)
 local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
@@ -832,6 +836,46 @@ COMMANDS["/luckboost"] = {
 			LuckBoostService.grant(player, data, seconds)
 		end
 		return `clover: {math.floor(data.luckBoostLeft)}s banked, luck boost now {StatResolver.get(data).luckBoost}x`
+	end,
+}
+
+COMMANDS["/cashboost"] = {
+	-- A pack's 2x cash without Robux: the same grant a purchase runs. 0 clears.
+	help = "/cashboost [seconds|0] — bank 2x cash time on yourself (0 clears it)",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local seconds = tonumber(args[1]) or 60 * 60
+		if seconds == 0 then
+			CashBoostService.grant(player, data, -CashBoost.MAX_BANKED_SECONDS)
+		else
+			CashBoostService.grant(player, data, seconds)
+		end
+		return `2x cash: {math.floor(data.cashBoostLeft)}s banked, sell x{StatResolver.get(data).sellMultiplier}`
+	end,
+}
+
+COMMANDS["/pack"] = {
+	-- A pack without Robux: exactly the grant a real purchase runs. `off` clears
+	-- ownership so the Shop card can be bought (or tested) again.
+	help = "/pack <starter|pro> [off] — grant a pack to yourself, or clear it so it can be bought again",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local pack = Packs.byKey(args[1] or "")
+		if pack == nil then
+			return "usage: /pack <starter|pro> [off]"
+		end
+		if args[2] == "off" then
+			PackService.clear(player, data, pack.key)
+			return `{pack.name}: cleared, buyable again`
+		end
+		PackService.grant(player, data, pack)
+		return `{pack.name}: granted`
 	end,
 }
 
