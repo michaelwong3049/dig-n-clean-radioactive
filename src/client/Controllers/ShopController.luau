@@ -258,8 +258,14 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 	buy.ZIndex = 15
 	buy.Parent = parent
 	round(buy, 12)
+	-- A touch smaller than the slot each card gives it (scales about its AnchorPoint).
+	local shrink = Instance.new("UIScale")
+	shrink.Scale = 0.9
+	shrink.Parent = buy
+	-- Border mode: on a TextButton the default (Contextual) stroke only outlines the text.
 	local buyEdge = Instance.new("UIStroke")
-	buyEdge.Color = PANEL.ink
+	buyEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	buyEdge.Color = Color3.new(0, 0, 0)
 	buyEdge.Thickness = 3
 	buyEdge.LineJoinMode = Enum.LineJoinMode.Round
 	buyEdge.Parent = buy
