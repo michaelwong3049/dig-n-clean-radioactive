@@ -201,7 +201,7 @@ COMMANDS["/dig"] = {
 }
 
 COMMANDS["/crate"] = {
-	help = "/crate <nuke1-3|liquid1-3> [dirty] — put a supply crate in your bag (Config/Crates); dirty = still crusted, a ??? until washed",
+	help = "/crate <nuke1-5|liquid1-5> [dirty] — put a supply crate in your bag (Config/Crates); dirty = still crusted, a ??? until washed",
 	run = function(player, _sandbox, args)
 		local crateId = args[1] or "nuke1"
 		if not Crates.has(crateId) then
