@@ -4,7 +4,7 @@
 
 	WHAT IT SHOWS, top to bottom: the rarity (shimmering from Legendary up), the star
 	rating (Rarity.stars: the tier, nudged by quality and size), the name across a
-	rarity-coloured prize ribbon with notched tails, a coin pill with what the piece pays per second beside a pill with what it weighs, and --
+	rarity-coloured prize ribbon with notched tails, a cash pill with what the piece pays per second beside a pill with what it weighs, and --
 	only when they apply -- stickers for the modifier and a big size roll, how far a
 	duplicate's share is cut, and (to the plot's owner only) how long until a nuke that
 	just went up can come back off.
@@ -27,9 +27,11 @@
 	top of whatever model is on the plinth, so a GIGA roll carries its card up with it
 	instead of swallowing a card pinned at one height.
 
-	PRIMITIVES ONLY, NO UPLOADED ART. The tails' notches are horizontal strips (a
-	triangle without masking the world behind it), the coin is
-	CashController's coin in miniature, and the lock is three rounded frames.
+	PRIMITIVES, PLUS ONE PICTURE. The tails' notches are horizontal strips (a
+	triangle without masking the world behind it) and the lock is three rounded frames.
+	The money is the cash row's own art: the HUD dropped its gold coin and orange rate
+	pill for a bundle of green notes and a green number, so the rate pill followed --
+	the same bundle (HudArtwork's cashBundle) on an INK pill, the rate in that green.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -50,6 +52,7 @@ local Merge = require(Shared.Config.Merge)
 local StandCard = require(Shared.StandCard)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local StandCards = {}
 
@@ -63,13 +66,10 @@ local WHITE = Color3.new(1, 1, 1)
 local STYLE = {
 	-- Every word and number on the card is the panels' Gotham Black.
 	font = Enum.Font.GothamBlack,
-	coinFont = Enum.Font.LuckiestGuy, -- the "$" on the coin, as CashController draws it
-	-- The cash badge's rate pill and coin, so a stand's $/s reads as the same money.
-	pill = Color3.fromHex("FF7A1A"),
-	coin = Color3.fromHex("FFB81C"),
-	coinFace = Color3.fromHex("FFD34D"),
-	coinRim = Color3.fromHex("D98A00"),
-	coinMark = Color3.fromHex("B36A00"),
+	-- The cash row's money (CashController): green digits, here on an INK pill so they
+	-- carry over any sky the way the HUD's outlined number does.
+	pill = Color3.fromHex("23282E"),
+	money = Color3.fromHex("7CF25A"),
 	kg = Color3.fromHex("5E6773"), -- steel, for a weight
 	star = Color3.fromHex("FFCF3A"),
 	foot = Color3.fromHex("D7DCE0"),
@@ -130,7 +130,9 @@ local L = {
 	pillY = 100,
 	pillH = 28,
 	pillGap = 6,
-	coin = 20,
+	bundle = 32, -- the cash bundle; bigger than the pill, it pokes out past its left end
+	bundleLeft = -7,
+	bundleTop = -3, -- the bundle's visible middle sits a little under its box's
 	rateSize = 15,
 	kgSize = 16,
 	stickerH = 22,
@@ -357,24 +359,10 @@ local function tail(parent: Instance, name: string, x: number, y: number, fill: 
 	return fills
 end
 
---- CashController's coin, shrunk to sit inside a 28px pill.
-local function coin(parent: Instance, x: number, y: number)
-	local body = shape(parent, "Coin", x, y, L.coin, L.coin, STYLE.coin, { radius = UDim.new(0.5, 0), stroke = 2, z = 5 })
-	local inset = 3
-	local face = shape(body, "Face", inset, inset, L.coin - inset * 2, L.coin - inset * 2, STYLE.coinFace, {
-		radius = UDim.new(0.5, 0),
-		stroke = 1.5,
-		z = 6,
-	})
-	local rim = face:FindFirstChildOfClass("UIStroke")
-	if rim then
-		rim.Color = STYLE.coinRim
-	end
-	text(body, "Mark", "$", 15, STYLE.coinMark, 0, {
-		font = STYLE.coinFont,
-		position = UDim2.fromOffset(0, 2),
-		z = 7,
-	})
+--- The cash row's bundle of notes, riding the rate pill's left end.
+local function bundle(parent: Instance)
+	local box = Artwork.droppedPicture(parent, "Bundle", Artwork.IMAGE.cashBundle, L.bundle, Vector2.new(2, 2), 5)
+	box.Position = UDim2.fromOffset(L.bundleLeft, L.bundleTop)
 end
 
 --- A little padlock: a rounded shackle with a hole punched in the chip's colour, and a
@@ -646,8 +634,7 @@ local function draw(card: Card)
 	-- The pill row: what it pays, and what it weighs.
 	local rateText = formatRate(if type(rate) == "number" then rate else 0)
 	local rateW = textWidth(rateText, L.rateSize, STYLE.font)
-	local coinLeft = 3
-	local rateLeft = coinLeft + L.coin + 6
+	local rateLeft = L.bundleLeft + L.bundle + 3
 	local ratePillW = rateLeft + rateW + 12
 	-- The rate pill and the SizeSticker above it both already ride Payload.forUid
 	-- (ExhibitService.entryYieldPerSecond: "a heavy/big-rolled piece pays more per
@@ -665,8 +652,8 @@ local function draw(card: Card)
 		stroke = L.stroke,
 		shadow = L.shadow,
 	})
-	coin(ratePill, coinLeft, (L.pillH - L.coin) / 2)
-	text(ratePill, "Rate", rateText, L.rateSize, WHITE, 2.5, {
+	bundle(ratePill)
+	text(ratePill, "Rate", rateText, L.rateSize, STYLE.money, 2.5, {
 		position = UDim2.fromOffset(rateLeft, 0),
 		size = UDim2.new(0, rateW + 4, 1, 0),
 		xAlign = Enum.TextXAlignment.Left,
