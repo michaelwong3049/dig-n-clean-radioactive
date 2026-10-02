@@ -838,7 +838,7 @@ end
 
 --- A row of Robux packs (cash or speed), CASH_PER_ROW to a row, headed `title` at
 --- LayoutOrder `order`. `image(index)` gives each card's picture.
-local function buildPackRows(parent: Instance, order: number, title: string, packs: { ShopProducts.CashPack }, look: typeof(CASH_CARD), image: (number) -> string)
+local function buildPackRows(parent: Instance, order: number, title: string, packs: { ShopProducts.CashPack }, look: typeof(CASH_CARD), image: (number) -> string, dress: ((ImageLabel, number) -> ())?)
 	section(parent, order, title)
 	local rows = math.ceil(#packs / CASH_PER_ROW)
 	for rowIndex = 1, rows do
@@ -888,6 +888,9 @@ local function buildPackRows(parent: Instance, order: number, title: string, pac
 			art.Size = UDim2.fromOffset(150, 150)
 			art.ZIndex = 13
 			art.Parent = card
+			if dress then
+				dress(art, index)
+			end
 
 			inked(card, {
 				Name = "Amount",
@@ -922,10 +925,45 @@ local function buildCash(parent: Instance)
 	end)
 end
 
+-- Extra shoes piled in front of each Speed card's shoe, so the packs read as a ladder:
+-- one shoe, a pair, a heap of three, a heap of four. Scale of the art frame, front last.
+local SPEED_PILES: { { { x: number, y: number, size: number, turn: number } } } = {
+	{},
+	{ { x = 0.32, y = 0.62, size = 0.72, turn = -8 } },
+	{ { x = 0.72, y = 0.5, size = 0.66, turn = 10 }, { x = 0.3, y = 0.66, size = 0.7, turn = -8 } },
+	{
+		{ x = 0.76, y = 0.44, size = 0.6, turn = 12 },
+		{ x = 0.2, y = 0.5, size = 0.58, turn = -14 },
+		{ x = 0.66, y = 0.7, size = 0.62, turn = 6 },
+		{ x = 0.32, y = 0.72, size = 0.66, turn = -6 },
+	},
+}
+
 --- The four Speed packs, right under CASH, in blue with the speed badge's shoe.
 local function buildSpeed(parent: Instance)
 	buildPackRows(parent, 6, "SPEED", ShopProducts.SPEED, SPEED_CARD, function()
 		return Artwork.IMAGE.speedShoe
+	end, function(art, index)
+		local pile = SPEED_PILES[index] or SPEED_PILES[#SPEED_PILES]
+		if #pile == 0 then
+			return
+		end
+		-- The main shoe shrinks and steps back up-right so the pile sits in front of it.
+		art.Size = UDim2.fromOffset(124, 124)
+		art.Position = UDim2.new(0.5, 16, 0, 0)
+		for order, shoe in pile do
+			local extra = Instance.new("ImageLabel")
+			extra.Name = `Shoe{order}`
+			extra.BackgroundTransparency = 1
+			extra.Image = Artwork.IMAGE.speedShoe
+			extra.ScaleType = Enum.ScaleType.Fit
+			extra.AnchorPoint = Vector2.new(0.5, 0.5)
+			extra.Position = UDim2.fromScale(shoe.x - 0.14, shoe.y)
+			extra.Size = UDim2.fromScale(shoe.size, shoe.size)
+			extra.Rotation = shoe.turn
+			extra.ZIndex = art.ZIndex + order
+			extra.Parent = art
+		end
 	end)
 end
 
