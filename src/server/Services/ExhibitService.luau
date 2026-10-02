@@ -1593,7 +1593,7 @@ end
 -- being cut short by the first one's timer.
 local signFlash: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
 
---- Write `message` into a floor sign's billboard subtitle for a moment, then put its
+--- Write `message` into a floor sign's painted subtitle for a moment, then put its
 --- price back. The world answer for a refused purchase — see build/Plots.buildFloorSign.
 local function flashSign(board: BasePart, message: string)
 	local sign = board:FindFirstChild("Sign")
@@ -1628,6 +1628,9 @@ local function wireFloorSign(board: Instance)
 		return
 	end
 	wiredSigns[board] = true
+	-- A place saved before the painted "Floor N / Purchase floor for $X" look still
+	-- wears the old billboard; this swaps it in without a world rebuild.
+	Plots.dressFloorSign(board :: BasePart)
 
 	prompt.Triggered:Connect(function(player: Player)
 		if not Tutorial.promptOpen(player, prompt) then
