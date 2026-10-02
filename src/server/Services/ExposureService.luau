@@ -872,6 +872,35 @@ function ExposureService.start()
 		immune[player] = nil
 	end)
 
+	-- Resetting (or any real character death) in a stage drops the bag too. Blackout
+	-- never kills the character, so this only fires for deaths it did not already handle.
+	local function watchCharacter(player: Player, character: Model)
+		local humanoid = character:WaitForChild("Humanoid", 10)
+		if humanoid == nil or not humanoid:IsA("Humanoid") then
+			return
+		end
+		humanoid.Died:Connect(function()
+			local data = DataService.data(player)
+			local root = character:FindFirstChild("HumanoidRootPart")
+			if data and root and root:IsA("BasePart") and StageService.stageOf(player) ~= nil then
+				local lost = dropBag(player, data, root.Position)
+				print(`[rads] {player.Name} died in a stage — dropped {lost} item(s)`)
+			end
+		end)
+	end
+	local function watchPlayer(player: Player)
+		player.CharacterAdded:Connect(function(character)
+			watchCharacter(player, character)
+		end)
+		if player.Character then
+			task.spawn(watchCharacter, player, player.Character)
+		end
+	end
+	Players.PlayerAdded:Connect(watchPlayer)
+	for _, player in Players:GetPlayers() do
+		watchPlayer(player)
+	end
+
 	Ticker.every(Tuning.TICK_RATE, function(dt)
 		-- Once per interval for the whole server, not once per player per tick.
 		cacheAge += dt
