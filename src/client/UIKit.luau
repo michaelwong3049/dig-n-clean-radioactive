@@ -674,14 +674,14 @@ function Dock.sideLift(): number
 	return UIKit.touchCorner().Y
 end
 
--- The square tiles on the right edge: Gear, Nukes, Warp in ONE column, top to bottom
+-- The square tiles on the right edge: Gear, Nukes, Warp, Daily in ONE column, top to bottom
 -- (HudTile builds them; Index and Shop moved to the left-column bars). Picture only, no
 -- caption, on request: it was a 2x2 grid of 62px captioned tiles, and before that one
 -- 80px column. The haul widget measures its clearance against the column's width
 -- (HAULPANEL_RIGHT). 48 -> 58, a little bigger, on request.
 Dock.SIDE_TILE_SIZE = 58
 Dock.SIDE_GRID_COLUMNS = 1
-Dock.SIDE_GRID_ROWS = 3
+Dock.SIDE_GRID_ROWS = 4
 -- The space between two tiles: wider than the dock's shared GAP, on request (30 -> 40).
 Dock.SIDE_TILE_GAP = 40
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP

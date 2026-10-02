@@ -29,6 +29,7 @@ local ORDER = {
 	"MasteriesController", -- the Masteries bar above Shop, its panel and the "Mastery reached" toast; reads MasteryState
 	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
 	"GearController", -- the Gear tile under Nukes: every owned gear tier, equip from anywhere; reads GearList
+	"DailyRewardsController", -- the Daily tile under Warp and its 7-day calendar; reads DailyRewards
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"RareDropController", -- the announced rare drop: the "LEGENDARY DROP!" card, the live tracker pill, who claimed it

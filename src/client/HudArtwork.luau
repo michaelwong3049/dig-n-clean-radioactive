@@ -68,6 +68,7 @@ Artwork.IMAGE = {
 	nuke = "rbxassetid://87934061393163", -- Nukes: green finned bomb with a trefoil
 	portal = "rbxassetid://103055311931232", -- Warp: violet-to-cyan portal swirl
 	detector = "rbxassetid://82765642714145", -- Gear: metal detector, red coil
+	gift = "rbxassetid://131150228950941", -- Daily rewards: pink gift box, gold bow (daily_gift.svg)
 	-- The Settings button (SettingsController), top-right corner: a steel cog with a
 	-- dark steel hub (no green, on request). tools/hud-icons/settings_gear.svg.
 	settingsGear = "rbxassetid://77565241934943",
