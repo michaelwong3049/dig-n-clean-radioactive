@@ -9,7 +9,9 @@
 	                                GamePassService mirrors ownership to.
 	  product(parent, getId)        a developer product. `getId()` is re-read on every
 	                                refresh() and press, for a button whose product
-	                                changes (the treadmill sign's next rung).
+	                                changes (the treadmill sign's next rung). An optional
+	                                `prompt(id)` replaces opening the prompt here, for a
+	                                product the SERVER prompts (Recover Bag).
 
 	Both read the price off the product itself, so a dashboard price change needs no
 	code change; an id of 0 (not set up yet) shows a grey SOON and does nothing. Same
@@ -242,8 +244,8 @@ function RobuxButton.pass(parent: Instance, key: string, caption: string?): Butt
 end
 
 --- A developer product whose id `getId()` returns (0 = none). Call `refresh()` when
---- the id may have changed.
-function RobuxButton.product(parent: Instance, getId: () -> number, caption: string?): Button
+--- the id may have changed. `prompt(id)`, if given, opens the purchase instead.
+function RobuxButton.product(parent: Instance, getId: () -> number, caption: string?, prompt: ((id: number) -> ())?): Button
 	local button, captionLabel, price = shell(parent, caption)
 
 	local function live(): boolean
@@ -268,7 +270,11 @@ function RobuxButton.product(parent: Instance, getId: () -> number, caption: str
 			return
 		end
 		openSince = os.clock()
-		MarketplaceService:PromptProductPurchase(Players.LocalPlayer, id)
+		if prompt then
+			prompt(id)
+		else
+			MarketplaceService:PromptProductPurchase(Players.LocalPlayer, id)
+		end
 	end
 
 	wire(button, live, press)

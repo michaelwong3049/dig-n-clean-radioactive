@@ -57,6 +57,8 @@ local function wordPrompt(bag: Instance, prompt: Instance)
 	if prompt:IsA("ProximityPrompt") then
 		prompt.ActionText = if isMine(bag)
 			then "Recover bag"
+			-- The owner's head start (ExposureService, "RECOVER BAG").
+			elseif bag:GetAttribute("Protected") == true then "Bag protected"
 			elseif canSteal() then "Steal bag"
 			else `Reach Stage {Tuning.STEAL_MIN_STAGE} to steal`
 	end
@@ -127,6 +129,11 @@ local function add(bag: Instance)
 	end))
 	table.insert(entry.connections, bag:GetAttributeChangedSignal("Items"):Connect(function()
 		redraw(entry)
+	end))
+	table.insert(entry.connections, bag:GetAttributeChangedSignal("Protected"):Connect(function()
+		for _, child in bag:GetChildren() do
+			wordPrompt(bag, child)
+		end
 	end))
 	table.insert(entry.connections, bag.Destroying:Connect(function()
 		remove(bag)

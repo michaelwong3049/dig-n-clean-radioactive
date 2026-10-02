@@ -124,6 +124,9 @@ local REMOTES: { [string]: string } = {
 	-- not you -- and a last one when it is emptied or times out { id, gone = true }.
 	-- Owner only: everyone else reads the bag's own attributes (DroppedBagController).
 	DroppedBag = "RemoteEvent", -- server -> client
+	-- Client -> server, (bagId): the owner pressed Recover. The SERVER holds the bag
+	-- and opens the purchase prompt, so the hold is in place before the dialog is.
+	RecoverBag = "RemoteEvent",
 
 	-- A nuke's pull fuse ran out and it went off (Services/HazardService). Fired to
 	-- EVERY client, not just the puller: the flash, the cloud and the shake are a

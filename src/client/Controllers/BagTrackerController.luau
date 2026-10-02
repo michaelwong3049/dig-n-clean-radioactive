@@ -13,6 +13,8 @@
 	    (DroppedBagController);
 	  - a red toast when someone steals from it, naming them ("Sam stole 3 items from
 	    your bag"), and the thief's name on the pill (Net.DroppedBag stolenBy).
+	  - a purple RECOVER button at the end of the pill (BagRecover): Robux puts the whole
+	    bag back in your pack from wherever you are.
 	It goes the moment the bag is emptied (by you or anyone) or times out.
 
 	FED BY Net.DroppedBag, NOT BY FINDING THE PART. The bag lies where you fell and you
@@ -40,6 +42,7 @@ local Stages = require(Shared.Config.Stages)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local BagCard = require(script.Parent.Parent.BagCard)
+local BagRecover = require(script.Parent.Parent.BagRecover)
 local Sfx = require(script.Parent.Parent.Sfx)
 
 local BagTrackerController = {}
@@ -271,6 +274,12 @@ local function build(): ScreenGui
 	-- "Stolen by Sam" once someone has had a go at it; hidden until then.
 	local thief = label(root, "Thief", Enum.Font.GothamBlack, 16, RED, 0, 6)
 	thief.Visible = false
+	local recover = BagRecover.button(root, "RECOVER")
+	recover.button.Size = UDim2.fromOffset(104, 42)
+	recover.button.LayoutOrder = 7
+	BagRecover.onChanged(function()
+		recover.refresh()
+	end)
 
 	-- The theft toast, under the pill: a dark slab with a red edge and strip.
 	local toast = UIKit.panel(canvas, {
@@ -402,6 +411,7 @@ local function step(dt: number)
 	end
 
 	local bag = newest()
+	BagRecover.setNewest(bag and bag.id)
 	setShown(bag ~= nil)
 	if bag == nil then
 		return
@@ -467,6 +477,9 @@ function BagTrackerController.start()
 			}
 			addColumn(bag)
 			bags[id] = bag :: any
+			-- Now, not on the next tick: the death screen's Recover reads it at once.
+			local latest = newest()
+			BagRecover.setNewest(latest and latest.id)
 		elseif bags[id] and payload.items then
 			bags[id].items = payload.items
 		end
