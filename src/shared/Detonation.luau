@@ -116,6 +116,12 @@ function Detonation.trollWindowFor(uid: string): number?
 	return Cfg.TROLL_MIN + (Cfg.TROLL_MAX - Cfg.TROLL_MIN) * rng:NextNumber()
 end
 
+--- True when this uid's fuse is neither a troll nor quicker than TUTORIAL_MIN_TEMPER --
+--- what the tutorial spot re-rolls its uid against so a first pull is never a scramble.
+function Detonation.isCalmFuse(uid: string): boolean
+	return Detonation.trollWindowFor(uid) == nil and Detonation.temperFor(uid) >= Cfg.TUTORIAL_MIN_TEMPER
+end
+
 --- The shortest window the fairness floor allows for this pull: the time the RATED
 --- magnet at REF_CPS needs, divided by SAFE_AT so it lands with room to spare. 0 when
 --- the rated magnet cannot make headway at all (no floor to size off).

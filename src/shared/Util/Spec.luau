@@ -2045,6 +2045,22 @@ function Spec.run(): boolean
 			"§fuse a nuke's temper is fixed by its uid (both sides of the network read one number)",
 			Detonation.temperFor("spec-uid-a") == Detonation.temperFor("spec-uid-a")
 		)
+		-- The tutorial spot re-rolls its uid against isCalmFuse: enough uids must pass,
+		-- and none that pass may be a troll or a hair-trigger.
+		local calmCount, calmHeld = 0, true
+		for sample = 1, 400 do
+			local uid = "spec-calm-" .. sample
+			if Detonation.isCalmFuse(uid) then
+				calmCount += 1
+				calmHeld = calmHeld
+					and Detonation.trollWindowFor(uid) == nil
+					and Detonation.temperFor(uid) >= D.TUTORIAL_MIN_TEMPER
+			end
+		end
+		check(
+			"§fuse the tutorial's calm-fuse re-roll passes often and never lets a quick fuse through",
+			calmHeld and calmCount >= 100
+		)
 
 		-- THE ANNOUNCED DROP's fuse (RARE_DROP_*): far longer than any ordinary one, and
 		-- long enough that the slowest guaranteed pull (MIN_PULL_SECONDS at REF_CPS) lands

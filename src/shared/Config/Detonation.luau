@@ -70,6 +70,12 @@ Detonation.TEMPER_BANDS = {
 	{ upTo = 1.5, chance = 26 }, -- slow burn: 10-17s
 }
 
+-- THE TUTORIAL'S FIRST NUKE IS NEVER A QUICK ONE. Its spot re-rolls its uid until the
+-- fuse is no troll and its temper is at least this (the "steady" band and up), so a
+-- brand-new player's first pull has ~8s+ to read the bar and let go
+-- (Shared/Detonation.isCalmFuse).
+Detonation.TUTORIAL_MIN_TEMPER = 0.85
+
 -- RARER NUKES ARE LESS STABLE. Multiplies BASE_WINDOW. Monotonic non-increasing down
 -- Rarity.ORDER (Spec pins it): the find worth the most is the one with the shortest
 -- fuse, which is the same inversion the decay clock makes (PLAN §3.6) on purpose.
