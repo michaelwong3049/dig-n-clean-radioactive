@@ -29,6 +29,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
+local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
 local Merge = require(Shared.Config.Merge)
@@ -264,7 +265,7 @@ local rows: { [string]: Row } = {}
 
 --- The stand line under the name: stars, Merge Reactor stars, modifier.
 local function starLine(entry: any): string
-	local text = Rarity.starText(entry.rarity, entry.modifier, Payload.forUid(entry.uid), entry.bonus)
+	local text = Rarity.starText(entry.rarity, entry.modifier, Payload.forUid(entry.uid), entry.bonus, Items.stageOf(entry.itemId))
 	local merged = entry.merge or 0
 	if merged > 0 then
 		text ..= ` <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`

@@ -9,7 +9,7 @@
 	roll are one function and cannot disagree.
 
 	A MERGE STAR IS NOT A RATING STAR. The rating (Rarity.stars) is the tier, nudged by
-	quality and size, and stops at 8. A merge star is a stored upgrade on ONE copy --
+	quality, size and stage, and stops at 10. A merge star is a stored upgrade on ONE copy --
 	`item.merge`, 0..MAX_LEVEL, carried through the bag, the locker and the stands --
 	drawn after the rating in its own colour, so an Anomaly already at 8 can still be
 	merged up. Each one multiplies what the copy sells for AND what it pays on a stand

@@ -521,6 +521,14 @@ function Spec.run(): boolean
 				and Rarity.stars("Rare", nil, Payload.CALLOUTS[#Payload.CALLOUTS].min) > Rarity.DEFS.Rare.order
 				and Rarity.stars(nil) == 0
 		)
+		check(
+			"§stars early stages rate lower (S4 Legendary Pristine 6, S1 Common 1, S12 Anomaly 9)",
+			Rarity.stars("Legendary", "Pristine", 1, nil, 4) == 6
+				and Rarity.stars("Common", nil, 1, nil, 1) == 1
+				and Rarity.stars("Anomaly", nil, 1, nil, 12) == 9
+				and Rarity.stars("Anomaly", "Pristine", 1, nil, 12) == Rarity.MAX_STARS
+				and Rarity.MAX_STARS == 10
+		)
 
 		-- The Merge Reactor (Config/Merge): harder per level, pity and luck help but
 		-- are capped, a crit is part of a success and only exists while +2 fits, and

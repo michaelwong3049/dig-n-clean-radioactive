@@ -57,9 +57,19 @@ local function stageOf(item: any): number
 end
 
 --- The star rating a bag nuke counts as: the same Rarity.stars every other surface
---- uses (stand card, Nukes panel, trader). Also what the overhead badge averages.
+--- uses (stand card, Nukes panel, trader), stage nudge included. Also what the
+--- overhead badge averages.
 function Bombing.starsOf(item: any): number
-	return Rarity.stars(item.rarity, item.modifier, if item.uid then Payload.forUid(item.uid) else nil, item.bonus)
+	local payload = if item.uid then Payload.forUid(item.uid) else nil
+	return Rarity.stars(item.rarity, item.modifier, payload, item.bonus, Items.stageOf(item.itemId))
+end
+
+-- The DAMAGE/RADIUS row a bomb reads: the rating WITHOUT its stage nudge (the stage
+-- already scales the blast through Detonation.stageMults) and capped at the table's
+-- length, so the 10-star rating didn't rebalance bombs.
+local function powerOf(item: any): number
+	local payload = if item.uid then Payload.forUid(item.uid) else nil
+	return math.clamp(Rarity.stars(item.rarity, item.modifier, payload, item.bonus), 1, #Cfg.DAMAGE)
 end
 
 --- Everything a nuke does as a bomb. `item` needs rarity, modifier and uid (a bag
@@ -67,6 +77,7 @@ end
 function Bombing.statsFor(item: any): Stats
 	local uid = tostring(item.uid or "")
 	local stars = math.max(1, Bombing.starsOf(item))
+	local power = powerOf(item)
 	local payload = Payload.forUid(uid)
 	local size = math.clamp(payload ^ Cfg.SIZE_EXP, Cfg.SIZE_MIN, Cfg.SIZE_MAX)
 	local hitMult, radiusMult = Detonation.stageMults(stageOf(item))
@@ -79,8 +90,8 @@ function Bombing.statsFor(item: any): Stats
 
 	return {
 		stars = stars,
-		damage = math.floor(Cfg.DAMAGE[stars] * hitMult * size * vary("bombdmg:", uid) + 0.5),
-		radius = math.floor(Cfg.RADIUS[stars] * radiusMult * size * vary("bombrad:", uid) * 10 + 0.5) / 10,
+		damage = math.floor(Cfg.DAMAGE[power] * hitMult * size * vary("bombdmg:", uid) + 0.5),
+		radius = math.floor(Cfg.RADIUS[power] * radiusMult * size * vary("bombrad:", uid) * 10 + 0.5) / 10,
 		fuse = math.floor(fuse * 10 + 0.5) / 10,
 		cooldown = Cfg.COOLDOWN,
 	}
@@ -90,7 +101,7 @@ end
 --- stars at a neutral size roll, no modifier, no per-uid variance -- but its home
 --- stage's multipliers, like every real copy.
 function Bombing.averageFor(item: any): (number, number)
-	local stars = math.max(1, Rarity.stars(item.rarity, nil, 1))
+	local stars = math.clamp(Rarity.stars(item.rarity, nil, 1), 1, #Cfg.DAMAGE)
 	local hitMult, radiusMult = Detonation.stageMults(stageOf(item))
 	return math.floor(Cfg.DAMAGE[stars] * hitMult + 0.5), math.floor(Cfg.RADIUS[stars] * radiusMult * 10 + 0.5) / 10
 end

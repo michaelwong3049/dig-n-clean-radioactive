@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
+local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Merge = require(Shared.Config.Merge)
 local Payload = require(Shared.Config.Payload)
@@ -110,7 +111,7 @@ end
 
 local function ratingOf(item: any): number
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
-	return Rarity.stars(item.rarity, item.modifier, payload, item.bonus)
+	return Rarity.stars(item.rarity, item.modifier, payload, item.bonus, Items.stageOf(item.itemId))
 end
 
 --- The small line under a copy: its quality modifier, else its size sticker, else its size.
@@ -806,7 +807,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 			button.TextColor3 = SKIN.muted
 			return
 		end
-		local rating = Rarity.stars(first.rarity, bestModifier, Payload.forUid(bigUid))
+		local rating = Rarity.stars(first.rarity, bestModifier, Payload.forUid(bigUid), nil, Items.stageOf(first.itemId))
 		cardStars.Text = starsRich(rating, odds.target)
 		cardGain.Text = `+1 merge star \u{00B7} x{multText(odds.target)} value & income`
 

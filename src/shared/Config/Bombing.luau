@@ -10,7 +10,9 @@
 
 	STATS COME FROM THE STAR RATING (Rarity.stars: rarity tier nudged by modifier and
 	size), then the nuke's own size roll, then a small per-uid variance so two copies
-	of one nuke are not quite the same bomb. Everything is indexed 1..Rarity.MAX_STARS.
+	of one nuke are not quite the same bomb. DAMAGE/RADIUS are read by that rating
+	WITHOUT its stage nudge and capped at 8 (Shared/Bombing powerOf): the stage already
+	scales the blast, and the rating going to 10 stars left bombs as they were.
 ]]
 
 local Bombing = {}

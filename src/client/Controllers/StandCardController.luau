@@ -544,7 +544,8 @@ local function draw(card: Card)
 		rarityId,
 		if type(modifier) == "string" then modifier else nil,
 		if type(payload) == "number" then payload else nil,
-		bonus
+		bonus,
+		Items.stageOf(itemId)
 	)
 	local tiers = Rarity.MAX_STARS
 	-- Merge Reactor stars (Config/Merge) ride on the end of the row in their own colour,

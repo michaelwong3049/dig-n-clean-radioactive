@@ -2087,6 +2087,15 @@ function Items.homeStage(item: ItemDef): number
 	return if home == math.huge then 1 else home
 end
 
+--- The home stage of an item id, for the star rating's stage nudge (Rarity.stars).
+--- nil for a missing or unknown id, so the rating just skips the nudge.
+function Items.stageOf(itemId: any): number?
+	if type(itemId) ~= "string" or not Items.has(itemId) then
+		return nil
+	end
+	return Items.homeStage(Items.get(itemId))
+end
+
 --- Every item of one rarity that can spawn in one stage. May be empty — Stage 1 has
 --- no Mythic or Anomaly entries, so callers must handle the empty case rather than
 --- assuming a hit.
