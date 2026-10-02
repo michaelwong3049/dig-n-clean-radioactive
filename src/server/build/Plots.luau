@@ -107,22 +107,22 @@
 	station. Built here, filled by ExhibitService.renderLocker, opened by its own E
 	prompt into the locker panel (client/LockerPanel); see buildQuarantineLocker.
 
-	12 stands: 3 columns (`GRID_COLS`, evenly spaced across x) by 4 rows
-	(`GRID_ROWS`, evenly spaced from the back wall forward), numbered left to
-	right then back row to front row — slot 1 is back-left, slot 3 is back-right,
-	slot 12 is front-right (`slotOffset`). Also slightly bigger than the old
+	9 stands: a 3-column (`GRID_COLS`) by 4-row (`GRID_ROWS`) grid with the
+	centre column's front three left out, so the middle is an open walkway to
+	the back-centre stand. Slot 1 is back-left, slot 3 back-right, slot 9
+	front-right (`GRID_SLOTS`, `slotOffset`). Also slightly bigger than the old
 	plinths (RISER_BASE/RISER_TOP/RISER_RIM all up ~20%), on request. The
 	cleansing station, its hose rig and the fluid bottle occupy the +X side of
 	the entrance extension, the treadmill the -X side (where the wash pad stood
 	until the pad was removed on request), with a deliberate safe gap between
 	their station radii.
 
-	FLOORS: THE GROUND 12 ARE FREE, AND UP TO TWO MORE STOREYS ARE BOUGHT.
-	A base can be built up to Config/Floors.MAX = 3 floors. The ground floor's 12
+	FLOORS: THE GROUND 9 ARE FREE, AND UP TO TWO MORE STOREYS ARE BOUGHT.
+	A base can be built up to Config/Floors.MAX = 3 floors. The ground floor's 9
 	stands are usable from the moment a plot is claimed; each floor bought on top
-	(Floors.PRICES, at the sign at the foot of the next flight of stairs) adds a
-	3 x 4 gallery of Floors.UPPER_SLOTS more. Slot numbers run on across floors:
-	1..12 are the ground grid above, 13..20 floor 2, 21..28 floor 3
+	(Floors.PRICES, at the sign at the foot of the next flight of stairs) adds the
+	same 9-stand gallery, Floors.UPPER_SLOTS more. Slot numbers run on across floors:
+	1..9 are the ground grid above, 10..18 floor 2, 19..27 floor 3
 	(slotPlacement). Every plot is BUILT with all of its floors; ExhibitService
 	hides the ones its owner has not bought (Plots.setFloors) — see buildFloor.
 
@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 86
+local BUILDER_VERSION = 87
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -231,7 +231,7 @@ end
 
 Plots.COUNT = 6
 -- Every stand built per base, across all of its floors (Config/Floors): the ground
--- floor's 12 plus UPPER_SLOTS on each floor above. Floors a plot's owner has not
+-- floor's 9 plus UPPER_SLOTS on each floor above. Floors a plot's owner has not
 -- bought are built too, and hidden at runtime (Plots.setFloors).
 Plots.VISIBLE_SLOTS = Floors.MAX_SLOTS
 
@@ -541,9 +541,11 @@ local function apronSkip(x: number, z: number): boolean
 	return false
 end
 
---- STAND LAYOUT — a plain 3-column x 4-row grid, 12 stands total, replacing the
---- old two-flanking-columns-plus-infill scheme (on request: a uniform grid reads
---- better than a deliberate gap down the middle).
+--- STAND LAYOUT — a 3-column x 4-row grid with the centre column's front three left
+--- out: 9 stands a floor (on request, down from the full 12). The back row keeps all
+--- three; the three rows in front of it keep only their outer pair, so the middle of
+--- the floor is one open walkway from the entrance arch to the back-centre stand
+--- (buildGalleryLanes runs the entry lane up it).
 ---
 --- GRID_COLS are 3 evenly spaced x's (pitch 20, symmetric about x = 0): ±20
 --- leaves a wide margin to the side Trim (well past the old flanking columns'
@@ -551,35 +553,35 @@ end
 --- the bigger stand footprint below with room to spare.
 ---
 --- GRID_ROWS are 4 evenly spaced z's (pitch 17, widened from 13 with the +12 pad), ROW_TOP first — closest to the
---- back wall — counting DOWN from there toward the entrance, the same 4-deep
---- count the old flanking columns used. Pitch 13 (down slightly from the old
---- 12.5, to hold the front row back from PlotSpawn now that RISER_BASE below is
---- ~20% bigger) still clears the stand footprint row to row, and leaves the
---- front row (z = -6) clear of PlotSpawn (z = -24).
+--- back wall — counting DOWN from there toward the entrance. The front row
+--- (z = -6) stays clear of PlotSpawn (z = -24).
 ---
---- slotOffset numbers left to right, back row to front row: slot 1 is
---- (GRID_COLS[1], GRID_ROWS[1]) i.e. back-left, slot 3 is back-right, slot 12 is
---- front-right.
+--- GRID_SLOTS numbers the stands: the back row left to right (slot 1 back-left, slot 2
+--- back-centre, slot 3 back-right), then each row in front of it left then right, so
+--- slot 9 is front-right. Each entry is a { column, row } index pair.
 local GRID_COLS = { -20, 0, 20 }
 local GRID_ROWS = { 45, 28, 11, -6 }
+local GRID_SLOTS = {
+	{ 1, 1 }, { 2, 1 }, { 3, 1 },
+	{ 1, 2 }, { 3, 2 },
+	{ 1, 3 }, { 3, 3 },
+	{ 1, 4 }, { 3, 4 },
+}
 
 local function slotOffset(slot: number): (number, number)
-	local col = (slot - 1) % #GRID_COLS
-	local row = math.floor((slot - 1) / #GRID_COLS)
-	return GRID_COLS[col + 1], GRID_ROWS[row + 1]
+	local cell = GRID_SLOTS[slot]
+	return GRID_COLS[cell[1]], GRID_ROWS[cell[2]]
 end
-assert(#GRID_COLS * #GRID_ROWS == Floors.GROUND_SLOTS, "the ground grid must hold exactly Floors.GROUND_SLOTS stands")
+assert(#GRID_SLOTS == Floors.GROUND_SLOTS, "the ground grid must hold exactly Floors.GROUND_SLOTS stands")
 
---- THE UPPER FLOORS' GALLERY — the ground's own 3 columns x 4 rows (Floors.UPPER_SLOTS
---- = 12), on every floor above the ground (see buildFloor). The outer columns' plinths
+--- THE UPPER FLOORS' GALLERY — the ground's own 9-stand layout (Floors.UPPER_SLOTS
+--- = 9), on every floor above the ground (see buildFloor). The outer columns' plinths
 --- (edge at +/-24.45) leave the side corridors clear, and the front
 --- row (plinth front at z -10.45) sits behind the deck's front rail at FLOOR.front.
 --- The walkway corridor past them (out to the stair gates) starts at |x| 27.2.
 ---
---- Numbered the same way as the ground: left to right, back row first.
-local UPPER_COLS = GRID_COLS
-local UPPER_ROWS = GRID_ROWS
-assert(#UPPER_COLS * #UPPER_ROWS == Floors.UPPER_SLOTS, "the upper grid must hold exactly Floors.UPPER_SLOTS stands")
+--- Numbered the same way as the ground.
+assert(#GRID_SLOTS == Floors.UPPER_SLOTS, "the upper grid must hold exactly Floors.UPPER_SLOTS stands")
 
 --- The top of `floor`'s deck — what a player on it stands on. Floor 1 is the pad.
 local function floorTopY(floor: number): number
@@ -587,18 +589,13 @@ local function floorTopY(floor: number): number
 end
 
 --- Where a slot's stand goes: plot-local x and z, and the top of the floor it stands
---- on. Slots run on across floors (Config/Floors), so 1..12 are the ground grid above
---- exactly as they always were, and everything past that is an upper floor's grid.
+--- on. Slots run on across floors (Config/Floors), so 1..9 are the ground grid above
+--- and every floor past that repeats the same layout one storey up.
 local function slotPlacement(slot: number): (number, number, number)
 	local floor, i = Floors.floorOf(slot)
 	assert(floor ~= nil and i ~= nil, `slot {slot} is on no floor`)
-	if floor == 1 then
-		local x, z = slotOffset(i)
-		return x, z, floorTopY(1)
-	end
-	local col = (i - 1) % #UPPER_COLS
-	local row = math.floor((i - 1) / #UPPER_COLS)
-	return UPPER_COLS[col + 1], UPPER_ROWS[row + 1], floorTopY(floor)
+	local x, z = slotOffset(i)
+	return x, z, floorTopY(floor)
 end
 
 --- THE DISPLAY STAND — a two-course studded riser on a waist-high plinth. The riser
@@ -3249,9 +3246,9 @@ end
 ---
 ---        ┌───────────── back landing ─────────────┐
 ---        │  [S]  ║     [S]      ║  [S]              │
----        │  [S]  ║ aisle [S] aisle║  [S]             │   ║ = aisle between
----        │  [S]  ║     [S]      ║  [S]              │       stand columns
----        │  [S]  ║     [S]      ║  [S]              │
+---        │  [S]  ║ aisle ║  aisle║  [S]             │   ║ = aisle between
+---        │  [S]  ║   centre║    ║  [S]              │       stand columns
+---        │  [S]  ║     ║        ║  [S]              │
 ---        │  ════════ cross band ═══════             │
 ---        │  tub        ║entry║        pad           │
 ---        └─────────────╨─arch╨──────────────────────┘
@@ -3327,7 +3324,13 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 	-- On the departing flight's side it runs on out to the flight's outer edge, then a
 	-- spur turns back along the flight's width to its first step.
 	plate("Lane", -outer, outer, bandFront, bandBack, CREAM)
-	plate("Kerb", -(inner - K), inner - K, bandBack, bandBack + K, KERB)
+
+	-- The open middle: no centre stands in front of the back row, so everything between
+	-- the two aisles is walkway too, from the cross band to just short of the
+	-- back-centre stand. Past that, the aisles carry on either side of it alone.
+	local centreBack = GRID_ROWS[1] - standHalf - 1.05
+	plate("Lane", -inner, inner, bandBack, centreBack, CREAM)
+	plate("Kerb", -(inner - K), inner - K, centreBack, centreBack + K, KERB)
 	for _, sd in { -1, 1 } do
 		local function side(name: string, a: number, b: number, z0: number, z1: number, color: string)
 			plate(name, math.min(sd * a, sd * b), math.max(sd * a, sd * b), z0, z1, color)
@@ -3353,7 +3356,7 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 
 	-- The two aisles between the stand columns.
 	mirrored("Lane", inner, outer, bandBack, landingFront, CREAM)
-	mirrored("Kerb", inner - K, inner, bandBack, landingFront, KERB)
+	mirrored("Kerb", inner - K, inner, centreBack, landingFront, KERB)
 	mirrored("Kerb", outer, outer + K, bandBack, landingFront, KERB)
 
 	-- Back landing along the fence, joining the aisles' far ends.

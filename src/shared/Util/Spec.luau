@@ -1038,14 +1038,13 @@ function Spec.run(): boolean
 	-- ── §8 BASE FLOORS ────────────────────────────────────────────────────
 	--
 	-- A base is the ground floor plus up to two bought storeys (Config/Floors). Slot
-	-- numbers run on across floors, so the ground's 1..12 must never move: every
-	-- existing save's pedestals point at them.
+	-- numbers run on across floors: the ground is 1..9, and each storey adds 9 more.
 
 	check("§8 a base tops out at three floors", Floors.MAX == 3)
-	check("§8 the ground floor keeps its 12 free stands", Floors.GROUND_SLOTS == 12 and Floors.slotsFor(1) == 12)
-	check("§8 each floor bought adds 8 stands", Floors.slotsFor(2) == 20 and Floors.slotsFor(3) == 28)
+	check("§8 the ground floor has 9 free stands", Floors.GROUND_SLOTS == 9 and Floors.slotsFor(1) == 9)
+	check("§8 each floor bought adds 9 stands", Floors.slotsFor(2) == 18 and Floors.slotsFor(3) == 27)
 	check("§8 the exhibit ceiling is every stand on every floor", Tuning.EXHIBIT_MAX_SLOTS == Floors.slotsFor(Floors.MAX))
-	check("§8 a nonsense floor count clamps to a real one", Floors.slotsFor(0) == 12 and Floors.slotsFor(99) == 28 and Floors.clamp(0 / 0) == 1)
+	check("§8 a nonsense floor count clamps to a real one", Floors.slotsFor(0) == 9 and Floors.slotsFor(99) == 27 and Floors.clamp(0 / 0) == 1)
 	do
 		local ok = true
 		for slot = 1, Floors.MAX_SLOTS do
