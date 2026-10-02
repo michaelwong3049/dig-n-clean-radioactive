@@ -2700,6 +2700,23 @@ function Spec.run(): boolean
 		check("§crate nuke crates get better up the ladder", epicPlus("nuke1") < epicPlus("nuke2") and epicPlus("nuke2") < epicPlus("nuke3"))
 		check("§crate only the top nuke crate can roll an Anomaly", anomaly("nuke1") == 0 and anomaly("nuke2") == 0 and anomaly("nuke3") > 0)
 
+		-- A nuke crate only hands out nukes stocked inside its stage range.
+		local ranged = true
+		for _, id in Crates.ORDER do
+			local def = Crates.DEFS[id]
+			if def.kind == "nuke" then
+				if def.stages == nil or next(Crates.nukeOdds(id)) == nil then
+					ranged = false
+				end
+				for itemId in Crates.nukeOdds(id) do
+					if not Crates.inStageRange(def, Items.get(itemId)) then
+						ranged = false
+					end
+				end
+			end
+		end
+		check("§crate nuke crates only roll nukes from their own stage range", ranged)
+
 		-- Deeper stages drop better crates; detector luck only ever moves the top up.
 		local deeper, lucky = true, true
 		for stageId = 2, #Stages.DEFS do

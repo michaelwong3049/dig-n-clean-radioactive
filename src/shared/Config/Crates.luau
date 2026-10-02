@@ -10,9 +10,11 @@
 	(WashService.revealAndFinish). A clean crate takes a slot, and when you hold it an
 	OPEN keycap appears. Opening it spends the crate and rolls a prize:
 
-	  * NUKE CRATES roll one nuke off the whole catalogue with a RARITY FLOOR. The
-	    prize comes out CLEAN, IDENTIFIED and FROZEN (no decay clock) -- it was sealed
-	    in a crate, not buried in slag -- and takes the crate's slot in the bag.
+	  * NUKE CRATES roll one nuke with a RARITY FLOOR, from the nukes stocked in the
+	    crate's own STAGE RANGE (`stages`) -- never the whole catalogue, so an early
+	    crate can't hand out a far-stage nuke. The prize comes out CLEAN, IDENTIFIED
+	    and FROZEN (no decay clock) -- it was sealed in a crate, not buried in slag --
+	    and takes the crate's slot in the bag.
 	  * LIQUID CRATES roll one fluid off Config/Liquids with a FLOOR on the table, and
 	    load it exactly the way a bottle roll does (charges stack, a better fluid
 	    auto-loads). The popup is the bottle's own brew reel.
@@ -58,6 +60,9 @@ export type CrateDef = {
 	tier: string, -- a Config/Rarity name, for the chip colour. A label, not a mechanic.
 	-- NUKE: rarity name -> relative weight. Rarities absent here never roll.
 	rarities: { [string]: number }?,
+	-- NUKE: { first, last } stage the prize can come from. An item stocked on any
+	-- stage in the range is in the pool.
+	stages: { number }?,
 	-- LIQUID: the lowest Liquids.ORDER entry this crate can hand out, and a luck
 	-- multiplier on top of the player's own fluid luck.
 	liquidFloor: string?,
@@ -97,6 +102,7 @@ Crates.DEFS = {
 		color = "D9453A",
 		tier = "Uncommon",
 		rarities = { Uncommon = 70, Rare = 24, Epic = 5.5, Legendary = 0.5 },
+		stages = { 1, 4 },
 		pullWeight = 40,
 	},
 	nuke2 = {
@@ -109,6 +115,7 @@ Crates.DEFS = {
 		color = "7FA35B",
 		tier = "Rare",
 		rarities = { Rare = 68, Epic = 26, Legendary = 5.4, Mythic = 0.6 },
+		stages = { 2, 5 },
 		pullWeight = 70,
 	},
 	nuke3 = {
@@ -121,6 +128,7 @@ Crates.DEFS = {
 		color = "B26BFF",
 		tier = "Epic",
 		rarities = { Epic = 64, Legendary = 29, Mythic = 6, Anomaly = 1 },
+		stages = { 4, 7 },
 		pullWeight = 110,
 	},
 	liquid1 = {
@@ -167,14 +175,15 @@ Crates.DEFS = {
 
 --- Basic / mid / top drop weights per stage, at detector luck 1. Deeper stages lean
 --- up the ladder: Stage 1 is nearly all basic crates, the Crater is a real shot at
---- a top one every few crates.
+--- a top one every few crates. Stages 1-6 were nudged up a little when the prize pools
+--- were cut to stage ranges.
 Crates.STAGE_VARIANT_WEIGHTS = {
-	[1] = { 85, 14, 1 },
-	[2] = { 75, 22, 3 },
-	[3] = { 62, 31, 7 },
-	[4] = { 50, 38, 12 },
-	[5] = { 38, 44, 18 },
-	[6] = { 30, 45, 25 },
+	[1] = { 80, 18, 2 },
+	[2] = { 70, 26, 4 },
+	[3] = { 57, 34, 9 },
+	[4] = { 45, 40, 15 },
+	[5] = { 34, 45, 21 },
+	[6] = { 27, 45, 28 },
 	-- Past Toxic Twilight. Nothing digs here yet (no item stocks 7-12), so these only
 	-- matter once a stage is stocked -- the ladder carries on climbing toward "top".
 	[7] = { 26, 46, 28 },
@@ -258,22 +267,39 @@ local function nukePool(): { Items.ItemDef }
 	return out
 end
 
---- Normalised prize odds for a nuke crate, keyed by item id. The rarity is picked off
---- the crate's `rarities` table; within a rarity, rarer items (bigger `odds`) come up
---- less, 1/odds like the dig roll. Sums to 1.
+--- Is `item` stocked on any stage inside the crate's `stages` range? No range = any.
+function Crates.inStageRange(def: CrateDef, item: Items.ItemDef): boolean
+	local range = def.stages
+	if range == nil then
+		return true
+	end
+	for _, stageId in item.stages do
+		if stageId >= range[1] and stageId <= range[2] then
+			return true
+		end
+	end
+	return false
+end
+
+--- Normalised prize odds for a nuke crate, keyed by item id. Only nukes in the crate's
+--- stage range are in it. The rarity is picked off the crate's `rarities` table (a
+--- rarity the range doesn't stock drops out and the rest renormalise); within a
+--- rarity, rarer items (bigger `odds`) come up less, 1/odds like the dig roll. Sums to 1.
 function Crates.nukeOdds(crateId: string): { [string]: number }
 	local def = Crates.get(crateId)
 	local rarities = def.rarities or {}
 
-	local rarityTotal = 0
-	for _, w in rarities do
-		rarityTotal += w
-	end
-
 	local withinTotal: { [string]: number } = {}
 	for _, item in nukePool() do
-		if rarities[item.rarity] then
+		if rarities[item.rarity] and Crates.inStageRange(def, item) then
 			withinTotal[item.rarity] = (withinTotal[item.rarity] or 0) + 1 / item.odds
+		end
+	end
+
+	local rarityTotal = 0
+	for rarity, w in rarities do
+		if withinTotal[rarity] then
+			rarityTotal += w
 		end
 	end
 
@@ -284,7 +310,7 @@ function Crates.nukeOdds(crateId: string): { [string]: number }
 	for _, item in nukePool() do
 		local w = rarities[item.rarity]
 		local within = withinTotal[item.rarity]
-		if w and within and within > 0 then
+		if w and within and within > 0 and Crates.inStageRange(def, item) then
 			out[item.id] = (w / rarityTotal) * ((1 / item.odds) / within)
 		end
 	end
