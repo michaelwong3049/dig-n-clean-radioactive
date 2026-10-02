@@ -851,25 +851,24 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 110 -- with the other full panels (Index, Shop, Nukes): over the vitals and the tutorial banner
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button: a gear tile, top-RIGHT corner — clear of the top-centre warp bar
-	-- (WarpController) and the full bottom-left dock column. The same glow-orb tile as
-	-- the right-edge column (HudTile), lifted into this gui so it sits under the topbar
-	-- inset like the panel does. The column keeps below it on short screens
+	-- The button: a gear tile hard in the top-RIGHT corner, up in the topbar band on
+	-- request (Dock.cornerButtonCentre 1; Daily rewards sits left of it). The same
+	-- glow-orb tile as the right-edge column (HudTile), kept in HudTile's own gui, which
+	-- ignores the topbar inset. The column keeps below it on short screens
 	-- (Dock.CORNER_BUTTON_BOTTOM).
 	local canvas = UIKit.canvas(gui)
 
-	local half = UIKit.Dock.SIDE_TILE_SIZE / 2
 	local tileGui, button = HudTile.build({
 		name = "SettingsButton",
 		caption = "Settings",
 		slot = 1,
-		position = UDim2.new(1, -12 - half, 0, 12 + half),
+		position = UIKit.Dock.cornerButtonCentre(1),
 		color = Color3.fromHex("9FB4C8"),
 		light = Color3.fromHex("DCE6F0"),
 		image = Artwork.IMAGE.settingsGear,
 	})
-	button.Parent = canvas
-	tileGui:Destroy()
+	-- Parented beside the panel's gui in start(): a ScreenGui inside another draws nothing.
+	ui.tileGui = tileGui
 
 	local panel = UIKit.panel(canvas, {
 		name = "Panel",
@@ -1073,7 +1072,9 @@ end
 function Settings.start()
 	local player = Players.LocalPlayer
 	local gui = build()
-	gui.Parent = player:WaitForChild("PlayerGui")
+	local playerGui = player:WaitForChild("PlayerGui")
+	ui.tileGui.Parent = playerGui
+	gui.Parent = playerGui
 
 	applyPreview()
 
