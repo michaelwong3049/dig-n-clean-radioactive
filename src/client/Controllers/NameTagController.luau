@@ -13,9 +13,14 @@
 	(ExposureService), so this is how a bomber sizes up a target (Services/BombService).
 	Its own billboard, reaching further than the name, so you can pick a target from
 	across a field. Hidden while the bag holds no nukes.
+
+	THE HP BAR sits between the two: a slim red bar of that player's health (the
+	Health / MaxHealth attributes ExposureService publishes on the Player). Other
+	players only -- your own health is already on the vitals HUD.
 ]]
 
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local UIKit = require(script.Parent.Parent.UIKit)
 
@@ -25,9 +30,16 @@ local TAG_NAME = "QuietNameTag"
 local TAG_COLOR = Color3.fromHex("B7C0B8")
 local BADGE_NAME = "BagStarBadge"
 local BADGE_COLOR = Color3.fromHex("FFD34D")
+local BAR_NAME = "HealthBar"
+-- The vitals HUD's health red and track (HudController STYLE), so the bar reads as
+-- the same health everywhere.
+local BAR_FILL = Color3.fromHex("FF4D5E")
+local BAR_TRACK = Color3.fromHex("3B3340")
+local BAR_INK = Color3.fromHex("1A1A1A")
+local BAR_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local function removeTag(character: Model)
-	for _, name in { TAG_NAME, BADGE_NAME } do
+	for _, name in { TAG_NAME, BADGE_NAME, BAR_NAME } do
 		local existing = character:FindFirstChild(name, true)
 		if existing then
 			existing:Destroy()
@@ -40,7 +52,7 @@ local function addBadge(player: Player, character: Model, head: BasePart)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = BADGE_NAME
 	gui.Adornee = head
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 4.1, 0)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 4.4, 0)
 	gui.MaxDistance = 120
 	gui.AlwaysOnTop = false
 	gui.LightInfluence = 0 -- same reason as the name tag's, below
@@ -73,6 +85,64 @@ local function addBadge(player: Player, character: Model, head: BasePart)
 	local connections = {
 		player:GetAttributeChangedSignal("BagStars"):Connect(refresh),
 		player:GetAttributeChangedSignal("BagNukes"):Connect(refresh),
+	}
+	gui.Destroying:Connect(function()
+		for _, connection in connections do
+			connection:Disconnect()
+		end
+	end)
+	refresh()
+end
+
+--- The HP bar between the name and the star badge, kept current off the player's
+--- Health/MaxHealth attributes.
+local function addBar(player: Player, character: Model, head: BasePart)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = BAR_NAME
+	gui.Adornee = head
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 3.55, 0)
+	gui.MaxDistance = 55 -- the name tag's reach: a bar with no name over it is a stranger
+	gui.AlwaysOnTop = false
+	gui.LightInfluence = 0 -- same reason as the name tag's, below
+	gui.Parent = character
+	local canvas = UIKit.billboardCanvas(gui, Vector2.new(90, 12))
+
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.AnchorPoint = Vector2.new(0.5, 0.5)
+	track.Position = UDim2.fromScale(0.5, 0.5)
+	track.Size = UDim2.new(1, -4, 1, -4)
+	track.BackgroundColor3 = BAR_TRACK
+	track.BorderSizePixel = 0
+	track.ClipsDescendants = true
+	track.Parent = canvas
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = BAR_INK
+	stroke.Thickness = 1.5
+	stroke.Parent = track
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = BAR_FILL
+	fill.BorderSizePixel = 0
+	fill.Parent = track
+
+	local function refresh()
+		local health = player:GetAttribute("Health")
+		local maxHealth = player:GetAttribute("MaxHealth")
+		if typeof(health) ~= "number" or typeof(maxHealth) ~= "number" or maxHealth <= 0 then
+			gui.Enabled = false
+			return
+		end
+		gui.Enabled = true
+		local frac = math.clamp(health / maxHealth, 0, 1)
+		TweenService:Create(fill, BAR_TWEEN, { Size = UDim2.fromScale(frac, 1) }):Play()
+	end
+
+	local connections = {
+		player:GetAttributeChangedSignal("Health"):Connect(refresh),
+		player:GetAttributeChangedSignal("MaxHealth"):Connect(refresh),
 	}
 	gui.Destroying:Connect(function()
 		for _, connection in connections do
@@ -124,6 +194,9 @@ local function addTag(player: Player, character: Model)
 	})
 
 	addBadge(player, character, head :: BasePart)
+	if player ~= Players.LocalPlayer then
+		addBar(player, character, head :: BasePart)
+	end
 end
 
 local function watch(player: Player)

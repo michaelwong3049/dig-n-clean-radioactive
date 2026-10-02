@@ -768,6 +768,12 @@ local function stepPlayer(player: Player, dt: number)
 	-- in one (Config/Camps), Base Camp everywhere else -- the name the HUD always used.
 	local camp = if stageId then nil else CampService.campOf(player)
 
+	-- THE OVERHEAD HP BAR (NameTagController): health is server state sent only to its
+	-- owner, so publish a whole-number copy on the Player for every other client to
+	-- read. Rounded so regen's fractions don't replicate every tick.
+	player:SetAttribute("Health", math.ceil(state.health))
+	player:SetAttribute("MaxHealth", maxHealthOf(player))
+
 	stateRemote:FireClient(player, {
 		stageId = stageId,
 		stageName = if stageId then Stages.get(stageId).name elseif camp then camp.name else "Base Camp",
