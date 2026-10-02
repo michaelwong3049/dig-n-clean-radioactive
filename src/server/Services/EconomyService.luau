@@ -132,6 +132,7 @@ local function takeSale(
 
 	table.remove(list, index)
 	data.cash += value
+	data.cashEarned = (data.cashEarned or 0) + value
 
 	-- SELLING A "???" IS HOW YOU FIND OUT WHAT IT WAS. An item still in its crust has no
 	-- name on any surface (Services/IdentifyService) -- but the trader has to say what he
@@ -297,7 +298,9 @@ function EconomyService.award(player: Player, amount: number, source: string?): 
 	if data == nil then
 		return false
 	end
-	data.cash += math.max(0, math.floor(amount + 0.5))
+	local paid = math.max(0, math.floor(amount + 0.5))
+	data.cash += paid
+	data.cashEarned = (data.cashEarned or 0) + paid
 	EconomyService.pushCash(player, source)
 	return true
 end
