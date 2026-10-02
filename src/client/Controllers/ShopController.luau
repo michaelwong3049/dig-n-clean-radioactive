@@ -80,6 +80,16 @@ local PANEL = {
 	headline = Enum.Font.GothamBlack,
 	label = Enum.Font.GothamBlack,
 }
+-- DARK GLASS: every card is its own colour pulled most of the way to black and made
+-- see-through, so the shop reads as tinted smoked glass over the world.
+local CARD_SHADE = 0.5 -- 0 = card colour as drawn, 1 = black
+local CARD_SEE = 0.3 -- BackgroundTransparency of every card
+
+local function darkGlass(card: GuiObject)
+	card.BackgroundColor3 = card.BackgroundColor3:Lerp(Color3.new(0, 0, 0), CARD_SHADE)
+	card.BackgroundTransparency = CARD_SEE
+end
+
 local PANEL_W = 860
 -- The panel's tallest; a short screen gets less, and the body scrolls.
 local PANEL_H = 720
@@ -332,6 +342,7 @@ local function buildCloverCard(parent: Frame)
 	card.Size = UDim2.new(1, -8, 0, CLOVER_H)
 	card.LayoutOrder = -19
 	card.BackgroundColor3 = PANEL.card
+	darkGlass(card)
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
 	card.Parent = parent
@@ -432,6 +443,7 @@ local function buildServerBoostCard(parent: Frame)
 	card.Size = UDim2.new(1, -8, 0, SERVER_BOOST_H)
 	card.LayoutOrder = -18
 	card.BackgroundColor3 = SERVER_BOOST_TINT
+	darkGlass(card)
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
 	card.Parent = parent
@@ -533,6 +545,7 @@ local function tile(parent: Instance, order: number, name: string, productId: nu
 	card.Name = name
 	card.LayoutOrder = order
 	card.BackgroundColor3 = color
+	darkGlass(card)
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
 	card.Parent = parent
@@ -598,6 +611,7 @@ local function buildPacks(parent: Instance)
 		card.Name = `Pack_{pack.key}`
 		card.LayoutOrder = index
 		card.BackgroundColor3 = PACK_TINT[pack.key] or PANEL.cashTile
+		darkGlass(card)
 		card.BorderSizePixel = 0
 		card.ZIndex = 12
 		card.Parent = frame
@@ -744,6 +758,7 @@ local function buildPasses(parent: Instance)
 			card.Name = `Pass_{pass.key}`
 			card.LayoutOrder = slot
 			card.BackgroundColor3 = PASS_TINT[pass.key] or PANEL.cashTile
+			darkGlass(card)
 			card.BorderSizePixel = 0
 			card.ZIndex = 12
 			card.Parent = frame
@@ -852,6 +867,7 @@ local function buildPackRows(parent: Instance, order: number, title: string, pac
 			card.Name = `{title}{index}`
 			card.LayoutOrder = index
 			card.BackgroundColor3 = Color3.new(1, 1, 1)
+			darkGlass(card)
 			card.BorderSizePixel = 0
 			card.ClipsDescendants = true
 			card.ZIndex = 12
@@ -1093,7 +1109,7 @@ local function buildPanel(): ScreenGui
 	cap.Parent = panel
 	-- See-through black, so the world shows behind the cards.
 	panel.BackgroundColor3 = Color3.new(0, 0, 0)
-	panel.BackgroundTransparency = 0.35
+	panel.BackgroundTransparency = 0.25
 	panel.BorderSizePixel = 0
 	panel.Visible = false
 	panel.ZIndex = 10
