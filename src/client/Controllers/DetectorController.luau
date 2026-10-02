@@ -174,8 +174,8 @@ local FILL_LERP_RATE = 14
 -- with the seconds, the bar with its point-of-no-return tick, and a one-line caption.
 local FUSE_LABEL_Y = 10
 local FUSE_TRACK_Y = 42
-local FUSE_TRACK_HEIGHT = 16
-local FUSE_CAPTION_Y = 64
+local FUSE_TRACK_HEIGHT = 10
+local FUSE_CAPTION_Y = 58
 local FUSE_NOTCH_WIDTH = 4
 -- Cool, warming, armed. Pale straw until WARN_AT, easing to amber by ARM_AT, then red.
 local FUSE_COOL = Color3.fromHex("FDE68A")
@@ -1056,7 +1056,7 @@ local function renderFrame(dt: number)
 			ui.fuseTrackStroke.Color = COLOR.outline
 			ui.fuseTrackStroke.Thickness = UIKit.Stroke.thin
 			ui.fuseLabel.TextColor3 = COLOR.text
-			ui.fuseLabel.Text = "NO FUSE"
+			ui.fuseLabel.Text = "No fuse"
 			ui.fuseCaption.TextColor3 = COLOR.dim
 			ui.fuseCaption.Text = "take your time"
 		elseif state.fuseArmed then
@@ -1067,7 +1067,7 @@ local function renderFrame(dt: number)
 			ui.fuseTrackStroke.Color = COLOR.red:Lerp(COLOR.outline, flash)
 			ui.fuseTrackStroke.Thickness = UIKit.Stroke.normal
 			ui.fuseLabel.TextColor3 = hot
-			ui.fuseLabel.Text = string.format("ARMED  %.1fs", toBlow)
+			ui.fuseLabel.Text = string.format("Armed  %.1fs", toBlow)
 			ui.fuseCaption.TextColor3 = COLOR.red
 			ui.fuseCaption.Text = "PULL IT OUT!"
 		else
@@ -1080,7 +1080,7 @@ local function renderFrame(dt: number)
 			ui.fuseTrackStroke.Color = COLOR.outline
 			ui.fuseTrackStroke.Thickness = UIKit.Stroke.thin
 			ui.fuseLabel.TextColor3 = if fill >= warnAt then colour else COLOR.text
-			ui.fuseLabel.Text = string.format("FUSE  %.1fs", toArm)
+			ui.fuseLabel.Text = string.format("Fuse  %.1fs", toArm)
 			ui.fuseCaption.TextColor3 = if fill >= warnAt then COLOR.amber else COLOR.dim
 			ui.fuseCaption.Text = if fill >= warnAt then "let go before the line" else "live nuke"
 		end
@@ -1303,7 +1303,7 @@ local function renderState()
 		-- (state.rarityHint), on any detector -- exactly what DigService.hintFor sent.
 		-- No "1 in N" under it (on request): rarity + odds pinned down the exact nuke.
 		if state.rarityHint then
-			ui.haulTitle.Text = string.upper(state.rarityHint)
+			ui.haulTitle.Text = state.rarityHint
 		else
 			ui.haulTitle.Text = ""
 		end
