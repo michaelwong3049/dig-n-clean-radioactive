@@ -101,8 +101,10 @@ local BAR_RAISE = 20
 -- A bare row (no box): the picture, the caption under it, and the button's whole size.
 local BARE_ICON = 64
 local BARE_GLOW = 92
-local BARE_CAPTION_GAP = 2
-local BARE_W = 130
+-- Negative: the medal art has clear space under its disc, and the name sits right under it.
+local BARE_CAPTION_GAP = -9
+-- Just wider than "Masteries" at 20.
+local BARE_W = 100
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
 --- the true screen as the left column does). Returns the gui, unparented, and the button,
@@ -151,12 +153,13 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		-- under; row 3 (Masteries) stacks on top of them without moving the pair.
 		local up = (row - 1.5) * (BAR_H + BAR_GAP) + BAR_RAISE
 		if spec.bare then
-			-- Its bottom edge BAR_GAP over the top of the row below, centred over that bar.
+			-- Its bottom edge BAR_GAP over the top of the row below, its left edge on the
+			-- bars' left edge (on request: further left than centring over the bar).
 			local captionSize = spec.captionSize or BAR_TEXT_SIZE
 			local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
 			local belowTop = (row - 2.5) * (BAR_H + BAR_GAP) + BAR_RAISE + BAR_H / 2
 			button.Size = UDim2.fromOffset(BARE_W, height)
-			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -(belowTop + BAR_GAP + height / 2))
+			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BARE_W / 2, 0.5, -(belowTop + BAR_GAP + height / 2))
 			button.BackgroundTransparency = 1
 			edge.Enabled = false
 
