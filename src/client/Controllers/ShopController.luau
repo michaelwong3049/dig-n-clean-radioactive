@@ -791,6 +791,7 @@ local function buildPasses(parent: Instance)
 			inked(card, {
 				Name = "PassName",
 				Text = pass.name,
+				TextColor3 = pass.color,
 				Font = PANEL.headline,
 				TextSize = 30,
 				TextScaled = true,
