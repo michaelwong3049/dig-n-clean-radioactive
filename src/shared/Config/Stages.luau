@@ -62,7 +62,8 @@
 -- global knob for how hard EVERY stage is to search, with no per-stage area lever
 -- left to forget about.
 --
---     every stage:  290 x 170   area 49,300   75 signals   mean gap ~13 studs
+--     every stage:  290 x 170   area 49,300   40 signals   mean gap ~18 studs
+--     (75 signals / ~13 studs until the fewer-signals pass; see Config/Tuning)
 --
 -- WIDTH WENT 240 -> 200 (the whole chain got narrower, on request), then the whole
 -- footprint went 400x200 -> 340x170 (15% shorter on BOTH axes, on request), then
@@ -163,7 +164,7 @@
 -- The values below were SOLVED for a target Rare-or-better share at a tier-1 detector
 -- (Config/Items.rarityWeights): 2.5 / 6 / 14 / 28 / 45 / 65% for stages 1-6. Detector
 -- luck multiplies Rare+ further per player on top of this (Config/Items.luckBias).
--- Shared/Util/Spec pins Stage 1's Rare+ signal count (~1.9 of 75) and the no-inversion
+-- Shared/Util/Spec pins Stage 1's Rare+ signal count (~1.2 of 40) and the no-inversion
 -- property. Retune here, then re-run Spec.
 --
 -- This also closes the old "re-weight stages 4-6 for the doubled signal density" debt

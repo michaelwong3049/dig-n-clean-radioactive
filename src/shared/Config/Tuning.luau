@@ -206,7 +206,15 @@ Tuning.LOCKER_SLOTS = 8
 -- ~1.9 Rare-or-better signals" on N alone and will fail if the two drift apart);
 -- lower it to walk `area / N` back up toward where the search feel used to sit --
 -- but Spec §7's Rare+ floor means N cannot go below ~69 without that re-weight.
-Tuning.SIGNALS_PER_STAGE = 75
+--
+-- 75 -> 40 ON REQUEST ("heavily reduce the amount of detector spawns; top tier
+-- detectors should still see a lot but nowhere near as much"). `area / N` 657.33 ->
+-- 1232.5: the starting detector walks ~1.8s between contacts (was 0.9s at walk 30)
+-- and a maxed one ~0.5s (was 0.26s), back inside Spec's §2.1 bands; standing still,
+-- a maxed detector lights ~4 glows instead of ~7.6. Per-dig odds are untouched, so
+-- the loot tables were NOT re-weighted -- the field just holds fewer jackpots at once
+-- (~1.2 Rare+ in Stage 1, was ~2.2), and Spec §7's floor moved with N to say so.
+Tuning.SIGNALS_PER_STAGE = 40
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
