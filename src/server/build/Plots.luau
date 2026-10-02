@@ -2891,31 +2891,59 @@ end
 --- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
 --- setTreadmillTier calls it on every repaint. A sign built to an older UPGRADE_SIGN
 --- (its board a different size, or stood at a different offset) is taken down and put up again to the current one.
+--- How far the current Look reaches along the belt's +X, in belt-local studs. Cached
+--- on the Look (a new rung is a new Look), since this runs on every repaint.
+local function lookEdgeX(treadmill: Instance, belt: BasePart): number
+	local look = treadmill:FindFirstChild("Look")
+	if look == nil then
+		return UPGRADE_SIGN.fallbackEdge
+	end
+	local cached = look:GetAttribute("EdgeX")
+	if type(cached) == "number" then
+		return cached
+	end
+	local edge = 0
+	for _, part in look:GetDescendants() do
+		if part:IsA("BasePart") and part.Transparency < 1 then
+			local h = part.Size / 2
+			for _, c in { Vector3.new(h.X, h.Y, h.Z), Vector3.new(-h.X, h.Y, h.Z), Vector3.new(h.X, -h.Y, h.Z), Vector3.new(h.X, h.Y, -h.Z), Vector3.new(-h.X, -h.Y, h.Z), Vector3.new(-h.X, h.Y, -h.Z), Vector3.new(h.X, -h.Y, -h.Z), Vector3.new(-h.X, -h.Y, -h.Z) } do
+				edge = math.max(edge, belt.CFrame:PointToObjectSpace(part.CFrame * c).X)
+			end
+		end
+	end
+	if edge <= 0 then
+		edge = UPGRADE_SIGN.fallbackEdge
+	end
+	edge = math.floor(edge * 100 + 0.5) / 100
+	look:SetAttribute("EdgeX", edge)
+	return edge
+end
+
 local function ensureUpgradeSign(treadmill: Instance)
+	local belt = treadmill:FindFirstChild("Belt")
+	if belt == nil or not belt:IsA("BasePart") then
+		return
+	end
+	local u = UPGRADE_SIGN
+	local offsetX = lookEdgeX(treadmill, belt) + u.gap + u.boardW / 2
 	local existing = treadmill:FindFirstChild("UpgradeSign")
 	if existing then
 		local board = existing:FindFirstChild("Board")
-		local u = UPGRADE_SIGN
 		if
 			board
 			and board:IsA("BasePart")
 			and (board.Size - Vector3.new(u.boardW, u.boardH, u.boardT)).Magnitude < 1e-3
-			and existing:GetAttribute("OffsetX") == u.x
+			and existing:GetAttribute("OffsetX") == offsetX
 			and existing:GetAttribute("OffsetZ") == u.z
 		then
 			return
 		end
 		existing:Destroy()
 	end
-	local belt = treadmill:FindFirstChild("Belt")
-	if belt == nil or not belt:IsA("BasePart") then
-		return
-	end
-	local u = UPGRADE_SIGN
 	local padTop = belt.Position.Y + belt.Size.Y / 2 - TREADMILL.beltTop
 	local level = belt.CFrame.Rotation + Vector3.new(belt.Position.X, padTop, belt.Position.Z)
 	-- The board's front face (-Z) is turned to look along +Z, back into the base.
-	local frame = level * CFrame.new(u.x, 0, u.z) * CFrame.Angles(0, math.pi, 0)
+	local frame = level * CFrame.new(offsetX, 0, u.z) * CFrame.Angles(0, math.pi, 0)
 
 	local sign = Instance.new("Model")
 	sign.Name = "UpgradeSign"
@@ -2936,7 +2964,7 @@ local function ensureUpgradeSign(treadmill: Instance)
 		material = "Plastic",
 		studs = true,
 	})
-	sign:SetAttribute("OffsetX", u.x)
+	sign:SetAttribute("OffsetX", offsetX)
 	sign:SetAttribute("OffsetZ", u.z)
 	sign.Parent = treadmill
 end
