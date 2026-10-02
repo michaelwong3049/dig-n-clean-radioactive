@@ -83,6 +83,17 @@ Artwork.IMAGE = {
 	-- The cash row's icon (CashController): a banded bundle of green notes in 3/4 view.
 	-- tools/hud-icons/cash_bundle.svg.
 	cashBundle = "rbxassetid://128764628759725",
+	-- The Shop's CASH cards (ShopController), cheapest to dearest: one bundle, a stack,
+	-- a stuffed money bag, an open vault. tools/hud-icons/shop_cash_1..4.svg, 512px.
+	shopCash = {
+		"rbxassetid://71413718562997",
+		"rbxassetid://77284563341858",
+		"rbxassetid://128765520321660",
+		"rbxassetid://136943347154341",
+	},
+	-- White rays fading out from the centre, behind each cash card's art; a caller sets
+	-- ImageTransparency. tools/hud-icons/shop_sunburst.svg.
+	sunburst = "rbxassetid://113625396052479",
 	-- The vitals bars' icons (HudController): a glossy red heart for health and a
 	-- trefoil on a green disc for rads. tools/hud-icons/health_heart.svg, rads_trefoil.svg.
 	healthHeart = "rbxassetid://80065249224141",

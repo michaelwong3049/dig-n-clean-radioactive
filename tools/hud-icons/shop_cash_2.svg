@@ -1,0 +1,44 @@
+<svg viewBox="0 0 100 100" width="512" height="512" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs>
+<style>@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@900&amp;display=block");</style>
+<linearGradient id="noteTop" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#86E25E"/>
+<stop offset="1" stop-color="#48B232"/>
+</linearGradient>
+<g id="b">
+<path d="M4 46 L32 20 L96 40 L96 60 L68 86 L4 66 Z" fill="#12161d" stroke="#12161d" stroke-width="6" stroke-linejoin="round"/>
+<g transform="matrix(0.640 0.200 0.000 1.000 4.000 46.000)">
+<rect x="0" y="0" width="100" height="20" fill="#43A52F"/>
+<path d="M1 5 H99" stroke="#A9EE86" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+<path d="M1 10 H99" stroke="#7FD35C" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+<path d="M1 15 H99" stroke="#A9EE86" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+<rect x="0" y="12" width="100" height="8" fill="#000" opacity=".12"/>
+<rect x="58" y="0" width="15" height="20" fill="#E9A91C"/>
+<path d="M60 0 V20" stroke="#FFE27F" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+</g>
+<g transform="matrix(0.560 -0.520 0.000 1.000 68.000 66.000)">
+<rect x="0" y="0" width="50" height="20" fill="#2E7F22"/>
+<path d="M1 5 H49" stroke="#78C957" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<path d="M1 10 H49" stroke="#5AAE3E" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<path d="M1 15 H49" stroke="#78C957" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+</g>
+<g transform="matrix(0.640 0.200 -0.560 0.520 32.000 20.000)">
+<rect x="0" y="0" width="100" height="50" fill="url(#noteTop)"/>
+<rect x="5" y="4.5" width="90" height="41" rx="3" fill="none" stroke="#B9F494" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+<rect x="9" y="8.5" width="82" height="33" rx="2" fill="none" stroke="#2F8A23" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+<ellipse cx="27" cy="25" rx="13" ry="13" fill="#2F8A23" stroke="#B9F494" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+<text x="27" y="33.2" text-anchor="middle" font-family="Montserrat" font-weight="900" font-size="22" fill="#C9F8A8">$</text>
+<path d="M44 16 H54 M44 25 H52 M44 34 H54" stroke="#2F8A23" stroke-width="1.6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+<path d="M6 10 Q22 3 42 5" stroke="#fff" stroke-opacity=".55" stroke-width="3" fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+<rect x="58" y="-0.5" width="15" height="51" fill="#FFD23F"/>
+<path d="M60.5 0 V50" stroke="#FFF1A8" stroke-width="2" vector-effect="non-scaling-stroke"/>
+<path d="M73 0 V50" stroke="#C98A0C" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+</g>
+<path d="M4 46 L32 20 L96 40 L68 66 Z M68 66 V86" fill="none" stroke="#12161d" stroke-width="2.6" stroke-linejoin="round"/>
+</g>
+</defs>
+<use href="#b" transform="translate(44 62.0) rotate(0) scale(0.6) translate(-50 -53)"/>
+<use href="#b" transform="translate(44 50.0) rotate(0) scale(0.6) translate(-50 -53)"/>
+<use href="#b" transform="translate(45 38.0) rotate(-3) scale(0.6) translate(-50 -53)"/>
+<use href="#b" transform="translate(68 72) rotate(-28) scale(0.5) translate(-50 -53)"/>
+</svg>

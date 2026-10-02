@@ -87,7 +87,20 @@ local PANEL_W = 860
 local PANEL_H = 720
 local CLOVER_H = 220
 local SECTION_H = 30
-local CASH_H = 184
+-- The CASH cards: green with a sunburst behind a picture that grows up the ladder
+-- (bundle, stack, money bag, vault), the amount big over the art's foot and a green R$
+-- button underneath, after a cash-shop reference the user sent (2026-10-02). Three to a
+-- row; a leftover card runs the full width.
+local CASH_H = 236
+local CASH_PER_ROW = 3
+local CASH_CARD = {
+	top = Color3.fromHex("5BD63E"),
+	middle = Color3.fromHex("8CF06A"),
+	edge = Color3.fromHex("2B2B33"),
+	buy = Color3.fromHex("6FDB2A"),
+	buyHover = Color3.fromHex("86EC45"),
+	buyEdge = Color3.fromHex("1F6E12"),
+}
 local CRATE_H = 216
 -- Every Robux button: the R$ is Roblox's own Robux glyph (private-use U+E002, which
 -- every Roblox font draws as the hexagon icon), big enough to read across the room.
@@ -171,12 +184,15 @@ end
 --- product, so a dashboard change needs no code change; the bare glyph stands in until then. An
 --- id of 0 (not set up on the dashboard) gives a grey COMING SOON that does nothing.
 --- `isPass` sells a game pass (Config/GamePasses) instead of a developer product.
-local function robuxButton(parent: Instance, productId: number, isPass: boolean?): TextButton
+--- `color` / `hover` swap the purple for another pair (the cash cards' green).
+local function robuxButton(parent: Instance, productId: number, isPass: boolean?, color: Color3?, hover: Color3?): TextButton
 	local live = productId ~= 0
+	local base = color or PANEL.buy
+	local lit = hover or PANEL.buyHover
 	local buy = Instance.new("TextButton")
 	buy.Name = "Buy"
 	buy.AutoButtonColor = false
-	buy.BackgroundColor3 = if live then PANEL.buy else PANEL.off
+	buy.BackgroundColor3 = if live then base else PANEL.off
 	buy.Font = PANEL.headline
 	buy.TextSize = if live then 24 else 18
 	buy.TextColor3 = PANEL.white
@@ -208,12 +224,12 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 	-- An owned pass turns its button off (Active = false); hover and click both respect it.
 	buy.MouseEnter:Connect(function()
 		if buy.Active then
-			TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
+			TweenService:Create(buy, HOVER, { BackgroundColor3 = lit }):Play()
 		end
 	end)
 	buy.MouseLeave:Connect(function()
 		if buy.Active then
-			TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
+			TweenService:Create(buy, HOVER, { BackgroundColor3 = base }):Play()
 		end
 	end)
 	buy.Activated:Connect(function()
@@ -614,41 +630,90 @@ local function buildPasses(parent: Instance)
 	end
 end
 
---- The four cash packs. The bundle grows with the pack, so the row reads as a ladder.
+--- The four cash packs, CASH_PER_ROW to a row; the picture grows with the pack, so the
+--- cards read as a ladder.
 local function buildCash(parent: Instance)
 	section(parent, 2, "CASH")
-	local frame = row(parent, 3, "Cash", CASH_H, #ShopProducts.CASH)
-	for index, pack in ShopProducts.CASH do
-		local card = tile(frame, index, `Cash{index}`, pack.id, PANEL.cashTile)
-		local icon = Instance.new("ImageLabel")
-		icon.Name = "Bundle"
-		icon.BackgroundTransparency = 1
-		icon.Image = Artwork.IMAGE.cashBundle
-		local size = 44 + index * 8
-		icon.Size = UDim2.fromOffset(size, size)
-		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.Position = UDim2.new(0.5, 0, 0, 46)
-		icon.ScaleType = Enum.ScaleType.Fit
-		icon.ZIndex = 13
-		icon.Parent = card
-		inked(card, {
-			Name = "Amount",
-			Text = pack.label,
-			Font = PANEL.headline,
-			TextSize = 26,
-			TextColor3 = PANEL.cash,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			Size = UDim2.new(1, 0, 0, 30),
-			Position = UDim2.fromOffset(0, 82),
-			ZIndex = 14,
-		})
+	local packs = ShopProducts.CASH
+	local rows = math.ceil(#packs / CASH_PER_ROW)
+	for rowIndex = 1, rows do
+		local first = (rowIndex - 1) * CASH_PER_ROW + 1
+		local last = math.min(first + CASH_PER_ROW - 1, #packs)
+		local frame = row(parent, 2 + rowIndex, `Cash{rowIndex}`, CASH_H, last - first + 1)
+		for index = first, last do
+			local pack = packs[index]
+			local card = Instance.new("Frame")
+			card.Name = `Cash{index}`
+			card.LayoutOrder = index
+			card.BackgroundColor3 = Color3.new(1, 1, 1)
+			card.BorderSizePixel = 0
+			card.ClipsDescendants = true
+			card.ZIndex = 12
+			card.Parent = frame
+			round(card, 14)
+			edge(card, CASH_CARD.edge, 4)
+			-- Brighter down the middle, where the rays come from.
+			local shade = Instance.new("UIGradient")
+			shade.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, CASH_CARD.top),
+				ColorSequenceKeypoint.new(0.5, CASH_CARD.middle),
+				ColorSequenceKeypoint.new(1, CASH_CARD.top),
+			})
+			shade.Parent = card
+
+			local rays = Instance.new("ImageLabel")
+			rays.Name = "Rays"
+			rays.BackgroundTransparency = 1
+			rays.Image = Artwork.IMAGE.sunburst
+			rays.ImageTransparency = 0.45
+			rays.ScaleType = Enum.ScaleType.Fit
+			rays.AnchorPoint = Vector2.new(0.5, 0.5)
+			rays.Position = UDim2.new(0.5, 0, 0, 82)
+			rays.Size = UDim2.fromOffset(340, 340)
+			rays.ZIndex = 12
+			rays.Parent = card
+
+			local art = Instance.new("ImageLabel")
+			art.Name = "Bundle"
+			art.BackgroundTransparency = 1
+			art.Image = Artwork.IMAGE.shopCash[index] or Artwork.IMAGE.cashBundle
+			art.ScaleType = Enum.ScaleType.Fit
+			art.AnchorPoint = Vector2.new(0.5, 0)
+			art.Position = UDim2.fromScale(0.5, 0)
+			art.Size = UDim2.fromOffset(150, 150)
+			art.ZIndex = 13
+			art.Parent = card
+
+			inked(card, {
+				Name = "Amount",
+				Text = pack.label,
+				Font = PANEL.headline,
+				TextSize = 38,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Size = UDim2.new(1, 0, 0, 42),
+				Position = UDim2.fromOffset(0, 124),
+				ZIndex = 14,
+			})
+
+			local buy = robuxButton(card, pack.id, false, CASH_CARD.buy, CASH_CARD.buyHover)
+			buy.AnchorPoint = Vector2.new(0.5, 1)
+			buy.Position = UDim2.new(0.5, 0, 1, -10)
+			buy.Size = UDim2.new(1, -20, 0, BUY_H)
+			buy.TextSize = BUY_TEXT + 4
+			local box = Instance.new("UIStroke")
+			box.Color = CASH_CARD.buyEdge
+			box.Thickness = 3
+			box.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			box.Parent = buy
+			gloss(buy)
+		end
 	end
 end
 
 --- The two Mystery crates. The art is the best crate of the kind: the top of the roll.
 local function buildCrates(parent: Instance)
-	section(parent, 4, "CRATES")
-	local frame = row(parent, 5, "Crates", CRATE_H, #ShopProducts.CRATES)
+	section(parent, 10, "CRATES")
+	local frame = row(parent, 11, "Crates", CRATE_H, #ShopProducts.CRATES)
 	for index, product in ShopProducts.CRATES do
 		local card = tile(frame, index, `Crate{index}`, product.id, if product.kind == "liquid" then PANEL.liquidTile else PANEL.nukeTile)
 		local well = Instance.new("Frame")
