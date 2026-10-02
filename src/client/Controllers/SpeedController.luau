@@ -212,7 +212,7 @@ local function build(): ScreenGui
 		color = STYLE.caption,
 		xAlign = Enum.TextXAlignment.Left,
 		shadow = false,
-		text = "WALK SPEED",
+		text = "Walk Speed",
 		zIndex = 11,
 	})
 	ui.value = UIKit.hudNumber(badge, {
@@ -339,7 +339,7 @@ local function buildPicker(canvas: Frame)
 		font = Enum.Font.GothamBlack,
 		textSize = 16,
 		color = STYLE.caption,
-		text = "WALK SPEED",
+		text = "Walk Speed",
 		zIndex = 21,
 	})
 	ui.pickValue = UIKit.label(picker, {

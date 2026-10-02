@@ -473,7 +473,7 @@ local function render(dt: number)
 	-- Where you are. The payload already names base camp "Base Camp", and camp's depth is 0.
 	ui.place.Text = string.format(
 		'%s <font color="#%s">\u{00B7} %d m</font>',
-		string.upper(state.stageName),
+		state.stageName,
 		STYLE.header:ToHex(),
 		math.floor(state.depth + 0.5)
 	)
@@ -508,7 +508,7 @@ local function render(dt: number)
 		local burning = state.threat == "burn"
 		-- Burn with the aura holding means the burn is the crater's, not the aura's.
 		local crater = burning and state.inCrater and not state.failing
-		local label = if crater then "CRATER BURN" elseif burning then "AURA FAILING" elseif state.sickness > 0 then "RAD SICKNESS" else "SURVIVABLE"
+		local label = if crater then "Crater Burn" elseif burning then "Aura Failing" elseif state.sickness > 0 then "Rad Sickness" else "Survivable"
 		ui.countdownText.Text = string.format("%s  %s", label, clock(state.survivable))
 		ui.countdownText.TextColor3 = if crater
 			then STYLE.crater

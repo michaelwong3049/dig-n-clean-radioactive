@@ -445,7 +445,7 @@ local function buildBagTile(row: Frame)
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
 		strokeTransparency = 1,
-		text = "BAG",
+		text = "Bag",
 	})
 
 	local count = UIKit.label(tile, {
@@ -478,7 +478,7 @@ local function buildDropButton(canvas: Frame)
 		name = "DropBomb",
 		anchorPoint = Vector2.new(0, 0.5),
 		size = UDim2.fromOffset(DROP_WIDTH, DROP_HEIGHT),
-		text = "DROP NUKE",
+		text = "Drop Nuke",
 		font = UIKit.Font.title,
 		textSize = 22,
 		color = COLOR.text,
@@ -702,7 +702,7 @@ local function buildBag(): ScreenGui
 		size = UDim2.fromOffset(80, BAG_HEADER),
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.header,
-		text = "BAG",
+		text = "Bag",
 	})
 	ui.bagCount = UIKit.label(panel, {
 		name = "Count",
@@ -948,7 +948,7 @@ local function buildBombCard(): ScreenGui
 	confirmButton("Cancel", "CANCEL", 0.28, COLOR.empty).MouseButton1Click:Connect(function()
 		Inventory.cancelDrop()
 	end)
-	ui.confirmDrop = confirmButton("Drop", "DROP NUKE", 0.72, COLOR.red)
+	ui.confirmDrop = confirmButton("Drop", "Drop Nuke", 0.72, COLOR.red)
 	ui.confirmDrop.MouseButton1Click:Connect(function()
 		Inventory.dropBomb(true)
 	end)
@@ -1069,7 +1069,7 @@ local function paintDropButton(left: number)
 	local ready = droppable(itemByUid(selected))
 	local cooling = left > 0
 	local lit = ready and not cooling
-	button.Text = if cooling then string.format("%.1f", left) else "DROP NUKE"
+	button.Text = if cooling then string.format("%.1f", left) else "Drop Nuke"
 	button.BackgroundColor3 = if lit then COLOR.red else DROP_IDLE
 	button.TextColor3 = if lit then COLOR.text elseif cooling then COLOR.amber else COLOR.dim
 end
