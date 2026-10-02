@@ -99,6 +99,9 @@ local TEMPLATE = {
 	equippedLiquid = "",
 	-- os.time() of the last brew, so the brew cooldown survives a rejoin. 0 = never.
 	lastBrewAt = 0,
+	-- liquidId -> true for every fluid this player has ever rolled (brew or crate).
+	-- Drives the brew panel's FLUIDS tab; nothing else reads it.
+	fluidsSeen = {},
 
 	-- Which carried item is physically IN YOUR HANDS (ToolService welds it there).
 	-- "" is empty-handed, never nil, same reason as equippedLiquid above. The tub
