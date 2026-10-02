@@ -58,7 +58,7 @@ end
 
 --- The star rating a bag nuke counts as: the same Rarity.stars every other surface
 --- uses (stand card, Nukes panel, trader), stage nudge included. Also what the
---- overhead badge averages.
+--- overhead badge averages (over the bag's best three).
 function Bombing.starsOf(item: any): number
 	local payload = if item.uid then Payload.forUid(item.uid) else nil
 	return Rarity.stars(item.rarity, item.modifier, payload, item.bonus, Items.stageOf(item.itemId))
@@ -113,16 +113,28 @@ function Bombing.canDrop(item: any, clean: boolean): boolean
 	return item ~= nil and item.crateId == nil and clean
 end
 
---- The average star rating over a bag, 0 for an empty one (the overhead badge).
+-- How many of a bag's best nukes the overhead badge averages: a bag of one big find
+-- and a pile of filler still reads as the big find.
+local BADGE_TOP = 3
+
+--- The average star rating of a bag's best BADGE_TOP nukes, 0 for an empty one (the
+--- overhead badge). The count is every nuke in the bag, not just the ones averaged.
 function Bombing.averageStars(items: { any }): (number, number)
-	local total, count = 0, 0
+	local stars = {}
 	for _, item in items do
 		if item.crateId == nil then
-			total += Bombing.starsOf(item)
-			count += 1
+			table.insert(stars, Bombing.starsOf(item))
 		end
 	end
-	return if count > 0 then total / count else 0, count
+	table.sort(stars, function(a, b)
+		return a > b
+	end)
+	local top = math.min(#stars, BADGE_TOP)
+	local total = 0
+	for i = 1, top do
+		total += stars[i]
+	end
+	return if top > 0 then total / top else 0, #stars
 end
 
 return Bombing

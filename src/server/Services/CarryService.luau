@@ -327,7 +327,7 @@ local function stepPlayer(player: Player)
 	lastSignature[player] = signature
 
 	-- THE OVERHEAD STAR BADGE (NameTagController): the average star rating of the
-	-- nukes in this bag, published on the Player so every client can read it. It is
+	-- best three nukes in this bag, published on the Player so every client can read it. It is
 	-- what a bomber sizes you up by -- a bomb death drops this exact bag for anyone
 	-- (ExposureService) -- so it averages the bag, not the stands.
 	local average, count = Bombing.averageStars(data.carry)
