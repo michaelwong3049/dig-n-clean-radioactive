@@ -640,6 +640,11 @@ local PLINTH = {
 	bandW = 6.5,
 	bandH = 0.4,
 }
+local DISPLAY_RIDE = 1.2 -- the Display part's centre above the top course
+--- How far a `Display{slot}` part's centre sits above the deck its stand is on
+--- (buildDisplayStand). ExhibitService works back from it to the deck overhead, to
+--- size a displayed nuke against the floor above.
+Plots.DISPLAY_LIFT = PLINTH.h + RISER_SURFACE + DISPLAY_RIDE
 -- The slot marker, in studs on the top course's face: a dark inset square, and
 -- L-shaped corner brackets (arm length x thickness) just inside the rim.
 local SLOT_MARK = { inset = 4.9, arm = 1.15, thick = 0.3, reach = 2.4, color = "3A3F47" }
@@ -785,7 +790,7 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	-- matching the colour the haul part used when it came out of the ground.
 	build(parent, origin, {
 		name = `Display{slot}`,
-		pos = { ox, lift + RISER_SURFACE + 1.2, oz },
+		pos = { ox, lift + RISER_SURFACE + DISPLAY_RIDE, oz },
 		size = { 1.7, 1.7, 1.7 },
 		color = accent,
 		material = "SmoothPlastic",
