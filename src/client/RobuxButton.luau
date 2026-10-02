@@ -65,6 +65,9 @@ MarketplaceService.PromptProductPurchaseFinished:Connect(closed)
 -- ── Prices ────────────────────────────────────────────────────────────────
 
 local prices: { [string]: number | false } = {}
+-- Everyone waiting on a price still loading. Six treadmill signs ask for the same
+-- product at once; each must hear when it lands, not just the first to ask.
+local waiting: { [string]: { () -> () } } = {}
 
 --- "R$ 99" once the price has loaded (`onLoaded` runs then), the bare glyph until.
 local function priceText(id: number, isPass: boolean, onLoaded: () -> ()): string
@@ -73,17 +76,38 @@ local function priceText(id: number, isPass: boolean, onLoaded: () -> ()): strin
 	if known then
 		return `{ROBUX} {known}`
 	end
+	local list = waiting[key]
+	if list == nil then
+		list = {}
+		waiting[key] = list
+	end
+	if not table.find(list, onLoaded) then
+		table.insert(list, onLoaded)
+	end
 	if known == nil then
 		prices[key] = false
 		task.spawn(function()
-			local ok, info = pcall(function()
-				return MarketplaceService:GetProductInfo(id, if isPass then Enum.InfoType.GamePass else Enum.InfoType.Product)
-			end)
-			if ok and info and type(info.PriceInRobux) == "number" then
-				prices[key] = info.PriceInRobux
-				onLoaded()
-			else
+			local info
+			-- A couple of tries: the first call can fail while the game is still loading.
+			for attempt = 1, 3 do
+				local ok, result = pcall(function()
+					return MarketplaceService:GetProductInfo(id, if isPass then Enum.InfoType.GamePass else Enum.InfoType.Product)
+				end)
+				if ok and result and type(result.PriceInRobux) == "number" then
+					info = result
+					break
+				end
+				task.wait(2 * attempt)
+			end
+			if info == nil then
 				prices[key] = nil -- try again on the next refresh
+				return
+			end
+			prices[key] = info.PriceInRobux
+			local listeners = waiting[key] or {}
+			waiting[key] = nil
+			for _, listener in listeners do
+				task.spawn(listener)
 			end
 		end)
 	end

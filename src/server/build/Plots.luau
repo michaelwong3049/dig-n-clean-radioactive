@@ -2851,19 +2851,24 @@ end
 ---
 --- PLACED OFF THE BELT, never from plot-local numbers: the sign stands at a fixed
 --- offset from the skeleton `Belt`, whose centre never moves (installTreadmillLook),
---- on the +X side between the machine and the entrance path, its face turned
---- `yaw` degrees from +X toward the entrance (-Z) so it reads to someone walking in.
+--- on the +X side between the machine and the entrance path, its face turned back
+--- toward the belt (-X, on request) and `yaw` degrees toward the entrance (-Z), so it
+--- reads both to the runner and to someone walking in.
 --- Clear of the widest rung's body (~3.3 studs off the belt's centre line) and the
 --- entrance arch's foot (plot-local x -10, z -47.8).
 local UPGRADE_SIGN = {
-	x = 7.5, -- off the belt's centre, toward the plot's middle
+	x = 6.5, -- off the belt's centre, toward the plot's middle
 	z = 0,
 	yaw = 20,
-	boardW = 8,
-	boardH = 4.4,
+	-- Three quarters of the first cut ("make the sign smaller"). The client draws its
+	-- face at the board's own size, so these can change freely.
+	boardW = 6,
+	boardH = 3.3,
 	boardT = 1,
-	boardBottom = 2.8, -- above the pad
-	postW = 1.6,
+	boardBottom = 2.2, -- above the pad
+	-- The post is exactly as thick as the board and centred under it, so its front
+	-- and back run flush into the board's (on request: line up, same width).
+	postW = 1,
 	color = "1D2B4F",
 }
 
@@ -2880,17 +2885,16 @@ local function ensureUpgradeSign(treadmill: Instance)
 	local u = UPGRADE_SIGN
 	local padTop = belt.Position.Y + belt.Size.Y / 2 - TREADMILL.beltTop
 	local level = belt.CFrame.Rotation + Vector3.new(belt.Position.X, padTop, belt.Position.Z)
-	-- The board's front face (-Z) looks along +X turned `yaw` toward -Z.
-	local frame = level * CFrame.new(u.x, 0, u.z) * CFrame.Angles(0, math.rad(u.yaw) - math.pi / 2, 0)
+	-- The board's front face (-Z) looks along -X (at the belt) turned `yaw` toward -Z.
+	local frame = level * CFrame.new(u.x, 0, u.z) * CFrame.Angles(0, math.pi / 2 - math.rad(u.yaw), 0)
 
 	local sign = Instance.new("Model")
 	sign.Name = "UpgradeSign"
-	local postH = u.boardBottom + 0.5
+	local postH = u.boardBottom + 0.5 -- runs half a stud up into the board
 	build(sign, frame, {
 		name = "Post",
-		-- Behind the board, so its face stays one flat panel.
-		pos = { 0, postH / 2, (u.postW - u.boardT) / 2 + 0.2 },
-		size = { u.postW, postH, u.postW },
+		pos = { 0, postH / 2, 0 },
+		size = { u.postW, postH, u.boardT },
 		color = u.color,
 		material = "Plastic",
 		studs = true,
