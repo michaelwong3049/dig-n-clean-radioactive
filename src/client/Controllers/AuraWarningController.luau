@@ -45,7 +45,9 @@ local Sfx = require(script.Parent.Parent.Sfx)
 local AuraWarningController = {}
 
 -- Heavy damage: the aura's burn alone would down you within this many seconds...
-local HEAVY_SECONDS = 45
+-- 45 -> 65 with Tuning.ZONE_SURVIVAL.UNDER_GRACE (+20s), so one tier under at a
+-- stage entrance (~50s now) still warns the moment you cross the line.
+local HEAVY_SECONDS = 65
 -- ...or it has already taken you under this fraction of max health.
 local HEAVY_HEALTH = 0.6
 -- Heavy has to hold this long before the warning shows, and the aura has to be holding
