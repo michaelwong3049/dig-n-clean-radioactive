@@ -1055,7 +1055,7 @@ end
 --- not every tick: CashController documents that CashState must never fire per-tick,
 --- and passive income trickles slowly enough that a DEPOSIT_INTERVAL batch is
 --- invisible to the player — the badge just counts up on its own.
-local DEPOSIT_INTERVAL = 5
+local DEPOSIT_INTERVAL = 2
 local sinceDeposit = 0
 
 --- Move the whole-dollar part of this profile's accrued exhibit income into
