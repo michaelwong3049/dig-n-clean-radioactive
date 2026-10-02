@@ -1,6 +1,6 @@
 --!strict
 --[[
-	CrateFx.luau — subtle ambient effects on the six supply crates (Config/Crates).
+	CrateFx.luau — subtle ambient effects on the ten supply crates (Config/Crates).
 
 	FITTED TO THE MODEL, NOT TO ONE DRAWING. Every effect is placed from the crate's
 	bounding box, not from named parts, so the same layer works on the studded crates
@@ -150,7 +150,7 @@ type Parts = { core: BasePart, top: BasePart, peak: Attachment, extents: Vector3
 
 --- Every crate: faint sparkles in the crate's own colour drifting up round it, a
 --- little denser the better the crate, so the tier reads at a glance.
-local AURA_RATE = { 0.8, 1.4, 2.4 }
+local AURA_RATE = { 0.8, 1.4, 2.4, 3, 3.8 }
 
 local function aura(core: BasePart, hex: string, variant: number)
 	emitter(core, {
@@ -220,48 +220,47 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 		})
 	end,
 
-	-- Leaky: green drips running off the front, bubbles popping on the drums, and a
-	-- thin chemical fume.
+	-- Nitro: fuel bubbling up behind the glass, a heat-haze of orange fume off the
+	-- tank, and the odd spark jumping off the valve.
 	liquid1 = function(p)
-		local drip = point(p.core, "Drip", -0.35, 0.15, -1.02)
-		emitter(drip, {
-			name = "Drip",
-			texture = SPARKLE,
-			color = colour("7CFC00"),
-			size = seq(0.13, 0.1),
-			transparency = seq(0, 0.2),
-			rate = 0.9,
-			lifetime = NumberRange.new(0.55),
-			speed = NumberRange.new(0.2),
-			direction = Enum.NormalId.Bottom,
-			acceleration = Vector3.new(0, -14, 0),
-			lightEmission = 0.6,
-		})
-		emitter(p.top, {
+		emitter(p.core, {
 			name = "Bubbles",
 			texture = SPARKLE,
-			color = colour("B6FF6A"),
-			size = seq(0.06, 0.14, 0),
-			transparency = seq(0.1, 0.6),
-			rate = 2,
-			lifetime = NumberRange.new(0.5, 0.9),
-			speed = NumberRange.new(0.2, 0.5),
-			spread = 20,
-			lightEmission = 0.5,
+			color = colour("FFB15C", "FFE2B0"),
+			size = seq(0.06, 0.12, 0),
+			transparency = seq(0.1, 0.5),
+			rate = 2.5,
+			lifetime = NumberRange.new(0.7, 1.1),
+			speed = NumberRange.new(0.5, 0.9),
+			lightEmission = 0.8,
+			locked = true,
 		})
-		light(p.core, "7CFC00", math.max(p.extents.X, p.extents.Z) * 1.4, 0.45)
 		emitter(p.top, {
 			name = "Fume",
 			texture = SMOKE,
-			color = colour("7CFC00"),
-			size = seq(0.5, 1.4),
-			transparency = seq(0.8, 1),
-			rate = 0.8,
-			lifetime = NumberRange.new(2.5, 3.5),
-			speed = NumberRange.new(0.2, 0.45),
+			color = colour("FF8A3D", "FFD2A8"),
+			size = seq(0.4, 1.2),
+			transparency = seq(0.82, 1),
+			rate = 0.9,
+			lifetime = NumberRange.new(2, 3),
+			speed = NumberRange.new(0.25, 0.5),
 			spread = 20,
 			rotSpeed = NumberRange.new(-15, 15),
 		})
+		emitter(p.peak, {
+			name = "Spark",
+			texture = SPARKLE,
+			color = colour("FFF1C2", "FF6A1F"),
+			size = seq(0.18, 0),
+			transparency = seq(0),
+			rate = 0.5,
+			lifetime = NumberRange.new(0.25, 0.4),
+			speed = NumberRange.new(1.5, 3),
+			spread = 60,
+			acceleration = Vector3.new(0, -10, 0),
+			lightEmission = 1,
+		})
+		light(p.core, "FF6A1F", math.max(p.extents.X, p.extents.Z) * 1.4, 0.5)
 	end,
 
 	-- Isotope: vapour curling off the canister on the lid, blue motes rising
@@ -334,6 +333,118 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 			lightEmission = 1,
 			locked = true,
 		})
+	end,
+
+	-- Cobalt: blue glow breathing out of the vents, a blinking edge light, and cold
+	-- blue motes lifting off the launch deck.
+	nuke4 = function(p)
+		light(p.core, "2F6BFF", math.max(p.extents.X, p.extents.Z) * 2, 0.8)
+		blinker(p.peak, "6FA0FF", 0.32, 0.9)
+		emitter(p.top, {
+			name = "Motes",
+			texture = SPARKLE,
+			color = colour("2F6BFF", "D6E4FF"),
+			size = seq(0.14, 0.08, 0),
+			transparency = seq(0.1, 1),
+			rate = 3,
+			lifetime = NumberRange.new(1.4, 2.4),
+			speed = NumberRange.new(0.4, 0.9),
+			spread = 25,
+			lightEmission = 1,
+			rotSpeed = NumberRange.new(-60, 60),
+		})
+	end,
+
+	-- Fusion: a hot gold core lighting the box from inside, a slow halo pulsing over
+	-- the plinth, and embers rising off the radiators.
+	nuke5 = function(p)
+		light(p.core, "FFB020", math.max(p.extents.X, p.extents.Z) * 2.2, 1)
+		emitter(p.peak, {
+			name = "Halo",
+			texture = SPARKLE,
+			color = colour("FFE08A"),
+			size = seq(0.6, 1.3),
+			transparency = seq(0.5, 1),
+			rate = 1.1,
+			lifetime = NumberRange.new(1.2),
+			speed = NumberRange.new(0),
+			lightEmission = 1,
+			locked = true,
+		})
+		emitter(p.top, {
+			name = "Embers",
+			texture = SPARKLE,
+			color = colour("FFB020", "FFF4D0"),
+			size = seq(0.15, 0.08, 0),
+			transparency = seq(0.05, 1),
+			rate = 4,
+			lifetime = NumberRange.new(1.4, 2.4),
+			speed = NumberRange.new(0.5, 1),
+			spread = 25,
+			lightEmission = 1,
+			rotSpeed = NumberRange.new(-60, 60),
+		})
+	end,
+
+	-- Quicksilver: bright beads glinting round the orb, a faint silver sheen in the
+	-- air, and a cool white light.
+	liquid4 = function(p)
+		emitter(p.core, {
+			name = "Beads",
+			texture = SPARKLE,
+			color = colour("FFFFFF", "C9D3DE"),
+			size = seq(0, 0.16, 0),
+			transparency = seq(0.05),
+			rate = 2.5,
+			lifetime = NumberRange.new(0.5, 0.8),
+			speed = NumberRange.new(0),
+			lightEmission = 1,
+			locked = true,
+		})
+		emitter(p.top, {
+			name = "Sheen",
+			texture = SMOKE,
+			color = colour("E8EEF4"),
+			size = seq(0.35, 1),
+			transparency = seq(0.8, 1),
+			rate = 1,
+			lifetime = NumberRange.new(1.8, 2.6),
+			speed = NumberRange.new(0.15, 0.3),
+			spread = 30,
+			rotSpeed = NumberRange.new(-20, 20),
+		})
+		light(p.core, "DDE6F0", math.max(p.extents.X, p.extents.Z) * 1.5, 0.55)
+	end,
+
+	-- Plasma: arcs snapping off the coil's top, pink motes swirling up, and a
+	-- magenta glow.
+	liquid5 = function(p)
+		emitter(p.peak, {
+			name = "Arc",
+			texture = SPARKLE,
+			color = colour("FFFFFF", "FF4FD8"),
+			size = seq(0.35, 0),
+			transparency = seq(0),
+			rate = 1.6,
+			lifetime = NumberRange.new(0.12, 0.2),
+			speed = NumberRange.new(2, 4),
+			spread = 90,
+			lightEmission = 1,
+		})
+		emitter(p.top, {
+			name = "Motes",
+			texture = SPARKLE,
+			color = colour("FF4FD8", "FFD6F6"),
+			size = seq(0.12, 0.07, 0),
+			transparency = seq(0.1, 1),
+			rate = 3,
+			lifetime = NumberRange.new(1.2, 2),
+			speed = NumberRange.new(0.4, 0.8),
+			spread = 30,
+			lightEmission = 1,
+			rotSpeed = NumberRange.new(-90, 90),
+		})
+		light(p.core, "FF4FD8", math.max(p.extents.X, p.extents.Z) * 1.8, 0.7)
 	end,
 }
 

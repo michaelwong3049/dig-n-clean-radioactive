@@ -1,6 +1,6 @@
 --!strict
 --[[
-	CrateModels.luau — the six supply crates (Config/Crates), as geometry.
+	CrateModels.luau — the ten supply crates (Config/Crates), as geometry.
 
 	MODELS AS CODE, like Shared/ItemModels and Shared/ToolModels/Hose: every crate is
 	built from primitives here, in git, so nothing about it lives in the place file and
@@ -11,8 +11,9 @@
 	plates are smooth.
 
 	THESE ARE THE FALLBACK. The shipped crates are the user's imported models
-	(Assets.CrateTemplates, below): nuke1-3 = scrap / field / void, liquid1-3 = toxic /
-	isotope / coolant. The built ones below stand in for any id with no import.
+	(Assets.CrateTemplates, below): nuke1-5 = scrap / field / void / cobalt / fusion,
+	liquid1-5 = nitro / isotope / coolant / quicksilver / plasma. The built ones below
+	stand in for any id with no import (the late tiers borrow the top early drawings).
 
 	THE LADDER, told in silhouette:
 	  nuke1   Rusty    rotten wooden slats, rust brackets, a trefoil on a tin plate
@@ -29,7 +30,7 @@
 	ToolService welds it together itself before it lets go of the anchor. PrimaryPart is
 	`Body`. `CrateId` is stamped on the model.
 
-	IMPORTED MODELS WIN. A model named after the crate id (`nuke1` ... `liquid3`) in
+	IMPORTED MODELS WIN. A model named after the crate id (`nuke1` ... `liquid5`) in
 	ReplicatedStorage.Assets.CrateTemplates is cloned instead of the built one -- the
 	same convention as Assets.ImportedNukeTemplates (see Shared/ItemModels). It is
 	normalised on the way out: every part anchored and non-colliding, a PrimaryPart
@@ -378,6 +379,11 @@ local BUILDERS: { [string]: (Model) -> BasePart } = {
 	liquid1 = leaky,
 	liquid2 = hazmat,
 	liquid3 = cryo,
+	-- No hand-built drawing of their own: the imported models are the real ones.
+	nuke4 = reactor,
+	nuke5 = reactor,
+	liquid4 = cryo,
+	liquid5 = cryo,
 }
 
 --- An imported crate's FOOTPRINT once normalised: the wider of its width and depth,

@@ -2667,7 +2667,7 @@ function Spec.run(): boolean
 			end
 		end
 		for _, kind in { "nuke", "liquid" } do
-			for variant = 1, 3 do
+			for variant = 1, Crates.VARIANTS do
 				if not Crates.has(Crates.idFor(kind, variant)) then
 					variantsOk = false
 				end
@@ -2677,8 +2677,9 @@ function Spec.run(): boolean
 		check("§crate every crate's prize table sums to 1", sums)
 		check("§crate no crate ever hands out anything under its floor", floors)
 
-		-- Better crate, better prize: the chance of Epic-or-better climbs nuke1 -> nuke3,
-		-- and only the top (Void) crate can roll an Anomaly.
+		-- Better crate, better prize: the chance of Epic-or-better climbs up each band's
+		-- ladder (early nuke1 -> nuke3, late nuke4 -> nuke5), and Scrap and Field never
+		-- roll an Anomaly.
 		local function epicPlus(id: string): number
 			local total = 0
 			for itemId, p in Crates.nukeOdds(id) do
@@ -2697,8 +2698,14 @@ function Spec.run(): boolean
 			end
 			return total
 		end
-		check("§crate nuke crates get better up the ladder", epicPlus("nuke1") < epicPlus("nuke2") and epicPlus("nuke2") < epicPlus("nuke3"))
-		check("§crate only the top nuke crate can roll an Anomaly", anomaly("nuke1") == 0 and anomaly("nuke2") == 0 and anomaly("nuke3") > 0)
+		check(
+			"§crate nuke crates get better up the ladder",
+			epicPlus("nuke1") < epicPlus("nuke2") and epicPlus("nuke2") < epicPlus("nuke3") and epicPlus("nuke4") < epicPlus("nuke5")
+		)
+		check(
+			"§crate Scrap and Field never roll an Anomaly; Void and up can",
+			anomaly("nuke1") == 0 and anomaly("nuke2") == 0 and anomaly("nuke3") > 0 and anomaly("nuke4") > 0 and anomaly("nuke5") > anomaly("nuke4")
+		)
 
 		-- A nuke crate only hands out nukes stocked inside its stage range.
 		local ranged = true
@@ -2717,20 +2724,45 @@ function Spec.run(): boolean
 		end
 		check("§crate nuke crates only roll nukes from their own stage range", ranged)
 
-		-- Deeper stages drop better crates; detector luck only ever moves the top up.
+		-- Deeper stages drop better crates (the average variant climbs); detector luck
+		-- only ever moves the odds up the ladder.
+		local function meanVariant(odds: { number }): number
+			local mean = 0
+			for variant = 1, Crates.VARIANTS do
+				mean += variant * odds[variant]
+			end
+			return mean
+		end
 		local deeper, lucky = true, true
 		for stageId = 2, #Stages.DEFS do
-			if Crates.variantOdds(stageId, 1)[3] < Crates.variantOdds(stageId - 1, 1)[3] then
+			if meanVariant(Crates.variantOdds(stageId, 1)) < meanVariant(Crates.variantOdds(stageId - 1, 1)) then
 				deeper = false
 			end
 		end
 		for stageId = 1, #Stages.DEFS do
 			local plain, boosted = Crates.variantOdds(stageId, 1), Crates.variantOdds(stageId, 2.5)
-			if boosted[3] < plain[3] or boosted[1] > plain[1] or not near1(boosted[1] + boosted[2] + boosted[3]) then
+			local total = 0
+			for variant = 1, Crates.VARIANTS do
+				total += boosted[variant]
+				if (plain[variant] == 0) ~= (boosted[variant] == 0) then
+					lucky = false -- luck never makes an absent crate drop
+				end
+			end
+			if meanVariant(boosted) < meanVariant(plain) or not near1(total) then
 				lucky = false
 			end
 		end
 		check("§crate deeper stages drop more top-tier crates", deeper)
+		local banded = true
+		for stageId = 1, #Stages.DEFS do
+			local odds = Crates.variantOdds(stageId, 2.5)
+			if stageId <= 6 and (odds[4] > 0 or odds[5] > 0) then
+				banded = false
+			elseif stageId >= 7 and (odds[1] > 0 or odds[2] > 0 or odds[4] <= 0) then
+				banded = false
+			end
+		end
+		check("§crate Stages 1-6 drop only the early crates, 7+ the late ones", banded)
 		check("§crate detector luck moves crate odds up, never down", lucky)
 
 		-- Crates share the bag's slots but never enter `carry`.

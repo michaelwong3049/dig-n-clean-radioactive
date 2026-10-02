@@ -19,8 +19,9 @@
 	    load it exactly the way a bottle roll does (charges stack, a better fluid
 	    auto-loads). The popup is the bottle's own brew reel.
 
-	THREE VARIANTS OF EACH, and the better the crate, the higher the floor and the
-	fatter the top of its table. Only the Void crate can ever hand you an Anomaly.
+	FIVE VARIANTS OF EACH, and the better the crate, the higher the floor and the
+	fatter the top of its table. Variants 1-3 are the early crates (Stages 1-6);
+	4-5 only drop from Stage 7 on. Scrap and Field never hand out an Anomaly.
 
 	A CLEAN CRATE IS NOT IN `data.carry`. It lives in its own list, `data.crates`, and
 	shares the backpack's SLOTS with it (Shared/Bag). Every service that walks
@@ -36,7 +37,8 @@
 
 	WHERE THEY DROP. Deeper stages drop better crates (STAGE_VARIANT_WEIGHTS), and a
 	detector with luck nudges the variant up the same way it nudges a nuke's rarity:
-	`weight * luck ^ (variant - 1)`, re-rolled per player like DigService.rollFor.
+	`weight * luck ^ (variant - lowest)`, where `lowest` is the stage's first variant
+	that drops at all, re-rolled per player like DigService.rollFor.
 
 	THE ODDS SHOWN AND THE ODDS ROLLED ARE ONE FUNCTION (`nukeOdds`, `liquidOdds`),
 	the same rule Liquids.oddsAt and Items.rollWeights follow. Util/Spec pins the
@@ -52,7 +54,7 @@ local Crates = {}
 export type CrateDef = {
 	id: string,
 	kind: string, -- "nuke" | "liquid"
-	variant: number, -- 1 basic, 2 mid, 3 top
+	variant: number, -- 1 (worst) .. Crates.VARIANTS (best)
 	name: string,
 	short: string, -- hotbar / keycap label
 	flavor: string,
@@ -79,6 +81,9 @@ Crates.CRATE_CHANCE = 15
 --- Of the crates, the share that are nuke crates (the rest are liquid crates).
 Crates.NUKE_SHARE = 0.5
 
+--- Variants per kind: nuke1..nuke5, liquid1..liquid5.
+Crates.VARIANTS = 5
+
 --- Detector luck can multiply a variant's drop weight by at most this much.
 Crates.VARIANT_LUCK_CAP = 6
 
@@ -86,9 +91,13 @@ Crates.ORDER = {
 	"nuke1",
 	"nuke2",
 	"nuke3",
+	"nuke4",
+	"nuke5",
 	"liquid1",
 	"liquid2",
 	"liquid3",
+	"liquid4",
+	"liquid5",
 }
 
 Crates.DEFS = {
@@ -131,19 +140,45 @@ Crates.DEFS = {
 		stages = { 4, 7 },
 		pullWeight = 110,
 	},
+	nuke4 = {
+		id = "nuke4",
+		kind = "nuke",
+		variant = 4,
+		name = "Cobalt Bomb Crate",
+		short = "Cobalt Crate",
+		flavor = "Blue-steel bomb case on a launch deck. The vents are still warm.",
+		color = "2F6BFF",
+		tier = "Rare",
+		rarities = { Rare = 50, Epic = 35.9, Legendary = 11, Mythic = 3, Anomaly = 0.1 },
+		stages = { 7, 10 },
+		pullWeight = 150,
+	},
+	nuke5 = {
+		id = "nuke5",
+		kind = "nuke",
+		variant = 5,
+		name = "Fusion Core Crate",
+		short = "Fusion Crate",
+		flavor = "A reactor plinth in a case. Whatever is inside is still fusing.",
+		color = "FFB020",
+		tier = "Epic",
+		rarities = { Epic = 55, Legendary = 32, Mythic = 11, Anomaly = 2 },
+		stages = { 9, 12 },
+		pullWeight = 200,
+	},
 	liquid1 = {
 		id = "liquid1",
 		kind = "liquid",
 		variant = 1,
-		name = "Toxic Chem Crate",
-		short = "Toxic Crate",
-		flavor = "Green sludge bubbling over the lid. At least it isn't water.",
-		color = "5CD65C",
+		-- Was the Toxic Chem Crate; the id stays so saved crates open as Nitro.
+		name = "Nitro Fuel Crate",
+		short = "Nitro Crate",
+		flavor = "A strapped fuel tank, bubbling behind the glass. Keep it away from sparks.",
+		color = "FF6A1F",
 		tier = "Uncommon",
 		liquidFloor = "gel",
 		liquidLuck = 1.5,
 		pullWeight = 35,
-		sizeMult = 1.25, -- on request: the Toxic model read small beside the rest
 	},
 	liquid2 = {
 		id = "liquid2",
@@ -171,27 +206,51 @@ Crates.DEFS = {
 		liquidLuck = 4,
 		pullWeight = 90,
 	},
+	liquid4 = {
+		id = "liquid4",
+		kind = "liquid",
+		variant = 4,
+		name = "Quicksilver Crate",
+		short = "Quicksilver",
+		flavor = "A caged orb of mercury, rolling on its own. Don't touch the beads.",
+		color = "C9D3DE",
+		tier = "Rare",
+		liquidFloor = "lava",
+		liquidLuck = 6,
+		pullWeight = 120,
+	},
+	liquid5 = {
+		id = "liquid5",
+		kind = "liquid",
+		variant = 5,
+		name = "Plasma Charge Crate",
+		short = "Plasma Crate",
+		flavor = "A tesla coil in a box, arcing at the lid. The hum gets in your teeth.",
+		color = "FF4FD8",
+		tier = "Epic",
+		liquidFloor = "nano",
+		liquidLuck = 9,
+		pullWeight = 150,
+	},
 } :: { [string]: CrateDef }
 
---- Basic / mid / top drop weights per stage, at detector luck 1. Deeper stages lean
---- up the ladder: Stage 1 is nearly all basic crates, the Crater is a real shot at
---- a top one every few crates. Stages 1-6 were nudged up a little when the prize pools
---- were cut to stage ranges.
+--- Drop weights for variants 1..5 per stage, at detector luck 1. Deeper stages lean
+--- up the ladder. Stages 1-6 drop the early three (Scrap/Field/Void); from Stage 7
+--- the late two (Cobalt/Fusion) take over, with the Void fading out by Stage 12. The
+--- liquid side rolls on the same ladder (Nitro .. Plasma).
 Crates.STAGE_VARIANT_WEIGHTS = {
-	[1] = { 80, 18, 2 },
-	[2] = { 70, 26, 4 },
-	[3] = { 57, 34, 9 },
-	[4] = { 45, 40, 15 },
-	[5] = { 34, 45, 21 },
-	[6] = { 27, 45, 28 },
-	-- Past Toxic Twilight. Nothing digs here yet (no item stocks 7-12), so these only
-	-- matter once a stage is stocked -- the ladder carries on climbing toward "top".
-	[7] = { 26, 46, 28 },
-	[8] = { 23, 46, 31 },
-	[9] = { 20, 46, 34 },
-	[10] = { 17, 46, 37 },
-	[11] = { 14, 46, 40 },
-	[12] = { 12, 45, 43 },
+	[1] = { 80, 18, 2, 0, 0 },
+	[2] = { 70, 26, 4, 0, 0 },
+	[3] = { 57, 34, 9, 0, 0 },
+	[4] = { 45, 40, 15, 0, 0 },
+	[5] = { 34, 45, 21, 0, 0 },
+	[6] = { 27, 45, 28, 0, 0 },
+	[7] = { 0, 0, 35, 55, 10 },
+	[8] = { 0, 0, 25, 58, 17 },
+	[9] = { 0, 0, 15, 60, 25 },
+	[10] = { 0, 0, 8, 60, 32 },
+	[11] = { 0, 0, 3, 58, 39 },
+	[12] = { 0, 0, 0, 55, 45 },
 } :: { [number]: { number } }
 
 function Crates.get(id: string): CrateDef
@@ -211,33 +270,46 @@ end
 
 -- ── Which crate drops ─────────────────────────────────────────────────
 
---- Normalised variant odds { basic, mid, top } for a stage at this detector luck.
+--- Normalised variant odds { 1 .. VARIANTS } for a stage at this detector luck. Luck
+--- counts up from the stage's lowest dropping variant, so a late stage's Void (its
+--- worst) gets no boost and Fusion gets the most, the way Scrap/Void do early.
 function Crates.variantOdds(stageId: number, luck: number): { number }
 	local base = Crates.STAGE_VARIANT_WEIGHTS[stageId] or Crates.STAGE_VARIANT_WEIGHTS[1]
-	local weights = table.create(3, 0)
+	local lowest = 1
+	for variant = 1, Crates.VARIANTS do
+		if (base[variant] or 0) > 0 then
+			lowest = variant
+			break
+		end
+	end
+	local weights = table.create(Crates.VARIANTS, 0)
 	local total = 0
-	for variant = 1, 3 do
-		local bias = math.min(math.max(luck, 1) ^ (variant - 1), Crates.VARIANT_LUCK_CAP)
-		weights[variant] = base[variant] * bias
+	for variant = 1, Crates.VARIANTS do
+		local bias = math.min(math.max(luck, 1) ^ math.max(variant - lowest, 0), Crates.VARIANT_LUCK_CAP)
+		weights[variant] = (base[variant] or 0) * bias
 		total += weights[variant]
 	end
-	for variant = 1, 3 do
+	for variant = 1, Crates.VARIANTS do
 		weights[variant] /= total
 	end
 	return weights
 end
 
---- Roll a variant (1-3) for a stage. `rng` is a number in [0, 1).
+--- Roll a variant (1-VARIANTS) for a stage. `rng` is a number in [0, 1).
 function Crates.rollVariant(stageId: number, luck: number, rng: number): number
 	local odds = Crates.variantOdds(stageId, luck)
 	local pick = rng
-	for variant = 1, 3 do
-		pick -= odds[variant]
-		if pick <= 0 then
-			return variant
+	local last = 1
+	for variant = 1, Crates.VARIANTS do
+		if odds[variant] > 0 then
+			last = variant
+			pick -= odds[variant]
+			if pick <= 0 then
+				return variant
+			end
 		end
 	end
-	return 1
+	return last
 end
 
 -- ── What a nuke crate holds ───────────────────────────────────────────
