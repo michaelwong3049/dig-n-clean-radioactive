@@ -30,12 +30,12 @@ local CASH: { CashPack } = {
 
 -- Speed packs: `amount` is raw Speed (data.speedPoints); `label` is as players see it
 -- (Treadmill.DISPLAY_SCALE x10). Fixed amounts, so they matter most early: from walk 30
--- they reach about 41 / 54 / 71 / 91. Ids are 0 (COMING SOON) until the products exist.
+-- they reach about 41 / 54 / 71 / 91.
 local SPEED: { CashPack } = {
-	{ id = 0, amount = 10_000, label = "100K" },
-	{ id = 0, amount = 50_000, label = "500K" },
-	{ id = 0, amount = 250_000, label = "2.5M" },
-	{ id = 0, amount = 1_500_000, label = "15M" },
+	{ id = 3716090761, amount = 10_000, label = "100K" },
+	{ id = 3716090932, amount = 50_000, label = "500K" },
+	{ id = 3716090970, amount = 250_000, label = "2.5M" },
+	{ id = 3716090999, amount = 1_500_000, label = "15M" },
 }
 
 -- `weights` are per Config/Crates variant, worst (1) to best (5).
