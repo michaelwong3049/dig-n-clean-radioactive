@@ -14,7 +14,8 @@
 	BLACKOUT IS NOT A DEATH PENALTY. You keep cash, gear, the locker and anything
 	displayed. The BAG is another matter: however you go down -- radiation, aura
 	failure or a blast -- the WHOLE bag drops where you fell, clean nukes and all, for
-	ninety seconds, and ANYONE can steal it straight away. Getting back to it first is
+	ninety seconds, and anyone who has reached Stage 4 (Tuning.STEAL_MIN_STAGE) can
+	steal it straight away. Getting back to it first is
 	the race. Every take by someone else is reported to the owner by name
 	(Net.DroppedBag stolenBy, BagTrackerController's toast). A bomb kill is still the
 	sharpest way to go after another player's haul (Services/BombService), and the
@@ -247,6 +248,17 @@ local function giveBagTo(bag: BasePart, taker: Player)
 	local data = DataService.data(taker)
 	if data == nil then
 		return
+	end
+
+	-- Stealing is for players who have made it to Stage 4 (Tuning.STEAL_MIN_STAGE);
+	-- your own bag you can always recover. Read live as well as from the save, because
+	-- deepestStage only catches up on MasteryService's next look.
+	if bag:GetAttribute("OwnerId") ~= taker.UserId then
+		local deepest = math.max(tonumber(data.stats.deepestStage) or 1, StageService.stageOf(taker) or 1)
+		if deepest < Tuning.STEAL_MIN_STAGE then
+			noticeRemote:FireClient(taker, `reach Stage {Tuning.STEAL_MIN_STAGE} to steal bags`)
+			return
+		end
 	end
 
 	local stats = StatResolver.get(data)

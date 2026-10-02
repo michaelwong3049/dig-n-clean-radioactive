@@ -43,6 +43,7 @@ local MasteryService = {}
 
 local POLL_SECONDS = 1
 local BOMB_ATTR = "MasteryBombDamage"
+local DEEPEST_ATTR = "DeepestStage"
 
 type Seen = {
 	tiers: { [string]: number },
@@ -53,17 +54,20 @@ local seen: { [Player]: Seen } = {}
 local askedAt: { [Player]: number } = {}
 local stateRemote: any = nil
 
---- Raise `deepestStage` to `stageId` if it is deeper.
-local function reach(data: any, stageId: number?)
+--- Raise `deepestStage` to `stageId` if it is deeper, and publish it as the
+--- DeepestStage attribute (the bag-steal gate, Tuning.STEAL_MIN_STAGE, is worded
+--- client-side off it).
+local function reach(player: Player, data: any, stageId: number?)
 	if stageId and stageId > (tonumber(data.stats.deepestStage) or 1) then
 		data.stats.deepestStage = stageId
 	end
+	player:SetAttribute(DEEPEST_ATTR, tonumber(data.stats.deepestStage) or 1)
 end
 
 --- Snapshot `player`'s masteries and push them if anything changed. `quiet` records
 --- the tiers without announcing any (the first look after a load).
 local function check(player: Player, data: any, quiet: boolean)
-	reach(data, StageService.stageOf(player))
+	reach(player, data, StageService.stageOf(player))
 
 	local snapshot = Mastery.snapshot(data)
 	local record = seen[player]
@@ -126,7 +130,7 @@ function MasteryService.start()
 	StageService.onChanged(function(player, newStage)
 		local data = DataService.data(player)
 		if data then
-			reach(data, newStage)
+			reach(player, data, newStage)
 		end
 	end)
 
