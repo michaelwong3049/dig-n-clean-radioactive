@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 59
+local BUILDER_VERSION = 60
 
 local C = Kit.C
 local build = Kit.build
@@ -1495,8 +1495,9 @@ end
 --- card can never reach the next one: PRICE_CARD_WIDTH is under RACK_PITCH by design.
 ---
 --- PRICE FIRST, on request, picked from a round of mockups: the thing a player scans a
---- rail for is what they can afford, so the price is the big line (LuckiestGuy, gold)
---- and the name the small one (FredokaOne) — both in the HUD's black cartoon outline.
+--- rail for is what they can afford, so the price is the big line (gold) and the name
+--- the small one — both Gotham Black, the panels' font, in the HUD's black cartoon
+--- outline.
 ---
 --- THE NAME IS SPLIT ONTO TWO LINES HERE, NOT WRAPPED BY THE ENGINE. With a stud-sized
 --- card the text has to be TextScaled, and TextScaled + TextWrapped sizes each label
@@ -1510,10 +1511,12 @@ end
 --- invisible to it.
 local PRICE_CARD_WIDTH = RACK_PITCH - 0.6 -- studs; the gap to the next card is the 0.6
 local PRICE_LINE_HEIGHT = 0.72 -- studs; the price
-local NAME_LINE_HEIGHT = 0.46 -- studs, per line of the name
+-- Studs, per line of the name. Gotham Black runs wider than the old FredokaOne, so a
+-- long word ("Electromagnet", "Containment") is held by the card's width before this.
+local NAME_LINE_HEIGHT = 0.58
 local PRICE_CARD_LIFT = 0.35 -- studs from the mount's top face to the card's bottom edge
 local PRICE_GOLD = "FFD84A" -- the cash badge's gold, so a price reads as the same money
--- A name longer than this goes onto two lines: about what FredokaOne fits across
+-- A name longer than this goes onto two lines: about what Gotham Black fits across
 -- PRICE_CARD_WIDTH at NAME_LINE_HEIGHT before TextScaled starts shrinking it. A long
 -- name with no space to split at ("Electromagnet") stays one line and shrinks a little.
 local NAME_ONE_LINE_MAX = 11
@@ -1576,10 +1579,13 @@ local function buildPriceCard(mount: BasePart, name: string, price: number)
 	title.Name = "Title"
 	title.Size = UDim2.fromScale(1, nameHeight / height)
 	title.BackgroundTransparency = 1
-	title.Font = Kit.FONT
+	title.Font = Enum.Font.GothamBlack
 	title.Text = nameText
+	-- No `TextWrapped = false` after this: Roblox turns TextScaled back OFF when
+	-- wrapping is cleared on a scaled label, which left every name at a fixed 8px.
+	-- Scaled text always wraps; the box is exactly nameLines' line count tall, so
+	-- wrapping any further would only shrink it and the scaler never picks that.
 	title.TextScaled = true
-	title.TextWrapped = false
 	title.TextYAlignment = Enum.TextYAlignment.Bottom
 	title.TextColor3 = Color3.fromHex(C.labelText)
 	title.TextStrokeTransparency = 1
@@ -1591,7 +1597,7 @@ local function buildPriceCard(mount: BasePart, name: string, price: number)
 	sub.Position = UDim2.fromScale(0, nameHeight / height)
 	sub.Size = UDim2.fromScale(1, PRICE_LINE_HEIGHT / height)
 	sub.BackgroundTransparency = 1
-	sub.Font = Enum.Font.LuckiestGuy
+	sub.Font = Enum.Font.GothamBlack
 	sub.TextScaled = true
 	sub.Text = priceText(price)
 	sub.TextColor3 = Color3.fromHex(PRICE_GOLD)
