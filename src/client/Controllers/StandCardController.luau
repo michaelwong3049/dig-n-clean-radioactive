@@ -61,8 +61,11 @@ local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
 
 local STYLE = {
-	nameFont = Enum.Font.LuckiestGuy,
+	-- The words (rarity, name, stickers) are the panels' Gotham Black; the numbers
+	-- (rate, kg, crating clock) stay in the rounder FredokaOne.
+	wordFont = Enum.Font.GothamBlack,
 	font = Enum.Font.FredokaOne,
+	coinFont = Enum.Font.LuckiestGuy, -- the "$" on the coin, as CashController draws it
 	-- The cash badge's rate pill and coin, so a stand's $/s reads as the same money.
 	pill = Color3.fromHex("FF7A1A"),
 	coin = Color3.fromHex("FFB81C"),
@@ -103,39 +106,39 @@ local SHIMMER: { [string]: { kind: string, glint: Color3? } } = {
 -- the pill row sits on the card's bottom edge either way.
 local L = {
 	width = 300,
-	height = 152,
+	height = 160,
 	rarityY = 0,
-	rarityH = 18,
-	raritySize = 15,
-	starsY = 20,
+	rarityH = 22,
+	raritySize = 20,
+	starsY = 24,
 	starW = 14,
 	starH = 16,
 	starOn = 15,
 	starOff = 11,
-	bannerY = 40,
-	bannerH = 46,
+	bannerY = 46,
+	bannerH = 48,
 	bannerMin = 150,
 	bannerMax = 256,
 	bannerPad = 40, -- name width -> ribbon width
-	nameSize = 27,
+	nameSize = 31,
 	nameMin = 20,
-	nameDrop = 3, -- LuckiestGuy draws high in its line box (CashController measured the same)
+	nameDrop = 1, -- nudge down a hair so the caps sit optically centred on the ribbon
 	tailW = 46,
 	tailH = 34,
 	tailDrop = 10, -- tails hang this far below the ribbon's top edge
 	tailTuck = 22, -- and stick out this far past each end of it
 	notch = 11,
 	strip = 2, -- row height the notched tails are drawn in
-	pillY = 92,
+	pillY = 100,
 	pillH = 28,
 	pillGap = 6,
 	coin = 20,
 	rateSize = 15,
 	kgSize = 16,
-	stickerH = 18,
-	stickerSize = 12,
+	stickerH = 22,
+	stickerSize = 15,
 	stickerTilt = 10,
-	footY = 130,
+	footY = 138,
 	footH = 20,
 	footSize = 13,
 	footGap = 6,
@@ -370,7 +373,7 @@ local function coin(parent: Instance, x: number, y: number)
 		rim.Color = STYLE.coinRim
 	end
 	text(body, "Mark", "$", 15, STYLE.coinMark, 0, {
-		font = STYLE.nameFont,
+		font = STYLE.coinFont,
 		position = UDim2.fromOffset(0, 2),
 		z = 7,
 	})
@@ -385,7 +388,7 @@ local function padlock(parent: Instance, x: number, y: number, holeColor: Color3
 end
 
 local function sticker(parent: Instance, name: string, label: string, color: Color3, cx: number, cy: number, tilt: number)
-	local w = textWidth(label, L.stickerSize, STYLE.font) + 14
+	local w = textWidth(label, L.stickerSize, STYLE.wordFont) + 14
 	-- Keep a long one ("PREWAR SEALED") on the card rather than hanging off its edge.
 	cx = math.clamp(cx, w / 2 + 2, L.width - w / 2 - 2)
 	local chip = shape(parent, name, cx, cy, w, L.stickerH, color, {
@@ -396,7 +399,7 @@ local function sticker(parent: Instance, name: string, label: string, color: Col
 		centre = true,
 		rotation = tilt,
 	})
-	text(chip, "Label", label, L.stickerSize, INK, 0, { z = 8 })
+	text(chip, "Label", label, L.stickerSize, INK, 0, { font = STYLE.wordFont, z = 8 })
 end
 
 --- Fill the rarity word, and start its shimmer if the tier has one.
@@ -530,6 +533,7 @@ local function draw(card: Card)
 
 	-- Rarity word and the star rating: the tier, nudged by this copy's quality and size.
 	local rarityLabel = text(body, "Rarity", string.upper(rarityId), L.raritySize, color, 2.3, {
+		font = STYLE.wordFont,
 		position = UDim2.fromOffset(0, L.rarityY),
 		size = UDim2.new(1, 0, 0, L.rarityH),
 	})
@@ -589,8 +593,8 @@ local function draw(card: Card)
 
 	-- The ribbon, sized to its name, with its tails tucked behind each end.
 	local nameSize = L.nameSize
-	local bannerW = math.clamp(textWidth(def.name, nameSize, STYLE.nameFont) + L.bannerPad, L.bannerMin, L.bannerMax)
-	while nameSize > L.nameMin and textWidth(def.name, nameSize, STYLE.nameFont) > bannerW - 24 do
+	local bannerW = math.clamp(textWidth(def.name, nameSize, STYLE.wordFont) + L.bannerPad, L.bannerMin, L.bannerMax)
+	while nameSize > L.nameMin and textWidth(def.name, nameSize, STYLE.wordFont) > bannerW - 24 do
 		nameSize -= 1
 	end
 	local bannerX = mid - bannerW / 2
@@ -615,7 +619,7 @@ local function draw(card: Card)
 		paintAnomaly(card.anomaly, Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE))
 	end
 	text(banner, "ItemName", def.name, nameSize, WHITE, 3, {
-		font = STYLE.nameFont,
+		font = STYLE.wordFont,
 		position = UDim2.fromOffset(0, L.nameDrop),
 	})
 
