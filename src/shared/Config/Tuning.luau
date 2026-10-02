@@ -610,9 +610,15 @@ Tuning.INDEX_COMPLETE_LUCK_MULT = 1.1
 --- The CASH half of the same reward: every stage whose index is complete multiplies ALL
 --- cash earned -- sales and stand income alike (and so away earnings) -- by this much.
 --- Unlike the luck it is not tied to the stage: it stacks across stages, multiplied, so
---- two complete stages are x1.21 and all twelve are about x3.14. Folded into
---- StatResolver's sellMultiplier and yieldMultiplier via IndexProgress.cashMultiplier.
+--- two complete stages are x1.21. Folded into StatResolver's sellMultiplier and
+--- yieldMultiplier via IndexProgress.cashMultiplier.
 Tuning.INDEX_COMPLETE_CASH = 1.1
+
+--- FROM THIS STAGE ON, a completed index pays INDEX_COMPLETE_CASH_LATE instead of
+--- INDEX_COMPLETE_CASH: the far stages are much longer to finish, so they pay more.
+--- Stacks the same way -- all twelve are 1.1^6 x 1.2^6, about x5.32.
+Tuning.INDEX_CASH_LATE_FROM_STAGE = 7
+Tuning.INDEX_COMPLETE_CASH_LATE = 1.2
 
 --- WHO MAY STEAL A DROPPED BAG: only a player whose deepest stage reached
 --- (data.stats.deepestStage, published as the DeepestStage attribute) is at least this.

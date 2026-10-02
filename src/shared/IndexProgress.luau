@@ -114,11 +114,25 @@ function IndexProgress.completedCount(discovered: { [string]: boolean }): number
 	return count
 end
 
---- The cash multiplier completed stages earn: Tuning.INDEX_COMPLETE_CASH per stage,
+--- The cash multiplier one stage's completed index is worth: INDEX_COMPLETE_CASH, or
+--- INDEX_COMPLETE_CASH_LATE from Tuning.INDEX_CASH_LATE_FROM_STAGE on.
+function IndexProgress.stageCash(stageId: number): number
+	return if stageId >= Tuning.INDEX_CASH_LATE_FROM_STAGE
+		then Tuning.INDEX_COMPLETE_CASH_LATE
+		else Tuning.INDEX_COMPLETE_CASH
+end
+
+--- The cash multiplier completed stages earn: each complete stage's stageCash,
 --- stacked multiplicatively. 1 with nothing complete. StatResolver folds it into both
 --- sellMultiplier and yieldMultiplier, so every payout reads it from the one place.
 function IndexProgress.cashMultiplier(discovered: { [string]: boolean }): number
-	return Tuning.INDEX_COMPLETE_CASH ^ IndexProgress.completedCount(discovered)
+	local mult = 1
+	for _, stage in Stages.DEFS do
+		if IndexProgress.isComplete(discovered, stage.id) then
+			mult *= IndexProgress.stageCash(stage.id)
+		end
+	end
+	return mult
 end
 
 --- A record's weight in kg, or nil when there is no roll on file.

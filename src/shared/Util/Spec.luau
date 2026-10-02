@@ -350,18 +350,23 @@ function Spec.run(): boolean
 		check("§index identifying everything completes every stocked stage", fullOk)
 		check("§index a stage that stocks nothing never grants its luck", emptyNever)
 
-		-- The cash half: x1 with nothing complete, INDEX_COMPLETE_CASH per complete
-		-- stage, stacked, and resolved into BOTH payout multipliers.
-		local stockedCount = 0
+		-- The cash half: x1 with nothing complete, each complete stage's stageCash
+		-- (x1.1, x1.2 from Stage 7), stacked, and resolved into BOTH payout multipliers.
+		local stockedProduct = 1
 		for _, stage in Stages.DEFS do
 			if #IndexProgress.stageItems(stage.id) > 0 then
-				stockedCount += 1
+				stockedProduct *= IndexProgress.stageCash(stage.id)
 			end
 		end
 		check("§index an empty index earns no cash bonus", IndexProgress.cashMultiplier({}) == 1)
 		check(
 			"§index every complete stage stacks its cash multiplier",
-			math.abs(IndexProgress.cashMultiplier(all) - Tuning.INDEX_COMPLETE_CASH ^ stockedCount) < 1e-9
+			math.abs(IndexProgress.cashMultiplier(all) - stockedProduct) < 1e-9
+		)
+		check(
+			"§index Stages 7+ pay the bigger cash multiplier",
+			IndexProgress.stageCash(Tuning.INDEX_CASH_LATE_FROM_STAGE) == Tuning.INDEX_COMPLETE_CASH_LATE
+				and IndexProgress.stageCash(Tuning.INDEX_CASH_LATE_FROM_STAGE - 1) == Tuning.INDEX_COMPLETE_CASH
 		)
 		local bare = StatResolver.get({ level = 1, gear = {}, perks = {} })
 		local done = StatResolver.get({ level = 1, gear = {}, perks = {}, discovered = all })
