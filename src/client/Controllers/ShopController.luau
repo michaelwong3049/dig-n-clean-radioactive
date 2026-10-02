@@ -118,6 +118,31 @@ local PASS_TINT: { [string]: Color3 } = {
 	bombDamage = Color3.fromHex("D81B60"),
 	instantClean = Color3.fromHex("1E88E5"),
 }
+-- Flat pictures of crates (art/crates), drawn instead of the live 3D model so the card
+-- never sits blank waiting on meshes. A crate with none falls back to the viewport.
+local CRATE_IMAGE: { [string]: string } = {
+	nuke3 = "rbxassetid://117104417851806", -- Void Nuke Crate
+	liquid2 = "rbxassetid://107641217252136", -- Isotope Chem Crate
+}
+-- The Mystery crates have no picture of their own yet; each borrows one of its kind's.
+local MYSTERY_IMAGE: { [string]: string } = {
+	nuke = CRATE_IMAGE.nuke3,
+	liquid = CRATE_IMAGE.liquid2,
+}
+
+--- A crate picture filling `well`, `inset` in from its edges.
+local function crateImage(well: Frame, image: string, inset: number, z: number)
+	local picture = Instance.new("ImageLabel")
+	picture.Name = "Picture"
+	picture.BackgroundTransparency = 1
+	picture.Image = image
+	picture.ScaleType = Enum.ScaleType.Fit
+	picture.AnchorPoint = Vector2.new(0.5, 0.5)
+	picture.Position = UDim2.fromScale(0.5, 0.5)
+	picture.Size = UDim2.new(1, -inset * 2, 1, -inset * 2)
+	picture.ZIndex = z
+	picture.Parent = well
+end
 local PASS_H = 200
 local PASS_ART = 140
 -- Each pack's card colour, keyed by Config/Packs key: warm for the cheap one, royal
@@ -572,9 +597,19 @@ local function buildPacks(parent: Instance)
 		well.Parent = card
 		round(well, 14)
 		edge(well, PANEL.ink, 3)
-		-- The best crate in the pack: the last one listed is the top of each ladder.
+		-- The best crate in the pack with a picture; failing that, the best one drawn live
+		-- (the last one listed is the top of each ladder).
+		local pictured
+		for i = #pack.crates, 1, -1 do
+			if CRATE_IMAGE[pack.crates[i]] then
+				pictured = pack.crates[i]
+				break
+			end
+		end
 		local best = pack.crates[#pack.crates]
-		if best and Crates.has(best) then
+		if pictured then
+			crateImage(well, CRATE_IMAGE[pictured], 6, 14)
+		elseif best and Crates.has(best) then
 			local viewport = ItemArt.newViewport(well)
 			viewport.ZIndex = 14
 			local function paint()
@@ -847,7 +882,9 @@ local function buildCrates(parent: Instance)
 		well.ZIndex = 13
 		well.Parent = card
 		local best = `{product.kind}{#product.weights}`
-		if Crates.has(best) then
+		if MYSTERY_IMAGE[product.kind] then
+			crateImage(well, MYSTERY_IMAGE[product.kind], 0, 13)
+		elseif Crates.has(best) then
 			local viewport = ItemArt.newViewport(well)
 			viewport.ZIndex = 13
 			-- Framed to the well's real aspect, so it is (re)painted whenever the grid
