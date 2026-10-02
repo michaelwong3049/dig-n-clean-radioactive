@@ -2846,7 +2846,7 @@ end
 --- belt's centre so a runner facing out sees it front-on to their right. Its near
 --- edge stays clear of the diamond rung's body (6.8 studs off the belt's centre line).
 local UPGRADE_SIGN = {
-	x = 9.7, -- off the belt's centre, toward the plot's middle: 0.4 clear of the diamond rung (on request: closer)
+	x = 9.3, -- off the belt's centre, toward the plot's middle: just touching the diamond rung's edge (on request: closer again)
 	z = -3, -- toward the entrance (-Z), ahead of the runner
 	-- Five sixths of the second cut (on request: slightly smaller again). The client
 	-- draws its face at the board's own size, so these can change freely.
@@ -2890,13 +2890,19 @@ end
 
 --- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
 --- setTreadmillTier calls it on every repaint. A sign built to an older UPGRADE_SIGN
---- (its board a different size) is taken down and put up again to the current one.
+--- (its board a different size, or stood at a different offset) is taken down and put up again to the current one.
 local function ensureUpgradeSign(treadmill: Instance)
 	local existing = treadmill:FindFirstChild("UpgradeSign")
 	if existing then
 		local board = existing:FindFirstChild("Board")
 		local u = UPGRADE_SIGN
-		if board and board:IsA("BasePart") and (board.Size - Vector3.new(u.boardW, u.boardH, u.boardT)).Magnitude < 1e-3 then
+		if
+			board
+			and board:IsA("BasePart")
+			and (board.Size - Vector3.new(u.boardW, u.boardH, u.boardT)).Magnitude < 1e-3
+			and existing:GetAttribute("OffsetX") == u.x
+			and existing:GetAttribute("OffsetZ") == u.z
+		then
 			return
 		end
 		existing:Destroy()
@@ -2930,6 +2936,8 @@ local function ensureUpgradeSign(treadmill: Instance)
 		material = "Plastic",
 		studs = true,
 	})
+	sign:SetAttribute("OffsetX", u.x)
+	sign:SetAttribute("OffsetZ", u.z)
 	sign.Parent = treadmill
 end
 
