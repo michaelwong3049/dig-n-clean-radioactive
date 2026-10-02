@@ -527,7 +527,8 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		nameLabel.Text = item.name
 		nameLabel.TextColor3 = if item.clean then color else SKIN.crustText
 		local sub = row:FindFirstChild("Sub") :: TextLabel
-		sub.Text = `<font color="#{color:ToHex()}">{item.rarity or ""}</font>  <font color="#{SKIN.amber:ToHex()}">{starText(item)}</font>`
+		local kg = if type(item.weight) == "number" then `  <font color="#{SKIN.text:ToHex()}">{UIKit.formatKg(item.weight)}</font>` else ""
+		sub.Text = `<font color="#{color:ToHex()}">{item.rarity or ""}</font>  <font color="#{SKIN.amber:ToHex()}">{starText(item)}</font>{kg}`
 		;(row:FindFirstChild("Crusted") :: TextLabel).Visible = not item.clean
 		;(row:FindFirstChild("Price") :: TextLabel).Text = money(item.value or 0)
 		local tick = row:FindFirstChild("Tick") :: Frame
