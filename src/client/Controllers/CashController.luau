@@ -40,7 +40,7 @@
 	value, a "+$1.2K" / "-$500" pops off the end of the number and floats away, and the
 	badge gives a small punch. Exhibit payouts (CashState's `source == "exhibit"`, every
 	few seconds while stands are full) get a smaller popup and no punch: they are
-	background income, and a loud pop every five seconds would drown out the sales.
+	background income, and a loud pop every two seconds would drown out the sales.
 	The load snapshot sets the number silently -- a returning player's balance is not
 	a gain.
 
