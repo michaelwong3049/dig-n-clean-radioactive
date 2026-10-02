@@ -239,7 +239,7 @@ at whatever stage it arrived in and is safe from then on. That permanence is the
 for the run home, and it's why the run is worth making.
 
 **Cleaning hose line:** Garden Hose → Patched Fire Hose → Pressure Lance → Chem Injector →
-Ultrasonic Jet → Ion Cannon → Plasma Lance.
+Ion Cannon → Plasma Lance. (Ultrasonic Jet was cut so the ladder has fewer, bigger steps.)
 
 The line used to be seven different nouns (Wire Brush → Acid Sponge → Pressure Washer →
 Chem Bath → Ultrasonic Rig → Ion Shower → Plasma Scour), and it used to be something you
@@ -796,8 +796,8 @@ Bent Horseshoe → Salvage Magnet → Ferrite Coil → Electromagnet Rig → Ser
 
 ### Cleaning hose line
 
-Garden Hose → Patched Fire Hose → Pressure Lance → Chem Injector → Ultrasonic Jet →
-Ion Cannon → Plasma Lance
+Garden Hose → Patched Fire Hose → Pressure Lance → Chem Injector → Ion Cannon →
+Plasma Lance
 
 ### Aura line *(was the Suit line)*
 

@@ -17,9 +17,10 @@
 	nozzle in one fist). So the thing you bought was never the thing you cleaned with.
 	Seven hoses collapses that: the tier you own IS the nozzle you aim.
 
-	IMPORTED ART NOW WINS, AND THE PRIMITIVES ARE THE FALLBACK. Seven hand-imported,
+	IMPORTED ART NOW WINS, AND THE PRIMITIVES ARE THE FALLBACK. Hand-imported,
 	textured models (one per rung, coloured by their own texture) live in
-	ReplicatedStorage.Assets.HoseModels.T1..T7, made once by
+	ReplicatedStorage.Assets.HoseModels.T1..T7 (T5, the cut Ultrasonic Jet, is now
+	unused -- ART_SLOTS maps rungs to templates), made once by
 	tools/studio-migrations/import-hose-models.luau. `create` clones one of those when
 	it is there and builds the primitives below when it is not (a place file without
 	the templates, an offline run, a rung someone adds before its art exists). MeshId
@@ -29,7 +30,7 @@
 	FRAME below), so no caller can tell which one it got. FORMS is still what draws
 	a hose when the template is missing.
 
-	TOXIC TWILIGHT'S FIVE ARE ART ONLY. Tiers 8-12 (T8..T12, made by
+	TOXIC TWILIGHT'S FIVE ARE ART ONLY. Tiers 7-11 (T8..T12, made by
 	tools/studio-migrations/import-twilight-hoses.luau) have no primitive drawing of
 	their own: the rung count is FORMS plus ART_ONLY (Spec checks it against Gear), and a
 	missing template falls back to the top FORMS silhouette in that rung's own colours.
@@ -219,28 +220,7 @@ local FORMS: { Form } = {
 		},
 	},
 
-	-- 5  Ultrasonic Jet — no tip at all. The business end is an open emitter ring with
-	-- a lit face inside it, flanked by two waveguide prongs. Nothing about it looks
-	-- like it sprays, which is the point: this is the rung where the track stops being
-	-- plumbing.
-	{
-		barrel = { len = 2.00, dia = 0.96, z = 0.25 },
-		grip = { size = Vector3.new(0.52, 1.10, 0.62), pos = Vector3.new(0, -0.68, 0.78) },
-		collar = { len = 0.44, dia = 1.08, z = 1.30 },
-		taper = { len = 0.70, dia = 0.78, z = -0.95 },
-		tip = nil,
-		muzzle = -1.68,
-		hoseEnd = 1.58,
-		accentMaterial = Enum.Material.Metal,
-		extras = {
-			{ name = "EmitterRing", size = Vector3.new(0.28, 1.42, 1.42), pos = Vector3.new(0, 0, -1.45), paint = "accent" },
-			{ name = "EmitterFace", size = Vector3.new(0.34, 0.92, 0.92), pos = Vector3.new(0, 0, -1.45), paint = "glow" },
-			{ name = "ProngLeft", size = Vector3.new(0.90, 0.16, 0.16), pos = Vector3.new(-0.52, 0, -1.05), paint = "accent" },
-			{ name = "ProngRight", size = Vector3.new(0.90, 0.16, 0.16), pos = Vector3.new(0.52, 0, -1.05), paint = "accent" },
-		},
-	},
-
-	-- 6  Ion Cannon — a flared bell, stepped in three rings because a Cylinder cannot
+	-- 5  Ion Cannon — a flared bell, stepped in three rings because a Cylinder cannot
 	-- taper. Read face-on that is a cone; read from the side it is a horn. Either way
 	-- it is the widest thing on the ladder, which is what buys the second-from-top rung
 	-- its presence without adding length it has nowhere to put.
@@ -261,7 +241,7 @@ local FORMS: { Form } = {
 		},
 	},
 
-	-- 7  Plasma Lance — the longest thing in the game you can hold, four radial heat
+	-- 6  Plasma Lance — the longest thing in the game you can hold, four radial heat
 	-- fins where the barrel meets the lance, and a lit tip. It is the top rung and it
 	-- is allowed to be absurd; what keeps it honest is that it still grips and still
 	-- feeds from the same reel as the garden hose.
@@ -312,10 +292,17 @@ local function tube(name: string, t: Tube, color: Color3, material: Enum.Materia
 	return p
 end
 
---- The rungs that exist only as imported art, by Gear.Cleaner name, after FORMS' seven.
+--- The rungs that exist only as imported art, by Gear.Cleaner name, after FORMS' six.
 --- Listed rather than counted off the Assets folder so Spec (and an offline run with no
 --- place file) still knows how long the ladder is.
 local ART_ONLY = { "Singularity Nozzle", "Cryo Nova", "Solar Forge", "Quantum Rift", "Celestial Deluge" }
+
+--- Which Assets/HoseModels template each rung clones, by rung. The place file still
+--- holds T1-T12 as imported, one per the ORIGINAL twelve rungs; T5 is the cut
+--- Ultrasonic Jet and nothing points at it. Mapping here rather than renaming the
+--- templates keeps this a code-only change -- no Studio rebuild, nothing to publish
+--- before the shop and the mast agree again.
+local ART_SLOTS = { 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12 }
 
 function Hose.count(): number
 	return #FORMS + #ART_ONLY
@@ -333,7 +320,11 @@ local function artTemplate(index: number): Model?
 		end
 		folder = next_
 	end
-	local template = folder:FindFirstChild(`T{index}`)
+	local slot = ART_SLOTS[index]
+	if slot == nil then
+		return nil
+	end
+	local template = folder:FindFirstChild(`T{slot}`)
 	if template and template:IsA("Model") and template.PrimaryPart ~= nil then
 		return template
 	end

@@ -265,13 +265,21 @@ Gear.Magnet = {
 -- What each rung looks like is Shared/ToolModels/Hose — real geometry, in git, seven
 -- authored silhouettes rather than one base model recoloured. That file is also why
 -- ToolTiers.Cleaner's `scale` column is 1.00 all the way down.
+--
+-- SIX BASE CAMP RUNGS, NOT SEVEN. The Ultrasonic Jet (power 5, $4.4M) was cut on
+-- request so the ladder stops feeling like one more hose every time you look up, and
+-- everything above it slid down a tier. Patched Fire Hose kept its $36K; the three
+-- rungs between it and the Plasma Lance were re-spaced over that gap at ~x6 a step,
+-- and the Ion Cannon now JUMPS two power (4 -> 6) where the cut rung used to sit, so
+-- a Legendary under a Chem Injector is a +1 grind rather than a missing purchase.
+-- Volume was re-spread over the same 1.0-3.8 span, so the stream's top end is
+-- unchanged. Spec still pins ascending price/power/volume.
 Gear.Cleaner = {
 	{ name = "Garden Hose", price = 0, power = 1, volume = 1.0, blurb = "A dribble and a prayer." },
 	{ name = "Patched Fire Hose", price = 36000, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
-	{ name = "Pressure Lance", price = 230000, power = 3, volume = 1.5, blurb = "Narrow jet. Strips crust, not your patience." },
-	{ name = "Chem Injector", price = 1400000, power = 4, volume = 1.9, blurb = "Doses the stream. Eats what water cannot." },
-	{ name = "Ultrasonic Jet", price = 4400000, power = 5, volume = 2.4, blurb = "Shakes the grime loose before it is wet." },
-	{ name = "Ion Cannon", price = 14000000, power = 6, volume = 3.0, blurb = "Charges the water. The dirt lets go first." },
+	{ name = "Pressure Lance", price = 210000, power = 3, volume = 1.6, blurb = "Narrow jet. Strips crust, not your patience." },
+	{ name = "Chem Injector", price = 1250000, power = 4, volume = 2.1, blurb = "Doses the stream. Eats what water cannot." },
+	{ name = "Ion Cannon", price = 7500000, power = 6, volume = 2.9, blurb = "Charges the water. The dirt lets go first." },
 	{ name = "Plasma Lance", price = 43000000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
 	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Hose Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors and magnets. The order is the user's.

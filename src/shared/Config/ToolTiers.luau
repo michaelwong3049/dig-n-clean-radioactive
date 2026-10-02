@@ -132,10 +132,9 @@ ToolTiers.Cleaner = {
 	{ name = "Patched Fire Hose", scale = 1.00, body = Color3.fromHex("D0342C"), accent = Color3.fromHex("C8A24A"), material = Enum.Material.SmoothPlastic },
 	{ name = "Pressure Lance", scale = 1.00, body = Color3.fromHex("3F7FBF"), accent = Color3.fromHex("C9D6E0"), material = Enum.Material.Metal },
 	{ name = "Chem Injector", scale = 1.00, body = Color3.fromHex("7A4FA8"), accent = Color3.fromHex("D8C6F0"), material = Enum.Material.Metal },
-	{ name = "Ultrasonic Jet", scale = 1.00, body = Color3.fromHex("2E9BA8"), accent = Color3.fromHex("BFF2F7"), material = Enum.Material.Metal, glow = Color3.fromHex("7FE8F2") },
 	{ name = "Ion Cannon", scale = 1.00, body = Color3.fromHex("EDEDED"), accent = Color3.fromHex("6FC8FF"), material = Enum.Material.Metal, glow = Color3.fromHex("9FDCFF") },
 	{ name = "Plasma Lance", scale = 1.00, body = Color3.fromHex("D43FA0"), accent = Color3.fromHex("FFE0F4"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9FE0") },
-	-- TOXIC TWILIGHT'S FIVE. Imported and textured like the seven above, so these rows
+	-- TOXIC TWILIGHT'S FIVE. Imported and textured like the six above, so these rows
 	-- are the reel drum, coil and line colour (Plots.paintHoseRig) plus the fallback
 	-- paint if a template is ever missing. Bodies read off each model's texture.
 	{ name = "Singularity Nozzle", scale = 1.00, body = Color3.fromHex("8C8FD8"), accent = Color3.fromHex("C9A6FF"), material = Enum.Material.Metal, glow = Color3.fromHex("B08CFF") },
