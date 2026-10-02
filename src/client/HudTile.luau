@@ -76,6 +76,9 @@ export type Spec = {
 	leftRow: number?,
 	-- Optional: the bar caption's text size, for a name too long for BAR_TEXT_SIZE.
 	captionSize: number?,
+	-- Optional, with leftRow: no box at all, on request — just the picture, big, with the
+	-- caption centred under it (Masteries' medal).
+	bare: boolean?,
 }
 
 -- THE LEFT-COLUMN BARS (Index, Shop, Masteries), on request: a solid dark rectangle on the middle
@@ -95,6 +98,11 @@ local BAR_TEXT_DROP = Vector2.new(2, 3)
 -- middle, both on request.
 local BAR_GAP = 18
 local BAR_RAISE = 20
+-- A bare row (no box): the picture, the caption under it, and the button's whole size.
+local BARE_ICON = 64
+local BARE_GLOW = 92
+local BARE_CAPTION_GAP = 2
+local BARE_W = 130
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
 --- the true screen as the left column does). Returns the gui, unparented, and the button,
@@ -142,35 +150,70 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		-- Rows 1 and 2 are centred as a pair BAR_RAISE over the left edge's middle, row 1
 		-- under; row 3 (Masteries) stacks on top of them without moving the pair.
 		local up = (row - 1.5) * (BAR_H + BAR_GAP) + BAR_RAISE
-		button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
-		-- Solid, a dark (not near-black) shade of the bar's own colour.
-		button.BackgroundColor3 = spec.color:Lerp(Color3.new(0, 0, 0), 0.6)
-		button.BackgroundTransparency = 0
+		if spec.bare then
+			-- Its bottom edge BAR_GAP over the top of the row below, centred over that bar.
+			local captionSize = spec.captionSize or BAR_TEXT_SIZE
+			local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
+			local belowTop = (row - 2.5) * (BAR_H + BAR_GAP) + BAR_RAISE + BAR_H / 2
+			button.Size = UDim2.fromOffset(BARE_W, height)
+			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -(belowTop + BAR_GAP + height / 2))
+			button.BackgroundTransparency = 1
+			edge.Enabled = false
 
-		local iconCentre = 6 + BAR_ICON / 2
-		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BAR_GLOW, spec.color)
-		glow.AnchorPoint = Vector2.new(0.5, 0.5)
-		glow.Position = UDim2.new(0, iconCentre, 0.5, 0)
-		glow.ImageTransparency = GLOW_TRANSPARENCY
-		glow.ZIndex = 5
+			glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BARE_GLOW, spec.color)
+			glow.AnchorPoint = Vector2.new(0.5, 0.5)
+			glow.Position = UDim2.new(0.5, 0, 0, BARE_ICON / 2)
+			glow.ImageTransparency = GLOW_TRANSPARENCY
+			glow.ZIndex = 5
 
-		icon = Artwork.picture(button, "Icon", spec.image, BAR_ICON, Color3.new(1, 1, 1))
-		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.Position = UDim2.new(0, iconCentre, 0.5, spec.iconDrop or 0)
-		icon.ZIndex = 6
+			icon = Artwork.picture(button, "Icon", spec.image, BARE_ICON, Color3.new(1, 1, 1))
+			icon.AnchorPoint = Vector2.new(0.5, 0)
+			icon.Position = UDim2.new(0.5, 0, 0, spec.iconDrop or 0)
+			icon.ZIndex = 6
 
-		UIKit.hudNumber(button, {
-			name = "Caption",
-			anchorPoint = Vector2.new(0, 0.5),
-			position = UDim2.new(0, BAR_TEXT_LEFT, 0.5, -1),
-			size = UDim2.new(1, -BAR_TEXT_LEFT - 6, 0, (spec.captionSize or BAR_TEXT_SIZE) + 4),
-			text = spec.caption,
-			font = Enum.Font.GothamBlack,
-			textSize = spec.captionSize or BAR_TEXT_SIZE,
-			color = spec.light,
-			xAlign = Enum.TextXAlignment.Left,
-			zIndex = 8,
-		}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
+			UIKit.hudNumber(button, {
+				name = "Caption",
+				anchorPoint = Vector2.new(0.5, 0),
+				position = UDim2.new(0.5, 0, 0, BARE_ICON + BARE_CAPTION_GAP),
+				size = UDim2.new(1, 0, 0, captionSize + 4),
+				text = spec.caption,
+				font = Enum.Font.GothamBlack,
+				textSize = captionSize,
+				color = spec.light,
+				xAlign = Enum.TextXAlignment.Center,
+				zIndex = 8,
+			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
+		else
+			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
+			-- Solid, a dark (not near-black) shade of the bar's own colour.
+			button.BackgroundColor3 = spec.color:Lerp(Color3.new(0, 0, 0), 0.6)
+			button.BackgroundTransparency = 0
+
+			local iconCentre = 6 + BAR_ICON / 2
+			glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BAR_GLOW, spec.color)
+			glow.AnchorPoint = Vector2.new(0.5, 0.5)
+			glow.Position = UDim2.new(0, iconCentre, 0.5, 0)
+			glow.ImageTransparency = GLOW_TRANSPARENCY
+			glow.ZIndex = 5
+
+			icon = Artwork.picture(button, "Icon", spec.image, BAR_ICON, Color3.new(1, 1, 1))
+			icon.AnchorPoint = Vector2.new(0.5, 0.5)
+			icon.Position = UDim2.new(0, iconCentre, 0.5, spec.iconDrop or 0)
+			icon.ZIndex = 6
+
+			UIKit.hudNumber(button, {
+				name = "Caption",
+				anchorPoint = Vector2.new(0, 0.5),
+				position = UDim2.new(0, BAR_TEXT_LEFT, 0.5, -1),
+				size = UDim2.new(1, -BAR_TEXT_LEFT - 6, 0, (spec.captionSize or BAR_TEXT_SIZE) + 4),
+				text = spec.caption,
+				font = Enum.Font.GothamBlack,
+				textSize = spec.captionSize or BAR_TEXT_SIZE,
+				color = spec.light,
+				xAlign = Enum.TextXAlignment.Left,
+				zIndex = 8,
+			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
+		end
 	else
 		if spec.position then
 			button.Position = spec.position
