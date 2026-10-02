@@ -37,6 +37,7 @@ local Payload = require(Config.Payload)
 local Treadmill = require(Config.Treadmill)
 local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
+local GamePasses = require(Config.GamePasses)
 local RareDrop = require(Config.RareDrop)
 local Masteries = require(Config.Masteries)
 local Crates = require(Config.Crates)
@@ -2593,6 +2594,39 @@ function Spec.run(): boolean
 			"§luck a spent clover is no boost at all",
 			StatResolver.get({ level = 1, gear = {}, perks = {}, luckBoostLeft = 0 }).luckBoost == plain.luckBoost
 		)
+
+		-- The game passes (Config/GamePasses): each lands on its own stat and nothing else.
+		do
+			local all = {}
+			for _, pass in GamePasses.PASSES do
+				all[pass.key] = true
+			end
+			local owned = StatResolver.get({ level = 1, gear = {}, perks = {}, passes = all })
+			check(
+				"§pass every pass moves its own stat",
+				owned.capacity == plain.capacity + GamePasses.BACKPACK_SLOTS
+					and math.abs(owned.bombDamageMult / plain.bombDamageMult - GamePasses.BOMB_DAMAGE) < 1e-9
+					and math.abs(owned.trainingMult / plain.trainingMult - GamePasses.SPEED) < 1e-9
+					and owned.digPower == GamePasses.DIG_POWER
+					and owned.luckBoost == plain.luckBoost * GamePasses.LUCK
+					and math.abs(owned.sellMultiplier / plain.sellMultiplier - GamePasses.CASH) < 1e-9
+					and math.abs(owned.yieldMultiplier / plain.yieldMultiplier - GamePasses.CASH) < 1e-9
+					and owned.instantClean == true
+					and plain.instantClean == false
+					and plain.digPower == 1
+					and owned.walkSpeed == plain.walkSpeed
+			)
+			local seen = {}
+			local unique = true
+			for _, pass in GamePasses.PASSES do
+				if seen[pass.id] or seen[pass.key] then
+					unique = false
+				end
+				seen[pass.id] = true
+				seen[pass.key] = true
+			end
+			check("§pass every pass has its own key and id", unique)
+		end
 
 		-- The Violet Aurora sits OVER every stage's sky (Config/Sky.blend), so every
 		-- blend has to clear the same ceilings the stages do, and keep a deck darker

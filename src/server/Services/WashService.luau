@@ -556,7 +556,13 @@ end
 --- THE POTENCY GATE IS IN HERE NOW, as time. A patch past `effectivePotency` used to
 --- bank nothing at all, so an Epic under a tier 2-3 hose sat in the tub and never
 --- moved; it now takes Tuning.WASH_POTENCY_FALLOFF's steep multiple instead.
+---
+--- THE INSTANT CLEAN PASS (Config/GamePasses) makes every target zero: the first tick
+--- of water on a patch breaks it. Aim still decides which patch, so it is fast, not free.
 local function soakTarget(hardness: number, stats: any): number
+	if stats.instantClean then
+		return 0
+	end
 	return Contamination.secondsFor(hardness, stats.scrubRate * stats.liquidRate, stats.effectivePotency)
 end
 

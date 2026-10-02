@@ -145,6 +145,9 @@ local TEMPLATE = {
 	-- StatResolver reads this key; the schema in ARCHITECTURE.md omits it, which
 	-- would have left every multiplier in the game with nowhere to live.
 	multipliers = {},
+	-- Permanent Robux passes owned (Config/GamePasses), key -> true. A mirror of what
+	-- Roblox says, rewritten on every join by GamePassService; StatResolver reads it.
+	passes = {},
 
 	cleanTokens = 0,
 	rebirths = 0,

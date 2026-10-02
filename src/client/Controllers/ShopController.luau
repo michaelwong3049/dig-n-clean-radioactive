@@ -3,8 +3,9 @@
 	top-right square of the right-edge 2x2 grid, built by HudTile like the other three.
 
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
-	walking up to a stall on the plaza (StationController). One scrolling body, three
-	sections: the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
+	walking up to a stall on the plaza (StationController). One scrolling body, four
+	sections: the PASSES (Config/GamePasses), seven permanent upgrades on top, which
+	turn to OWNED off the Player attribute GamePassService writes; the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
 	row of four packs; and a CRATES row with the two Mystery crates (Config/ShopProducts,
 	whose grants live in EconomyService and CrateService). Every buy button is the gear
 	cards' purple R$, so real money always looks the same. The client only ever
@@ -30,6 +31,7 @@ local Workspace = game:GetService("Workspace")
 local LuckBoost = require(ReplicatedStorage.Shared.Config.LuckBoost)
 local ShopProducts = require(ReplicatedStorage.Shared.Config.ShopProducts)
 local Crates = require(ReplicatedStorage.Shared.Config.Crates)
+local GamePasses = require(ReplicatedStorage.Shared.Config.GamePasses)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -59,6 +61,8 @@ local PANEL = {
 	-- StationController's FIELD.robux: every Robux button in the game is this purple.
 	buy = Color3.fromHex("7B3FE4"),
 	buyHover = Color3.fromHex("9257F5"),
+	-- An owned pass's button: the clover's green, so "you have this" reads at a glance.
+	buyOwned = Color3.fromHex("2F9E4A"),
 	-- The cash and crate cards: the panel's slate, a shade up.
 	tile = Color3.fromHex("252A30"),
 	tileEdge = Color3.fromHex("3A4148"),
@@ -77,6 +81,8 @@ local CLOVER_H = 220
 local SECTION_H = 30
 local CASH_H = 168
 local CRATE_H = 200
+local PASS_H = 196
+local PASSES_PER_ROW = 4
 local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
 local PANEL_LIFT = 40
@@ -125,7 +131,8 @@ end
 --- A purple R$ button for `productId`, parented to `parent`. Its price is read off the
 --- product, so a dashboard change needs no code change; "R$" stands in until then. An
 --- id of 0 (not set up on the dashboard) gives a grey COMING SOON that does nothing.
-local function robuxButton(parent: Instance, productId: number): TextButton
+--- `isPass` sells a game pass (Config/GamePasses) instead of a developer product.
+local function robuxButton(parent: Instance, productId: number, isPass: boolean?): TextButton
 	local live = productId ~= 0
 	local buy = Instance.new("TextButton")
 	buy.Name = "Buy"
@@ -149,20 +156,36 @@ local function robuxButton(parent: Instance, productId: number): TextButton
 
 	task.spawn(function()
 		local ok, info = pcall(function()
-			return MarketplaceService:GetProductInfo(productId, Enum.InfoType.Product)
+			return MarketplaceService:GetProductInfo(productId, if isPass then Enum.InfoType.GamePass else Enum.InfoType.Product)
 		end)
 		if ok and info and info.PriceInRobux then
-			buy.Text = `R$ {info.PriceInRobux}`
+			-- Kept as an attribute too, so an OWNED pass button can put it back.
+			buy:SetAttribute("Price", `R$ {info.PriceInRobux}`)
+			if buy.Active then
+				buy.Text = `R$ {info.PriceInRobux}`
+			end
 		end
 	end)
+	-- An owned pass turns its button off (Active = false); hover and click both respect it.
 	buy.MouseEnter:Connect(function()
-		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
+		if buy.Active then
+			TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
+		end
 	end)
 	buy.MouseLeave:Connect(function()
-		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
+		if buy.Active then
+			TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
+		end
 	end)
 	buy.Activated:Connect(function()
-		MarketplaceService:PromptProductPurchase(Players.LocalPlayer, productId)
+		if not buy.Active then
+			return
+		end
+		if isPass then
+			MarketplaceService:PromptGamePassPurchase(Players.LocalPlayer, productId)
+		else
+			MarketplaceService:PromptProductPurchase(Players.LocalPlayer, productId)
+		end
 	end)
 	return buy
 end
@@ -310,6 +333,87 @@ local function tile(parent: Instance, order: number, name: string, productId: nu
 	buy.Size = UDim2.new(1, -20, 0, 40)
 	buy.TextSize = 20
 	return card
+end
+
+--- The seven passes, PASSES_PER_ROW to a row. A bought one keeps its card and swaps
+--- the button for a green OWNED, off the attribute GamePassService sets.
+local function buildPasses(parent: Instance)
+	section(parent, -10, "PASSES")
+	local rows = math.ceil(#GamePasses.PASSES / PASSES_PER_ROW)
+	local player = Players.LocalPlayer
+	for r = 1, rows do
+		local frame = row(parent, -10 + r, `Passes{r}`, PASS_H, PASSES_PER_ROW)
+		for slot = 1, PASSES_PER_ROW do
+			local index = (r - 1) * PASSES_PER_ROW + slot
+			local pass = GamePasses.PASSES[index]
+			if pass == nil then
+				break
+			end
+			local card = Instance.new("Frame")
+			card.Name = `Pass_{pass.key}`
+			card.LayoutOrder = slot
+			card.BackgroundColor3 = PANEL.tile
+			card.BorderSizePixel = 0
+			card.ZIndex = 12
+			card.Parent = frame
+			round(card, 14)
+			edge(card, PANEL.tileEdge, 2)
+			inked(card, {
+				Name = "Big",
+				Text = pass.big,
+				Font = PANEL.headline,
+				TextSize = 40,
+				TextColor3 = PANEL.cash,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Size = UDim2.new(1, 0, 0, 46),
+				Position = UDim2.fromOffset(0, 10),
+				ZIndex = 14,
+			})
+			inked(card, {
+				Name = "PassName",
+				Text = pass.name,
+				Font = PANEL.headline,
+				TextSize = 17,
+				TextWrapped = true,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Size = UDim2.new(1, -12, 0, 42),
+				Position = UDim2.fromOffset(6, 60),
+				ZIndex = 14,
+			})
+			inked(card, {
+				Name = "Blurb",
+				Text = pass.blurb,
+				Font = PANEL.label,
+				TextSize = 13,
+				TextWrapped = true,
+				TextColor3 = PANEL.dim,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Size = UDim2.new(1, -12, 0, 34),
+				Position = UDim2.fromOffset(6, 102),
+				ZIndex = 14,
+			})
+			local buy = robuxButton(card, pass.id, true)
+			buy.AnchorPoint = Vector2.new(0.5, 1)
+			buy.Position = UDim2.new(0.5, 0, 1, -10)
+			buy.Size = UDim2.new(1, -20, 0, 40)
+			buy.TextSize = 18
+			local attr = GamePasses.attr(pass.key)
+			local function refresh()
+				local owned = player:GetAttribute(attr) == true
+				if owned then
+					buy.Active = false
+					buy.Text = "OWNED"
+					buy.BackgroundColor3 = PANEL.buyOwned
+				elseif pass.id ~= 0 and not buy.Active then
+					buy.Active = true
+					buy.Text = buy:GetAttribute("Price") or "R$"
+					buy.BackgroundColor3 = PANEL.buy
+				end
+			end
+			player:GetAttributeChangedSignal(attr):Connect(refresh)
+			refresh()
+		end
+	end
 end
 
 --- The four cash packs. The bundle grows with the pack, so the row reads as a ladder.
@@ -533,6 +637,7 @@ local function buildPanel(): ScreenGui
 	bodyPad.PaddingBottom = UDim.new(0, 4)
 	bodyPad.Parent = body
 
+	buildPasses(body)
 	buildCloverCard(body)
 	buildCash(body)
 	buildCrates(body)
