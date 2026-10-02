@@ -857,10 +857,40 @@ local function build(): ScreenGui
 		fillTransparency = 0,
 		strokeThickness = UIKit.Stroke.normal,
 		cornerRadius = UDim.new(0, 10),
-		text = "Let Go",
+		text = "",
 		shadow = false,
 	})
 	ui.releaseButton = releaseButton
+
+	-- Keycap + verb, the same row as REEL IN's E. The keycap hides once the fuse arms:
+	-- Q does nothing then, and "Locked In" needs the room.
+	local releaseRow = Instance.new("Frame")
+	releaseRow.Name = "Row"
+	releaseRow.Size = UDim2.fromScale(1, 1)
+	releaseRow.BackgroundTransparency = 1
+	releaseRow.Parent = releaseButton
+	local releaseLayout = reelLayout:Clone()
+	releaseLayout.Parent = releaseRow
+
+	local releaseKey = reelKey:Clone()
+	releaseKey.Key.Text = "Q"
+	releaseKey.Parent = releaseRow
+	ui.releaseKey = releaseKey
+
+	local releaseVerb = UIKit.label(releaseRow, {
+		name = "Verb",
+		size = UDim2.fromOffset(0, 30),
+		font = UIKit.Font.title,
+		textSize = HAULBUTTON_TEXT,
+		color = COLOR.text,
+		outline = false,
+		strokeTransparency = 1,
+		shadow = false,
+		text = "Let Go",
+	})
+	releaseVerb.AutomaticSize = Enum.AutomaticSize.X
+	releaseVerb.LayoutOrder = 2
+	ui.releaseVerb = releaseVerb
 
 	-- THE PULL FUSE, over the readout (Config/Detonation). Locking on lit it. The bar is
 	-- how far through its window this nuke is, and the white tick at ARM_AT is the point
@@ -1268,9 +1298,10 @@ local function renderState()
 	-- the button stops offering it rather than silently failing. It still sends if
 	-- pressed -- the server is the judge, and the client must never be the reason a
 	-- release did not go through.
-	ui.releaseButton.Text = if state.fuseArmed then "Locked In" else "Let Go"
+	ui.releaseVerb.Text = if state.fuseArmed then "Locked In" else "Let Go"
+	ui.releaseVerb.TextColor3 = if state.fuseArmed then COLOR.red else COLOR.text
+	ui.releaseKey.Visible = UserInputService.KeyboardEnabled and not state.fuseArmed
 	ui.releaseButton.BackgroundColor3 = if state.fuseArmed then COLOR.panel else COLOR.red
-	ui.releaseButton.TextColor3 = if state.fuseArmed then COLOR.red else COLOR.text
 	if state.locked then
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on
 		-- the nuke in the shaft, and REEL IN's outline. Scope blue only in the brief
