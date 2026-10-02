@@ -138,6 +138,7 @@ local GOLD = Color3.fromHex("F5C542")
 
 local TEMPLATE_NAME = "GroupRewardChestModel"
 local CHEST_LENGTH = 10.5 -- studs along its long side
+local SIGN_DISTANCE = 22
 
 local function studded(p: BasePart)
 	p.Material = Enum.Material.Plastic
@@ -331,14 +332,16 @@ local function buildChest(): Model
 	-- The sign over it. Labels only, no buttons, so a Workspace BillboardGui is fine.
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
-	sign.Size = UDim2.fromOffset(320, 120)
-	sign.StudsOffsetWorldSpace = Vector3.new(0, H / 2 + 6, 0)
-	sign.MaxDistance = 110
+	sign.Size = UDim2.fromOffset(230, 56)
+	sign.StudsOffsetWorldSpace = Vector3.new(0, H / 2 + 3, 0)
+	-- Only up close: measured from the camera, which trails the player by ~10 studs,
+	-- so this shows from about the ring's edge in.
+	sign.MaxDistance = SIGN_DISTANCE
 	sign.LightInfluence = 0
 	sign.Adornee = body
-	label(sign, "FREE REWARD", 0, 0.34, GOLD, Enum.Font.GothamBlack)
-	label(sign, "Join the group + like the game!", 0.36, 0.28, Color3.new(1, 1, 1), Enum.Font.GothamBold)
-	local reward = label(sign, "Step in the ring to claim", 0.66, 0.28, Color3.fromHex("7CFC8A"), Enum.Font.GothamBold)
+	label(sign, "FREE REWARD", 0, 0.56, GOLD, Enum.Font.GothamBlack)
+	-- The client swaps this line to CLAIMED once the gift is paid.
+	local reward = label(sign, "Join the group + like the game!", 0.6, 0.4, Color3.new(1, 1, 1), Enum.Font.GothamBlack)
 	reward.Name = "Reward"
 	sign.Parent = body
 
