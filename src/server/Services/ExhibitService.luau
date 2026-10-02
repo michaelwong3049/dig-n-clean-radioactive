@@ -78,6 +78,16 @@ local LOCKER_ITEM_SIZE = 1.2 -- longest axis a stored item model is scaled to; t
 -- caps it -- the tubes are narrow, no room for a "giga nuke" roll on top of an
 -- already-normalised size.
 local LOCKER_PAYLOAD_CAP = 1.05
+-- THE STAND HEIGHT CAP. A displayed nuke is ~7 studs x its sizeMult x its Payload roll,
+-- which left alone runs anywhere up to ~61 (the Atomic Bomb rolling GIGA: through TWO
+-- floors). So every stand nuke is capped to stay under the deck overhead with
+-- STAND_CEILING_ROOM to spare for its trophy card -- except a GIGA Anomaly, on request:
+-- the one roll big enough to punch up THROUGH the floor above. Its top always clears
+-- that deck by GIGA_PIERCE.min..max studs (low end of the GIGA band to the top), never
+-- more, so it never reaches a second floor. Floor 3 measures against where a 4th deck
+-- would be, so the rule reads the same on the roof.
+local STAND_CEILING_ROOM = 6 -- the deck's own 1.2 thickness plus the card
+local GIGA_PIERCE = { min = 3, max = 8 }
 -- The pool a crusted ??? sits in: the crust's own brown, since its rarity is all the
 -- rack is allowed to say and the brown says "not washed yet" first.
 local LOCKER_CRUST_GLOW = Color3.fromHex("8A6440")
@@ -378,8 +388,8 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		model.Parent = display
 
 		-- Config/Payload's per-dig roll, full range -- this is an open plinth, not a
-		-- fixed-footprint aiming surface (unlike WashService's capped version), so
-		-- nothing here needs to defend against a physical ceiling.
+		-- fixed-footprint aiming surface (unlike WashService's capped version). The
+		-- only ceiling is the deck overhead -- the height cap just below.
 		-- Plus the item's own Config/Items `sizeMult` (the Atomic Bomb's is huge).
 		local sizeMult = Items.get(itemId :: string).sizeMult or 1
 		local mult = sizeMult * (if uid then Payload.forUid(uid) else 1)
@@ -394,6 +404,21 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		model:PivotTo(display.CFrame * ItemModels.rotation(model, "Display"))
 		local bounds, extent = model:GetBoundingBox()
 		local floorY = display.Position.Y - display.Size.Y / 2
+
+		-- The height cap (STAND_CEILING_ROOM / GIGA_PIERCE above), against the deck
+		-- one storey up from the deck this stand is on.
+		local room = display.Position.Y - Plots.DISPLAY_LIFT + Floors.HEIGHT - floorY
+		local roll = if uid then Payload.forUid(uid) else 1
+		local height = math.min(extent.Y, room - STAND_CEILING_ROOM)
+		if Items.get(itemId :: string).rarity == "Anomaly" and Payload.calloutFor(roll) == "GIGA" then
+			local t = math.clamp((roll - Payload.CALLOUTS[1].min) / (Payload.MAX - Payload.CALLOUTS[1].min), 0, 1)
+			height = room + GIGA_PIERCE.min + (GIGA_PIERCE.max - GIGA_PIERCE.min) * t
+		end
+		if math.abs(height - extent.Y) > 0.01 and extent.Y > 0 then
+			model:ScaleTo(model:GetScale() * height / extent.Y)
+			model:PivotTo(display.CFrame * ItemModels.rotation(model, "Display"))
+			bounds, extent = model:GetBoundingBox()
+		end
 		model:PivotTo(model:GetPivot() + Vector3.new(0, floorY - (bounds.Position.Y - extent.Y / 2) + 0.03, 0))
 		-- Where the card hangs from: the model's own top, so a GIGA roll lifts its
 		-- card with it instead of swallowing a card pinned at a fixed height.
