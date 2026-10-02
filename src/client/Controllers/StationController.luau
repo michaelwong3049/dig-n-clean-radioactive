@@ -72,7 +72,7 @@
 
 	THE SHOP PANEL IS A STOREFRONT, NOT A ONE-LINE OFFER. It used to render exactly
 	one thing —
-	"Bent Coil → Scavenger MkI", the deltas between them, and a BUY button — which
+	"Bent Coil → Scrap Sweeper", the deltas between them, and a BUY button — which
 	answered "what can I buy right now" and nothing else. A player could not see that
 	the Detector track runs eight tiers, what the top of it costs, or whether saving
 	past the next rung was worth it. The panel now draws the WHOLE ladder as cards,

@@ -382,9 +382,9 @@ function Spec.run(): boolean
 		)
 
 		-- Measured from the free starter to the first detector that costs real money
-		-- (the Scavenger MkI, tier 3). Tier 2 is the tutorial's $15 Bent Coil, a
+		-- (the Scrap Sweeper, tier 3). Tier 2 is the tutorial's $15 Bent Coil, a
 		-- deliberately tiny step (Config/Gear), and before it existed this exact
-		-- comparison was starter -> Scavenger too: 1.00 -> 1.12, unchanged.
+		-- comparison was starter -> Scrap Sweeper too: 1.00 -> 1.12, unchanged.
 		local rung = Gear.tier("Detector", 3).luck - Gear.tier("Detector", 1).luck
 		check(
 			string.format("§index stage luck is positive and under one detector rung (%.2f)", rung),
