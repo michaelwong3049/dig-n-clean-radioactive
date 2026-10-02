@@ -278,7 +278,6 @@ local function pump()
 		end
 		orderSeq += 1
 		popRow(list, key, rung, orderSeq)
-		Sfx.play("hint") -- one ding per burst: the cue's cooldown folds a stack of rows
 	end
 	queue = waiting
 end
