@@ -668,6 +668,19 @@ local function buildPasses(parent: Instance)
 			edge(card, PANEL.tileEdge, 3)
 			gloss(card)
 			shine(card, 14, index * 0.3)
+			-- White light rays poking out from behind the picture, like the cash cards.
+			card.ClipsDescendants = true
+			local rays = Instance.new("ImageLabel")
+			rays.Name = "Rays"
+			rays.BackgroundTransparency = 1
+			rays.Image = Artwork.IMAGE.sunburst
+			rays.ImageTransparency = 0.45
+			rays.ScaleType = Enum.ScaleType.Fit
+			rays.AnchorPoint = Vector2.new(0.5, 0.5)
+			rays.Position = UDim2.fromOffset(10 + PASS_ART / 2, 46 + PASS_ART / 2)
+			rays.Size = UDim2.fromOffset(PASS_ART * 2, PASS_ART * 2)
+			rays.ZIndex = 12
+			rays.Parent = card
 			local art = Instance.new("ImageLabel")
 			art.Name = "Art"
 			art.BackgroundTransparency = 1
