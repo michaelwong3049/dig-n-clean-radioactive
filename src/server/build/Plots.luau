@@ -2654,18 +2654,18 @@ end
 ---
 --- Everything is inside `look`, so a swap to the next rung takes the old glow with it.
 local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { string } } } = {
-	[2] = { color = "5BE36B", light = 1.2, parts = { "_side_rail_L", "_side_rail_R" } },
-	[3] = { color = "3AA8FF", light = 1.8, parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R" } },
+	[2] = { color = "5BE36B", light = 0.6, parts = { "_side_rail_L", "_side_rail_R" } },
+	[3] = { color = "3AA8FF", light = 0.9, parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R" } },
 	[4] = {
 		color = "FFC21A",
-		light = 2.6,
+		light = 1.3,
 		parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R", "_motor_hood", "Slat" },
 	},
 	-- The diamond model brings its own crystals and neon strips, so those are what glow;
 	-- its uprights and hood keep their texture, which is most of what makes it diamond.
 	[5] = {
 		color = "8EF4FF",
-		light = 3.2,
+		light = 1.6,
 		parts = {
 			"_neon_strip_L",
 			"_neon_strip_R",
@@ -2680,12 +2680,16 @@ local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { strin
 	},
 }
 
+local TREADMILL_NEON_DIM = 0.4
+
 local function addTreadmillFx(look: Model, belt: BasePart, tier: number, model: string)
 	local glow = TREADMILL_GLOW[tier]
 	if glow == nil then
 		return
 	end
 	local color = Color3.fromHex(glow.color)
+	-- Neon blooms by colour, so the parts take a dimmed shade ("too bright"); the lamp keeps the full hue.
+	local neonColor = color:Lerp(Color3.new(0, 0, 0), TREADMILL_NEON_DIM)
 	local names: { [string]: boolean } = {}
 	for _, suffix in glow.parts do
 		names[if suffix == "Slat" then suffix else model .. suffix] = true
@@ -2703,7 +2707,7 @@ local function addTreadmillFx(look: Model, belt: BasePart, tier: number, model: 
 	local lamp = Instance.new("PointLight")
 	lamp.Color = color
 	lamp.Brightness = glow.light
-	lamp.Range = math.max(10, belt.Size.Z * 0.9)
+	lamp.Range = math.max(8, belt.Size.Z * 0.7)
 	lamp.Shadows = false
 	local anchor = Instance.new("Part")
 	anchor.Name = "FxGlow"
