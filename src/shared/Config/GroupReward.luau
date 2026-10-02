@@ -27,7 +27,10 @@ GroupReward.LUCK_SECONDS = 5 * 60
 -- The camp floor's top is Y -1.5. The ring's edge just clears the wall; the chest's
 -- front faces the camp (-X).
 GroupReward.CHEST_POSITION = Vector3.new(86.8, -1.5, -104)
-GroupReward.CHEST_FACING = -math.pi / 2 -- yaw: chest-space +Z (its front) turned to world -X
+-- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
+-- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
+-- facing the wrong way.
+GroupReward.CHEST_FACING = math.pi / 2
 
 GroupReward.RING_RADIUS = 8.5 -- to the ring's centre line
 GroupReward.RING_WIDTH = 1.2
