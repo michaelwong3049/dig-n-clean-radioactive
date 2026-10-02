@@ -3,8 +3,9 @@
 	top-right square of the right-edge 2x2 grid, built by HudTile like the other three.
 
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
-	walking up to a stall on the plaza (StationController). One scrolling body, four
-	sections: the PASSES (Config/GamePasses), seven permanent upgrades on top, which
+	walking up to a stall on the plaza (StationController). One scrolling body, five
+	sections: the PACKS (Config/Packs) first, two once-per-player bundles that turn to
+	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), seven permanent upgrades on top, which
 	turn to OWNED off the Player attribute GamePassService writes; the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
 	row of four packs; and a CRATES row with the two Mystery crates (Config/ShopProducts,
 	whose grants live in EconomyService and CrateService). Every buy button is the gear
@@ -32,6 +33,8 @@ local LuckBoost = require(ReplicatedStorage.Shared.Config.LuckBoost)
 local ShopProducts = require(ReplicatedStorage.Shared.Config.ShopProducts)
 local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 local GamePasses = require(ReplicatedStorage.Shared.Config.GamePasses)
+local Packs = require(ReplicatedStorage.Shared.Config.Packs)
+local CashBoost = require(ReplicatedStorage.Shared.Config.CashBoost)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -102,6 +105,14 @@ local PASS_TINT: { [string]: Color3 } = {
 	instantClean = Color3.fromHex("1E88E5"),
 }
 local PASS_H = 256
+-- Each pack's card colour, keyed by Config/Packs key: warm for the cheap one, royal
+-- for the big one.
+local PACK_TINT: { [string]: Color3 } = {
+	starter = Color3.fromHex("F08A12"),
+	pro = Color3.fromHex("7A2FD6"),
+}
+local PACK_H = 300
+local PACK_ART = 132
 local PASSES_PER_ROW = 4
 local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
@@ -364,6 +375,162 @@ local function tile(parent: Instance, order: number, name: string, productId: nu
 	buy.Size = UDim2.new(1, -16, 0, BUY_H)
 	buy.TextSize = BUY_TEXT
 	return card
+end
+
+--- $200K / $5M: the Shop's own short money, matching the cash packs' labels.
+local function shortCash(amount: number): string
+	local function trim(n: number): string
+		return (string.format("%.1f", n):gsub("%.0$", ""))
+	end
+	if amount >= 1_000_000 then
+		return `${trim(amount / 1_000_000)}M`
+	elseif amount >= 1_000 then
+		return `${trim(amount / 1_000)}K`
+	end
+	return `${amount}`
+end
+
+--- "30 min" / "1 hr".
+local function duration(seconds: number): string
+	if seconds >= 3600 and seconds % 3600 == 0 then
+		return `{seconds // 3600} hr`
+	end
+	return `{math.floor(seconds / 60)} min`
+end
+
+--- What is inside a pack, one line each, in the order the user listed them.
+local function packLines(pack: Packs.Pack): { string }
+	local lines = {}
+	if pack.cash > 0 then
+		table.insert(lines, `{shortCash(pack.cash)} Cash`)
+	end
+	for _, entry in Packs.crateCounts(pack) do
+		table.insert(lines, `{entry.count}x {Crates.get(entry.crateId).name}`)
+	end
+	if pack.luckSeconds > 0 then
+		table.insert(lines, `{duration(pack.luckSeconds)} {LuckBoost.MULT}x Luck`)
+	end
+	if pack.cashBoostSeconds > 0 then
+		table.insert(lines, `{duration(pack.cashBoostSeconds)} {CashBoost.MULT}x Cash`)
+	end
+	return lines
+end
+
+--- The two packs, side by side at the top. Art on the left (the pack's best crate with
+--- a cash bundle on it), contents on the right, the R$ button along the bottom. A bought
+--- pack keeps its card and its button turns to a green OWNED, like a pass.
+local function buildPacks(parent: Instance)
+	section(parent, -30, "PACKS")
+	local frame = row(parent, -29, "Packs", PACK_H, #Packs.PACKS)
+	local player = Players.LocalPlayer
+	for index, pack in Packs.PACKS do
+		local card = Instance.new("Frame")
+		card.Name = `Pack_{pack.key}`
+		card.LayoutOrder = index
+		card.BackgroundColor3 = PACK_TINT[pack.key] or PANEL.cashTile
+		card.BorderSizePixel = 0
+		card.ZIndex = 12
+		card.Parent = frame
+		round(card, 16)
+		edge(card, PANEL.tileEdge, 3)
+		gloss(card)
+
+		inked(card, {
+			Name = "PackName",
+			Text = string.upper(pack.name),
+			Font = PANEL.headline,
+			TextSize = 30,
+			Size = UDim2.new(1, -24, 0, 36),
+			Position = UDim2.fromOffset(14, 10),
+			ZIndex = 14,
+		})
+		inked(card, {
+			Name = "Once",
+			Text = "ONE TIME ONLY",
+			Font = PANEL.label,
+			TextSize = 14,
+			TextColor3 = PANEL.cash,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Size = UDim2.fromOffset(140, 18),
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -14, 0, 20),
+			ZIndex = 14,
+		})
+
+		local well = Instance.new("Frame")
+		well.Name = "Art"
+		well.Size = UDim2.fromOffset(PACK_ART, PACK_ART)
+		well.Position = UDim2.fromOffset(14, 54)
+		well.BackgroundColor3 = Color3.new(0, 0, 0)
+		well.BackgroundTransparency = 0.75
+		well.BorderSizePixel = 0
+		well.ZIndex = 13
+		well.Parent = card
+		round(well, 14)
+		edge(well, PANEL.ink, 3)
+		-- The best crate in the pack: the last one listed is the top of each ladder.
+		local best = pack.crates[#pack.crates]
+		if best and Crates.has(best) then
+			local viewport = ItemArt.newViewport(well)
+			viewport.ZIndex = 14
+			local function paint()
+				local size = well.AbsoluteSize
+				if size.X < 1 or size.Y < 1 then
+					return
+				end
+				ItemArt.clear(viewport)
+				ItemArt.paint(viewport, { uid = `pack-{pack.key}`, crateId = best }, size.X / size.Y)
+			end
+			well:GetPropertyChangedSignal("AbsoluteSize"):Connect(paint)
+			task.defer(paint)
+		end
+		local bundle = Instance.new("ImageLabel")
+		bundle.Name = "Bundle"
+		bundle.BackgroundTransparency = 1
+		bundle.Image = Artwork.IMAGE.cashBundle
+		bundle.ScaleType = Enum.ScaleType.Fit
+		bundle.Size = UDim2.fromOffset(64, 64)
+		bundle.AnchorPoint = Vector2.new(0, 1)
+		bundle.Position = UDim2.new(0, -10, 1, 12)
+		bundle.Rotation = -10
+		bundle.ZIndex = 16
+		bundle.Parent = well
+
+		local textLeft = 14 + PACK_ART + 14
+		inked(card, {
+			Name = "Contents",
+			Text = "• " .. table.concat(packLines(pack), "\n• "),
+			Font = PANEL.label,
+			TextSize = 19,
+			TextColor3 = PANEL.white,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			TextWrapped = true,
+			LineHeight = 1.1,
+			Size = UDim2.new(1, -textLeft - 10, 0, PACK_ART + 8),
+			Position = UDim2.fromOffset(textLeft, 56),
+			ZIndex = 14,
+		})
+
+		local buy = robuxButton(card, pack.id)
+		buy.AnchorPoint = Vector2.new(0.5, 1)
+		buy.Position = UDim2.new(0.5, 0, 1, -12)
+		buy.Size = UDim2.new(1, -24, 0, BUY_H + 4)
+		buy.TextSize = BUY_TEXT + 4
+		local attr = Packs.attr(pack.key)
+		local function refresh()
+			if player:GetAttribute(attr) == true then
+				buy.Active = false
+				buy.Text = "OWNED"
+				buy.BackgroundColor3 = PANEL.buyOwned
+			elseif pack.id ~= 0 and not buy.Active then
+				buy.Active = true
+				buy.Text = buy:GetAttribute("Price") or ROBUX
+				buy.BackgroundColor3 = PANEL.buy
+			end
+		end
+		player:GetAttributeChangedSignal(attr):Connect(refresh)
+		refresh()
+	end
 end
 
 --- The seven passes, PASSES_PER_ROW to a row. A bought one keeps its card and swaps
@@ -672,6 +839,7 @@ local function buildPanel(): ScreenGui
 	bodyPad.PaddingBottom = UDim.new(0, 4)
 	bodyPad.Parent = body
 
+	buildPacks(body)
 	buildPasses(body)
 	buildCloverCard(body)
 	buildCash(body)

@@ -216,6 +216,13 @@ local TEMPLATE = {
 	-- what somebody paid for. Capped at LuckBoost.MAX_BANKED_SECONDS on every grant.
 	luckBoostLeft = 0,
 
+	-- BANKED SECONDS OF 2x CASH (Config/CashBoost), from a pack. Same rules as
+	-- luckBoostLeft: seconds left, counted down only while in a server (CashBoostService).
+	cashBoostLeft = 0,
+
+	-- Packs bought (Config/Packs), key -> true. Once per player; PackService sets it.
+	packs = {},
+
 	-- What the stands earned while the player was offline, waiting for COLLECT on the
 	-- "While you were away" card (AwayEarningsService). On the save so leaving with the
 	-- card up loses nothing. `awayLast` is the last amount the card showed, which a

@@ -195,6 +195,22 @@ function CrateService.grant(player: Player, crateId: string): boolean
 	return true
 end
 
+--- Put `crateId` straight into a bag, even past capacity -- a bought crate always fits
+--- (Config/ShopProducts' header). Mutates only `data` and never yields, so a Robux grant
+--- can call it (PackService).
+function CrateService.give(data: any, crateId: string)
+	assert(Crates.has(crateId), `CrateService.give: unknown crate {crateId}`)
+	data.crates = data.crates or {}
+	table.insert(data.crates, { uid = HttpService:GenerateGUID(false), crateId = crateId })
+end
+
+--- A one-line notice on this player's screen, the same one a refused open shows.
+function CrateService.notify(player: Player, text: string)
+	if player.Parent then
+		openedRemote:FireClient(player, { notice = text })
+	end
+end
+
 --- A bought Mystery crate (Config/ShopProducts): a rolled tier of its kind, straight
 --- into the bag even past capacity. Mutates `data` and never yields (ProductService's
 --- contract); the notice waits until the receipt step is done.

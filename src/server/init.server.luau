@@ -36,6 +36,7 @@ local ORDER = {
 	"ProductService", -- Robux developer products; the ONE owner of ProcessReceipt; needs Data
 	"GamePassService", -- the seven permanent passes: ownership into data.passes for StatResolver; needs Data
 	"LuckBoostService", -- 2x luck: the Violet Aurora event + the bought Lucky Clover; needs Product
+	"CashBoostService", -- 2x cash for a while, bought inside a pack; needs Data
 	"RareDropService", -- the announced drop every 8-12 min: a guaranteed Epic+ in a random stage; needs Dig + LuckBoost
 	"AwayEarningsService", -- the "While you were away" card: holds offline income for COLLECT / Robux DOUBLE IT; needs Economy + Product
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
@@ -44,6 +45,7 @@ local ORDER = {
 	"LiquidService", -- the fluid bottle + panel: rolling liquids, charges, Luck; needs Exhibit + Shop
 	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
 	"CrateService", -- opening dug-up supply crates; needs Dig + Wash + Liquid + Identify
+	"PackService", -- the Starter / Pro Packs: cash, crates, luck + cash time in one receipt; needs Product + Economy + Crate + LuckBoost + CashBoost
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"MergeService", -- the Merge Reactor at Toxic Twilight: 3 copies in, 1 out; needs Station + Economy + Carry + Exhibit + Wash
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
