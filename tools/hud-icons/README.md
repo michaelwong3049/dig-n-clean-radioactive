@@ -18,6 +18,7 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | `cash_bundle.svg` | the cash row's bundle of notes (`CashController`) | `cashBundle` |
 | `health_heart.svg` | the health bar's heart (`HudController`) | `healthHeart` |
 | `rads_trefoil.svg` | the rads bar's trefoil badge (`HudController`) | `radsTrefoil` |
+| `pass_*.svg` (7) | the Shop panel's PASSES cards (`ShopController`) | not in `Artwork.IMAGE`: each pass's `image` in `Config/GamePasses` |
 
 To change one: edit the SVG (100x100 viewBox, `#12161d` outline), render it to a
 transparent 256px PNG, upload it (Studio MCP `upload_image`, or Asset Manager), and paste
