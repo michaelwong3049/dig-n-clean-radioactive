@@ -111,9 +111,9 @@ local LAYOUT = {
 	gainTextSize = 22,
 	gainEvery = 0.1, -- seconds between gain popups while the belt runs
 	-- The 2x Speed pass button, off the bar's right end and centred on it.
-	passGap = 14,
-	passW = 128,
-	passH = 52,
+	passGap = 10,
+	passW = 100,
+	passH = 40,
 }
 
 local ROUND = UDim.new(0.5, 0)

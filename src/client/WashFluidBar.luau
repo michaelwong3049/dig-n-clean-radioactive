@@ -104,10 +104,10 @@ local TAG = {
 -- centred on it, on request. The wash view locks the pointer, so on a keyboard it is
 -- pressed with `key` (shown on a keycap at its corner); on touch it is tapped.
 local PASS = {
-	gap = 16,
-	size = Vector2.new(168, 56),
+	gap = 12,
+	size = Vector2.new(126, 42),
 	key = Enum.KeyCode.R,
-	keycap = 26,
+	keycap = 22,
 }
 
 local FX = {
