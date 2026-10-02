@@ -531,7 +531,7 @@ Tuning.RANGE_SWEEP_COMET = 0.9 -- radians of rim left glowing behind the arm
 Tuning.LIQUID_SPIN_COOLDOWN = 5 * 60 -- seconds between spins, per player (5 minutes)
 -- Skip Brew Timer: a Developer Product that ends the brew cooldown now (LiquidService).
 -- 0 = not set up yet; the button under BREW shows SOON.
-Tuning.BREW_SKIP_PRODUCT_ID = 0
+Tuning.BREW_SKIP_PRODUCT_ID = 3716086220
 Tuning.LIQUID_INFINITE = true -- rolled fluids never run out (spendCharge is a no-op)
 
 -- How long the spin runs on screen before it lands. The bottle recolours when it

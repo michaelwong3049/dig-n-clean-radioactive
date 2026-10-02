@@ -32,7 +32,7 @@ DailyRewards.RESET_AFTER = 48 * 60 * 60
 -- RESTORE STREAK: a Developer Product offered on the panel while a streak has broken
 -- and the Day 1 restart has not been claimed yet. It makes the claim ready now on the
 -- day you had reached. 0 = not set up yet (the button shows SOON).
-DailyRewards.RESTORE_PRODUCT_ID = 0
+DailyRewards.RESTORE_PRODUCT_ID = 3716086045
 
 export type CrateGrant = {
 	kind: string, -- "nuke" | "liquid"
