@@ -74,14 +74,14 @@ local PANEL = {
 	headline = Enum.Font.GothamBlack,
 	label = Enum.Font.GothamBlack,
 }
-local PANEL_W = 600
+local PANEL_W = 860
 -- The panel's tallest; a short screen gets less, and the body scrolls.
 local PANEL_H = 720
 local CLOVER_H = 220
 local SECTION_H = 30
 local CASH_H = 168
 local CRATE_H = 200
-local PASS_H = 196
+local PASS_H = 236
 local PASSES_PER_ROW = 4
 local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
@@ -358,38 +358,37 @@ local function buildPasses(parent: Instance)
 			card.Parent = frame
 			round(card, 14)
 			edge(card, PANEL.tileEdge, 2)
-			inked(card, {
-				Name = "Big",
-				Text = pass.big,
-				Font = PANEL.headline,
-				TextSize = 40,
-				TextColor3 = PANEL.cash,
-				TextXAlignment = Enum.TextXAlignment.Center,
-				Size = UDim2.new(1, 0, 0, 46),
-				Position = UDim2.fromOffset(0, 10),
-				ZIndex = 14,
-			})
+			local art = Instance.new("ImageLabel")
+			art.Name = "Art"
+			art.BackgroundTransparency = 1
+			art.Image = pass.image
+			art.ScaleType = Enum.ScaleType.Fit
+			art.AnchorPoint = Vector2.new(0.5, 0)
+			art.Size = UDim2.fromOffset(92, 92)
+			art.Position = UDim2.new(0.5, 0, 0, 8)
+			art.ZIndex = 13
+			art.Parent = card
 			inked(card, {
 				Name = "PassName",
 				Text = pass.name,
 				Font = PANEL.headline,
-				TextSize = 17,
+				TextSize = 20,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Center,
-				Size = UDim2.new(1, -12, 0, 42),
-				Position = UDim2.fromOffset(6, 60),
+				Size = UDim2.new(1, -12, 0, 26),
+				Position = UDim2.fromOffset(6, 104),
 				ZIndex = 14,
 			})
 			inked(card, {
 				Name = "Blurb",
 				Text = pass.blurb,
 				Font = PANEL.label,
-				TextSize = 13,
+				TextSize = 15,
 				TextWrapped = true,
 				TextColor3 = PANEL.dim,
 				TextXAlignment = Enum.TextXAlignment.Center,
 				Size = UDim2.new(1, -12, 0, 34),
-				Position = UDim2.fromOffset(6, 102),
+				Position = UDim2.fromOffset(6, 132),
 				ZIndex = 14,
 			})
 			local buy = robuxButton(card, pass.id, true)

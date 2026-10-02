@@ -26,7 +26,7 @@
 
 local GamePasses = {}
 
-export type Pass = { key: string, id: number, name: string, big: string, blurb: string }
+export type Pass = { key: string, id: number, name: string, image: string, blurb: string }
 
 GamePasses.BACKPACK_SLOTS = 50
 GamePasses.BOMB_DAMAGE = 1.5
@@ -35,16 +35,17 @@ GamePasses.DIG_POWER = 2
 GamePasses.LUCK = 2
 GamePasses.CASH = 2
 
--- In Shop order. `big` is the card's headline number; ids are the Creator Dashboard's
--- Pass IDs (Monetization -> Passes). 0 = not set up yet: the card shows COMING SOON.
+-- In Shop order. Ids are the Creator Dashboard's Pass IDs (Monetization -> Passes);
+-- 0 = not set up yet, and the card shows COMING SOON. `image` is the card's picture,
+-- drawn in tools/hud-icons (pass_*.svg) like the HUD's other symbols.
 local PASSES: { Pass } = {
-	{ key = "cash", id = 2006306411, name = "2x Cash", big = "2x", blurb = "Sales and stand income" },
-	{ key = "luck", id = 2005322454, name = "2x Luck", big = "2x", blurb = "Dig and wash luck" },
-	{ key = "digPower", id = 2006432462, name = "2x Dig Power", big = "2x", blurb = "Hauls come up faster" },
-	{ key = "speed", id = 2005118459, name = "2x Speed", big = "2x", blurb = "Treadmills train 2x faster" },
-	{ key = "backpack", id = 2006444530, name = "+50 Backpack Slots", big = "+50", blurb = "Bigger bag, forever" },
-	{ key = "bombDamage", id = 2006456437, name = "1.5x Bomb Damage", big = "1.5x", blurb = "Every bomb hits harder" },
-	{ key = "instantClean", id = 2006714459, name = "Instant Clean", big = "FAST", blurb = "Crust breaks on contact" },
+	{ key = "cash", id = 2006306411, name = "2x Cash", image = "rbxassetid://130869946174411", blurb = "Sales and stand income" },
+	{ key = "luck", id = 2005322454, name = "2x Luck", image = "rbxassetid://75584960857266", blurb = "Dig and wash luck" },
+	{ key = "digPower", id = 2006432462, name = "2x Dig Power", image = "rbxassetid://129327782508122", blurb = "Hauls come up faster" },
+	{ key = "speed", id = 2005118459, name = "2x Speed", image = "rbxassetid://124080874092600", blurb = "Treadmills train 2x faster" },
+	{ key = "backpack", id = 2006444530, name = "+50 Backpack Slots", image = "rbxassetid://86368048642838", blurb = "Bigger bag, forever" },
+	{ key = "bombDamage", id = 2006456437, name = "1.5x Bomb Damage", image = "rbxassetid://103781789657404", blurb = "Every bomb hits harder" },
+	{ key = "instantClean", id = 2006714459, name = "Instant Clean", image = "rbxassetid://119627521657381", blurb = "Crust breaks on contact" },
 }
 
 GamePasses.PASSES = PASSES

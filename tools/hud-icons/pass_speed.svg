@@ -1,0 +1,12 @@
+<svg viewBox="0 0 100 100" width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF08A"/><stop offset="1" stop-color="#FFB417"/></linearGradient>
+</defs>
+<g stroke-linecap="round" fill="none">
+<path d="M8 34 H26 M4 50 H24 M10 66 H26" stroke="#12161d" stroke-width="7"/>
+<path d="M8 34 H26 M4 50 H24 M10 66 H26" stroke="#5FC2FF" stroke-width="3"/>
+</g>
+<path d="M62 4 L32 54 H52 L42 96 L84 38 H62 L76 4 Z" fill="url(#bolt)" stroke="#12161d" stroke-width="5" stroke-linejoin="round"/>
+<path d="M64 11 L44 46" stroke="#FFFBE0" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M73 42 L56 66" stroke="#E08A0A" stroke-width="3" stroke-linecap="round"/>
+</svg>
