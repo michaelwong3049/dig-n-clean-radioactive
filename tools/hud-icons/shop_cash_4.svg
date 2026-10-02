@@ -1,0 +1,67 @@
+<svg viewBox="0 0 100 100" width="512" height="512" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs>
+<style>@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@900&amp;display=block");</style>
+<linearGradient id="noteTop" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#86E25E"/>
+<stop offset="1" stop-color="#48B232"/>
+</linearGradient>
+<g id="b">
+<path d="M4 46 L32 20 L96 40 L96 60 L68 86 L4 66 Z" fill="#12161d" stroke="#12161d" stroke-width="6" stroke-linejoin="round"/>
+<g transform="matrix(0.640 0.200 0.000 1.000 4.000 46.000)">
+<rect x="0" y="0" width="100" height="20" fill="#43A52F"/>
+<path d="M1 5 H99" stroke="#A9EE86" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+<path d="M1 10 H99" stroke="#7FD35C" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+<path d="M1 15 H99" stroke="#A9EE86" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+<rect x="0" y="12" width="100" height="8" fill="#000" opacity=".12"/>
+<rect x="58" y="0" width="15" height="20" fill="#E9A91C"/>
+<path d="M60 0 V20" stroke="#FFE27F" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+</g>
+<g transform="matrix(0.560 -0.520 0.000 1.000 68.000 66.000)">
+<rect x="0" y="0" width="50" height="20" fill="#2E7F22"/>
+<path d="M1 5 H49" stroke="#78C957" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<path d="M1 10 H49" stroke="#5AAE3E" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+<path d="M1 15 H49" stroke="#78C957" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+</g>
+<g transform="matrix(0.640 0.200 -0.560 0.520 32.000 20.000)">
+<rect x="0" y="0" width="100" height="50" fill="url(#noteTop)"/>
+<rect x="5" y="4.5" width="90" height="41" rx="3" fill="none" stroke="#B9F494" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+<rect x="9" y="8.5" width="82" height="33" rx="2" fill="none" stroke="#2F8A23" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+<ellipse cx="27" cy="25" rx="13" ry="13" fill="#2F8A23" stroke="#B9F494" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+<text x="27" y="33.2" text-anchor="middle" font-family="Montserrat" font-weight="900" font-size="22" fill="#C9F8A8">$</text>
+<path d="M44 16 H54 M44 25 H52 M44 34 H54" stroke="#2F8A23" stroke-width="1.6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+<path d="M6 10 Q22 3 42 5" stroke="#fff" stroke-opacity=".55" stroke-width="3" fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+<rect x="58" y="-0.5" width="15" height="51" fill="#FFD23F"/>
+<path d="M60.5 0 V50" stroke="#FFF1A8" stroke-width="2" vector-effect="non-scaling-stroke"/>
+<path d="M73 0 V50" stroke="#C98A0C" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+</g>
+<path d="M4 46 L32 20 L96 40 L68 66 Z M68 66 V86" fill="none" stroke="#12161d" stroke-width="2.6" stroke-linejoin="round"/>
+</g>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5A616C"/><stop offset="1" stop-color="#2A2F37"/></linearGradient>
+<linearGradient id="door" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3A4049"/><stop offset="1" stop-color="#6A727E"/></linearGradient>
+<radialGradient id="gold" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#FFE98A"/><stop offset=".6" stop-color="#FFC628"/><stop offset="1" stop-color="#E39A0C"/></radialGradient></defs>
+<path d="M14 18 L22 10 L76 10 L76 80 L68 88 L14 88 Z" fill="#23272E" stroke="#12161d" stroke-width="4" stroke-linejoin="round"/>
+<path d="M68 18 L76 10 L76 80 L68 88 Z" fill="#1A1D22"/>
+<path d="M14 18 L22 10 L76 10 L68 18 Z" fill="#6E7682"/>
+<rect x="14" y="18" width="54" height="70" rx="3" fill="url(#steel)" stroke="#12161d" stroke-width="4"/>
+<rect x="20" y="24" width="42" height="58" rx="2" fill="#12161d"/>
+<rect x="22" y="26" width="38" height="54" rx="1.5" fill="#2B3038"/>
+<path d="M22 52 H60" stroke="#4A515C" stroke-width="2"/>
+<use href="#b" transform="translate(34 46) rotate(0) scale(0.26) translate(-50 -53)"/>
+<use href="#b" transform="translate(48 46) rotate(0) scale(0.26) translate(-50 -53)"/>
+<use href="#b" transform="translate(34 41) rotate(0) scale(0.26) translate(-50 -53)"/>
+<use href="#b" transform="translate(48 41) rotate(4) scale(0.26) translate(-50 -53)"/>
+<use href="#b" transform="translate(34 72) rotate(0) scale(0.26) translate(-50 -53)"/>
+<use href="#b" transform="translate(48 72) rotate(0) scale(0.26) translate(-50 -53)"/>
+<use href="#b" transform="translate(41 67) rotate(-6) scale(0.26) translate(-50 -53)"/>
+<path d="M62 22 L88 14 L88 86 L62 82 Z" fill="url(#door)" stroke="#12161d" stroke-width="4" stroke-linejoin="round"/>
+<path d="M66 26 L84 20.5 L84 79.5 L66 77 Z" fill="none" stroke="#8B939F" stroke-width="1.6"/>
+<ellipse cx="75" cy="50" rx="8" ry="10.5" fill="url(#gold)" stroke="#12161d" stroke-width="3"/>
+<ellipse cx="75" cy="50" rx="3" ry="4" fill="#B87309" stroke="#12161d" stroke-width="1.6"/>
+<path d="M75 39.5 V60.5 M67 50 H83 M69.5 42.5 L80.5 57.5 M80.5 42.5 L69.5 57.5" stroke="#B87309" stroke-width="1.6"/>
+<rect x="58" y="28" width="5" height="9" rx="1.5" fill="#C9800A" stroke="#12161d" stroke-width="1.8"/>
+<rect x="58" y="66" width="5" height="9" rx="1.5" fill="#C9800A" stroke="#12161d" stroke-width="1.8"/>
+<rect x="20" y="88" width="10" height="5" fill="#12161d"/><rect x="56" y="88" width="10" height="5" fill="#12161d"/>
+<use href="#b" transform="translate(22 86) rotate(-14) scale(0.36) translate(-50 -53)"/>
+<use href="#b" transform="translate(48 90) rotate(6) scale(0.38) translate(-50 -53)"/>
+<use href="#b" transform="translate(36 82) rotate(20) scale(0.34) translate(-50 -53)"/>
+</svg>
