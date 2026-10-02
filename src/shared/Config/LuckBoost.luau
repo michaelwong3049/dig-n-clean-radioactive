@@ -62,8 +62,8 @@ LuckBoost.EVENT_GAP_MAX = 30 * 60
 -- The Developer Product's id from the Creator Dashboard (Monetization -> Developer
 -- Products). 0 = not set up yet: the Shop card shows but its button stays disabled,
 -- and Services/ProductService registers nothing. Use /luckboost to test without it.
-LuckBoost.PRODUCT_ID = 0
-LuckBoost.PRODUCT_SECONDS = 10 * 60
+LuckBoost.PRODUCT_ID = 3716001828
+LuckBoost.PRODUCT_SECONDS = 30 * 60
 -- The most boost time one player can bank. A sanity ceiling, not a design lever --
 -- nobody should be able to hold a week of 2x from a stuck purchase loop.
 LuckBoost.MAX_BANKED_SECONDS = 24 * 60 * 60
