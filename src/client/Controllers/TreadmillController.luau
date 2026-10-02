@@ -7,7 +7,7 @@
 	     no card behind it: the Speed you have against what the next walk-speed point
 	     needs, your walk speed and roughly how long until it goes up, and what the next
 	     belt costs. Every Speed push floats a shoe and "+10" off a random spot around
-	     the bar, and filling it floats "WALK SPEED 35!". Levels are never named on
+	     the bar, and filling it floats "Walk speed 35!". Levels are never named on
 	     screen: what the player hears about is walk speed. It pops in on arrival and out
 	     on departure. It is drawn from SpeedController's copy of SpeedState — the same
 	     number the HUD badge counts, so the two can never disagree — and computes no
@@ -86,8 +86,8 @@ local STYLE = {
 	caption = Color3.fromHex("DDF3FF"),
 	gain = Color3.fromHex("8AD4FF"),
 	walkUp = Color3.fromHex("FFE45C"),
-	valueFont = Enum.Font.LuckiestGuy,
-	bodyFont = Enum.Font.FredokaOne,
+	valueFont = Enum.Font.GothamBlack,
+	bodyFont = Enum.Font.GothamBlack,
 }
 
 -- Design px. Nothing sits behind any of it, so every line of text wears a heavier ink
@@ -285,14 +285,14 @@ local function paint()
 	if view.nextReq == nil then
 		-- No top level any more (Config/Treadmill), so this is only a readout that has
 		-- not arrived whole. Show the total rather than a bar to nowhere.
-		ui.walk.Text = `WALK SPEED {view.walk}`
-		ui.need.Text = `{Speed.format(points)} SPEED`
+		ui.walk.Text = `Walk speed {view.walk}`
+		ui.need.Text = `{Speed.format(points)} Speed`
 	else
 		local from, to = view.current or 0, view.nextReq or 1
 		-- The fill glides on the unstepped count; only the number steps.
 		progress = math.clamp((Speed.smoothPoints() - from) / math.max(to - from, 1), 0, 1)
-		local eta = if view.rate > 0 then `  |  {view.walk + 1} IN {formatEta((to - points) / view.rate)}` else ""
-		ui.walk.Text = `WALK SPEED {view.walk}{eta}`
+		local eta = if view.rate > 0 then `  |  {view.walk + 1} in {formatEta((to - points) / view.rate)}` else ""
+		ui.walk.Text = `Walk speed {view.walk}{eta}`
 		-- Counted from 0 each level: Speed earned into THIS level over what it costs,
 		-- never the lifetime total.
 		ui.need.Text = `{Speed.format(math.max(points - from, 0))} / {Speed.format(to - from)}`
@@ -413,7 +413,7 @@ local function popGain(rate: number)
 	float(popup, 10, 0.7)
 end
 
---- The bar just filled: "WALK SPEED 35!" over its middle, and a punch on the bar.
+--- The bar just filled: "Walk speed 35!" over its middle, and a punch on the bar.
 local function popWalkUp(walk: number)
 	local L = LAYOUT
 	local popup = text(ui.panel, "WalkUpPopup", { L.barW / 2, -30, 360, 40 }, {
@@ -421,7 +421,7 @@ local function popWalkUp(walk: number)
 		textSize = 30,
 		color = STYLE.walkUp,
 		xAlign = Enum.TextXAlignment.Center,
-		text = `WALK SPEED {walk}!`,
+		text = `Walk speed {walk}!`,
 		stroke = 3.5,
 		zIndex = 10,
 	})
