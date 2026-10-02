@@ -113,14 +113,17 @@ function Radiation.zoneSurvival(stageId: number, depthFrac: number, auraTier: nu
 	local case = Radiation.zoneCase(stageId, auraTier)
 	if case == nil then
 		return math.huge
-	elseif case == "wayUnder" then
-		return Z.wayUnder + Z.UNDER_GRACE
 	elseif case == "lastAura" then
 		return along(Z.lastAura, depthFrac)
 	end
 	local band = if stageId >= Z.HARSH_FROM_STAGE then Z.late else Z.early
+	-- A band with its own `grace` row fades it with depth; otherwise it is flat.
+	local grace = if band.grace then along(band.grace, depthFrac) else Z.UNDER_GRACE
+	if case == "wayUnder" then
+		return Z.wayUnder + grace
+	end
 	local seconds = along(band[case], depthFrac)
-	return if case == "under" then seconds + Z.UNDER_GRACE else seconds
+	return if case == "under" then seconds + grace else seconds
 end
 
 --- 0..1 out-of-depth grade for the HUD/RadFx: 0 at the gentlest under-tier time
