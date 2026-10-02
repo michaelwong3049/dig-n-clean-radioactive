@@ -306,7 +306,15 @@ local function buildLockPromptGui(adornee: BasePart)
 	-- MaxActivationDistance and updateLockPrompt's enable gate; this just has to draw.
 	root.LightInfluence = 0
 	root.Enabled = false
-	root.Parent = adornee
+	-- PARENTED TO PlayerGui, NOT THE ADORNEE. A BillboardGui under Workspace draws fine
+	-- but its buttons never receive input, so `hit` below was dead: on a phone, where it
+	-- is the ONLY way to press a Custom prompt, the HOLD keycap did nothing at all. The
+	-- Adornee still pins it to the spot; Active lets the press sink here instead of
+	-- also swinging the camera. Directly under PlayerGui is also what lets
+	-- WashController's hideHud put it away with the rest of the HUD.
+	root.Active = true
+	root.ResetOnSpawn = false
+	root.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local canvas = UIKit.billboardCanvas(root, Vector2.new(150, KEYCAP_SIZE + 8 + 22))
 
 	-- Everything visible lives under `card` so one UIScale bounces the lot; `hit` sits
@@ -1684,21 +1692,26 @@ function Detector.start()
 	end)
 
 	-- Custom style means Roblox draws no mobile tap button, so the card itself is one:
-	-- a press drives the prompt's own hold, and its release -- or the pointer leaving the
-	-- card mid-press, which InputEnded also fires for -- ends it. This is the documented
+	-- a press drives the prompt's own hold, and its release ends it. This is the documented
 	-- way to trigger a custom prompt, and it hands mouse players a click-to-pick-up that
 	-- matches the click-to-yank mash. Keyboard and gamepad never touch this path.
 	local HOLD_INPUTS = {
 		[Enum.UserInputType.MouseButton1] = true,
 		[Enum.UserInputType.Touch] = true,
 	}
+	-- The press is tracked by its InputObject and released from UserInputService, so a
+	-- finger that drifts off the keycap and lifts elsewhere still ends the hold rather
+	-- than leaving the prompt held with nothing on it.
+	local holdInput: InputObject? = nil
 	ui.lockGui.hit.InputBegan:Connect(function(input)
-		if HOLD_INPUTS[input.UserInputType] then
+		if HOLD_INPUTS[input.UserInputType] and holdInput == nil then
+			holdInput = input
 			ui.prompt:InputHoldBegin()
 		end
 	end)
-	ui.lockGui.hit.InputEnded:Connect(function(input)
-		if HOLD_INPUTS[input.UserInputType] then
+	UserInputService.InputEnded:Connect(function(input)
+		if holdInput ~= nil and (input == holdInput or input.UserInputType == Enum.UserInputType.MouseButton1 and holdInput.UserInputType == Enum.UserInputType.MouseButton1) then
+			holdInput = nil
 			ui.prompt:InputHoldEnd()
 		end
 	end)

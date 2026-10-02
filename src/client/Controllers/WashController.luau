@@ -429,6 +429,13 @@ local PITCH_LIMIT = math.rad(26)
 local MOUSE_SENS = 0.0032
 local PAD_SENS = math.rad(115)
 local PAD_DEADZONE = 0.16
+-- Radians per pixel of finger travel when a touch player drags to look. A touch
+-- moves in fewer, coarser pixels than a mouse, so it turns a little more per pixel.
+local TOUCH_SENS = 0.0042
+-- The touch controls, in design px (they ride the bay's scaled canvas).
+local TOUCH_SPRAY_SIZE = 150
+local TOUCH_EXIT_SIZE = Vector2.new(120, 52)
+local TOUCH_MARGIN = 36
 -- Where Camera.Focus is parked, in studs ahead. Never allowed to collapse onto the
 -- camera -- see the header on TransparencyController.
 local FOCUS_AHEAD = 8
@@ -733,6 +740,10 @@ local savedFov = 70
 local lookYaw = 0
 local lookPitch = 0
 local padLook = Vector2.zero
+-- TOUCH LOOK: every finger that went down on open screen (not on a button) turns the
+-- view by its own drag. Keyed by the InputObject, which Roblox keeps the same for one
+-- touch from Began through Ended, so a thumb parked on SPRAY never also steers.
+local lookTouches: { [InputObject]: boolean } = {}
 -- The head and anything hanging off it, cached because it is re-asserted every frame.
 local hiddenParts: { BasePart } = {}
 
@@ -1389,6 +1400,125 @@ local wipeCovered = false
 local wipeAtCover: (() -> ())? = nil
 local wipeTint = DEFAULT_LIQUID
 
+-- ── Touch controls ──
+-- A PHONE HAS NO MOUSE, NO E/Q AND NO TRIGGER, and every input this bay listens for was
+-- one of those: a touch player who walked in could not aim, could not spray and could
+-- not leave. Three things stand in for them, on the bay's own gui so hideHud never
+-- stows them, shown only on a touch screen while the view is live:
+--   * drag anywhere on open screen to look (lookTouches, in start());
+--   * a round SPRAY button over the right thumb, held to spray;
+--   * an EXIT button in the top-right corner, the touch twin of E/Q.
+local touchSpray: TextButton? = nil
+local touchExit: TextButton? = nil
+local sprayTouch: InputObject? = nil
+
+--- Turn the hose on or off and tell the server, from any input.
+local function setSpraying(on: boolean)
+	spraying = on
+	if inputRemote and state ~= nil then
+		inputRemote:FireServer({ spraying = on, zone = aimedZone, weak = WashWeakSpots.aimed })
+	end
+end
+
+local function showTouchControls(shown: boolean)
+	local touch = shown and UIKit.isTouch()
+	if touchSpray then
+		touchSpray.Visible = touch
+		touchSpray.BackgroundTransparency = 0.25
+	end
+	if touchExit then
+		touchExit.Visible = touch
+	end
+	if not touch then
+		sprayTouch = nil
+		table.clear(lookTouches)
+	end
+end
+
+local function buildTouchControls(canvas: Frame)
+	local spray = Instance.new("TextButton")
+	spray.Name = "TouchSpray"
+	spray:SetAttribute("NoClickSound", true) -- a hold, not a click (SfxController)
+	spray.AnchorPoint = Vector2.new(1, 1)
+	spray.Size = UDim2.fromOffset(TOUCH_SPRAY_SIZE, TOUCH_SPRAY_SIZE)
+	spray.BackgroundColor3 = UIKit.C.panel
+	spray.BackgroundTransparency = 0.25
+	spray.AutoButtonColor = false
+	spray.Font = UIKit.Font.title
+	spray.Text = "SPRAY"
+	spray.TextSize = 28
+	spray.TextColor3 = UIKit.C.text
+	spray.Visible = false
+	spray.ZIndex = 5
+	spray.Parent = canvas
+	local sprayCorner = Instance.new("UICorner")
+	sprayCorner.CornerRadius = UDim.new(1, 0)
+	sprayCorner.Parent = spray
+	local sprayEdge = Instance.new("UIStroke")
+	sprayEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	sprayEdge.Color = Color3.fromHex(wipeTint)
+	sprayEdge.Thickness = 4
+	sprayEdge.Parent = spray
+	touchSpray = spray
+
+	spray.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.Touch or not viewActive or WashReveal.active() then
+			return
+		end
+		sprayTouch = input
+		spray.BackgroundTransparency = 0.05
+		setSpraying(true)
+	end)
+	-- Released anywhere, not just over the button: the finger drifting off it while
+	-- spraying must not leave the hose stuck on. UserInputService sees the end of the
+	-- touch wherever it lands.
+	UserInputService.InputEnded:Connect(function(input)
+		if input == sprayTouch then
+			sprayTouch = nil
+			spray.BackgroundTransparency = 0.25
+			setSpraying(false)
+		end
+	end)
+
+	local exit = Instance.new("TextButton")
+	exit.Name = "TouchExit"
+	exit.AnchorPoint = Vector2.new(1, 0)
+	exit.Size = UDim2.fromOffset(TOUCH_EXIT_SIZE.X, TOUCH_EXIT_SIZE.Y)
+	exit.BackgroundColor3 = UIKit.C.panel
+	exit.BackgroundTransparency = 0.25
+	exit.AutoButtonColor = true
+	exit.Font = UIKit.Font.title
+	exit.Text = "EXIT"
+	exit.TextSize = 24
+	exit.TextColor3 = UIKit.C.text
+	exit.Visible = false
+	exit.ZIndex = 5
+	exit.Parent = canvas
+	local exitCorner = Instance.new("UICorner")
+	exitCorner.CornerRadius = UDim.new(0, 14)
+	exitCorner.Parent = exit
+	local exitEdge = Instance.new("UIStroke")
+	exitEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	exitEdge.Color = UIKit.C.text
+	exitEdge.Transparency = 0.5
+	exitEdge.Thickness = 2
+	exitEdge.Parent = exit
+	exit.Activated:Connect(function()
+		if state ~= nil and inputRemote then
+			inputRemote:FireServer({ stop = true })
+		end
+	end)
+	touchExit = exit
+
+	-- The bay's gui has no notch inset (see ensureGui), so the corners add it back. The
+	-- exit also drops below Roblox's topbar, which a full-bleed gui would draw under.
+	UIKit.onScaleChanged(function()
+		local insets = UIKit.safeInsets()
+		spray.Position = UDim2.new(1, -(TOUCH_MARGIN + insets.right), 1, -(TOUCH_MARGIN + insets.bottom))
+		exit.Position = UDim2.new(1, -(TOUCH_MARGIN + insets.right), 0, 72 + insets.top)
+	end)
+end
+
 --- One ScreenGui for both, built once and never destroyed. The wipe outlives the
 --- session it ends -- the reveal half plays AFTER teardown has run -- so tying its
 --- lifetime to the session is how you get a black panel left across the screen.
@@ -1487,6 +1617,9 @@ local function ensureGui(): boolean
 	-- The HUD is away for the session, so this is the only place the player sees what
 	-- grade of find is under the crust. All of it lives in WashRarityBanner.
 	WashRarityBanner.mount(canvas)
+
+	-- ── Touch controls ── (under the wipe panel's ZIndex 10, so the cut still covers them)
+	buildTouchControls(canvas)
 
 	-- ── The wipe panel ──
 	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
@@ -2206,6 +2339,7 @@ local function enterView()
 	end
 	WashFluidBar.show(true)
 	WashRarityBanner.show(true)
+	showTouchControls(true)
 
 	if not renderBound then
 		RunService:BindToRenderStep("WashBay", Enum.RenderPriority.Camera.Value + 1, onRender)
@@ -2238,6 +2372,7 @@ local function exitView()
 	end
 	WashFluidBar.show(false)
 	WashRarityBanner.show(false)
+	showTouchControls(false)
 
 	local camera = Workspace.CurrentCamera
 	if camera then
@@ -2371,6 +2506,11 @@ function Wash.start()
 		WashFluidBar.show(false)
 		-- The reveal prints the rarity itself, in the lower third.
 		WashRarityBanner.show(false)
+		-- Nothing left to spray; EXIT stays so a touch player is never without a way out.
+		sprayTouch = nil
+		if touchSpray then
+			touchSpray.Visible = false
+		end
 		-- The last chunk is off: the item is clean.
 		Sfx.play("cleaned")
 		WashReveal.play(found, camera, pivot.Position, math.max(size.X, size.Y, size.Z))
@@ -2390,6 +2530,11 @@ function Wash.start()
 			-- down looks down.
 			lookYaw -= input.Delta.X * MOUSE_SENS
 			lookPitch -= input.Delta.Y * MOUSE_SENS
+			clampLook()
+		elseif input.UserInputType == Enum.UserInputType.Touch and lookTouches[input] then
+			-- Same signs as the mouse: drag right turns right, drag down looks down.
+			lookYaw -= input.Delta.X * TOUCH_SENS
+			lookPitch -= input.Delta.Y * TOUCH_SENS
 			clampLook()
 		elseif input.KeyCode == Enum.KeyCode.Thumbstick2 then
 			padLook = Vector2.new(input.Position.X, input.Position.Y)
@@ -2426,17 +2571,17 @@ function Wash.start()
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
-			spraying = true
-			inputRemote:FireServer({ spraying = true, zone = aimedZone, weak = WashWeakSpots.aimed })
+			setSpraying(true)
+		elseif input.UserInputType == Enum.UserInputType.Touch then
+			-- `processed` already filtered out a touch that landed on SPRAY or EXIT.
+			lookTouches[input] = true
 		end
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
+		lookTouches[input] = nil
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
-			spraying = false
-			if state ~= nil then
-				inputRemote:FireServer({ spraying = false, zone = aimedZone, weak = WashWeakSpots.aimed })
-			end
+			setSpraying(false)
 		end
 		if input.KeyCode == Enum.KeyCode.Thumbstick2 then
 			padLook = Vector2.zero
