@@ -50,23 +50,28 @@ local TILE_LIGHT = Color3.fromRGB(185, 245, 168)
 local TILE_ICON_DROP = 2
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- The panel. StationController's FIELD slate, plus the clover's green for its card.
+-- The panel. BRIGHT, on request (2026-10-02): a sky-blue to violet wash behind
+-- everything, and every card in its own saturated colour with a gloss gradient,
+-- instead of the FIELD slate it started as. White ink-outlined text reads on all of it.
 local PANEL = {
-	panel = Color3.fromHex("1B1F23"),
-	card = Color3.fromHex("183020"),
-	cardEdge = Color3.fromHex("4FB853"),
-	well = Color3.fromHex("21452A"),
+	panelTop = Color3.fromHex("4FB4FF"),
+	panelBottom = Color3.fromHex("8A5CFF"),
+	card = Color3.fromHex("2EA552"),
+	cardEdge = Color3.fromHex("1A1A1A"),
+	well = Color3.fromHex("1E7A3A"),
 	light = Color3.fromHex("DDF8D2"),
-	dim = Color3.fromHex("A9C9A3"),
+	dim = Color3.fromHex("F1F5FF"),
 	-- StationController's FIELD.robux: every Robux button in the game is this purple.
 	buy = Color3.fromHex("7B3FE4"),
 	buyHover = Color3.fromHex("9257F5"),
 	-- An owned pass's button: the clover's green, so "you have this" reads at a glance.
 	buyOwned = Color3.fromHex("2F9E4A"),
-	-- The cash and crate cards: the panel's slate, a shade up.
-	tile = Color3.fromHex("252A30"),
-	tileEdge = Color3.fromHex("3A4148"),
-	cash = Color3.fromHex("6BE36B"),
+	-- Card colours. Each pass has its own (PASS_TINT); cash is green, crates by kind.
+	tileEdge = Color3.fromHex("1A1A1A"),
+	cashTile = Color3.fromHex("2EA552"),
+	nukeTile = Color3.fromHex("E8711C"),
+	liquidTile = Color3.fromHex("1E88E5"),
+	cash = Color3.fromHex("C8FF8A"),
 	off = Color3.fromHex("4A4F55"),
 	close = Color3.fromHex("E5484D"),
 	ink = Color3.fromHex("1A1A1A"),
@@ -79,9 +84,24 @@ local PANEL_W = 860
 local PANEL_H = 720
 local CLOVER_H = 220
 local SECTION_H = 30
-local CASH_H = 168
-local CRATE_H = 200
-local PASS_H = 236
+local CASH_H = 184
+local CRATE_H = 216
+-- Every Robux button: the R$ is Roblox's own Robux glyph (private-use U+E002, which
+-- every Roblox font draws as the hexagon icon), big enough to read across the room.
+local ROBUX = utf8.char(0xE002)
+local BUY_H = 54
+local BUY_TEXT = 28
+-- Each pass card's colour, keyed by Config/GamePasses key, picked to sit behind its picture.
+local PASS_TINT: { [string]: Color3 } = {
+	cash = Color3.fromHex("2EA552"),
+	luck = Color3.fromHex("17A589"),
+	digPower = Color3.fromHex("E0413A"),
+	speed = Color3.fromHex("F0A20F"),
+	backpack = Color3.fromHex("EE7A1E"),
+	bombDamage = Color3.fromHex("D81B60"),
+	instantClean = Color3.fromHex("1E88E5"),
+}
+local PASS_H = 256
 local PASSES_PER_ROW = 4
 local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
@@ -120,6 +140,14 @@ local function round(parent: Instance, radius: number)
 	corner.Parent = parent
 end
 
+--- A top-to-bottom gloss over a card: full colour at the top, a shade darker below.
+local function gloss(parent: Instance)
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190))
+	gradient.Parent = parent
+end
+
 local function edge(parent: Instance, color: Color3, thickness: number)
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
@@ -129,7 +157,7 @@ local function edge(parent: Instance, color: Color3, thickness: number)
 end
 
 --- A purple R$ button for `productId`, parented to `parent`. Its price is read off the
---- product, so a dashboard change needs no code change; "R$" stands in until then. An
+--- product, so a dashboard change needs no code change; the bare glyph stands in until then. An
 --- id of 0 (not set up on the dashboard) gives a grey COMING SOON that does nothing.
 --- `isPass` sells a game pass (Config/GamePasses) instead of a developer product.
 local function robuxButton(parent: Instance, productId: number, isPass: boolean?): TextButton
@@ -141,7 +169,7 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 	buy.Font = PANEL.headline
 	buy.TextSize = if live then 24 else 18
 	buy.TextColor3 = PANEL.white
-	buy.Text = if live then "R$" else "COMING SOON"
+	buy.Text = if live then ROBUX else "COMING SOON"
 	buy.ZIndex = 15
 	buy.Parent = parent
 	round(buy, 12)
@@ -160,9 +188,9 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 		end)
 		if ok and info and info.PriceInRobux then
 			-- Kept as an attribute too, so an OWNED pass button can put it back.
-			buy:SetAttribute("Price", `R$ {info.PriceInRobux}`)
+			buy:SetAttribute("Price", `{ROBUX} {info.PriceInRobux}`)
 			if buy.Active then
-				buy.Text = `R$ {info.PriceInRobux}`
+				buy.Text = `{ROBUX} {info.PriceInRobux}`
 			end
 		end
 	end)
@@ -202,6 +230,7 @@ local function buildCloverCard(parent: Frame)
 	card.Parent = parent
 	round(card, 16)
 	edge(card, PANEL.cardEdge, 3)
+	gloss(card)
 
 	local well = Instance.new("Frame")
 	well.Name = "Art"
@@ -282,7 +311,8 @@ local function buildCloverCard(parent: Frame)
 	})
 
 	local buy = robuxButton(card, LuckBoost.PRODUCT_ID)
-	buy.Size = UDim2.fromOffset(170, 46)
+	buy.Size = UDim2.fromOffset(230, BUY_H + 4)
+	buy.TextSize = BUY_TEXT + 4
 	buy.AnchorPoint = Vector2.new(1, 1)
 	buy.Position = UDim2.new(1, -16, 1, -14)
 end
@@ -317,21 +347,22 @@ local function row(parent: Instance, order: number, name: string, height: number
 end
 
 --- One card on a row: the slate tile, with its purple button along the bottom.
-local function tile(parent: Instance, order: number, name: string, productId: number): Frame
+local function tile(parent: Instance, order: number, name: string, productId: number, color: Color3): Frame
 	local card = Instance.new("Frame")
 	card.Name = name
 	card.LayoutOrder = order
-	card.BackgroundColor3 = PANEL.tile
+	card.BackgroundColor3 = color
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
 	card.Parent = parent
 	round(card, 14)
-	edge(card, PANEL.tileEdge, 2)
+	edge(card, PANEL.tileEdge, 3)
+	gloss(card)
 	local buy = robuxButton(card, productId)
 	buy.AnchorPoint = Vector2.new(0.5, 1)
 	buy.Position = UDim2.new(0.5, 0, 1, -10)
-	buy.Size = UDim2.new(1, -20, 0, 40)
-	buy.TextSize = 20
+	buy.Size = UDim2.new(1, -16, 0, BUY_H)
+	buy.TextSize = BUY_TEXT
 	return card
 end
 
@@ -352,12 +383,13 @@ local function buildPasses(parent: Instance)
 			local card = Instance.new("Frame")
 			card.Name = `Pass_{pass.key}`
 			card.LayoutOrder = slot
-			card.BackgroundColor3 = PANEL.tile
+			card.BackgroundColor3 = PASS_TINT[pass.key] or PANEL.cashTile
 			card.BorderSizePixel = 0
 			card.ZIndex = 12
 			card.Parent = frame
 			round(card, 14)
-			edge(card, PANEL.tileEdge, 2)
+			edge(card, PANEL.tileEdge, 3)
+			gloss(card)
 			local art = Instance.new("ImageLabel")
 			art.Name = "Art"
 			art.BackgroundTransparency = 1
@@ -394,8 +426,8 @@ local function buildPasses(parent: Instance)
 			local buy = robuxButton(card, pass.id, true)
 			buy.AnchorPoint = Vector2.new(0.5, 1)
 			buy.Position = UDim2.new(0.5, 0, 1, -10)
-			buy.Size = UDim2.new(1, -20, 0, 40)
-			buy.TextSize = 18
+			buy.Size = UDim2.new(1, -16, 0, BUY_H)
+			buy.TextSize = BUY_TEXT
 			local attr = GamePasses.attr(pass.key)
 			local function refresh()
 				local owned = player:GetAttribute(attr) == true
@@ -405,7 +437,7 @@ local function buildPasses(parent: Instance)
 					buy.BackgroundColor3 = PANEL.buyOwned
 				elseif pass.id ~= 0 and not buy.Active then
 					buy.Active = true
-					buy.Text = buy:GetAttribute("Price") or "R$"
+					buy.Text = buy:GetAttribute("Price") or ROBUX
 					buy.BackgroundColor3 = PANEL.buy
 				end
 			end
@@ -420,7 +452,7 @@ local function buildCash(parent: Instance)
 	section(parent, 2, "CASH")
 	local frame = row(parent, 3, "Cash", CASH_H, #ShopProducts.CASH)
 	for index, pack in ShopProducts.CASH do
-		local card = tile(frame, index, `Cash{index}`, pack.id)
+		local card = tile(frame, index, `Cash{index}`, pack.id, PANEL.cashTile)
 		local icon = Instance.new("ImageLabel")
 		icon.Name = "Bundle"
 		icon.BackgroundTransparency = 1
@@ -451,7 +483,7 @@ local function buildCrates(parent: Instance)
 	section(parent, 4, "CRATES")
 	local frame = row(parent, 5, "Crates", CRATE_H, #ShopProducts.CRATES)
 	for index, product in ShopProducts.CRATES do
-		local card = tile(frame, index, `Crate{index}`, product.id)
+		local card = tile(frame, index, `Crate{index}`, product.id, if product.kind == "liquid" then PANEL.liquidTile else PANEL.nukeTile)
 		local well = Instance.new("Frame")
 		well.Name = "Art"
 		well.BackgroundTransparency = 1
@@ -567,7 +599,11 @@ local function buildPanel(): ScreenGui
 	local cap = Instance.new("UISizeConstraint")
 	cap.MaxSize = Vector2.new(PANEL_W, PANEL_H)
 	cap.Parent = panel
-	panel.BackgroundColor3 = PANEL.panel
+	panel.BackgroundColor3 = Color3.new(1, 1, 1)
+	local wash = Instance.new("UIGradient")
+	wash.Rotation = 90
+	wash.Color = ColorSequence.new(PANEL.panelTop, PANEL.panelBottom)
+	wash.Parent = panel
 	panel.BorderSizePixel = 0
 	panel.Visible = false
 	panel.ZIndex = 10
@@ -620,7 +656,7 @@ local function buildPanel(): ScreenGui
 	body.BackgroundTransparency = 1
 	body.BorderSizePixel = 0
 	body.ScrollBarThickness = 6
-	body.ScrollBarImageColor3 = PANEL.tileEdge
+	body.ScrollBarImageColor3 = PANEL.white
 	body.CanvasSize = UDim2.new()
 	body.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	body.ScrollingDirection = Enum.ScrollingDirection.Y
