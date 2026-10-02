@@ -36,8 +36,8 @@ local MasteriesController = {}
 local BAR_ROW = 3
 local BAR_COLOR = Color3.fromRGB(255, 196, 46)
 local BAR_LIGHT = Color3.fromRGB(255, 236, 170)
--- "Masteries" is twice "Shop"; at the bars' 28 it is too wide for the medal.
-local CAPTION_SIZE = 20
+-- "Masteries" is twice "Shop"; at the bars' 28 it dwarfs the medal; a little smaller still, on request.
+local CAPTION_SIZE = 17
 
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
@@ -567,7 +567,7 @@ function MasteriesController.start()
 	badge, badgeText = HudTile.badge(button, Color3.fromRGB(229, 72, 77), PANEL.ink)
 	-- On the medal's shoulder, not the (invisible) button's far corner.
 	badge.AnchorPoint = Vector2.new(0, 0)
-	badge.Position = UDim2.new(0.5, 18, 0, -2)
+	badge.Position = UDim2.new(0.5, 22, 0, -2)
 	barGui.Parent = playerGui
 	buildPanel().Parent = playerGui
 	buildToast().Parent = playerGui
