@@ -2,15 +2,15 @@
 --[[
 	Floors.luau — the storeys a base can be built up to.
 
-	A base starts as ONE floor: the ground deck with its 3 x 4 gallery of stands. Two
-	more floors can be bought on top of it, one at a time, for cash, so a base tops out
-	at MAX = 3 floors. Every floor past the ground carries UPPER_SLOTS stands (a 3 x 4
-	gallery), reached by a flight of stairs from the floor below.
+	A base starts as ONE floor: the ground deck with its gallery of 9 stands (a 3 x 4
+	grid with the centre column's front three left out, on request). Two more floors
+	can be bought on top of it, one at a time, for cash, so a base tops out at MAX = 3
+	floors. Every floor past the ground carries UPPER_SLOTS stands in the same layout,
+	reached by a flight of stairs from the floor below.
 
-	SLOT NUMBERS RUN ON ACROSS FLOORS, they do not restart. Slots 1..12 are the ground
-	floor exactly as they always were (so every existing save's `pedestals` entries
-	keep pointing at the stand they were placed on), 13..24 are floor 2 and 25..36 are
-	floor 3. `data.exhibit.floors` is the only new piece of saved state; how many
+	SLOT NUMBERS RUN ON ACROSS FLOORS, they do not restart. Slots 1..9 are the ground
+	floor, 10..18 are floor 2 and 19..27 are floor 3. (Cut from 12 a floor before
+	anyone had played, so no save points past slot 27.) `data.exhibit.floors` is the only new piece of saved state; how many
 	stands that unlocks is always derived from it (`slotsFor`), never stored on its own.
 
 	The geometry lives in build/Plots (buildFloor); ExhibitService sells the floors and
@@ -21,8 +21,8 @@
 local Floors = {}
 
 Floors.MAX = 3
-Floors.GROUND_SLOTS = 12
-Floors.UPPER_SLOTS = 12
+Floors.GROUND_SLOTS = 9
+Floors.UPPER_SLOTS = 9
 
 --- Deck-top to deck-top, in studs. Tall enough that a stand on its plinth, a GIGA
 --- roll on top of it and its trophy card all clear the deck overhead with room to
@@ -34,14 +34,15 @@ Floors.HEIGHT = 33
 
 --- Cash price of each floor, by the floor it buys. Floor 1 is the ground and free.
 --- Sized in the economy pacing pass (see Config/Gear's header) with no stand income
---- cap: floor 2 is a Stage 4 purchase, floor 3 a Stage 8 one. Twelve more stands
+--- cap: floor 2 is a Stage 4 purchase, floor 3 a Stage 8 one. Nine more stands
 --- doubles or triples passive income, so each is priced like a stage's worth of gear.
 --- Raised on request to 50M (floor 2) and 1B (floor 3), then moved with their stages in
 --- the early-easier / late-harder refit (Config/Gear's header): floor 2 is part of the
---- Stage 5 bill (x0.78 -> 40M), floor 3 of the Stage 9 bill (x1.55 -> 1.5B).
+--- Stage 5 bill (x0.78 -> 40M), floor 3 of the Stage 9 bill (x1.55 -> 1.5B). Floor 3 then
+--- went to 1.4B when floors dropped to nine stands (Config/Gear's header).
 Floors.PRICES = {
 	[2] = 40000000,
-	[3] = 1500000000,
+	[3] = 1400000000,
 }
 
 --- Every stand across every floor. Loops that clear or scan "all stands" walk this.
