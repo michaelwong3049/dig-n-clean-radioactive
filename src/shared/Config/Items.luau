@@ -1147,13 +1147,13 @@ Items.DEFS = {
 		name = "The Big One",
 		flavor = "Heavier than it looks. Nobody's brave enough to open it.",
 		rarity = "Anomaly",
-		odds = 500000, -- 1 in N per dig in a stocking stage
+		odds = 1500000, -- 1 in N per dig in a stocking stage
 		weight = 490,
 		sizeMult = 2, -- second only to the Atomic Bomb
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = { "crater_relics" },
-		baseValue = 6000000,
+		baseValue = 12000000,
 		model = "ImportedNuke",
 	},
 	-- Stage 7: Cinder Fields (batch 16 imports)
@@ -1320,13 +1320,13 @@ Items.DEFS = {
 		name = "Inferno Nuke",
 		flavor = "The shell's cracked open and the core is white-hot.",
 		rarity = "Anomaly",
-		odds = 500000, -- 1 in N per dig in a stocking stage
+		odds = 1500000, -- 1 in N per dig in a stocking stage
 		weight = 480,
 		sizeMult = 1.8, -- bigger
 		stages = { 7 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 15000000,
+		baseValue = 30000000,
 		model = "ImportedNuke",
 	},
 	-- Stage 8: Cobalt Shelf (batch 17 imports)
@@ -1481,13 +1481,13 @@ Items.DEFS = {
 		name = "Kraken Nuke",
 		flavor = "One eye open, every tentacle wrapped tight.",
 		rarity = "Anomaly",
-		odds = 500000, -- 1 in N per dig in a stocking stage
+		odds = 1500000, -- 1 in N per dig in a stocking stage
 		weight = 520,
 		sizeMult = 2.5, -- a monster: past The Big One, short of the Atomic Bomb
 		stages = { 8 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 37500000,
+		baseValue = 75000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1628,13 +1628,13 @@ Items.DEFS = {
 		name = "Mirage Nuke",
 		flavor = "You swear it was not there a second ago.",
 		rarity = "Anomaly",
-		odds = 500000, -- 1 in N per dig in a stocking stage
+		odds = 1500000, -- 1 in N per dig in a stocking stage
 		weight = 480,
 		sizeMult = 2.2, -- much bigger
 		stages = { 9 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 94000000,
+		baseValue = 188000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1762,13 +1762,13 @@ Items.DEFS = {
 		name = "Rift Nuke",
 		flavor = "Split in two. Whatever is between the halves is not from here.",
 		rarity = "Anomaly",
-		odds = 500000, -- 1 in N per dig in a stocking stage
+		odds = 1500000, -- 1 in N per dig in a stocking stage
 		weight = 500,
 		sizeMult = 2.5, -- bigger
 		stages = { 11 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 590000000,
+		baseValue = 1180000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1868,13 +1868,13 @@ Items.DEFS = {
 		name = "Atom Nuke",
 		flavor = "Split open to show the nucleus that did it.",
 		rarity = "Anomaly",
-		odds = 500000, -- 1 in N per dig in a stocking stage
+		odds = 1500000, -- 1 in N per dig in a stocking stage
 		weight = 450,
 		sizeMult = 2.2, -- bigger
 		stages = { 12 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 1450000000,
+		baseValue = 2900000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1882,13 +1882,13 @@ Items.DEFS = {
 		name = "Game Over Nuke",
 		flavor = "The last one. Nothing is left to dig after this.",
 		rarity = "Anomaly",
-		odds = 800000, -- 1 in N per dig in a stocking stage
+		odds = 2400000, -- 1 in N per dig in a stocking stage
 		weight = 500,
 		sizeMult = 5, -- the last one: dwarfs even the Atomic Bomb (3.5)
 		stages = { 12 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 2100000000,
+		baseValue = 4200000000,
 		model = "ImportedNuke",
 	},
 	{
@@ -2014,12 +2014,12 @@ Items.DEFS = {
 		name = "Shatterpoint Nuke",
 		flavor = "The cave cracked open around it, and so did the sky.",
 		rarity = "Anomaly",
-		odds = 500000, -- 1 in N per dig in a stocking stage
+		odds = 1500000, -- 1 in N per dig in a stocking stage
 		weight = 480,
 		stages = { 10 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 230000000,
+		baseValue = 460000000,
 		model = "ImportedNuke",
 		sizeMult = 3, -- the Stage 10 Anomaly towers over its row
 	},
