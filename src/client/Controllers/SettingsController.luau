@@ -69,6 +69,20 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
+-- THE PANEL'S OWN PALETTE: neutral greys, no green, on request — the near-black and
+-- edge of the right-edge tiles (UIKit.C.nav*), with a light steel for whatever is on
+-- (the chosen tab, an On switch, the chosen option, a slider's fill). UIKit.C's
+-- olive panel/selected greens stay for the rest of the HUD.
+local C = {
+	panel = UIKit.C.navFill,
+	stroke = UIKit.C.navEdge,
+	empty = Color3.fromRGB(32, 35, 41),
+	selected = Color3.fromRGB(74, 82, 96),
+	fill = Color3.fromRGB(205, 214, 226), -- a slider's filled part
+	text = UIKit.C.navIcon,
+	dim = Color3.fromRGB(138, 146, 158),
+}
+
 local PANEL_SIZE = Vector2.new(560, 668)
 -- Where a tab's rows start (under the title and the tab strip), and a row's height.
 local TABS_Y = 60
@@ -204,8 +218,8 @@ local function applyAura()
 		return
 	end
 	switch.Text = if aura.pending or not aura.known then "\u{2026}" elseif aura.hidden then "On" else "Off"
-	switch.BackgroundColor3 = if aura.hidden then UIKit.C.selected else UIKit.C.empty
-	switch.TextColor3 = if aura.hidden then UIKit.C.text else UIKit.C.dim
+	switch.BackgroundColor3 = if aura.hidden then C.selected else C.empty
+	switch.TextColor3 = if aura.hidden then C.text else C.dim
 end
 
 --- The server's confirmed value: once on load, then after every toggle.
@@ -231,7 +245,7 @@ local function buildAuraRow(section: Instance)
 		size = UDim2.new(1, -SWITCH_W - 12, 0, 28),
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.C.text,
+		color = C.text,
 		text = "Hide my aura",
 		zIndex = 12,
 	})
@@ -242,7 +256,7 @@ local function buildAuraRow(section: Instance)
 		size = UDim2.new(1, -SWITCH_W - 12, 0, 20),
 		font = FONT,
 		textSize = SIZE.hint,
-		color = UIKit.C.dim,
+		color = C.dim,
 		text = "Off for everyone \u{2014} it still protects you",
 		zIndex = 12,
 	})
@@ -255,8 +269,8 @@ local function buildAuraRow(section: Instance)
 		text = "\u{2026}",
 		font = FONT,
 		textSize = SIZE.button,
-		color = UIKit.C.dim,
-		fillColor = UIKit.C.empty,
+		color = C.dim,
+		fillColor = C.empty,
 		fillTransparency = 0,
 		cornerRadius = UIKit.Radius.button,
 		zIndex = 12,
@@ -275,8 +289,8 @@ local function applySound()
 	end
 	local on = not sound.muted
 	switch.Text = if sound.pending or not sound.known then "\u{2026}" elseif on then "On" else "Off"
-	switch.BackgroundColor3 = if on then UIKit.C.selected else UIKit.C.empty
-	switch.TextColor3 = if on then UIKit.C.text else UIKit.C.dim
+	switch.BackgroundColor3 = if on then C.selected else C.empty
+	switch.TextColor3 = if on then C.text else C.dim
 end
 
 --- The server's confirmed value: once on load, then after every toggle.
@@ -302,7 +316,7 @@ local function buildSoundRow(section: Instance)
 		size = UDim2.new(1, -SWITCH_W - 12, 0, 28),
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.C.text,
+		color = C.text,
 		text = "Sound effects",
 		zIndex = 12,
 	})
@@ -313,7 +327,7 @@ local function buildSoundRow(section: Instance)
 		size = UDim2.new(1, -SWITCH_W - 12, 0, 20),
 		font = FONT,
 		textSize = SIZE.hint,
-		color = UIKit.C.dim,
+		color = C.dim,
 		text = "Every sound in the game, for you only",
 		zIndex = 12,
 	})
@@ -326,8 +340,8 @@ local function buildSoundRow(section: Instance)
 		text = "\u{2026}",
 		font = FONT,
 		textSize = SIZE.button,
-		color = UIKit.C.dim,
-		fillColor = UIKit.C.empty,
+		color = C.dim,
+		fillColor = C.empty,
 		fillTransparency = 0,
 		cornerRadius = UIKit.Radius.button,
 		zIndex = 12,
@@ -346,7 +360,7 @@ local function rowText(row: Instance, title: string, hint: string, rightW: numbe
 		size = UDim2.new(1, -rightW - 12, 0, 28),
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.C.text,
+		color = C.text,
 		text = title,
 		zIndex = 12,
 	})
@@ -356,7 +370,7 @@ local function rowText(row: Instance, title: string, hint: string, rightW: numbe
 		size = UDim2.new(1, -rightW - 12, 0, 20),
 		font = FONT,
 		textSize = SIZE.hint,
-		color = UIKit.C.dim,
+		color = C.dim,
 		text = hint,
 		zIndex = 12,
 	})
@@ -364,8 +378,8 @@ end
 
 local function paintSwitch(button: TextButton, on: boolean, text: string)
 	button.Text = text
-	button.BackgroundColor3 = if on then UIKit.C.selected else UIKit.C.empty
-	button.TextColor3 = if on then UIKit.C.text else UIKit.C.dim
+	button.BackgroundColor3 = if on then C.selected else C.empty
+	button.TextColor3 = if on then C.text else C.dim
 end
 
 local function switchButton(row: Instance, name: string, width: number, x: UDim): TextButton
@@ -377,8 +391,8 @@ local function switchButton(row: Instance, name: string, width: number, x: UDim)
 		text = "",
 		font = FONT,
 		textSize = SIZE.button,
-		color = UIKit.C.dim,
-		fillColor = UIKit.C.empty,
+		color = C.dim,
+		fillColor = C.empty,
 		fillTransparency = 0,
 		cornerRadius = UIKit.Radius.button,
 		zIndex = 12,
@@ -432,7 +446,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 		size = UDim2.fromOffset(labelW, 28),
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.C.text,
+		color = C.text,
 		text = title,
 		zIndex = 12,
 	})
@@ -443,7 +457,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 		size = UDim2.fromOffset(valueW, 28),
 		font = FONT,
 		textSize = SIZE.button,
-		color = UIKit.C.dim,
+		color = C.dim,
 		text = "",
 		zIndex = 12,
 	})
@@ -463,7 +477,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 	track.AnchorPoint = Vector2.new(0, 0.5)
 	track.Position = UDim2.fromScale(0, 0.5)
 	track.Size = UDim2.new(1, 0, 0, 12)
-	track.BackgroundColor3 = UIKit.C.empty
+	track.BackgroundColor3 = C.empty
 	track.BorderSizePixel = 0
 	track.ZIndex = 12
 	track.Parent = hit
@@ -475,7 +489,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
-	fill.BackgroundColor3 = UIKit.C.green
+	fill.BackgroundColor3 = C.fill
 	fill.BorderSizePixel = 0
 	fill.ZIndex = 13
 	fill.Parent = track
@@ -485,7 +499,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 	knob.Name = "Knob"
 	knob.AnchorPoint = Vector2.new(0.5, 0.5)
 	knob.Size = UDim2.fromOffset(24, 24)
-	knob.BackgroundColor3 = UIKit.C.text
+	knob.BackgroundColor3 = C.text
 	knob.BorderSizePixel = 0
 	knob.ZIndex = 14
 	knob.Parent = track
@@ -767,7 +781,7 @@ local function buildColorPicker(section: Instance)
 	swCorner.CornerRadius = UDim.new(0, 8)
 	swCorner.Parent = swatch
 	local swStroke = Instance.new("UIStroke")
-	swStroke.Color = UIKit.C.stroke
+	swStroke.Color = C.stroke
 	swStroke.Thickness = 2
 	swStroke.Parent = swatch
 	ui.swatch = swatch
@@ -778,7 +792,7 @@ local function buildColorPicker(section: Instance)
 		size = UDim2.fromOffset(140, 24),
 		font = FONT,
 		textSize = SIZE.button,
-		color = UIKit.C.text,
+		color = C.text,
 		text = "Not set",
 		zIndex = 12,
 	})
@@ -789,7 +803,7 @@ local function buildColorPicker(section: Instance)
 		size = UDim2.fromOffset(200, 20),
 		font = FONT,
 		textSize = SIZE.hint,
-		color = UIKit.C.dim,
+		color = C.dim,
 		text = "",
 		zIndex = 12,
 	})
@@ -801,8 +815,8 @@ local function buildColorPicker(section: Instance)
 		text = "Apply",
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.C.text,
-		fillColor = UIKit.C.selected,
+		color = C.text,
+		fillColor = C.selected,
 		fillTransparency = 0,
 		cornerRadius = UIKit.Radius.button,
 		zIndex = 12,
@@ -818,8 +832,8 @@ local function buildColorPicker(section: Instance)
 		text = "Reset to default",
 		font = FONT,
 		textSize = SIZE.hint,
-		color = UIKit.C.dim,
-		fillColor = UIKit.C.empty,
+		color = C.dim,
+		fillColor = C.empty,
 		fillTransparency = 0.2,
 		cornerRadius = UIKit.Radius.slot,
 		zIndex = 12,
@@ -862,8 +876,9 @@ local function build(): ScreenGui
 		size = UDim2.fromOffset(PANEL_SIZE.X, PANEL_SIZE.Y),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		color = UIKit.C.panel,
+		color = C.panel,
 		transparency = 0,
+		strokeColor = C.stroke,
 		cornerRadius = UIKit.Radius.panel,
 		strokeThickness = UIKit.Stroke.thick,
 		zIndex = 10,
@@ -883,7 +898,7 @@ local function build(): ScreenGui
 		size = UDim2.new(1, -50, 0, 46),
 		font = FONT,
 		textSize = SIZE.title,
-		color = UIKit.C.text,
+		color = C.text,
 		text = "Settings",
 		zIndex = 11,
 	})
@@ -896,8 +911,8 @@ local function build(): ScreenGui
 		text = "X",
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.C.text,
-		fillColor = UIKit.C.empty,
+		color = C.text,
+		fillColor = C.empty,
 		cornerRadius = UIKit.Radius.slot,
 		zIndex = 12,
 	})
@@ -930,8 +945,8 @@ local function build(): ScreenGui
 			text = TAB_LABEL[name],
 			font = FONT,
 			textSize = SIZE.button,
-			color = UIKit.C.dim,
-			fillColor = UIKit.C.empty,
+			color = C.dim,
+			fillColor = C.empty,
 			fillTransparency = 0,
 			cornerRadius = UIKit.Radius.button,
 			zIndex = 12,
@@ -974,7 +989,7 @@ local function build(): ScreenGui
 		size = UDim2.new(1, 0, 0, 28),
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.C.text,
+		color = C.text,
 		text = "Base colour",
 		zIndex = 12,
 	})
@@ -985,7 +1000,7 @@ local function build(): ScreenGui
 		size = UDim2.new(1, 0, 0, 20),
 		font = FONT,
 		textSize = SIZE.hint,
-		color = UIKit.C.dim,
+		color = C.dim,
 		text = "The accent on your base: trim, nameplate, station signs",
 		zIndex = 12,
 	})
