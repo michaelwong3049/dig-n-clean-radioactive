@@ -614,4 +614,10 @@ Tuning.INDEX_COMPLETE_LUCK_MULT = 1.1
 --- StatResolver's sellMultiplier and yieldMultiplier via IndexProgress.cashMultiplier.
 Tuning.INDEX_COMPLETE_CASH = 1.1
 
+--- WHO MAY STEAL A DROPPED BAG: only a player whose deepest stage reached
+--- (data.stats.deepestStage, published as the DeepestStage attribute) is at least this.
+--- Keeps the first three stages a safe place to learn; your OWN bag is always yours to
+--- recover. ExposureService.giveBagTo enforces it; DroppedBagController words the prompt.
+Tuning.STEAL_MIN_STAGE = 4
+
 return Tuning

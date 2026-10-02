@@ -12,14 +12,19 @@
 	  - YOUR OWN BAG: no card here. BagTrackerController already draws yours over its
 	    light column from any distance, and two cards on one bag would just stack.
 	The prompt's action is worded per viewer too: "Recover bag" for you, "Steal bag"
-	for anyone else. ProximityPrompt text set on a client stays on that client.
+	for anyone else, and "Reach Stage 4 to steal" for someone whose DeepestStage
+	attribute (MasteryService) is under Tuning.STEAL_MIN_STAGE -- the server refuses
+	their take (ExposureService.giveBagTo). ProximityPrompt text set on a client stays
+	on that client.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
 local UIKit = require(script.Parent.Parent.UIKit)
 local BagCard = require(script.Parent.Parent.BagCard)
 
@@ -43,9 +48,17 @@ local function isMine(bag: Instance): boolean
 	return bag:GetAttribute("OwnerId") == Players.LocalPlayer.UserId
 end
 
+local function canSteal(): boolean
+	local deepest = Players.LocalPlayer:GetAttribute("DeepestStage")
+	return typeof(deepest) == "number" and deepest >= Tuning.STEAL_MIN_STAGE
+end
+
 local function wordPrompt(bag: Instance, prompt: Instance)
 	if prompt:IsA("ProximityPrompt") then
-		prompt.ActionText = if isMine(bag) then "Recover bag" else "Steal bag"
+		prompt.ActionText = if isMine(bag)
+			then "Recover bag"
+			elseif canSteal() then "Steal bag"
+			else `Reach Stage {Tuning.STEAL_MIN_STAGE} to steal`
 	end
 end
 
@@ -130,6 +143,15 @@ function DroppedBagController.start()
 	for _, bag in CollectionService:GetTagged(TAG) do
 		add(bag)
 	end
+
+	-- Reaching Stage 4 re-words every bag already lying out there.
+	Players.LocalPlayer:GetAttributeChangedSignal("DeepestStage"):Connect(function()
+		for bag in entries do
+			for _, child in bag:GetChildren() do
+				wordPrompt(bag, child)
+			end
+		end
+	end)
 
 	local since = 0
 	RunService.Heartbeat:Connect(function(dt)
