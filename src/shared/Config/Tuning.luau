@@ -93,6 +93,7 @@ Tuning.BURN_EXPONENT = 0.75
 --             the stage, then a steady, harsher one to the far edge. Not "failing".
 --   under   : one tier too weak. 20-30s at the entrance, ~2-3s past BREAK. Failing.
 --   wayUnder: two or more tiers too weak. About a second, anywhere. Failing.
+--   (UNDER_GRACE is added on top of both failing rows, see below.)
 --   lastAura: the top aura in a stage rated past the end of the ladder (Stage 12).
 --             About a minute, on purpose: the deepest stage is a raid, not a farm.
 --   (an aura ABOVE the stage's rating takes no aura damage at all)
@@ -110,6 +111,12 @@ Tuning.ZONE_SURVIVAL = {
 	late = { rated = { 480, 240, 75 }, under = { 20, 2, 1 } }, -- stages 6-12
 	wayUnder = 1,
 	lastAura = { 75, 60, 45 },
+	-- Flat seconds added to every UNDER and WAY-UNDER time, on request ("20 more seconds
+	-- to stay in zones their aura can't handle"): one tier under is ~50s at a Stage 1-5
+	-- entrance and ~21s past BREAK, two tiers under ~21s anywhere. Added after the
+	-- blend, so it is the same 20s at every depth. lastAura (the Stage 12 raid) and the
+	-- rated rows do not get it.
+	UNDER_GRACE = 20,
 }
 Tuning.MAX_HEALTH = 100
 -- Every aura level past the first adds this much max health (tier 1 = 100, tier 2 = 150...).

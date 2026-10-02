@@ -114,20 +114,23 @@ function Radiation.zoneSurvival(stageId: number, depthFrac: number, auraTier: nu
 	if case == nil then
 		return math.huge
 	elseif case == "wayUnder" then
-		return Z.wayUnder
+		return Z.wayUnder + Z.UNDER_GRACE
 	elseif case == "lastAura" then
 		return along(Z.lastAura, depthFrac)
 	end
 	local band = if stageId >= Z.HARSH_FROM_STAGE then Z.late else Z.early
-	return along(band[case], depthFrac)
+	local seconds = along(band[case], depthFrac)
+	return if case == "under" then seconds + Z.UNDER_GRACE else seconds
 end
 
 --- 0..1 out-of-depth grade for the HUD/RadFx: 0 at the gentlest under-tier time
---- (30s), 1 at a one-second death. 0 whenever the aura is not failing.
+--- (~50s with the grace), 1 at the way-under floor (~21s). 0 whenever the aura is
+--- not failing.
 local function overGrade(seconds: number): number
 	local Z = Tuning.ZONE_SURVIVAL
-	local top = Z.early.under[1]
-	return math.clamp(math.log(top / seconds) / math.log(top / Z.wayUnder), 0, 1)
+	local top = Z.early.under[1] + Z.UNDER_GRACE
+	local bottom = Z.wayUnder + Z.UNDER_GRACE
+	return math.clamp(math.log(top / seconds) / math.log(top / bottom), 0, 1)
 end
 
 --- The core resolve. Everything on the HUD and every tick of the exposure meter

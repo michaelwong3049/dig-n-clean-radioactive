@@ -615,8 +615,9 @@ function Spec.run(): boolean
 				local under = rated - 1
 				local entrance = Radiation.zoneSurvival(stageId, 0, under)
 				local past = Radiation.zoneSurvival(stageId, Z.BREAK + 0.01, under)
-				local lo = if stageId >= Z.HARSH_FROM_STAGE then 15 else 20
-				if not (entrance >= lo and entrance <= 30 and past < 3) then
+				-- The authored 20-30s / under-3s bands, plus the flat UNDER_GRACE on top.
+				local lo = (if stageId >= Z.HARSH_FROM_STAGE then 15 else 20) + Z.UNDER_GRACE
+				if not (entrance >= lo and entrance <= 30 + Z.UNDER_GRACE and past < 3 + Z.UNDER_GRACE) then
 					underOk = false
 				end
 				if stageId >= Z.HARSH_FROM_STAGE then
@@ -629,9 +630,16 @@ function Spec.run(): boolean
 		end
 		check(`§zone the rated drain climbs smoothly, no steps ({detail ~= "" and detail or "ok"})`, smooth)
 		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge", ratedOk)
-		check("§zone one tier under: 20-30s at the entrance (15-30s in the harsh stages), under 3s past 60%", underOk)
+		check(
+			string.format("§zone one tier under: 20-30s at the entrance (15-30s in the harsh stages), under 3s past 60%%, +%ds grace", Z.UNDER_GRACE),
+			underOk
+		)
 		check("§zone the harsh stages (6-12) are harsher than 1-5 one tier under", harsher)
-		check("§zone two tiers under is about a second", Radiation.zoneSurvival(5, 0, 3) <= 1.5)
+		check(
+			string.format("§zone two tiers under is about a second, +%ds grace", Z.UNDER_GRACE),
+			Radiation.zoneSurvival(5, 0, 3) <= 1.5 + Z.UNDER_GRACE
+		)
+		check("§zone the under-tier grace is about 20s", Z.UNDER_GRACE >= 15 and Z.UNDER_GRACE <= 25)
 		check("§zone an aura above the stage's rating takes no aura damage", Radiation.zoneSurvival(3, 1, 5) == math.huge)
 		local top = Gear.maxTier("Aura")
 		local last = #Stages.DEFS
