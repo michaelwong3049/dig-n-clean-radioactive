@@ -242,7 +242,7 @@ local TEMPLATE = {
 	},
 }
 
-local STORE_VERSION = 2 -- bump to abandon all existing saves
+local STORE_VERSION = 3 -- bump to abandon all existing saves
 local store = ProfileStore.New(`PlayerData_v{STORE_VERSION}`, TEMPLATE)
 
 local profiles: { [Player]: any } = {}
