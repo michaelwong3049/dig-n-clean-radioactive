@@ -197,13 +197,16 @@ Gear.Detector = {
 -- around desktop mash rate, and `draw` is the lever that keeps that promise: by the
 -- Winch Coil the answer is about one click every two seconds, which is comfortable on
 -- a phone. Spec pins that tier specifically. If you retune draw, re-run it.
+-- PRICES WERE RAISED ON REQUEST ("magnets should be harder"). Salvage Magnet keeps
+-- its 23K; every rung above it costs more than before, with the markup growing up
+-- the ladder (x1.2 Electromagnet -> x1.8 Singularity Coil, ~x2.4-6 across Twilight).
 Gear.Magnet = {
 	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1, blurb = "A fridge magnet on a rope. Pull like you mean it." }, -- 2.50 clicks/sec to hold
 	{ name = "Salvage Magnet", price = 23000, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
-	{ name = "Electromagnet", price = 160000, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
-	{ name = "Winch Coil", price = 940000, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
-	{ name = "Rail Coil", price = 3000000, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
-	{ name = "Singularity Coil", price = 9500000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
+	{ name = "Electromagnet", price = 190000, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
+	{ name = "Winch Coil", price = 1300000, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
+	{ name = "Rail Coil", price = 4800000, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
+	{ name = "Singularity Coil", price = 17000000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
 	-- TOXIC TWILIGHT'S FIVE. Sold at the Magnet stall in that camp and nowhere else
 	-- (`camp`, Gear.campOf), like the camp's six detectors. The order is the art pack's
 	-- own (its tier_6_lattice .. tier_10_omega), which is the order they cost.
@@ -218,11 +221,11 @@ Gear.Magnet = {
 	-- `maxGrip` runs 7-11 AHEAD OF THE MAP: soil hardness stops at 6 today, so it buys
 	-- nothing until Stage 7 is built, and it is written down now so those stages have a
 	-- ladder to be rated against. PRICES CLIMB HARDER EACH RUNG (on request, Omega pinned
-	-- at 60B): x4.2, x5, x6, x6.7, x7.5 off the Singularity Coil's 9.5M.
-	{ name = "Lattice Magnet", price = 40000000, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
-	{ name = "Solar Magnet", price = 200000000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
-	{ name = "Void Magnet", price = 1200000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "twilight" }, -- 0.0045
-	{ name = "Nebula Magnet", price = 8000000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "twilight" }, -- 0.0019
+	-- at 60B): x4.1, x4.6, x5.3, x5.9, x6.0 off the Singularity Coil's 17M.
+	{ name = "Lattice Magnet", price = 70000000, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
+	{ name = "Solar Magnet", price = 320000000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
+	{ name = "Void Magnet", price = 1700000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "twilight" }, -- 0.0045
+	{ name = "Nebula Magnet", price = 10000000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "twilight" }, -- 0.0019
 	{ name = "Omega Magnet", price = 60000000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The last magnet. The earth just hands things over.", camp = "twilight" }, -- 0.0006
 }
 
@@ -339,16 +342,19 @@ Gear.Cleaner = {
 -- deepest point (radsAt 1.97), and 1.5 lands that at ~28s -- 1.6 would break it. The
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
--- PRICES CLIMB PROGRESSIVELY HARDER (on request, Static Veil kept at 110K): each rung
--- costs a bigger multiple of the last -- x4.0, x4.2, x4.4, x4.6, x4.9, x5.0, x5.2,
--- x5.3, x5.6 -- so Stages 3-5 got cheaper and Stages 7-11 got 1.4-3.7x dearer.
+-- PRICES CLIMB PROGRESSIVELY HARDER (on request, Static Veil kept at 110K): EVERY rung
+-- costs more than it did before this pass (720K/4.1M/13M/42M/130M/420M/1.6B/8.7B/38B),
+-- and the markup grows up the ladder -- about x1.2 on the Lead Halo, x2.2 by the
+-- Crimson Vortex. From the Isotope Mantle up the step between rungs also widens
+-- (x3.4 -> x5.0). Never make an early rung cheaper to smooth the curve: the ask was
+-- harder, not smoother.
 Gear.Aura = {
 	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 0.60, blurb = "No aura yet. Buy one to shield yourself from the rads." },
 	{ name = "Static Veil", price = 110000, reduction = 0.9750, tolerance = 4.4, capacity = 6, haulPenalty = 0.48, blurb = "Crackles more than it shields. Shields a little." },
-	{ name = "Lead Halo", price = 440000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
-	{ name = "Ion Shroud", price = 1850000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 8100000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back." },
-	{ name = "Containment Nimbus", price = 37000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim." },
+	{ name = "Lead Halo", price = 870000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 5300000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 18000000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back." },
+	{ name = "Containment Nimbus", price = 63000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim." },
 	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Aura Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
 	-- from mockup rounds (Shared/AuraLook's aurora / torus / wings / seraph / vortex).
@@ -376,11 +382,11 @@ Gear.Aura = {
 	-- every stage below lasts longer the higher the aura.
 	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
-	{ name = "Toxic Aurora", price = 180000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Toxic Aurora", price = 230000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
 	{ name = "Eclipse Veil", price = 900000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 4700000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "twilight" },
-	{ name = "Seraph", price = 25000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
-	{ name = "Crimson Vortex", price = 140000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 3800000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "twilight" },
+	{ name = "Seraph", price = 17000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
+	{ name = "Crimson Vortex", price = 85000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
