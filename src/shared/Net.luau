@@ -276,6 +276,11 @@ local REMOTES: { [string]: string } = {
 	-- counter moves; `unlocked` is a tier reached since the last push (the toast).
 	-- Client -> server, no payload: "send me the panel" (once, when it is built).
 	MasteryState = "RemoteEvent",
+
+	-- The daily login calendar (Config/DailyRewards, Services/DailyRewardService).
+	-- Client -> server: "ask" or "claim". Server -> client: { day, ready, readyAt,
+	-- resetAt, days = { {cash, crates, luckSeconds, cashBoostSeconds, big} }, claimed? }.
+	DailyRewards = "RemoteEvent",
 }
 
 local Net = {}

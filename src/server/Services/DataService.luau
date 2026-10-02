@@ -223,6 +223,11 @@ local TEMPLATE = {
 	-- Packs bought (Config/Packs), key -> true. Once per player; PackService sets it.
 	packs = {},
 
+	-- The daily login calendar (Config/DailyRewards, DailyRewardService): the day the
+	-- next claim pays (1-7) and the os.time() of the last claim (0 = never).
+	dailyDay = 1,
+	dailyLastAt = 0,
+
 	-- What the stands earned while the player was offline, waiting for COLLECT on the
 	-- "While you were away" card (AwayEarningsService). On the save so leaving with the
 	-- card up loses nothing. `awayLast` is the last amount the card showed, which a

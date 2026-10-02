@@ -62,6 +62,7 @@ local PackService = require(script.Parent.PackService)
 local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
+local DailyRewardService = require(script.Parent.DailyRewardService)
 local Tuning = require(Shared.Config.Tuning)
 
 local Workspace = game:GetService("Workspace")
@@ -876,6 +877,22 @@ COMMANDS["/pack"] = {
 		end
 		PackService.grant(player, data, pack)
 		return `{pack.name}: granted`
+	end,
+}
+
+COMMANDS["/daily"] = {
+	-- The login calendar without waiting a day: makes the next claim ready now, on
+	-- `day` if given; `broken` backdates the last claim past the 48 h reset instead.
+	help = "/daily [day 1-7] [broken] — make the next daily reward ready now (broken = test the streak reset)",
+	run = function(player, _sandbox, args)
+		local day = tonumber(args[1])
+		local broken = args[1] == "broken" or args[2] == "broken"
+		DailyRewardService.debugSet(player, day, broken)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		return `daily: next claim Day {data.dailyDay}, last claim {os.time() - data.dailyLastAt}s ago`
 	end,
 }
 

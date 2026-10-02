@@ -1277,6 +1277,15 @@ local function groupYield(values: { number }): number
 	return total
 end
 
+--- What this profile's stands earn per second right now (the cash badge's "+$/s").
+--- The daily rewards price their cash in minutes of it.
+function ExhibitService.ratePerSecond(data: any): number
+	if #data.exhibit.pedestals == 0 then
+		return 0
+	end
+	return rawRatePerSecond(data, StatResolver.get(data))
+end
+
 --- Everything the Nukes panel draws, from the profile: the pieces on the stands, each
 --- with the rate its stand card prints (damped, walked in `pedestals` order like
 --- refreshStandCards). The bag is not listed -- the hotbar already shows it.
