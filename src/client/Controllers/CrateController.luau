@@ -21,11 +21,31 @@
 	The reel is made of real rolls off the crate's own table, so the nukes that flash
 	past most are the ones that come up most.
 
-	EVERY REEL MODEL IS BUILT ONCE, when the popup opens, and cached by item id: the
-	reel ticks up to ~20 times a second and rebuilding a nuke per tick would hitch.
-	They all live IN the ViewportFrame the whole time and the idle ones are parked far
-	below the camera: a model freshly parented into a ViewportFrame can miss a frame
-	before it draws, which at this tick rate read as a flicker, and a move never does.
+	EVERY REEL MODEL IS BUILT ONCE, the tick before it is needed, and cached by item id.
+	ONLY THREE ARE EVER IN THE VIEWPORT: the nuke in view and its two neighbours on the
+	reel, the neighbours parked far below the camera. A ViewportFrame redraws every
+	part inside it whenever anything in it moves, so the old way (all ~16 reel models,
+	~1.7k parts, parked inside it the whole time) cost a redraw of all of them every
+	frame and was the opening's lag. A neighbour is parented a tick before it is shown,
+	because a model freshly parented into a ViewportFrame can miss a frame before it
+	draws, which at this tick rate read as a flicker.
+
+	THE MODEL NEVER MOVES PER FRAME. The turn and the reel slide are the CAMERA orbiting
+	the model (with the light turned the same way, so the shading matches a turning
+	model exactly). Moving a 150-part model is 150 part writes a frame; moving the
+	camera is one.
+
+	NO NUKE IS EVER SHOWN HALF-LOADED. Each nuke is 20-250 MeshParts that download one
+	by one (a lone nuke measured 4.5 s in Studio), and a mesh that has not arrived draws
+	as nothing -- the "incomplete nukes" bug. So:
+	  * the view stays hidden while the nuke in it is still downloading and fades in
+	    when it is whole (the name and glow carry on regardless);
+	  * the reel's FILLER (every tile but the prize; it is cosmetic) is swapped, tile
+	    by tile, for an already-downloaded nuke of the SAME rarity when the rolled one
+	    is not ready, so the rarities flashing past are still the crate's real odds;
+	  * the prize's meshes are fetched first when the crate opens (the background
+	    preload pauses while a crate is open), and the landing waits up to PRIZE_WAIT
+	    for them.
 
 	THE MESHES ARE PRELOADED BEFORE YOU OPEN ANYTHING. A nuke whose mesh this client has
 	never downloaded draws as nothing the first time it flicks past (the Clockwork and
@@ -88,6 +108,12 @@ local HANDOFF_FADE = 0.55
 --- Sparks fall under this (design px/s^2) and lose speed to this drag per second.
 local SPARK_GRAVITY = 520
 local SPARK_DRAG = 0.35
+--- The viewport's light, before the camera's orbit turns it.
+local LIGHT = Vector3.new(-0.6, -1, 0.5)
+--- The longest the landing waits for the prize's meshes before revealing anyway.
+local PRIZE_WAIT = 2.5
+--- While a nuke in view is still downloading, how often to look at it again (s).
+local RECHECK_SECONDS = 0.2
 
 local HELD_ITEM_NAME = "HeldItem" -- ToolService's name for whatever is in your hands
 local OPEN_KEY = Enum.KeyCode.F
@@ -190,13 +216,23 @@ end
 
 --- One model ready for the viewport: centred on the origin (`home`), with the camera
 --- that frames it.
-type Framed = { model: Model, home: CFrame, camera: CFrame, radius: number, placeholder: boolean? }
+type Framed = {
+	model: Model,
+	home: CFrame,
+	camera: CFrame,
+	radius: number,
+	atHome: boolean,
+	itemId: string,
+	placeholder: boolean?,
+	loaded: boolean?,
+	checkedAt: number?,
+}
 
 --- Where idle cached models wait, well out of the camera's view.
 local PARKED = CFrame.new(0, -1000, 0)
 
---- Centre `model` on the origin, work out the camera that fits it, and park it in the
---- viewport. `display` brings it into view.
+--- Centre `model` on the origin and work out the camera that fits it. It stays out of
+--- the viewport until `stage` puts it there.
 local function frame(model: Model): Framed
 	untag(model)
 	model:PivotTo(CFrame.new())
@@ -205,32 +241,119 @@ local function frame(model: Model): Framed
 
 	local radius = extents.Magnitude / 2
 	local distance = radius / math.tan(math.rad(ui.camera.FieldOfView / 2)) * 1.08
-	local home = model:GetPivot()
-	model:PivotTo(PARKED * home)
-	model.Parent = ui.viewport
 	return {
 		model = model,
-		home = home,
+		home = model:GetPivot(),
 		camera = CFrame.lookAt(Vector3.new(0, radius * 0.45, -distance), Vector3.zero),
 		radius = radius,
+		atHome = true,
+		itemId = "",
 	}
 end
 
---- Swap the view onto `framed` (nil shows nothing): park the last one, bring this one
---- home. Only one model is ever in front of the camera.
+--- Put exactly `wanted` in the viewport, `current` at home in front of the camera and
+--- the rest parked below it; take everything else out. Each model moves at most once
+--- per call, and only when its place changes.
+local function stage(wanted: { Framed }, current: Framed?)
+	local keep: { [Framed]: boolean } = {}
+	for _, framed in wanted do
+		keep[framed] = true
+	end
+	if current then
+		keep[current] = true
+	end
+	for framed in ui.staged do
+		if not keep[framed] then
+			framed.model.Parent = nil
+			ui.staged[framed] = nil
+		end
+	end
+	for framed in keep do
+		local show = framed == current
+		if not ui.staged[framed] then
+			framed.model:PivotTo(if show then framed.home else PARKED * framed.home)
+			framed.atHome = show
+			framed.model.Parent = ui.viewport
+			ui.staged[framed] = true
+		elseif framed.atHome ~= show then
+			framed.model:PivotTo(if show then framed.home else PARKED * framed.home)
+			framed.atHome = show
+		end
+	end
+	-- The camera is left alone: `aim` places it every frame, and resetting it here
+	-- showed one un-turned frame at every swap.
+	ui.current = current
+end
+
+--- Show just `framed` (nil shows nothing).
 local function display(framed: Framed?)
-	if ui.current and ui.current ~= framed then
-		ui.current.model:PivotTo(PARKED * ui.current.home)
+	stage(if framed then { framed } else {}, framed)
+end
+
+--- Turn the view `angle` radians and slide it `slide` studs to the right by moving the
+--- CAMERA (and the light with it) around the model, which never moves. Same picture
+--- as turning and sliding the model, without writing every part every frame.
+local function aim(angle: number, slide: number)
+	local framed = ui.current
+	if framed == nil then
+		return
 	end
-	ui.current = framed
-	if framed then
-		framed.model:PivotTo(framed.home)
-		ui.camera.CFrame = framed.camera
+	local turn = CFrame.Angles(0, -angle, 0)
+	ui.camera.CFrame = turn * CFrame.new(framed.camera.RightVector * -slide) * framed.camera
+	ui.viewport.LightDirection = turn:VectorToWorldSpace(LIGHT)
+end
+
+--- This player's copies of the nuke templates (Shared/ItemModels' client cache).
+local function templateFolder(): Instance?
+	return Players.LocalPlayer.PlayerGui:FindFirstChild(ItemModels.CLIENT_CACHE)
+end
+
+--- Item ids whose every mesh and texture has downloaded. Only ever grows.
+local loadedIds: { [string]: boolean } = {}
+
+--- True once every mesh and texture of `itemId`'s template has downloaded (a missing
+--- one draws as nothing). False while the template itself has not arrived.
+local function templateLoaded(itemId: string): boolean
+	if loadedIds[itemId] then
+		return true
 	end
+	local folder = templateFolder()
+	local template = folder and folder:FindFirstChild(itemId)
+	if template == nil then
+		return false
+	end
+	for _, part in template:GetDescendants() do
+		if part:IsA("MeshPart") then
+			for _, content in { part.MeshId, part.TextureID } do
+				if content ~= "" and ContentProvider:GetAssetFetchStatus(content) ~= Enum.AssetFetchStatus.Success then
+					return false
+				end
+			end
+		end
+	end
+	loadedIds[itemId] = true
+	return true
+end
+
+--- Whether `framed` can be drawn whole. The rarity block an unarrived template falls
+--- back to always can; a real nuke can once its meshes are in, re-checked at most
+--- every RECHECK_SECONDS.
+local function drawable(framed: Framed): boolean
+	if framed.placeholder or framed.loaded then
+		return true
+	end
+	local now = os.clock()
+	if now - (framed.checkedAt or 0) < RECHECK_SECONDS then
+		return false
+	end
+	framed.checkedAt = now
+	framed.loaded = templateLoaded(framed.itemId)
+	return framed.loaded == true
 end
 
 --- Destroy every model cached for the last opening.
 local function clearCache()
+	ui.staged = ui.staged or {}
 	display(nil)
 	for _, framed in ui.cache or {} do
 		framed.model:Destroy()
@@ -271,6 +394,7 @@ local function cached(itemId: string, rarity: string?): Framed
 		local placeholder = not ItemModels.ready(itemId)
 		framed = frame(prizeModel(itemId, rarity or "Common"))
 		framed.placeholder = placeholder
+		framed.itemId = itemId
 		ui.cache[itemId] = framed
 	end
 	return framed
@@ -361,7 +485,7 @@ local function buildView(root: Frame)
 	viewport.Size = UDim2.fromScale(1, 1)
 	viewport.Ambient = Color3.fromRGB(170, 170, 170)
 	viewport.LightColor = Color3.fromRGB(255, 250, 240)
-	viewport.LightDirection = Vector3.new(-0.6, -1, 0.5)
+	viewport.LightDirection = LIGHT
 	viewport.ZIndex = 3
 	viewport.Parent = holder
 	ui.viewport = viewport
@@ -644,6 +768,7 @@ local function close(token: number)
 	if token ~= spinToken or ui.gui == nil then
 		return
 	end
+	ui.opening = false
 	tween(ui.scale, FADE_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { Scale = 0.92 })
 	tween(ui.dim, FADE_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { BackgroundTransparency = 1 })
 	task.delay(FADE_SECONDS, function()
@@ -697,7 +822,6 @@ local function reveal(payload: any, token: number)
 	-- white flash, the glow blooming out, the rays fading in, a shockwave ring, and
 	-- sparks. Rarer lands glow brighter and throw more.
 	ui.glowTarget = nil
-	ui.viewport.ImageTransparency = 0
 	ui.viewScale.Scale = 1.07
 	tween(ui.viewScale, 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Scale = 1 })
 	ui.flash.BackgroundColor3 = colour
@@ -761,6 +885,76 @@ local function reveal(payload: any, token: number)
 	task.delay(HOLD_SECONDS, close, token)
 end
 
+--- The reel as it is drawn: the server's reel with every FILLER tile (all but `land`,
+--- the prize) whose nuke has not downloaded yet swapped for a downloaded nuke of the
+--- same rarity from this crate's pool, when there is one. The filler is cosmetic, and
+--- keeping each tile's rarity keeps what flashes past honest to the crate's odds.
+local function fillReel(reel: { any }, land: number, crateId: string): { any }
+	local pool: { [string]: { string } } = {}
+	local ok, odds = pcall(Crates.nukeOdds, crateId)
+	if ok and type(odds) == "table" then
+		for itemId in odds do
+			if templateLoaded(itemId) then
+				local def = Items.get(itemId)
+				local list = pool[def.rarity]
+				if list == nil then
+					list = {}
+					pool[def.rarity] = list
+				end
+				table.insert(list, itemId)
+			end
+		end
+	end
+	local shown = table.clone(reel)
+	for index, entry in reel do
+		if index ~= land and type(entry) == "table" and type(entry.itemId) == "string" and not templateLoaded(entry.itemId) then
+			local options = pool[entry.rarity]
+			if options and #options > 0 then
+				local itemId = options[math.random(#options)]
+				local def = Items.get(itemId)
+				shown[index] = { itemId = itemId, name = def.name, rarity = def.rarity }
+			end
+		end
+	end
+	return shown
+end
+
+--- When a crate opens: fetch the PRIZE's meshes first (the landing waits on them),
+--- then the rest of the reel's. Ids whose template has not arrived are asked for.
+local function preloadReel(reel: { any }, prizeId: string?)
+	local ids = {}
+	local seen = {}
+	if type(prizeId) == "string" then
+		table.insert(ids, prizeId)
+		seen[prizeId] = true
+	end
+	for _, entry in reel do
+		if type(entry) == "table" and type(entry.itemId) == "string" and not seen[entry.itemId] then
+			seen[entry.itemId] = true
+			table.insert(ids, entry.itemId)
+		end
+	end
+	ItemModels.request(ids)
+	task.spawn(function()
+		local folder = Players.LocalPlayer.PlayerGui:FindFirstChild(ItemModels.CLIENT_CACHE)
+		if folder == nil then
+			return
+		end
+		local prize = if type(prizeId) == "string" then folder:FindFirstChild(prizeId) else nil
+		if prize then
+			pcall(ContentProvider.PreloadAsync, ContentProvider, { prize })
+		end
+		local rest = {}
+		for _, itemId in ids do
+			local template = folder:FindFirstChild(itemId)
+			if template and template ~= prize then
+				table.insert(rest, template)
+			end
+		end
+		pcall(ContentProvider.PreloadAsync, ContentProvider, rest)
+	end)
+end
+
 local function play(payload: any)
 	if type(payload) ~= "table" then
 		return
@@ -783,21 +977,35 @@ local function play(payload: any)
 	end
 
 	local crate = Crates.get(payload.crate)
-	local reel = payload.reel
+	local reel = fillReel(payload.reel, math.clamp(tonumber(payload.land) or #payload.reel, 1, #payload.reel), payload.crate)
 	local land = math.clamp(tonumber(payload.land) or #reel, 1, #reel)
 	local seconds = math.max(tonumber(payload.seconds) or 4.5, 0.5)
 	local from = math.min(REEL_FROM, land)
 
-	-- Every nuke the reel can show, built now (behind the popup's own scale-in) so the
-	-- flicker below never builds anything mid-spin.
-	clearCache()
-	for _, entry in reel do
-		if type(entry) == "table" and type(entry.itemId) == "string" then
-			cached(entry.itemId, entry.rarity)
+	-- The nuke at `index` in view, its neighbours staged (built and parked) so the
+	-- next tick in either direction never builds or parents anything.
+	local function stageAround(index: number)
+		local entry = reel[index]
+		if type(entry) ~= "table" then
+			return
 		end
+		local current = cached(entry.itemId, entry.rarity)
+		local wanted = { current }
+		for _, near in { index - 1, index + 1 } do
+			local other = reel[near]
+			if type(other) == "table" and type(other.itemId) == "string" then
+				table.insert(wanted, cached(other.itemId, other.rarity))
+			end
+		end
+		stage(wanted, current)
 	end
+
+	clearCache()
+	preloadReel(reel, payload.result)
+	stageAround(from)
+	ui.opening = true
+	ui.hide = 1
 	local first = reel[from]
-	display(if first then cached(first.itemId, first.rarity) else nil)
 	ui.header.Text = string.upper(crate.name)
 	ui.header.TextColor3 = Color3.fromHex(crate.color)
 	ui.result.Visible = false
@@ -811,10 +1019,10 @@ local function play(payload: any)
 	end
 	ui.ringFrame.Visible = false
 	ui.flash.BackgroundTransparency = 1
-	ui.viewport.ImageTransparency = 0
+	ui.viewport.ImageTransparency = 1
 	ui.bloom.Size = UDim2.fromOffset(460, 460)
 	ui.bloom.ImageTransparency = 0.75
-	local firstColour = rarityColour(first and first.rarity)
+	local firstColour = rarityColour(if type(first) == "table" then first.rarity else nil)
 	ui.bloom.ImageColor3 = firstColour
 	ui.glowTarget = firstColour
 	ui.scale.Scale = 0.92
@@ -831,6 +1039,22 @@ local function play(payload: any)
 	local lastTile = from
 	local lastPosition = from
 	local landed = false
+	-- Accumulated, not elapsed * speed: the turn slows when the prize lands, and
+	-- recomputing the angle from the total time at the new speed snapped it.
+	local turn = 0
+	aim(turn, 0)
+
+	--- The view's transparency: hidden while the nuke in it is still downloading, on
+	--- top of the reel's hand-off fade. Hiding is INSTANT (an eased fade-out left a
+	--- half-drawn nuke on screen for ~6 frames); only the fade back in is eased.
+	local function showView(dt: number, handoff: number)
+		if ui.current and drawable(ui.current) then
+			ui.hide -= ui.hide * (1 - 0.0005 ^ dt)
+		else
+			ui.hide = 1
+		end
+		ui.viewport.ImageTransparency = 1 - (1 - handoff) * (1 - ui.hide)
+	end
 	ui.connection = RunService.RenderStepped:Connect(function(dt)
 		if token ~= spinToken then
 			return
@@ -850,7 +1074,7 @@ local function play(payload: any)
 				lastTile = centred
 				local entry = reel[centred]
 				local colour = rarityColour(entry.rarity)
-				display(cached(entry.itemId, entry.rarity))
+				stageAround(centred)
 				-- The name drops in from just above rather than swapping in place.
 				ui.cycle.Position = ui.cycleHome - UDim2.fromOffset(0, 8)
 				tween(ui.cycle, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Position = ui.cycleHome })
@@ -875,20 +1099,30 @@ local function play(payload: any)
 			lastPosition = position
 			local slow = math.clamp(1 - speed / 8, 0, 1)
 			local offset = centred - position -- -0.5..0.5
-			ui.viewport.ImageTransparency = HANDOFF_FADE * slow * (math.abs(offset) * 2) ^ 2
+			showView(dt, HANDOFF_FADE * slow * (math.abs(offset) * 2) ^ 2)
+			turn += dt * 1.6
 			if ui.current then
-				-- Rotation on the LEFT: about the model's centre (the origin), not its pivot.
-				local slide = ui.current.camera.RightVector * (offset * SLIDE * ui.current.radius)
-				ui.current.model:PivotTo(CFrame.new(slide) * CFrame.Angles(0, elapsed * 1.6, 0) * ui.current.home)
+				aim(turn, offset * SLIDE * ui.current.radius)
 			end
 
+			-- Land only once the prize can draw whole: its template has arrived and its
+			-- meshes are in, or PRIZE_WAIT has run out. Until then it keeps turning on
+			-- the reel's last tile.
 			if elapsed >= seconds then
-				landed = true
-				reveal(payload, token)
+				local prize = cached(payload.result, payload.rarity)
+				if (not prize.placeholder and drawable(prize)) or elapsed >= seconds + PRIZE_WAIT then
+					landed = true
+					ui.opening = false
+					reveal(payload, token)
+					aim(turn, 0)
+				end
 			end
 		elseif ui.current then
-			-- The prize turns slowly on its plinth while the result is up.
-			ui.current.model:PivotTo(CFrame.Angles(0, elapsed * 0.8, 0) * ui.current.home)
+			-- The prize turns slowly on its plinth while the result is up (and fades in
+			-- late if PRIZE_WAIT ran out before its meshes did).
+			turn += dt * 0.8
+			aim(turn, 0)
+			showView(dt, 0)
 		end
 		animateAmbient(dt)
 	end)
@@ -907,29 +1141,35 @@ local function preloadNukes(crateId: string)
 		return
 	end
 	warmed[crateId] = true
+	local odds = Crates.nukeOdds(crateId)
 	local ids = {}
-	for itemId in Crates.nukeOdds(crateId) do
+	for itemId in odds do
 		table.insert(ids, itemId)
 	end
 	if #ids == 0 then
 		return
 	end
+	-- Likeliest first, one nuke at a time: the ones the reel shows most are ready
+	-- soonest, instead of every mesh of every nuke landing together at the end.
+	table.sort(ids, function(a, b)
+		return (tonumber(odds[a]) or 0) > (tonumber(odds[b]) or 0)
+	end)
 	ItemModels.request(ids)
 	task.spawn(function()
-		local copies = {}
 		for _, itemId in ids do
-			if ItemModels.await(itemId, 10) then
-				local copy = ItemModels.create(Items.get(itemId).model, itemId)
-				if copy then
-					table.insert(copies, copy)
-				end
+			-- Give the queue to an opening crate's prize: wait while one is open.
+			while ui.opening do
+				task.wait(0.25)
 			end
-		end
-		pcall(function()
-			ContentProvider:PreloadAsync(copies)
-		end)
-		for _, copy in copies do
-			copy:Destroy()
+			local folder = templateFolder()
+			local template = folder and folder:FindFirstChild(itemId)
+			if template == nil and ItemModels.await(itemId, 10) then
+				folder = templateFolder()
+				template = folder and folder:FindFirstChild(itemId)
+			end
+			if template then
+				pcall(ContentProvider.PreloadAsync, ContentProvider, { template })
+			end
 		end
 	end)
 end
