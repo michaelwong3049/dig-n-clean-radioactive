@@ -70,6 +70,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
+local GearProducts = require(Shared.Config.GearProducts)
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial) -- the luck button is shut during the walkthrough
 
@@ -77,6 +78,7 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 local ExhibitService = require(script.Parent.ExhibitService)
+local ProductService = require(script.Parent.ProductService)
 
 local ShopService = {}
 
@@ -411,6 +413,8 @@ function ShopService.offerFor(data: any, track: string, camp: string?): Offer?
 	}
 end
 
+local landPurchase: (player: Player, track: string) -> ()
+
 --- Buy a SPECIFIC tier of `track`, not necessarily the next one. Returns (ok,
 --- message) like EconomyService.sell.
 ---
@@ -482,7 +486,13 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	-- with the equip path below, a deliberate buy of a lower rung is switchable back
 	-- in one press rather than being a trap you cannot undo.
 	data.gear[key] = tier
+	landPurchase(player, track)
 
+	return true, `bought {def.name} for ${def.price}`
+end
+
+--- What a purchase does outside the profile, shared by the cash and Robux paths.
+function landPurchase(player: Player, track: string)
 	-- THE PURCHASE HAS TO LAND SOMEWHERE THE PLAYER CAN SEE. Three of the four tracks
 	-- land on the player: a detector or a magnet appears in their hands the next time
 	-- ToolService looks at them, and an aura lights up round them on the next
@@ -499,8 +509,25 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 		-- Lazy: ExposureService -> WashService -> LiquidService -> ShopService is a require cycle.
 		require(script.Parent.ExposureService).healFull(player)
 	end
+end
 
-	return true, `bought {def.name} for ${def.price}`
+--- A tier bought with Robux (Config/GearProducts): owned and in hand, exactly like a
+--- cash buy but with nothing spent. Runs inside ProductService's receipt step, so it
+--- only touches `data` and never yields; what lands outside the profile is deferred.
+--- No stall check here -- the player has already paid, and the card only offered it at
+--- the right stall. Already owning it (bought for cash between prompt and receipt)
+--- just equips it.
+local function grantRobuxTier(player: Player, data: any, track: string, tier: number)
+	grantTier(data, track, tier)
+	data.gear[Gear.profileKey(track)] = tier
+	local name = Gear.tier(track, tier).name
+	task.defer(function()
+		if player.Parent == nil then
+			return
+		end
+		landPurchase(player, track)
+		resultRemote:FireClient(player, `bought {name} with Robux`)
+	end)
 end
 
 --- Hold a tier you already own. The other half of the set model: `buyTier` decides
@@ -805,6 +832,12 @@ end
 
 function ShopService.start()
 	wireGearPanel()
+
+	for _, product in GearProducts.all() do
+		ProductService.register(product.id, function(player, data)
+			grantRobuxTier(player, data, product.track, product.tier)
+		end)
+	end
 
 	-- Tag-indexed rather than a Workspace walk, and it covers signs that appear LATER:
 	-- World.rebuild() can be run from the command bar mid-session, and a sign built
