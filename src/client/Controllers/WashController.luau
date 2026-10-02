@@ -349,6 +349,8 @@ local WashFluidBar = require(script.Parent.Parent.WashFluidBar)
 local WashReveal = require(script.Parent.Parent.WashReveal)
 local Sfx = require(script.Parent.Parent.Sfx)
 local WashWeakSpots = require(script.Parent.Parent.WashWeakSpots)
+local WashRarityBanner = require(script.Parent.Parent.WashRarityBanner)
+local WashHideOthers = require(script.Parent.Parent.WashHideOthers)
 
 local Wash = {}
 
@@ -1481,6 +1483,11 @@ local function ensureGui(): boolean
 	-- inside the shot. All of it lives in WashFluidBar; this file only feeds and shows it.
 	WashFluidBar.mount(canvas)
 
+	-- ── The rarity, top-centre ──
+	-- The HUD is away for the session, so this is the only place the player sees what
+	-- grade of find is under the crust. All of it lives in WashRarityBanner.
+	WashRarityBanner.mount(canvas)
+
 	-- ── The wipe panel ──
 	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
 	local panel = Instance.new("Frame")
@@ -2028,6 +2035,10 @@ local function onRender(dt: number)
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	end
 
+	-- Other players walking in mid-wash, and an Anomaly's banner colour.
+	WashHideOthers.tick()
+	WashRarityBanner.tick()
+
 	-- GAMEPAD LOOK IS INTEGRATED HERE rather than where the input arrives, because a
 	-- thumbstick reports a POSITION that stays put for as long as it is held: turning
 	-- that into a turn needs a clock, and this is the one place with a dt. The mouse
@@ -2188,11 +2199,13 @@ local function enterView()
 
 	UserInputService.MouseIconEnabled = false
 	cacheHidden()
+	WashHideOthers.begin()
 	hideHud()
 	if reticle then
 		reticle.Visible = true
 	end
 	WashFluidBar.show(true)
+	WashRarityBanner.show(true)
 
 	if not renderBound then
 		RunService:BindToRenderStep("WashBay", Enum.RenderPriority.Camera.Value + 1, onRender)
@@ -2218,11 +2231,13 @@ local function exitView()
 	UserInputService.MouseIconEnabled = true
 	applyHidden(0)
 	table.clear(hiddenParts)
+	WashHideOthers.restore()
 	restoreHud()
 	if reticle then
 		reticle.Visible = false
 	end
 	WashFluidBar.show(false)
+	WashRarityBanner.show(false)
 
 	local camera = Workspace.CurrentCamera
 	if camera then
@@ -2331,6 +2346,7 @@ function Wash.start()
 		-- numbers, it does not derive them. beginSession has already run ensureGui by here
 		-- on a fresh session, so the bar is mounted.
 		WashFluidBar.update(payload)
+		WashRarityBanner.set(payload.rarity)
 	end)
 
 	-- THE REVEAL. WashService announces the name the moment the last chunk pops, marked
@@ -2353,6 +2369,8 @@ function Wash.start()
 			reticle.Visible = false
 		end
 		WashFluidBar.show(false)
+		-- The reveal prints the rarity itself, in the lower third.
+		WashRarityBanner.show(false)
 		-- The last chunk is off: the item is clean.
 		Sfx.play("cleaned")
 		WashReveal.play(found, camera, pivot.Position, math.max(size.X, size.Y, size.Z))
