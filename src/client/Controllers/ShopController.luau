@@ -129,7 +129,7 @@ local PACK_TINT: { [string]: Color3 } = {
 }
 local PACK_H = 300
 local PACK_ART = 132
-local PASSES_PER_ROW = 4
+local PASSES_PER_ROW = 2
 local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
 local PANEL_LIFT = 40
@@ -490,14 +490,14 @@ local function packLines(pack: Packs.Pack): { string }
 	return lines
 end
 
---- The two packs, side by side at the top. Art on the left (the pack's best crate with
+--- The two packs, one full-width row each at the top. Art on the left (the pack's best crate with
 --- a cash bundle on it), contents on the right, the R$ button along the bottom. A bought
 --- pack keeps its card and its button turns to a green OWNED, like a pass.
 local function buildPacks(parent: Instance)
 	section(parent, -30, "PACKS")
-	local frame = row(parent, -29, "Packs", PACK_H, #Packs.PACKS)
 	local player = Players.LocalPlayer
 	for index, pack in Packs.PACKS do
+		local frame = row(parent, -30 + index, `Packs{index}`, PACK_H, 1)
 		local card = Instance.new("Frame")
 		card.Name = `Pack_{pack.key}`
 		card.LayoutOrder = index
@@ -611,16 +611,22 @@ end
 --- the button for a green OWNED, off the attribute GamePassService sets.
 local function buildPasses(parent: Instance)
 	section(parent, -10, "PASSES")
-	local rows = math.ceil(#GamePasses.PASSES / PASSES_PER_ROW)
+	-- An odd count leaves the first pass (2x Cash) alone on a full-width row up top.
+	local count = #GamePasses.PASSES
+	local lead = count % PASSES_PER_ROW
+	local spans = {}
+	if lead > 0 then
+		table.insert(spans, { first = 1, last = lead })
+	end
+	for first = lead + 1, count, PASSES_PER_ROW do
+		table.insert(spans, { first = first, last = math.min(first + PASSES_PER_ROW - 1, count) })
+	end
 	local player = Players.LocalPlayer
-	for r = 1, rows do
-		local frame = row(parent, -10 + r, `Passes{r}`, PASS_H, PASSES_PER_ROW)
-		for slot = 1, PASSES_PER_ROW do
-			local index = (r - 1) * PASSES_PER_ROW + slot
+	for r, span in spans do
+		local frame = row(parent, -10 + r, `Passes{r}`, PASS_H, span.last - span.first + 1)
+		for index = span.first, span.last do
+			local slot = index - span.first + 1
 			local pass = GamePasses.PASSES[index]
-			if pass == nil then
-				break
-			end
 			local card = Instance.new("Frame")
 			card.Name = `Pass_{pass.key}`
 			card.LayoutOrder = slot
