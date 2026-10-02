@@ -98,8 +98,8 @@
 	THE GALLERY PASS (on request, picked from three live previews) dressed that grid
 	up: the stands stand on waist-high plinths with an accent band, an empty one shows
 	accent corner brackets and a full one a line in its item's rarity colour
-	(Plots.setStandState); cream walkways (buildGalleryLanes) run in from the
-	entrance; every fence post wears an accent cap.
+	(Plots.setStandState); cream walkways (buildGalleryLanes) run in from an entrance
+	arch naming the owner (buildEntranceArch); every fence post wears an accent cap.
 	A claimed plot whose owner never picked a colour wears Plots.DEFAULT_ACCENTS.
 
 	The Quarantine Locker (PLAN §10.2) — a rack of eight specimen tubes where you park
@@ -134,6 +134,8 @@
 	                Display are the rest of it); see buildDisplayStand. StandTop
 	                carries the `SlotMarker` SurfaceGui and RarityLine<slot> wraps it;
 	                both are switched by Plots.setStandState, never by name elsewhere.
+	    EntranceArch  decor; its ArchSign's SurfaceGui label `OwnerName` is written
+	                by ExhibitService.renderName.
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
@@ -209,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 84
+local BUILDER_VERSION = 85
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -234,7 +236,7 @@ Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = Floors.MAX_SLOTS
 
 --- The accent a CLAIMED plot wears until its owner picks one in Settings, by plot
---- index. Most players never open Settings, and the gallery (plinth bands,
+--- index. Most players never open Settings, and the gallery (arch caps, plinth bands,
 --- fence caps, slot brackets) is mostly accent — in `C.plotNeutral` it reads as more
 --- grey fence. One hue per plot, so the six bases in a server never match. Never saved
 --- to the profile (ExhibitService.renderAccent picks it at paint time), so a player who
@@ -1439,7 +1441,7 @@ end
 --- Repaint every accent piece on one plot to `color` — the two side `Trim` strips,
 --- the cleansing-station `Lamp` (and its `PointLight`), the `CLEANSING STATION` /
 --- `WASH PAD` sign subtitles, the avatar plate's `Ring` (buildNamePlate), and the
---- gallery's pieces: every plinth band, every fence-post cap
+--- gallery's pieces: the arch caps and stripe, every plinth band, every fence-post cap
 --- and the empty-slot bracket Frames.
 ---
 --- A NIL COLOUR MEANS "UNCLAIMED": it puts back `C.plotNeutral`, the grey a freshly
@@ -2411,7 +2413,7 @@ end
 -- Keep those gaps if either moves. World.verify() is the actual authority and asserts
 -- the first every rebuild, not this comment.
 --
--- THE RUNNER FACES -Z, out through the entrance at the wasteland, with the
+-- THE RUNNER FACES -Z, out through the entrance arch at the wasteland, with the
 -- console at that end, clear of the spawn pad.
 local TREADMILL = {
 	cx = -21,
@@ -3277,7 +3279,107 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 	folder.Parent = parent
 end
 
+--- THE ENTRANCE ARCH — two studded posts either side of the entry lane, a lintel
+--- across them, and a sign naming the owner, so whose base this is reads at eye level
+--- from the plaza and not only from the avatar plate floating 38 studs up.
+---
+--- The sign's label is named `OwnerName`; ExhibitService.renderName writes
+--- "<DisplayName>'s Base" into it on claim (the player's own casing, like the plate)
+--- and blanks it again on release (an empty base's sign reads nothing, not
+--- "UNCLAIMED"). The post caps and the stripe under the lintel carry `Accent`.
+---
+--- Clear of everything on the service strip: the posts stand at x = ±ARCH.x, well
+--- inside the luck button (x = -13) and the cleansing station's deck (x >= 15.6), and
+--- in front of both decks in z. The lintel, stripe, caps and sign are CanQuery off:
+--- the default camera pops forward when a queryable part comes between it and the
+--- character, which every walk under a lintel would do.
+local ARCH = {
+	x = 10,
+	inset = 1.7, -- post centres this far in from the pad's front edge
+	postW = 2.2,
+	postH = 10.8,
+	footW = 3.2,
+	footH = 0.6,
+	capW = 2.8,
+	capH = 0.8,
+	lintelW = 22.4,
+	lintelH = 2.2,
+	lintelD = 1.8,
+	signW = 15,
+	signH = 2,
+}
 local ARCH_SIGN_FILL = "2B2F36"
+local function buildEntranceArch(parent: Instance, origin: CFrame, accent: string)
+	local pad = Plots.PAD
+	local m = Instance.new("Model")
+	m.Name = "EntranceArch"
+	local T = pad.topY
+	local z = pad.minZ + ARCH.inset
+	local postTop = T + ARCH.footH + ARCH.postH
+	local lintelY = postTop + ARCH.lintelH / 2
+
+	local function noQuery(part: BasePart)
+		part.CanQuery = false
+	end
+
+	for _, side in { -1, 1 } do
+		local x = side * ARCH.x
+		build(m, origin, { name = "ArchFoot", pos = { x, T + ARCH.footH / 2, z }, size = { ARCH.footW, ARCH.footH, ARCH.footW }, color = C.standGrey, material = "Plastic", studs = true })
+		build(m, origin, {
+			name = "ArchPost",
+			pos = { x, T + ARCH.footH + ARCH.postH / 2, z },
+			size = { ARCH.postW, ARCH.postH, ARCH.postW },
+			color = C.standGreyDark,
+			material = "Plastic",
+			studs = true,
+		})
+		-- The caps sit on the lintel's ends, which rest on the post tops.
+		noQuery(build(m, origin, {
+			name = "ArchCap",
+			pos = { x, postTop + ARCH.lintelH + ARCH.capH / 2, z },
+			size = { ARCH.capW, ARCH.capH, ARCH.capW },
+			color = accent,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+			attributes = { Accent = true },
+		}))
+	end
+
+	noQuery(build(m, origin, {
+		name = "ArchLintel",
+		pos = { 0, lintelY, z },
+		size = { ARCH.lintelW, ARCH.lintelH, ARCH.lintelD },
+		color = C.standGrey,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	}))
+	noQuery(build(m, origin, {
+		name = "ArchStripe",
+		pos = { 0, postTop - 0.1, z },
+		size = { ARCH.lintelW + 0.2, 0.4, ARCH.lintelD + 0.1 },
+		color = accent,
+		material = "SmoothPlastic",
+		canCollide = false,
+		attributes = { Accent = true },
+	}))
+
+	-- On the lintel's outward (-Z) face, reading to anyone walking in.
+	local sign = build(m, origin, {
+		name = "ArchSign",
+		pos = { 0, lintelY, z - ARCH.lintelD / 2 - 0.1 },
+		size = { ARCH.signW, ARCH.signH, 0.25 },
+		color = ARCH_SIGN_FILL,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	noQuery(sign)
+	local label = Kit.surfaceText(sign, Enum.NormalId.Front, "", C.labelText)
+	label.Name = "OwnerName"
+
+	m.Parent = parent
+end
 
 -- ── Upper floors (Config/Floors) ─────────────────────────────────────────────
 
@@ -3896,12 +3998,11 @@ function Plots.setFloors(plot: Instance?, owned: number?, claimed: boolean)
 end
 
 --- THE FRONT FENCE — the side railings' fence carried across the pad's front edge (on
---- request), in two runs from each front corner in to the entrance gap, so the base
---- is fenced all round with a 2 * ENTRANCE_HALF_W opening as its one way in. Same line
---- as the side railings' first post (`z`), so the corners meet flush; each run skips
---- its corner post (buildSideRailings already stands one there) and ends in a post at
---- the gap's edge.
-local ENTRANCE_HALF_W = 10
+--- request), in two runs from each front corner in to the entrance arch, so the base
+--- is fenced all round with the arch as its one way in. Same line as the side
+--- railings' first post (`z`), so the corners meet flush; each run skips its corner
+--- post (buildSideRailings already stands one there) and its arch end, where the
+--- rails run into the arch post, which does that post's job.
 local function buildFrontFence(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
@@ -3911,7 +4012,7 @@ local function buildFrontFence(parent: Instance, origin: CFrame)
 	local z = pad.minZ + 0.5 + RAIL_POST_W / 2
 	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4
 	for _, side in { -1, 1 } do
-		local x0, x1 = side * ENTRANCE_HALF_W, side * railX
+		local x0, x1 = side * ARCH.x, side * railX
 		local span = math.abs(x1 - x0)
 		for _, railY in { RAIL_H, RAIL_H * 0.5 } do
 			build(folder, origin, {
@@ -3925,7 +4026,7 @@ local function buildFrontFence(parent: Instance, origin: CFrame)
 			})
 		end
 		local posts = math.max(2, math.floor(span / RAIL_POST_SPACING) + 1)
-		for i = 0, posts - 2 do
+		for i = 1, posts - 2 do
 			build(folder, origin, {
 				name = "RailPost",
 				pos = { x0 + (x1 - x0) * (i / (posts - 1)), pad.topY + postH / 2, z },
@@ -3951,7 +4052,7 @@ local function buildPlot(parent: Instance, index: number)
 	-- whichever way each was authored.
 	local origin = CFrame.new(center.x, 0, center.z) * CFrame.Angles(0, math.rad(center.facing), 0)
 	-- Every accent piece (Trim, the avatar plate's Ring, the cleansing-station Lamp,
-	-- the two station sign subtitles, and the gallery's plinth bands,
+	-- the two station sign subtitles, and the gallery's arch caps/stripe, plinth bands,
 	-- fence caps and slot brackets) is built in this ONE neutral grey and carries an
 	-- `Accent` attribute. ExhibitService.renderAccent -> Plots.setPlotAccent walks those
 	-- tagged pieces on claim and repaints them from `data.plotColor` — or, until the
@@ -4031,7 +4132,9 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
 	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
-	-- collect. Whose plot this is reads from the avatar plate floating over the pad.
+	-- collect. Whose plot this is reads from the avatar plate floating over the pad
+	-- and, at eye level, from the entrance arch's sign.
+	buildEntranceArch(m, origin, accent)
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.
