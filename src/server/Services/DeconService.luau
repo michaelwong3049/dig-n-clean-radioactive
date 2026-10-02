@@ -24,7 +24,7 @@
 	the potency gate, one charge per patch); only who owns the clock did.
 
 	What is left here: docking, the panel payload for the trader / shop / locker panels,
-	and the locker's two verbs. THE LOCKER IS A STATION AGAIN (StationKind = "locker",
+	and the locker's verbs (store, take, upgradeLocker). THE LOCKER IS A STATION AGAIN (StationKind = "locker",
 	build/Plots.buildQuarantineLocker's tube rack, opened with its own E prompt), after
 	a stretch where removing the decon panel had left STORE with nothing in the world
 	to press it. `store` and `take` below move items between `data.carry` and
@@ -116,8 +116,9 @@ local function store(player: Player, data: any, uid: string): (boolean, string)
 	if data.heldUid == uid and WashService.isWashing(player) then
 		return false, "finish washing it first"
 	end
-	if #data.locker >= Tuning.LOCKER_SLOTS then
-		return false, `locker full \u{2014} {Tuning.LOCKER_SLOTS} tubes`
+	local slots = Tuning.lockerSlots(data)
+	if #data.locker >= slots then
+		return false, `locker full \u{2014} {slots} tubes`
 	end
 
 	table.remove(data.carry, index)
@@ -140,6 +141,23 @@ local function store(player: Player, data: any, uid: string): (boolean, string)
 		return true, `{label} sealed in \u{2014} {CarryService.hoseNameFor(blocked)} washes it fast`
 	end
 	return true, `{label} sealed in`
+end
+
+--- The locker panel's UPGRADE button: +Tuning.LOCKER_UPGRADE_STEP slots for the next
+--- price in Tuning.LOCKER_UPGRADE_PRICES. Debit first, then touch the profile, the
+--- same order ExhibitService.buyFloor keeps.
+local function upgradeLocker(player: Player, data: any): (boolean, string)
+	local owned = Tuning.lockerUpgrades(data)
+	local price = Tuning.LOCKER_UPGRADE_PRICES[owned + 1]
+	if price == nil then
+		return false, `your locker is already at {Tuning.LOCKER_MAX_SLOTS} tubes`
+	end
+	local paid, reason = EconomyService.spend(player, price)
+	if not paid then
+		return false, reason
+	end
+	data.lockerUpgrades = owned + 1
+	return true, `locker upgraded \u{2014} {Tuning.lockerSlots(data)} tubes`
 end
 
 --- Locker -> bag, when there is room. The item stays frozen: it was docked the
@@ -215,7 +233,10 @@ local function stepPlayer(player: Player, _dt: number)
 		capacity = stats.capacity,
 		items = carried,
 		locker = locker,
-		lockerSlots = Tuning.LOCKER_SLOTS,
+		lockerSlots = Tuning.lockerSlots(data),
+		-- The next upgrade's price, nil once the locker is maxed (Tuning.LOCKER_UPGRADE_PRICES).
+		lockerUpgradePrice = if kind == "locker" then Tuning.LOCKER_UPGRADE_PRICES[Tuning.lockerUpgrades(data) + 1] else nil,
+		lockerUpgradeStep = Tuning.LOCKER_UPGRADE_STEP,
 		-- Owed the locker's first-visit walkthrough (client/LockerTutorial)?
 		lockerTutorial = kind == "locker" and table.find(data.tutorialsSeen, "locker") == nil,
 		-- The Merge Reactor's odds inputs (Config/Merge.odds), only at the reactor: the
@@ -329,8 +350,8 @@ function DeconService.start()
 			if type(id) == "string" and TUTORIALS[id] and table.find(data.tutorialsSeen, id) == nil then
 				table.insert(data.tutorialsSeen, id)
 			end
-		elseif request.action == "store" or request.action == "take" then
-			-- The locker panel's two verbs. Standing at your own rack is the gate; the
+		elseif request.action == "store" or request.action == "take" or request.action == "upgradeLocker" then
+			-- The locker panel's three verbs. Standing at your own rack is the gate; the
 			-- station is re-derived here, never taken from the client.
 			if kind ~= "locker" or not ownsLocker(player, StationService.idOf(player)) then
 				resultRemote:FireClient(player, "that happens at your own locker")
@@ -338,7 +359,9 @@ function DeconService.start()
 			end
 			local uid = tostring(request.uid)
 			local ok, message
-			if request.action == "store" then
+			if request.action == "upgradeLocker" then
+				ok, message = upgradeLocker(player, data)
+			elseif request.action == "store" then
 				ok, message = store(player, data, uid)
 			else
 				ok, message = take(data, uid)

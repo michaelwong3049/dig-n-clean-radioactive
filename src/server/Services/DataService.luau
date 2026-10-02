@@ -69,6 +69,8 @@ local TEMPLATE = {
 
 	carry = {}, -- array of Decay.CarriedItem. The backpack.
 	locker = {}, -- Quarantine Locker (PLAN §10.2): found but not yet cleanable.
+	-- Locker upgrades bought (Tuning.LOCKER_UPGRADE_PRICES); slots = Tuning.lockerSlots.
+	lockerUpgrades = 0,
 	-- Supply crates (Config/Crates), { uid, crateId }. Their own list, NOT in `carry`,
 	-- but they share its slots -- Shared/Bag.used counts both.
 	crates = {},

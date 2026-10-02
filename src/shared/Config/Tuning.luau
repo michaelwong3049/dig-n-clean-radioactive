@@ -161,11 +161,33 @@ Tuning.CARRY_EMISSION = { 0.006, 0.012, 0.03, 0.07, 0.16, 0.36, 0.8, 1.8 }
 Tuning.FREEZE_ON_LOGOUT = true
 
 -- The Quarantine Locker's tubes: how many finds you can park at home instead of
--- carrying. build/Plots builds this many (two tiers of four), DeconService refuses a
--- store past it and client/LockerPanel draws one tube per slot. A profile racked
--- past it before the cap existed keeps everything (nothing is ever deleted); it just
--- cannot store more until it drops back under.
+-- carrying. build/Plots builds this many (two tiers of four) and every locker starts
+-- with exactly this many slots. A profile racked past its cap before the cap existed
+-- keeps everything (nothing is ever deleted); it just cannot store more until it
+-- drops back under.
 Tuning.LOCKER_SLOTS = 8
+
+-- LOCKER UPGRADES: bought from the locker panel, +LOCKER_UPGRADE_STEP slots each, so
+-- the six of them take a locker from 8 to 20. `data.lockerUpgrades` counts how many
+-- are owned; the slot count is always derived from it (Tuning.lockerSlots), never
+-- stored. Priced like a stage's gear, roughly one upgrade every other stage: S2-3,
+-- S3-4, S5, S6-7, S8, S10 (compare Config/Gear's detector ladder). The rack in the
+-- world still has 8 tubes; slots past it show only in the panel until the rack is
+-- redesigned.
+Tuning.LOCKER_UPGRADE_STEP = 2
+Tuning.LOCKER_UPGRADE_PRICES = { 50000, 400000, 3000000, 20000000, 150000000, 1000000000 }
+Tuning.LOCKER_MAX_SLOTS = Tuning.LOCKER_SLOTS + #Tuning.LOCKER_UPGRADE_PRICES * Tuning.LOCKER_UPGRADE_STEP
+
+--- How many locker upgrades a save owns, clamped to a real count.
+function Tuning.lockerUpgrades(data: any): number
+	local n = if data ~= nil and type(data.lockerUpgrades) == "number" then data.lockerUpgrades else 0
+	return math.clamp(math.floor(n), 0, #Tuning.LOCKER_UPGRADE_PRICES)
+end
+
+--- How many tubes this save's locker holds.
+function Tuning.lockerSlots(data: any): number
+	return Tuning.LOCKER_SLOTS + Tuning.lockerUpgrades(data) * Tuning.LOCKER_UPGRADE_STEP
+end
 
 -- ── Economy (PLAN §2 step 5) ──────────────────────────────────────────────────
 -- ── The signal field (PLAN §2 steps 1-2) ────────────────────────────────
