@@ -1735,7 +1735,8 @@ function Spec.run(): boolean
 		local fast = Stages.secondsBetweenContacts(field, hi, walk, Tuning.SIGNALS_PER_STAGE)
 		-- BANDS RE-FITTED TO THE UNIFORM-LENGTH PASS (Config/Stages header), then left
 		-- alone through three footprint moves because the numbers stayed inside them.
-		-- Every stage is 290 x 170 = 49,300 studs; SIGNALS_PER_STAGE is 75, so
+		-- (Fewer-signals pass: N 75 -> 40 put slow/fast back at ~1.8s / ~0.5s.)
+		-- Every stage is 290 x 170 = 49,300 studs; SIGNALS_PER_STAGE was 75, so
 		-- `area / N` = 657.33 -- the starting detector turns up a contact about every
 		-- 1.3s of walking (slow) and a maxed one about every 0.48s (fast). Denser than
 		-- the old targets (3-12s / >=2s) and denser again with each footprint shrink
@@ -2169,11 +2170,13 @@ function Spec.run(): boolean
 	--
 	-- The old per-rarity `loot` weight tables are gone: the dig roll walks a stage's
 	-- stocked items weighted by 1/odds (Config/Items), and one scalar per stage --
-	-- Stages.rarityTilt -- shapes the rarity curve on top. SIGNALS_PER_STAGE (75) times
+	-- Stages.rarityTilt -- shapes the rarity curve on top. SIGNALS_PER_STAGE (40) times
 	-- the Rare+ share is the count of jackpots buried in the starter field, and that
 	-- product is the number this pins: raise the density on its own, or nudge the tilt,
 	-- and the field quietly starts holding more jackpots -- invisible in play until the
-	-- economy is already ruined. Band is ~1.9 at the solved Stage 1 tilt (see
+	-- economy is already ruined. FLOOR 1.7 -> 1.0 WITH THE FEWER-SIGNALS PASS (N 75 ->
+	-- 40, on request): the count is ~1.2 now. The ceiling is the half that guards the
+	-- economy and it is unchanged. Band was ~1.9 at the solved Stage 1 tilt (see
 	-- Config/Stages' header); a fourth footprint shrink that drops N below ~69 needs the
 	-- tilt to move with it to hold this.
 	--
@@ -2192,8 +2195,8 @@ function Spec.run(): boolean
 
 	local rarePlus = Tuning.SIGNALS_PER_STAGE * shareAtOrAbove(1, 4) -- Rare and up
 	check(
-		string.format("§7 the starter field holds %.1f Rare-or-better signals at a tier-1 detector (want 1.7-3.0)", rarePlus),
-		rarePlus >= 1.7 and rarePlus <= 3.0
+		string.format("§7 the starter field holds %.1f Rare-or-better signals at a tier-1 detector (want 1.0-3.0)", rarePlus),
+		rarePlus >= 1.0 and rarePlus <= 3.0
 	)
 
 	-- ...and the flip side: the rest have to be junk, or "more items" just means "more
