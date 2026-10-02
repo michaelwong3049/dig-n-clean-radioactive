@@ -57,7 +57,7 @@ local PANEL = {
 	white = Color3.new(1, 1, 1),
 	headline = Enum.Font.GothamBlack,
 	label = Enum.Font.GothamBlack,
-	-- The tabs' "Detector 1": the cash and speed numbers' face (Dock's hudNumber).
+	-- The tabs' "Detector": the cash and speed numbers' face (Dock's hudNumber).
 	tab = Enum.Font.GothamBlack,
 }
 
@@ -292,9 +292,6 @@ local function paintTabs()
 		local accent = ACCENT[track] or PANEL.gold
 		tab.BackgroundColor3 = if on then accent else PANEL.well
 		tab.TextColor3 = if on then PANEL.white else PANEL.dim
-		local entry = trackEntry(track)
-		local count = if entry then #entry.owned else 0
-		tab.Text = if count > 0 then `{TAB_TEXT[track] or track} {count}` else TAB_TEXT[track] or track
 	end
 end
 
