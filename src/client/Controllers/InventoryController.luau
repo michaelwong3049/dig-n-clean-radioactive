@@ -64,6 +64,7 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local StarLine = require(script.Parent.Parent.StarLine)
 local Sfx = require(script.Parent.Parent.Sfx)
+local Prefs = require(script.Parent.Parent.Prefs)
 local ItemArt = require(script.Parent.Parent.ItemArt)
 local Dock = UIKit.Dock
 
@@ -124,7 +125,7 @@ local DROP_WIDTH = 168
 local DROP_HEIGHT = 50
 local DROP_GAP = 14
 local DROP_IDLE = Color3.fromHex("2A2F35")
-local CONFIRM_HEIGHT = 176
+local CONFIRM_HEIGHT = 210 -- room for the "Don't show again" box under the buttons
 
 -- The bag panel's grid. BAG_COLS matches HOTBAR_SLOTS so the panel's top row IS the
 -- hotbar, slot for slot; the backpack grid under it wraps at the same width and
@@ -931,7 +932,7 @@ local function buildBombCard(): ScreenGui
 		return UIKit.button(confirm, {
 			name = name,
 			anchorPoint = Vector2.new(0.5, 1),
-			position = UDim2.new(x, 0, 1, -14),
+			position = UDim2.new(x, 0, 1, -48),
 			size = UDim2.fromOffset(140, 42),
 			text = text,
 			font = UIKit.Font.title,
@@ -950,6 +951,28 @@ local function buildBombCard(): ScreenGui
 	ui.confirmDrop = confirmButton("Drop", "DROP NUKE", 0.72, COLOR.red)
 	ui.confirmDrop.MouseButton1Click:Connect(function()
 		Inventory.dropBomb(true)
+	end)
+
+	-- "Don't show again": ticks a box; only DROP NUKE saves it (Prefs confirmDrop),
+	-- so ticking then CANCEL changes nothing. Settings > Graphics turns it back on.
+	local skip = UIKit.button(confirm, {
+		name = "DontShow",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -12),
+		size = UDim2.fromOffset(200, 24),
+		text = "[  ]  Don't show again",
+		font = UIKit.Font.title,
+		textSize = 15,
+		color = COLOR.dim,
+		fillTransparency = 1,
+		strokeThickness = 0,
+		shadow = false,
+	})
+	ui.confirmSkip = skip
+	skip.MouseButton1Click:Connect(function()
+		ui.confirmSkipOn = not ui.confirmSkipOn
+		skip.Text = (if ui.confirmSkipOn then "[x]  " else "[  ]  ") .. "Don't show again"
+		skip.TextColor3 = if ui.confirmSkipOn then COLOR.text else COLOR.dim
 	end)
 
 	return gui
@@ -1112,12 +1135,18 @@ function Inventory.dropBomb(confirmed: boolean?)
 	local def = Rarity.DEFS[held.rarity]
 	local precious = def ~= nil and def.order >= CONFIRM_FROM
 	local agreed = confirmed == true or (confirmUid == held.uid and ui.confirm.Visible)
-	if precious and not agreed then
+	if agreed and ui.confirm.Visible and ui.confirmSkipOn then
+		Prefs.set("confirmDrop", false)
+	end
+	if precious and not agreed and Prefs.get("confirmDrop") ~= false then
 		confirmUid = held.uid
 		ui.confirmName.Text = held.name
 		tint(ui.confirmName, "TextColor3", rarityColor(held.rarity), held.rarity)
 		tint(ui.confirmStroke, "Color", rarityColor(held.rarity), held.rarity)
 		StarLine.set(ui.confirmStars, Bombing.statsFor(held).stars, { after = string.upper(held.rarity) })
+		ui.confirmSkipOn = false
+		ui.confirmSkip.Text = "[  ]  Don't show again"
+		ui.confirmSkip.TextColor3 = COLOR.dim
 		ui.confirm.Visible = true
 		return
 	end
