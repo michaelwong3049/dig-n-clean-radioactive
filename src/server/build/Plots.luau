@@ -172,7 +172,7 @@
 	                (Treadmill.UNLOCK_PRICE), then buys the next belt rung. TreadmillService wires it at boot, by tag, the same way
 	                ShopService wires the luck button.
 	    Look        the imported treadmill model for the owner's belt rung, swapped
-	                by Plots.setTreadmillTier; the Console's `Sign` billboard carries
+	                by Plots.setTreadmillTier; its console `Readout` screen carries
 	                the speed and the bar. Both are written by
 	                ExhibitService.renderTreadmill, never by name from anywhere else.
 	    Floor<f>    Model, one per floor above the ground (f = 2..Floors.MAX): deck,
@@ -182,7 +182,7 @@
 	                elsewhere.
 	    FloorSign<f>  Model; its SignBoard carries BuysFloor = f, PlotIndex = n and
 	                a ProximityPrompt — builds floor f. ExhibitService wires it by
-	                Kit.FLOOR_TAG and writes its billboard's Subtitle. Shown only on a
+	                Kit.FLOOR_TAG and writes its Sign's Subtitle. Shown only on a
 	                claimed plot whose owner has exactly f - 1 floors.
 	    QuarantineLocker   the specimen-tube rack. LockerSlot1..Plots.LOCKER_SLOTS are
 	                hidden item anchors, LockerGlow<i> the pool ExhibitService.renderLocker
@@ -211,23 +211,10 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 89
+local BUILDER_VERSION = 90
 
 local C = Kit.C
-local build, light, billboard = Kit.build, Kit.light, Kit.billboard
-
---- A Kit.billboard whose subtitle is painted in the plot's accent colour. Tags that
---- Subtitle label `Accent` so Plots.setPlotAccent finds and repaints it alongside the
---- Trim and the avatar plate's Ring. Same args as `billboard`; drop-in for the two
---- plot signs (cleansing station, fluid bottle) that pass `accent` as their subtitle
---- colour.
-local function accentBillboard(part: BasePart, width: number, height: number, title: string, subtitle: string, accent: string)
-	local gui = billboard(part, width, height, title, subtitle, accent)
-	local sub = gui and gui:FindFirstChild("Subtitle")
-	if sub then
-		sub:SetAttribute("Accent", true)
-	end
-end
+local build, light = Kit.build, Kit.light
 
 Plots.COUNT = 6
 -- Every stand built per base, across all of its floors (Config/Floors): the ground
@@ -2969,28 +2956,15 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	end
 
 	local wanted = math.clamp(math.floor(tier or 1), 1, Treadmill.maxTier())
-	local def = Treadmill.tier(wanted)
-
 	placeTreadmill(treadmill)
 	if treadmill:GetAttribute("ImportedLook") and treadmill:GetAttribute("LookTier") ~= wanted then
 		installTreadmillLook(treadmill, wanted)
 	end
 
-	local sign = treadmill:FindFirstChild("Sign", true)
-	local title = sign and sign:FindFirstChild("Title")
-	local subtitle = sign and sign:FindFirstChild("Subtitle")
 	-- Levels are internal: every word a player reads is walk speed.
 	local level, progress = Treadmill.levelFor(points or 0)
 	local walk = Treadmill.walkSpeedFor(level)
-	if title then
-		(title :: TextLabel).Text = if locked then "LOCKED" else string.format("WALK SPEED %d", walk)
-	end
 	treadmill:SetAttribute("Locked", locked == true)
-	-- A locked machine shows no floating sign: the price only appears on the
-	-- proximity prompt, when the player walks up to it.
-	if sign and sign:IsA("BillboardGui") then
-		sign.Enabled = not locked
-	end
 	-- The upgrade sign replaced the console's E prompt (on request). A place saved
 	-- before it still has the prompt, so it goes here, and the sign is put up here
 	-- too: both land on the first repaint, with no world rebuild needed.
@@ -2998,6 +2972,13 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	local prompt = console and console:FindFirstChild("Upgrade")
 	if prompt and prompt:IsA("ProximityPrompt") then
 		prompt:Destroy()
+	end
+	-- The floating "WALK SPEED n / belt — n% to walk speed n+1" billboard is gone (on
+	-- request): the console screen and the upgrade sign say it. A place saved with it
+	-- still has it, so it is taken down here, same as the prompt above.
+	local oldSign = console and console:FindFirstChild("Sign")
+	if oldSign and oldSign:IsA("BillboardGui") then
+		oldSign:Destroy()
 	end
 	ensureUpgradeSign(treadmill)
 
@@ -3012,13 +2993,6 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	if fill and fill:IsA("Frame") then
 		local shown = if points == nil or locked then 0 else progress
 		fill.Size = UDim2.fromScale(math.clamp(shown, 0, 1), 1)
-	end
-	if subtitle then
-		(subtitle :: TextLabel).Text = if locked
-			then `{Treadmill.unlockPriceText()} to unlock — then +{Treadmill.rateText(def.rate)} Speed/s`
-			elseif points == nil
-			then `{def.name} — +{Treadmill.rateText(def.rate)} Speed/s`
-			else string.format("%s — %d%% to walk speed %d", def.name, math.floor(progress * 100), walk + 1)
 	end
 
 	treadmill:SetAttribute("Tier", wanted)
@@ -3040,7 +3014,7 @@ end
 --- Everything visible is the `Look` model, which Plots.setTreadmillTier swaps per rung.
 --- Tier 1 is fitted here, so an unclaimed plot in the saved place already shows the
 --- basic treadmill.
-local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
+local function buildTreadmill(parent: Instance, origin: CFrame, _accent: string)
 	local m = Instance.new("Model")
 	m.Name = "Treadmill"
 	m:SetAttribute("ImportedLook", true)
@@ -3069,11 +3043,6 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	})
 	console.CanQuery = false
 	console.CanTouch = false
-
-	-- Locked, tier 1 -- the only state that exists before a player has ever claimed
-	-- this plot. ExhibitService.renderTreadmill overwrites both lines the moment real
-	-- per-player state does, exactly as it does for the luck button.
-	accentBillboard(console, 230, 3.0, "LOCKED", `{Treadmill.unlockPriceText()} to unlock`, accent)
 
 	Plots.setTreadmillTier(m, 1, nil, true)
 	m.Parent = parent
@@ -3998,13 +3967,67 @@ local function withCommas(n: number): string
 	return (string.gsub(grouped, "^,", ""))
 end
 
+--- What a floor sign's board reads, painted ON the board (a SurfaceGui named "Sign"
+--- with Title / Subtitle children, so ExhibitService.flashSign still finds its
+--- Subtitle): "Floor 2" over "Purchase floor for $40,000,000", in Gotham Black. It
+--- replaced the floating "BUILD FLOOR 2 / +9 stands for $X" billboard and the
+--- capitalised "FLOOR 2" painted text (on request). Idempotent; a board saved with
+--- the old pieces has them taken down, so ExhibitService calls this as it wires each
+--- sign and no world rebuild is needed.
+local FLOOR_SIGN_LOOK = 2
+local FLOOR_SIGN_PRICE_COLOR = "8FE36B"
+function Plots.dressFloorSign(board: BasePart)
+	local floor = board:GetAttribute("BuysFloor")
+	if type(floor) ~= "number" then
+		return
+	end
+	local current = board:FindFirstChild("Sign")
+	if current and current:IsA("SurfaceGui") and current:GetAttribute("Look") == FLOOR_SIGN_LOOK then
+		return
+	end
+	for _, child in board:GetChildren() do
+		if child:IsA("BillboardGui") or child:IsA("SurfaceGui") then
+			child:Destroy()
+		end
+	end
+	local subtitle = `Purchase floor for ${withCommas(Floors.PRICES[floor] or 0)}`
+	board:SetAttribute("SignText", subtitle)
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Sign"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 50
+	gui.LightInfluence = 0
+	gui:SetAttribute("Look", FLOOR_SIGN_LOOK)
+
+	local function line(name: string, text: string, color: string, y: number, h: number, stroke: number)
+		local label = Instance.new("TextLabel")
+		label.Name = name
+		label.AnchorPoint = Vector2.new(0.5, 0)
+		label.Position = UDim2.fromScale(0.5, y)
+		label.Size = UDim2.fromScale(0.9, h)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBlack
+		label.TextScaled = true
+		label.TextColor3 = Color3.fromHex(color)
+		label.TextStrokeTransparency = 1
+		label.Text = text
+		label.Parent = gui
+		Kit.textOutline(label, stroke)
+	end
+	line("Title", `Floor {floor}`, C.labelText, 0.1, 0.48, 2.5)
+	line("Subtitle", subtitle, FLOOR_SIGN_PRICE_COLOR, 0.62, 0.24, 1.5)
+	gui.Parent = board
+end
+
 --- The sign that sells floor `floor`: a post and a board standing just inside
 --- the fence gate out to that floor's flight of stairs, on the floor below it. Holding
 --- E on the board buys the floor (ExhibitService wires it by Kit.FLOOR_TAG); the sign
 --- then disappears, the gate opens and the stairs are outside it. Plots.setFloors shows exactly one of these on a
 --- claimed plot — the next floor up — and none on a full or unclaimed one.
 ---
---- ANSWERS IN THE WORLD. A refused purchase is written into this sign's billboard
+--- ANSWERS IN THE WORLD. A refused purchase is written into this sign's painted
 --- subtitle for a moment (ExhibitService), not sent as a StationResult toast, which
 --- nobody sees away from a panel (memory: station-result-toast-needs-panel).
 --- `SignText` on the board is the subtitle to put back afterwards.
@@ -4020,7 +4043,6 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 	local z = (FOOT_GATE.z0 + FOOT_GATE.z1) / 2
 	local face = Kit.ang(0, sd * 90, 0)
 	local price = withCommas(Floors.PRICES[floor] or 0)
-	local subtitle = `+{Floors.UPPER_SLOTS} stands for ${price}`
 
 	-- The accent stripe along the board's top edge doubles as the bar it hangs from,
 	-- resting on the fence's top rail.
@@ -4041,10 +4063,10 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 		rot = face,
 		color = ARCH_SIGN_FILL,
 		material = "SmoothPlastic",
-		attributes = { BuysFloor = floor, PlotIndex = index, SignText = subtitle },
+		attributes = { BuysFloor = floor, PlotIndex = index },
 	})
 	-- Front is the face turned into the base.
-	Kit.surfaceText(board, Enum.NormalId.Front, `FLOOR {floor}`, C.labelText)
+	Plots.dressFloorSign(board)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "BuyFloor"
@@ -4054,8 +4076,6 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = board
-
-	accentBillboard(board, 230, 2.8, `BUILD FLOOR {floor}`, subtitle, accent)
 
 	m.Parent = parent
 end
