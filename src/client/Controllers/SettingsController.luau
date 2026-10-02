@@ -1041,6 +1041,8 @@ local function build(): ScreenGui
 	flagRow(row(graphics, "Shake", y), "shake", "Screen shake", "Blasts and radiation wobble")
 	y += step
 	flagRow(row(graphics, "Flashing", y), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
+	y += step
+	flagRow(row(graphics, "ConfirmDrop", y), "confirmDrop", "Confirm rare drops", "Ask before bombing a Rare+ nuke")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
 	local audio = pages.AUDIO

@@ -61,6 +61,10 @@ Prefs.DEFS = {
 	-- RARE DROP ANNOUNCEMENTS (client RareDropController). "mine" keeps only the line
 	-- when YOU claim one. The drop's glow in the field is untouched either way.
 	rareDrops = { kind = "choice", default = "all", options = { "all", "mine", "off" } },
+
+	-- CONFIRM RARE NUKE DROPS. The "are you sure?" before a Rare+ nuke is bombed
+	-- (client InventoryController); its "Don't show again" box turns this off.
+	confirmDrop = { kind = "flag", default = true },
 } :: { [string]: Def }
 
 --- A fresh table of every default, for the profile template and a client that has not
