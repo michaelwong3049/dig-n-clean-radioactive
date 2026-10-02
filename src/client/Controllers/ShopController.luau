@@ -261,7 +261,7 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 	buy.AutoButtonColor = false
 	buy.BackgroundColor3 = if live then base else PANEL.off
 	buy.Font = PANEL.headline
-	buy.TextSize = if live then 26 else 18
+	buy.TextSize = if live then 28 else 18
 	buy.TextColor3 = PANEL.white
 	buy.Text = if live then ROBUX else "COMING SOON"
 	buy.ZIndex = 15
@@ -282,7 +282,7 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 	local buyText = Instance.new("UIStroke")
 	buyText.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 	buyText.Color = Color3.new(0, 0, 0)
-	buyText.Thickness = 2
+	buyText.Thickness = 3
 	buyText.LineJoinMode = Enum.LineJoinMode.Round
 	buyText.Parent = buy
 	if not live then
