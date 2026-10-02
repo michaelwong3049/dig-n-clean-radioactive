@@ -4,7 +4,7 @@
 <stop offset="0" stop-color="#e8edf3"/><stop offset="0.55" stop-color="#aeb8c4"/><stop offset="1" stop-color="#7d8896"/>
 </linearGradient>
 <linearGradient id="hub" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#8fe36a"/><stop offset="1" stop-color="#3f9a2c"/>
+<stop offset="0" stop-color="#6f7b8c"/><stop offset="1" stop-color="#363e4a"/>
 </linearGradient>
 </defs>
 <path d="M81.8 38.0 L93.1 41.3 L93.1 58.7 L81.8 62.0 L81.0 64.0 L86.7 74.3 L74.3 86.7 L64.0 81.0 L62.0 81.8 L58.7 93.1 L41.3 93.1 L38.0 81.8 L36.0 81.0 L25.7 86.7 L13.3 74.3 L19.0 64.0 L18.2 62.0 L6.9 58.7 L6.9 41.3 L18.2 38.0 L19.0 36.0 L13.3 25.7 L25.7 13.3 L36.0 19.0 L38.0 18.2 L41.3 6.9 L58.7 6.9 L62.0 18.2 L64.0 19.0 L74.3 13.3 L86.7 25.7 L81.0 36.0 Z" fill="url(#steel)" stroke="#12161d" stroke-width="5" stroke-linejoin="round"/>

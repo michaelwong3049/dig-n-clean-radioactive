@@ -69,8 +69,8 @@ Artwork.IMAGE = {
 	portal = "rbxassetid://103055311931232", -- Warp: violet-to-cyan portal swirl
 	detector = "rbxassetid://82765642714145", -- Gear: metal detector, red coil
 	-- The Settings button (SettingsController), top-right corner: a steel cog with a
-	-- green hub. tools/hud-icons/settings_gear.svg.
-	settingsGear = "rbxassetid://121377604054495",
+	-- dark steel hub (no green, on request). tools/hud-icons/settings_gear.svg.
+	settingsGear = "rbxassetid://77565241934943",
 	-- The SPEED badge's disc (SpeedController): a glossy blue sneaker, same family and
 	-- pipeline. tools/hud-icons/speed_shoe.svg.
 	speedShoe = "rbxassetid://97884293509666",
