@@ -48,6 +48,7 @@ local ORDER = {
 	"CrateService", -- opening dug-up supply crates; needs Dig + Wash + Liquid + Identify
 	"PackService", -- the Starter / Pro Packs: cash, crates, luck + cash time in one receipt; needs Product + Economy + Crate + LuckBoost + CashBoost
 	"DailyRewardService", -- the 7-day login calendar; needs Economy + Crate + LuckBoost + CashBoost + Exhibit
+	"GroupRewardService", -- the group chest on Stage 1: join the group for cash + Speed + 2x luck, once; needs Economy + LuckBoost + Exhibit + Treadmill
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"MergeService", -- the Merge Reactor at Toxic Twilight: 3 copies in, 1 out; needs Station + Economy + Carry + Exhibit + Wash
 	"ToolService", -- held models; reads DigService + DeconService + WashService state

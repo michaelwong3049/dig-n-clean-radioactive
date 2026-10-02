@@ -63,6 +63,7 @@ local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
 local DailyRewardService = require(script.Parent.DailyRewardService)
+local GroupRewardService = require(script.Parent.GroupRewardService)
 local Tuning = require(Shared.Config.Tuning)
 
 local Workspace = game:GetService("Workspace")
@@ -893,6 +894,14 @@ COMMANDS["/daily"] = {
 			return "your profile hasn't loaded yet"
 		end
 		return `daily: next claim Day {data.dailyDay}, last claim {os.time() - data.dailyLastAt}s ago`
+	end,
+}
+
+COMMANDS["/groupchest"] = {
+	help = "/groupchest — forget your group chest claim so it can be claimed again",
+	run = function(player, _sandbox, _args)
+		GroupRewardService.debugReset(player)
+		return "group chest: claim reset"
 	end,
 }
 

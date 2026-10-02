@@ -281,6 +281,11 @@ local REMOTES: { [string]: string } = {
 	-- Client -> server: "ask" or "claim". Server -> client: { day, ready, readyAt,
 	-- resetAt, days = { {cash, crates, luckSeconds, cashBoostSeconds, big} }, claimed? }.
 	DailyRewards = "RemoteEvent",
+
+	-- The group chest on Stage 1 (Config/GroupReward, Services/GroupRewardService).
+	-- Server -> client: { result = "join" | "claimed" | "already", groupId?, text? }
+	-- on each press of the chest. Client -> server: "claim" (after joining the group).
+	GroupReward = "RemoteEvent",
 }
 
 local Net = {}
