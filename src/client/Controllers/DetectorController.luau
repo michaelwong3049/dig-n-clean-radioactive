@@ -68,6 +68,15 @@ local COLOR = UIKit.C
 -- below.
 local LOCK_HOLD_SECONDS = 0.4
 
+-- The OVERSIZED / GIGA strip's box. Bottom-centred one band above the inventory's
+-- Notice pill (which sits at Dock.VITALS_CLEAR and is 50 tall), wide enough that the
+-- auto-sized strip inside never clips. CALLOUT_RISE is how far it slides on the way
+-- in and on the way out.
+local CALLOUT_HEIGHT = 50
+local CALLOUT_WIDTH = 640
+local CALLOUT_BOTTOM = Dock.VITALS_CLEAR + 50 + Dock.GAP
+local CALLOUT_RISE = 26
+
 -- The pick-up prompt's face. ProximityPrompt.Style is Custom (see build), so Roblox
 -- draws nothing itself and these drive our own billboard: how far it floats over the
 -- buried signal, and the two tweens it opens and closes with. A "Back" ease on the way
@@ -604,39 +613,52 @@ local function build(): ScreenGui
 		wrapped = true,
 	})
 
-	-- The oversized-payload callout: a black pill (the tutorial / purchase-hint look)
-	-- holding the tier word in its colour and the multiplier in white. It sits where
-	-- the banner would so the two never share the screen (a dig only ever raises one
-	-- of them). A UIScale does the pop and the exit, never a fade.
-	local callout = Instance.new("Frame")
+	-- The oversized-payload callout: a low strip just above the hotbar (one band over
+	-- the inventory's Notice pill, so a "bag full" on the same dig never lands on it).
+	-- Black with faded ends, the tier word in its colour and "×2.4 value" in white,
+	-- both outlined like the rest of the HUD. It slides up into place and up out of
+	-- it; a CanvasGroup carries the fade, because a UIStroke ignores TextTransparency.
+	local callout = Instance.new("CanvasGroup")
 	callout.Name = "PayloadCallout"
-	callout.AnchorPoint = Vector2.new(0.5, 0.5)
-	callout.Position = UDim2.fromScale(0.5, 0.32)
-	callout.Size = UDim2.fromOffset(0, 56)
-	callout.AutomaticSize = Enum.AutomaticSize.X
-	callout.BackgroundColor3 = Color3.new(0, 0, 0)
-	callout.BackgroundTransparency = 0.2
+	callout.AnchorPoint = Vector2.new(0.5, 1)
+	callout.Position = UDim2.new(0.5, 0, 1, -CALLOUT_BOTTOM)
+	callout.Size = UDim2.fromOffset(CALLOUT_WIDTH, CALLOUT_HEIGHT)
+	callout.BackgroundTransparency = 1
+	callout.GroupTransparency = 1
 	callout.Visible = false
 	callout.Parent = canvas
-	local calloutCorner = Instance.new("UICorner")
-	calloutCorner.CornerRadius = UDim.new(1, 0)
-	calloutCorner.Parent = callout
-	local calloutStroke = Instance.new("UIStroke")
-	calloutStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	calloutStroke.Thickness = 2
-	calloutStroke.Parent = callout
-	local calloutPad = Instance.new("UIPadding")
-	calloutPad.PaddingLeft = UDim.new(0, 24)
-	calloutPad.PaddingRight = UDim.new(0, 24)
-	calloutPad.Parent = callout
-	local calloutLayout = Instance.new("UIListLayout")
-	calloutLayout.FillDirection = Enum.FillDirection.Horizontal
-	calloutLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	calloutLayout.Padding = UDim.new(0, 12)
-	calloutLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	calloutLayout.Parent = callout
 
-	local function pillText(name: string, order: number, font: Enum.Font): TextLabel
+	local strip = Instance.new("Frame")
+	strip.Name = "Strip"
+	strip.AnchorPoint = Vector2.new(0.5, 0.5)
+	strip.Position = UDim2.fromScale(0.5, 0.5)
+	strip.Size = UDim2.fromScale(0, 1)
+	strip.AutomaticSize = Enum.AutomaticSize.X
+	strip.BackgroundColor3 = Color3.new(0, 0, 0)
+	strip.BackgroundTransparency = 0
+	strip.BorderSizePixel = 0
+	strip.Parent = callout
+	-- Solid through the middle, gone at both ends: a band, not a box.
+	local stripFade = Instance.new("UIGradient")
+	stripFade.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.18, 0.35),
+		NumberSequenceKeypoint.new(0.82, 0.35),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	stripFade.Parent = strip
+	local stripPad = Instance.new("UIPadding")
+	stripPad.PaddingLeft = UDim.new(0, 46)
+	stripPad.PaddingRight = UDim.new(0, 46)
+	stripPad.Parent = strip
+	local stripLayout = Instance.new("UIListLayout")
+	stripLayout.FillDirection = Enum.FillDirection.Horizontal
+	stripLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	stripLayout.Padding = UDim.new(0, 10)
+	stripLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	stripLayout.Parent = strip
+
+	local function stripText(name: string, order: number, font: Enum.Font, outline: number): (TextLabel, UIStroke)
 		local label = Instance.new("TextLabel")
 		label.Name = name
 		label.LayoutOrder = order
@@ -644,20 +666,21 @@ local function build(): ScreenGui
 		label.Size = UDim2.fromScale(0, 1)
 		label.AutomaticSize = Enum.AutomaticSize.X
 		label.Font = font
-		label.Parent = callout
-		return label
+		label.Parent = strip
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.new(0, 0, 0)
+		stroke.Thickness = outline
+		stroke.Parent = label
+		return label, stroke
 	end
-	local calloutWord = pillText("Word", 1, Enum.Font.GothamBlack)
-	local calloutMult = pillText("Mult", 2, Enum.Font.GothamBold)
+	local calloutWord, calloutWordStroke = stripText("Word", 1, Enum.Font.GothamBlack, 3)
+	local calloutMult = stripText("Mult", 2, Enum.Font.GothamBold, 2)
 	calloutMult.TextColor3 = Color3.new(1, 1, 1)
 
-	local calloutScale = Instance.new("UIScale")
-	calloutScale.Parent = callout
 	ui.callout = callout
-	ui.calloutStroke = calloutStroke
 	ui.calloutWord = calloutWord
+	ui.calloutWordStroke = calloutWordStroke
 	ui.calloutMult = calloutMult
-	ui.calloutScale = calloutScale
 
 	-- ── The haul panel ────────────────────────────────────────────────
 	-- Up only while locked onto a signal. This is the second beat of the pull: the
@@ -1368,8 +1391,9 @@ local function showFind(found)
 	end)
 end
 
---- An "OVERSIZED ×1.8" / "GIGA ×2.4" pill over a dig that rolled a big payload
---- (Config/Payload.CALLOUTS). Pops in past full size, settles, holds, shrinks out.
+--- An "OVERSIZED ×1.8 value" / "GIGA ×2.4 value" strip just above the hotbar when a
+--- dig rolled a big payload (Config/Payload.CALLOUTS). Slides up and fades in, holds,
+--- then slides on up and fades out -- low and small so it never covers the field.
 local CALLOUT_COLOR = {
 	GIGA = Color3.fromHex("FACC15"),
 	OVERSIZED = COLOR.amber,
@@ -1380,29 +1404,31 @@ local function showCallout(label: string, mult: number)
 	bannerToken += 1 -- a pending banner hide must not outlive this
 	local token = bannerToken
 
-	-- GIGA is the rarer shout: a bigger pill, thicker rim, and a longer hold.
+	-- GIGA is the rarer shout: bigger text, a thicker outline, and a longer hold.
 	local giga = label == "GIGA"
-	local colour = CALLOUT_COLOR[label] or COLOR.amber
 	ui.calloutWord.Text = label
-	ui.calloutWord.TextColor3 = colour
-	ui.calloutWord.TextSize = if giga then 34 else 26
-	ui.calloutMult.Text = string.format("\u{00D7}%.1f", mult)
-	ui.calloutMult.TextSize = if giga then 22 else 19
-	ui.calloutStroke.Color = colour
-	ui.calloutStroke.Thickness = if giga then 3 else 2
-	ui.callout.Size = UDim2.fromOffset(0, if giga then 64 else 52)
-	ui.calloutScale.Scale = 0.4
+	ui.calloutWord.TextColor3 = CALLOUT_COLOR[label] or COLOR.amber
+	ui.calloutWord.TextSize = if giga then 30 else 25
+	ui.calloutWordStroke.Thickness = if giga then 3.5 else 3
+	ui.calloutMult.Text = string.format("\u{00D7}%.1f value", mult)
+	ui.calloutMult.TextSize = if giga then 19 else 17
+
+	local rest = UDim2.new(0.5, 0, 1, -CALLOUT_BOTTOM)
+	ui.callout.Position = rest + UDim2.fromOffset(0, CALLOUT_RISE)
+	ui.callout.GroupTransparency = 1
 	ui.callout.Visible = true
-	TweenService:Create(ui.calloutScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Scale = 1,
+	TweenService:Create(ui.callout, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = rest,
+		GroupTransparency = 0,
 	}):Play()
 
 	task.delay(if giga then 2.6 else 1.9, function()
 		if token ~= bannerToken then
 			return
 		end
-		local out = TweenService:Create(ui.calloutScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			Scale = 0,
+		local out = TweenService:Create(ui.callout, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Position = rest - UDim2.fromOffset(0, CALLOUT_RISE * 0.8),
+			GroupTransparency = 1,
 		})
 		out.Completed:Connect(function()
 			if token == bannerToken then
