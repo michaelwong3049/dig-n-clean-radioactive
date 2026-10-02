@@ -27,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Crates = require(Shared.Config.Crates)
+local ShopProducts = require(Shared.Config.ShopProducts)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Bag = require(Shared.Bag)
@@ -38,6 +39,7 @@ local IdentifyService = require(script.Parent.IdentifyService)
 local EconomyService = require(script.Parent.EconomyService)
 local DigService = require(script.Parent.DigService)
 local WashService = require(script.Parent.WashService)
+local ProductService = require(script.Parent.ProductService)
 local LiquidService = require(script.Parent.LiquidService)
 local CarryService = require(script.Parent.CarryService)
 
@@ -193,9 +195,30 @@ function CrateService.grant(player: Player, crateId: string): boolean
 	return true
 end
 
+--- A bought Mystery crate (Config/ShopProducts): a rolled tier of its kind, straight
+--- into the bag even past capacity. Mutates `data` and never yields (ProductService's
+--- contract); the notice waits until the receipt step is done.
+local function grantMystery(player: Player, data: any, product: ShopProducts.MysteryCrate)
+	local crateId = `{product.kind}{ShopProducts.rollVariant(product.weights, math.random())}`
+	data.crates = data.crates or {}
+	table.insert(data.crates, { uid = HttpService:GenerateGUID(false), crateId = crateId })
+	local name = Crates.get(crateId).name
+	task.defer(function()
+		if player.Parent then
+			openedRemote:FireClient(player, { notice = `{name} added to your bag` })
+		end
+	end)
+end
+
 function CrateService.init()
 	openRemote = Net.get("CrateOpen")
 	openedRemote = Net.get("CrateOpened")
+	-- In init, not start, so no receipt can land before these are registered.
+	for _, product in ShopProducts.CRATES do
+		ProductService.register(product.id, function(player, data)
+			grantMystery(player, data, product)
+		end)
+	end
 end
 
 function CrateService.start()

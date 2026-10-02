@@ -29,6 +29,7 @@ local Crates = require(Shared.Config.Crates)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
 local Merge = require(Shared.Config.Merge)
+local ShopProducts = require(Shared.Config.ShopProducts)
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -37,6 +38,7 @@ local Net = require(Shared.Net)
 local DataService = require(script.Parent.DataService)
 local IdentifyService = require(script.Parent.IdentifyService)
 local SfxService = require(script.Parent.SfxService)
+local ProductService = require(script.Parent.ProductService)
 
 local EconomyService = {}
 
@@ -307,6 +309,13 @@ end
 
 function EconomyService.init()
 	cashRemote = Net.get("CashState")
+	-- The Shop's Robux cash packs (Config/ShopProducts). Registered in init so no
+	-- receipt can land first; award only mutates `data` and fires the cash badge.
+	for _, pack in ShopProducts.CASH do
+		ProductService.register(pack.id, function(player, _data)
+			EconomyService.award(player, pack.amount, "robux")
+		end)
+	end
 end
 
 function EconomyService.start()

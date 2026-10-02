@@ -152,7 +152,11 @@ local NOTICE_IN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirectio
 local NOTICE_OUT = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
 local state = {
+	-- How many slots to DRAW: the bag's size, or more when it holds more than that (a
+	-- crate bought from the Shop always goes in, full bag or not). `limit` is the bag's
+	-- real size, for the "6/4" counts.
 	capacity = 0,
+	limit = 0,
 	items = {} :: { any },
 }
 
@@ -1277,7 +1281,7 @@ local function renderBagTile()
 	tile.Size = UDim2.fromOffset(slotWidth(), slotWidth())
 
 	local overflow = math.max(0, #state.items - HOTBAR_SLOTS)
-	ui.bagTileCount.Text = if overflow > 0 then `+{overflow}` else `{#state.items}/{state.capacity}`
+	ui.bagTileCount.Text = if overflow > 0 then `+{overflow}` else `{#state.items}/{state.limit}`
 	ui.bagTileCount.TextColor3 = if overflow > 0 then COLOR.amber else COLOR.dim
 
 	-- Holding something that lives in the bag: the tile wears its colour, so the
@@ -1305,7 +1309,7 @@ local function renderBag()
 	if not bagOpen then
 		return
 	end
-	ui.bagCount.Text = `{#state.items}/{state.capacity}`
+	ui.bagCount.Text = `{#state.items}/{state.limit}`
 
 	local capacity = state.capacity
 	for index = 1, math.max(#bagCells, capacity) do
@@ -1648,7 +1652,7 @@ function Inventory.start()
 	ProximityPromptService.PromptShown:Connect(adoptStand)
 
 	Net.get("CarryState").OnClientEvent:Connect(function(payload)
-		state.capacity = payload.capacity or 0
+		state.limit = payload.capacity or 0
 		state.items = payload.items or {}
 
 		-- SUPPLY CRATES (Config/Crates) share the bag's slots, after the nukes. They
@@ -1667,6 +1671,7 @@ function Inventory.start()
 				})
 			end
 		end
+		state.capacity = math.max(state.limit, #state.items)
 
 		-- A selection whose item just left the bag — sold, racked, slagged — must not
 		-- keep a stale card on screen. Keyed by uid rather than index precisely so
