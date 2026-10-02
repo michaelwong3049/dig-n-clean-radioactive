@@ -490,7 +490,7 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 		size = UDim2.fromOffset(480, 16),
 		textSize = 14,
 		color = SKIN.dim,
-		text = "Sealed finds stop decaying. Take one out when your hose can crack it.",
+		text = "Store extra nukes",
 		ink = false,
 	})
 
@@ -670,7 +670,7 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = "Pick a tube to take a find out, or a bag find to seal it in.",
+		text = "",
 		ink = false,
 	})
 
@@ -846,7 +846,7 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 			ItemArt.clear((bagTiles[index]:FindFirstChild("Art") :: Frame):FindFirstChild("Model") :: ViewportFrame)
 		end
 		bagEmpty.Visible = #items == 0
-		bagTitle.Text = `YOUR BAG  {#items}/{capacity}  \u{00B7}  pick a find, then SEAL IN TUBE`
+		bagTitle.Text = `YOUR BAG  {#items}/{capacity}`
 
 		paintAction(chosen, chosenInLocker, #locker >= slots, #items >= capacity)
 		count.Text = `{#locker}/{slots}`
