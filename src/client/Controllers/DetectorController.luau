@@ -158,6 +158,7 @@ local HAULBUTTON_Y = Dock.HAULPANEL_SIZE.Y.Offset - HAULBUTTON_HEIGHT
 -- here that would clip rather than merely look cramped.
 local READOUT_GAP = 14
 local READOUT_WIDTH = SHAFT_X - SHAFT_STROKE - READOUT_GAP
+local RELEASE_WIDTH = 132 -- the red LET GO plate, right-aligned in the readout column
 local READOUT_TOP = 96 -- the rarity word's row; everything else hangs below it
 local METRES_TEXT = 50 -- the "1.9 m" headline: the number being watched
 -- "%.1f" metres, the unit at half size. RichText, so the label is built without the
@@ -842,23 +843,23 @@ local function build(): ScreenGui
 	-- REEL IN but at the far end of the row, right-aligned under the readout -- the two
 	-- are the only controls here and hitting the wrong one ends the haul.
 	--
-	-- No outline and no fill: this is a quiet way out, not a second call to action. It
-	-- has nothing behind it, so it takes a text stroke to stay legible over bright ground.
+	-- A solid red plate, same height as REEL IN, right-aligned against the readout. Red
+	-- reads as "stop" without a key hint, so it works the same on touch as on keyboard
+	-- (Q still lets go -- it just isn't printed). Greys out once the fuse arms.
 	local releaseButton = UIKit.button(haul, {
 		name = "ReleaseButton",
-		position = UDim2.fromOffset(0, HAULBUTTON_Y),
-		size = UDim2.fromOffset(READOUT_WIDTH, HAULBUTTON_HEIGHT),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		position = UDim2.fromOffset(READOUT_WIDTH - RELEASE_WIDTH, HAULBUTTON_Y),
+		size = UDim2.fromOffset(RELEASE_WIDTH, HAULBUTTON_HEIGHT),
+		font = UIKit.Font.title,
+		textSize = HAULBUTTON_TEXT,
 		color = COLOR.text,
-		fillColor = COLOR.panel,
-		fillTransparency = 1,
-		strokeThickness = 0,
-		cornerRadius = UIKit.Radius.button,
-		text = "Q  to release",
+		fillColor = COLOR.red,
+		fillTransparency = 0,
+		strokeThickness = UIKit.Stroke.normal,
+		cornerRadius = UDim.new(0, 10),
+		text = "LET GO",
+		shadow = false,
 	})
-	releaseButton.TextXAlignment = Enum.TextXAlignment.Right
-	releaseButton.TextStrokeTransparency = 0.2
 	ui.releaseButton = releaseButton
 
 	-- THE PULL FUSE, over the readout (Config/Detonation). Locking on lit it. The bar is
@@ -1267,7 +1268,8 @@ local function renderState()
 	-- the button stops offering it rather than silently failing. It still sends if
 	-- pressed -- the server is the judge, and the client must never be the reason a
 	-- release did not go through.
-	ui.releaseButton.Text = if state.fuseArmed then "LOCKED IN" else "Q  to release"
+	ui.releaseButton.Text = if state.fuseArmed then "LOCKED IN" else "LET GO"
+	ui.releaseButton.BackgroundColor3 = if state.fuseArmed then COLOR.panel else COLOR.red
 	ui.releaseButton.TextColor3 = if state.fuseArmed then COLOR.red else COLOR.text
 	if state.locked then
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on
