@@ -12,11 +12,12 @@
 	TWO POPUPS, ONE LOOK. A LIQUID crate plays the fluid bottle's own brew
 	(LiquidController, FluidSpin) -- the server just sends that popup a reel drawn from
 	the crate's table. A NUKE crate plays this file's popup, built as that brew's
-	sibling: the same dimmed screen, light rays, burst, name slam, tier pill and chips.
+	sibling: the same dimmed screen, glow, light rays, burst, tier pill and chips.
 	Where the brew has its flask, this has the NUKES THEMSELVES: every name on the reel
-	flicks its own 3D model into the middle, fast at first and slowing down, each tick
-	popping in with a faint glow in its rarity's colour, until it lands on your prize
-	and bursts. (It used to be the crate rattling here; the user asked for the nukes.)
+	slides its own 3D model through the middle like a real reel, fast at first and
+	slowing down, fading at each hand-off, with a soft glow behind that eases between
+	rarity colours, until it settles on your prize and bursts (the "Smooth Flask" pass,
+	same as the brew). (It used to be the crate rattling here; the user asked for the nukes.)
 	The reel is made of real rolls off the crate's own table, so the nukes that flash
 	past most are the ones that come up most.
 
@@ -54,6 +55,7 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Prefs = require(script.Parent.Parent.Prefs)
+local RadFxArt = require(script.Parent.Parent.RadFxArt)
 
 local CrateController = {}
 
@@ -77,6 +79,15 @@ local HOLD_SECONDS = 3.2
 local FADE_SECONDS = 0.25
 local REEL_FROM = 3
 local OVERSHOOT = 0.35
+--- The soft glow behind the view: RadFx's white "soft dot with a bright core", tinted.
+local GLOW_IMAGE = RadFxArt.mote
+--- How far a nuke slides sideways across one reel step, in model radii.
+local SLIDE = 1.6
+--- The viewport's transparency at the moment one nuke hands over to the next.
+local HANDOFF_FADE = 0.55
+--- Sparks fall under this (design px/s^2) and lose speed to this drag per second.
+local SPARK_GRAVITY = 520
+local SPARK_DRAG = 0.35
 
 local HELD_ITEM_NAME = "HeldItem" -- ToolService's name for whatever is in your hands
 local OPEN_KEY = Enum.KeyCode.F
@@ -179,7 +190,7 @@ end
 
 --- One model ready for the viewport: centred on the origin (`home`), with the camera
 --- that frames it.
-type Framed = { model: Model, home: CFrame, camera: CFrame, placeholder: boolean? }
+type Framed = { model: Model, home: CFrame, camera: CFrame, radius: number, placeholder: boolean? }
 
 --- Where idle cached models wait, well out of the camera's view.
 local PARKED = CFrame.new(0, -1000, 0)
@@ -201,6 +212,7 @@ local function frame(model: Model): Framed
 		model = model,
 		home = home,
 		camera = CFrame.lookAt(Vector3.new(0, radius * 0.45, -distance), Vector3.zero),
+		radius = radius,
 	}
 end
 
@@ -282,9 +294,9 @@ local function buildRays(root: Frame)
 	ui.rayBars = {}
 	local fade = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.3, 0.8),
-		NumberSequenceKeypoint.new(0.5, 0.15),
-		NumberSequenceKeypoint.new(0.7, 0.8),
+		NumberSequenceKeypoint.new(0.25, 0.92),
+		NumberSequenceKeypoint.new(0.5, 0.2),
+		NumberSequenceKeypoint.new(0.75, 0.92),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	for index = 1, RAY_COUNT do
@@ -293,7 +305,7 @@ local function buildRays(root: Frame)
 		bar.BorderSizePixel = 0
 		bar.BackgroundColor3 = Color3.new(1, 1, 1)
 		bar.BackgroundTransparency = 1
-		bar.Size = UDim2.new(0, 36, 1, 0)
+		bar.Size = UDim2.new(0, 26, 1, 0)
 		bar.Position = UDim2.fromScale(0.5, 0.5)
 		bar.AnchorPoint = Vector2.new(0.5, 0.5)
 		bar.Rotation = (index - 1) * 180 / RAY_COUNT
@@ -304,6 +316,35 @@ local function buildRays(root: Frame)
 		gradient.Parent = bar
 		table.insert(ui.rayBars, bar)
 	end
+
+	-- A soft glow behind the nuke, easing between rarity colours while the reel runs
+	-- and blooming out on the landing. Under the rays: there is no additive blending,
+	-- so a glow drawn over them would just wash them out.
+	local bloom = Instance.new("ImageLabel")
+	bloom.Name = "Bloom"
+	bloom.BackgroundTransparency = 1
+	bloom.Image = GLOW_IMAGE
+	bloom.ImageTransparency = 1
+	bloom.Size = UDim2.fromOffset(460, 460)
+	bloom.Position = UDim2.fromOffset(VIEW_X, VIEW_Y)
+	bloom.AnchorPoint = Vector2.new(0.5, 0.5)
+	bloom.ZIndex = 0
+	bloom.Parent = root
+	ui.bloom = bloom
+
+	-- The landing's shockwave: an empty circle that grows and thins out.
+	local ring = Instance.new("Frame")
+	ring.Name = "Ring"
+	ring.BackgroundTransparency = 1
+	ring.Size = UDim2.fromOffset(80, 80)
+	ring.Position = UDim2.fromOffset(VIEW_X, VIEW_Y)
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.ZIndex = 2
+	ring.Visible = false
+	ring.Parent = root
+	round(ring, UDim.new(1, 0))
+	ui.ring = outline(ring, Color3.new(1, 1, 1), 10)
+	ui.ringFrame = ring
 end
 
 local function buildView(root: Frame)
@@ -371,6 +412,7 @@ local function buildResult(root: Frame)
 		shadow = false,
 		zIndex = 5,
 	})
+	ui.cycleHome = ui.cycle.Position
 
 	-- The rarity of whatever is flicking past right now, under its name, on request, so
 	-- a Legendary going by reads as one before it lands.
@@ -386,8 +428,10 @@ local function buildResult(root: Frame)
 	result.ZIndex = 5
 	result.Visible = false
 	ui.result = result
+	ui.sparks = {}
 
 	local nameBox = plainFrame(result, "NameBox", UDim2.fromOffset(760, 56), UDim2.fromScale(0.5, 0), Vector2.new(0.5, 0))
+	ui.nameBox = nameBox
 	ui.nameScale = Instance.new("UIScale")
 	ui.nameScale.Parent = nameBox
 	ui.name = UIKit.label(nameBox, {
@@ -529,6 +573,38 @@ end
 
 local function animateAmbient(dt: number)
 	ui.rays.Rotation = (ui.rays.Rotation + dt * 8) % 360
+
+	-- While the reel runs the glow and the faint rays EASE toward the rarity of the
+	-- nuke in view instead of snapping to it on every tick.
+	if ui.glowTarget then
+		local k = 1 - 0.002 ^ dt
+		local colour = ui.bloom.ImageColor3:Lerp(ui.glowTarget, k)
+		ui.bloom.ImageColor3 = colour
+		for _, bar in ui.rayBars do
+			bar.BackgroundColor3 = colour
+		end
+	end
+
+	-- Sparks from the landing: arcs under gravity, tumbling, shrinking and fading.
+	local sparks = ui.sparks
+	for index = #sparks, 1, -1 do
+		local spark = sparks[index]
+		spark.life -= spark.decay * dt
+		if spark.life <= 0 then
+			spark.frame:Destroy()
+			table.remove(sparks, index)
+			continue
+		end
+		spark.vy += SPARK_GRAVITY * dt
+		spark.vx *= SPARK_DRAG ^ dt
+		spark.x += spark.vx * dt
+		spark.y += spark.vy * dt
+		local size = spark.size * spark.life + 1
+		spark.frame.Position = UDim2.fromOffset(spark.x, spark.y)
+		spark.frame.Size = UDim2.fromOffset(size, size)
+		spark.frame.Rotation += spark.spin * dt
+		spark.frame.BackgroundTransparency = 1 - math.clamp(spark.life, 0, 1)
+	end
 end
 
 --- Sparks flying out of the crate in the rarity's colour and the crate's.
@@ -546,17 +622,21 @@ local function burst(primary: Color3, secondary: Color3, count: number, spread: 
 		spark.Rotation = math.random(0, 90)
 		spark.ZIndex = 6
 		spark.Parent = ui.root
-		-- Square splinters, not droplets: this is a box bursting, not a flask.
+		-- Square splinters, not droplets: this is a box bursting, not a flask. Stepped
+		-- in animateAmbient so they arc and fall instead of sliding out in lines.
 		local angle = math.random() * math.pi * 2
-		local reach = spread * (0.35 + 0.65 * math.random())
-		local seconds = 0.8 + math.random() * 0.6
-		tween(spark, seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
-			Position = UDim2.fromOffset(VIEW_X + math.cos(angle) * reach, VIEW_Y + math.sin(angle) * reach + 50),
-			Size = UDim2.fromOffset(size * 0.3, size * 0.3),
-			Rotation = spark.Rotation + math.random(-240, 240),
-			BackgroundTransparency = 1,
+		local speed = spread * (0.4 + 0.6 * math.random())
+		table.insert(ui.sparks, {
+			frame = spark,
+			x = VIEW_X,
+			y = VIEW_Y,
+			vx = math.cos(angle) * speed,
+			vy = math.sin(angle) * speed - spread * 0.35,
+			size = size,
+			spin = math.random(-300, 300),
+			life = 1,
+			decay = 0.55 + math.random() * 0.5,
 		})
-		task.delay(seconds, spark.Destroy, spark)
 	end
 end
 
@@ -613,15 +693,33 @@ local function reveal(payload: any, token: number)
 	ui.cycle.Visible = false
 	ui.cycleTier.Visible = false
 
-	ui.viewScale.Scale = 1.2
-	tween(ui.viewScale, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-	ui.flash.BackgroundTransparency = if Prefs.get("reduceFlashing") then 0.9 else 0.35
-	tween(ui.flash, 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 1 })
+	-- A soft landing, the brew's: a gentle pulse, a faint rarity tint instead of a
+	-- white flash, the glow blooming out, the rays fading in, a shockwave ring, and
+	-- sparks. Rarer lands glow brighter and throw more.
+	ui.glowTarget = nil
+	ui.viewport.ImageTransparency = 0
+	ui.viewScale.Scale = 1.07
+	tween(ui.viewScale, 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Scale = 1 })
+	ui.flash.BackgroundColor3 = colour
+	ui.flash.BackgroundTransparency = if Prefs.get("reduceFlashing") then 0.95 else 0.82
+	tween(ui.flash, 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 1 })
+	ui.bloom.ImageColor3 = colour
+	tween(ui.bloom, 0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, {
+		ImageTransparency = math.max(0.15, 0.5 - rank * 0.05),
+		Size = UDim2.fromOffset(600 + rank * 40, 600 + rank * 40),
+	})
 	for _, bar in ui.rayBars do
 		bar.BackgroundColor3 = colour
-		tween(bar, 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 0.35 })
+		tween(bar, 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = math.max(0.2, 0.55 - rank * 0.05) })
 	end
-	burst(colour, crateColour, 24 + rank * 6, 230 + rank * 30)
+	ui.ringFrame.Size = UDim2.fromOffset(VIEW * 0.4, VIEW * 0.4)
+	ui.ringFrame.Visible = true
+	ui.ring.Color = colour
+	ui.ring.Thickness = 10
+	ui.ring.Transparency = 0.15
+	tween(ui.ringFrame, 0.7, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Size = UDim2.fromOffset(VIEW * 1.7, VIEW * 1.7) })
+	tween(ui.ring, 0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Thickness = 1, Transparency = 1 })
+	burst(colour, crateColour, 22 + rank * 7, 240 + rank * 25)
 	ui.land.PlaybackSpeed = 0.85 + 0.07 * rank
 	ui.land:Play()
 
@@ -634,10 +732,23 @@ local function reveal(payload: any, token: number)
 	local chips = fillChips(payload)
 	ui.result.Visible = true
 
-	ui.tierScale.Scale = 1.8
-	tween(ui.tierScale, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-	ui.nameScale.Scale = 1.9
-	tween(ui.nameScale, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+	-- The name eases up and fades in rather than slamming down from twice its size;
+	-- the tier chip pops in just after it.
+	ui.nameScale.Scale = 1.15
+	tween(ui.nameScale, 0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Scale = 1 })
+	ui.nameBox.Position = UDim2.new(0.5, 0, 0, 18)
+	tween(ui.nameBox, 0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Position = UDim2.fromScale(0.5, 0) })
+	ui.name.TextTransparency = 1
+	tween(ui.name, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { TextTransparency = 0 })
+	local nameStroke = ui.name:FindFirstChildOfClass("UIStroke")
+	if nameStroke then
+		nameStroke.Transparency = 1
+		tween(nameStroke, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 0 })
+	end
+	ui.tierScale.Scale = 0.01
+	task.delay(0.12, function()
+		tween(ui.tierScale, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+	end)
 	for index, chip in chips do
 		local grow = Instance.new("UIScale")
 		grow.Scale = 0
@@ -696,8 +807,16 @@ local function play(payload: any)
 	ui.viewHolder.Position = ui.viewHome
 	ui.viewScale.Scale = 1
 	for _, bar in ui.rayBars do
-		bar.BackgroundTransparency = 1
+		bar.BackgroundTransparency = 0.82
 	end
+	ui.ringFrame.Visible = false
+	ui.flash.BackgroundTransparency = 1
+	ui.viewport.ImageTransparency = 0
+	ui.bloom.Size = UDim2.fromOffset(460, 460)
+	ui.bloom.ImageTransparency = 0.75
+	local firstColour = rarityColour(first and first.rarity)
+	ui.bloom.ImageColor3 = firstColour
+	ui.glowTarget = firstColour
 	ui.scale.Scale = 0.92
 	ui.dim.BackgroundTransparency = 1
 	ui.gui.Enabled = true
@@ -710,7 +829,7 @@ local function play(payload: any)
 	local mainSeconds = seconds * 0.88
 	local started = os.clock()
 	local lastTile = from
-	local tickedAt = 0
+	local lastPosition = from
 	local landed = false
 	ui.connection = RunService.RenderStepped:Connect(function(dt)
 		if token ~= spinToken then
@@ -729,30 +848,38 @@ local function play(payload: any)
 			local centred = math.clamp(math.floor(position + 0.5), 1, #reel)
 			if centred ~= lastTile then
 				lastTile = centred
-				tickedAt = elapsed
 				local entry = reel[centred]
 				local colour = rarityColour(entry.rarity)
 				display(cached(entry.itemId, entry.rarity))
+				-- The name drops in from just above rather than swapping in place.
+				ui.cycle.Position = ui.cycleHome - UDim2.fromOffset(0, 8)
+				tween(ui.cycle, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Position = ui.cycleHome })
 				ui.cycle.Text = entry.name or "???"
 				ui.cycle.TextColor3 = colour
 				ui.cycleTierText.Text = string.upper(entry.rarity or "")
 				ui.cycleTierPill.BackgroundColor3 = colour
 				ui.cycleTier.Visible = entry.rarity ~= nil
-				-- A faint glow in this nuke's rarity behind it, so a Legendary flicking
-				-- past is felt before it is read. The real rays wait for the landing.
-				for _, bar in ui.rayBars do
-					bar.BackgroundColor3 = colour
-					bar.BackgroundTransparency = 0.82
-				end
+				-- The glow behind eases toward this nuke's rarity (animateAmbient), so a
+				-- Legendary going by is felt before it is read. The real rays wait for
+				-- the landing.
+				ui.glowTarget = colour
 				ui.tick:Play()
 			end
 
-			-- Each nuke pops in a touch large and settles, and the current one turns.
-			local pop = math.max(0, 1 - (elapsed - tickedAt) / 0.12)
-			ui.viewScale.Scale = 1 + 0.12 * pop
+			-- A real reel: the nuke in view slides across as the reel moves, from one
+			-- side at the hand-off to the other, and the view fades a little at each
+			-- hand-off so the swap reads as a pass, not a cut. Settling onto the prize
+			-- brings it to rest in the middle.
+			-- Only once the reel is slow: at 20 nukes a second a fade per hand-off strobes.
+			local speed = math.abs(position - lastPosition) / math.max(dt, 1 / 240)
+			lastPosition = position
+			local slow = math.clamp(1 - speed / 8, 0, 1)
+			local offset = centred - position -- -0.5..0.5
+			ui.viewport.ImageTransparency = HANDOFF_FADE * slow * (math.abs(offset) * 2) ^ 2
 			if ui.current then
 				-- Rotation on the LEFT: about the model's centre (the origin), not its pivot.
-				ui.current.model:PivotTo(CFrame.Angles(0, elapsed * 1.6, 0) * ui.current.home)
+				local slide = ui.current.camera.RightVector * (offset * SLIDE * ui.current.radius)
+				ui.current.model:PivotTo(CFrame.new(slide) * CFrame.Angles(0, elapsed * 1.6, 0) * ui.current.home)
 			end
 
 			if elapsed >= seconds then
