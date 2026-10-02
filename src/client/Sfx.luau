@@ -36,7 +36,7 @@ local Workspace = game:GetService("Workspace")
 
 local Sfx = {}
 
-export type Group = "sfx" | "ui" | "ambient" | "geiger"
+export type Group = "sfx" | "ui" | "ambient" | "geiger" | "music"
 
 type Def = {
 	id: string,
@@ -118,7 +118,7 @@ Sfx.DEFS = DEFS
 
 -- ── Groups ──────────────────────────────────────────────────────────
 
-local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1, geiger = 1 }
+local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1, geiger = 1, music = 1 }
 
 local folder: Folder? = nil
 local master: SoundGroup? = nil
