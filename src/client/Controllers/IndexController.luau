@@ -14,7 +14,8 @@
 	          you have not identified is the same render blacked out: a silhouette, so
 	          you know the shape you are hunting and nothing else. Filter chips above it:
 	          All / Missing / Heaviest first, and one per rarity with its found count.
-	          Under it the STAGE REWARD bar: the cash bundle, the stage's x1.1 cash, and a
+	          Under it the STAGE REWARD bar: the cash bundle, the stage's cash (x1.1, or
+	          x1.2 from Stage 7), and a
 	          bar filling to found/total that turns green once the stage is complete.
 	  DETAIL  the selected nuke, turning slowly (drag to spin it), with its HEAVIEST
 	          FOUND block front and centre: the record in kg, the payload roll that set
@@ -1178,7 +1179,7 @@ local function renderRail()
 			local luck = if IndexProgress.luckIsMult(stage.id)
 				then string.format("x%.1f LUCK", Tuning.INDEX_COMPLETE_LUCK_MULT)
 				else string.format("+%.2f LUCK", Tuning.INDEX_COMPLETE_LUCK)
-			refs.right.Text = string.format("x%.1f $  %s", Tuning.INDEX_COMPLETE_CASH, luck)
+			refs.right.Text = string.format("x%.1f $  %s", IndexProgress.stageCash(stage.id), luck)
 			refs.right.TextColor3 = UIKit.C.green
 		else
 			refs.right.Text = `{if total > 0 then math.floor(found / total * 100) else 0}%`
@@ -1186,7 +1187,7 @@ local function renderRail()
 		end
 	end
 
-	-- The bar under the grid: the selected stage's progress toward its x1.1.
+	-- The bar under the grid: the selected stage's progress toward its cash (x1.1/x1.2).
 	local reward = ui.stageReward
 	if reward then
 		local found, total = IndexProgress.stageCount(discovered, currentStage)
@@ -1196,6 +1197,7 @@ local function renderRail()
 		reward.count.TextColor3 = if complete then UIKit.C.green else UIKit.C.text
 		reward.fill.Size = UDim2.fromScale(if total > 0 then found / total else 0, 1)
 		reward.fill.BackgroundColor3 = if complete then UIKit.C.green else stageColor(stage)
+		reward.mult.Text = string.format("x%.1f", IndexProgress.stageCash(currentStage))
 		reward.mult.TextColor3 = if complete then UIKit.C.green else UIKit.C.text
 		reward.caption.Text = if complete then "CASH EARNED" else "CASH BONUS"
 		reward.caption.TextColor3 = if complete then UIKit.C.green else UIKit.C.dim
@@ -1206,8 +1208,10 @@ local function renderRail()
 	if ui.rewardHint then
 		local cash = IndexProgress.cashMultiplier(discovered)
 		ui.rewardHint.Text = string.format(
-			"Identify every nuke in a stage for x%.1f cash everywhere and +%.2f dig luck there (x%.1f from Stage %d). Cash bonus now: x%.2f",
+			"Identify every nuke in a stage for x%.1f cash everywhere (x%.1f from Stage %d) and +%.2f dig luck there (x%.1f from Stage %d). Cash bonus now: x%.2f",
 			Tuning.INDEX_COMPLETE_CASH,
+			Tuning.INDEX_COMPLETE_CASH_LATE,
+			Tuning.INDEX_CASH_LATE_FROM_STAGE,
 			Tuning.INDEX_COMPLETE_LUCK,
 			Tuning.INDEX_COMPLETE_LUCK_MULT,
 			Tuning.INDEX_LUCK_MULT_FROM_STAGE,
