@@ -451,11 +451,18 @@ local function buildPanel(): ScreenGui
 		tab.LayoutOrder = index
 		tab.Size = UDim2.new(1 / count, -8 * (count - 1) / count, 1, 0)
 		tab.Font = PANEL.tab
-		tab.TextSize = 17
+		tab.TextSize = 20
 		tab.Text = TAB_TEXT[track] or track
 		tab.ZIndex = 12
 		tab.Parent = tabs
 		edge(tab, PANEL.ink, 3)
+		-- GothamBlack is already Gotham's heaviest cut, so an ink outline does the bolding.
+		local ink = Instance.new("UIStroke")
+		ink.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+		ink.Color = PANEL.ink
+		ink.Thickness = 2
+		ink.LineJoinMode = Enum.LineJoinMode.Round
+		ink.Parent = tab
 		tab.Activated:Connect(function()
 			selectTrack(track)
 		end)
