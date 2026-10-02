@@ -19,6 +19,7 @@ local SERVICES = script.Services
 -- because it is the only place that graph is written down.
 local ORDER = {
 	"ModelCacheService", -- FIRST: moves the nuke templates out of ReplicatedStorage before anyone joins
+	"PromptStyleService", -- every world ProximityPrompt replicates as Custom, so Roblox's grey prompt never draws under the glass card
 	"DataService", -- everything downstream needs a profile
 	"PlayerCollisionService", -- players phase through each other; standalone
 	"SfxService", -- one-shot sound cues for one player + the SOUND EFFECTS setting; needs Data
