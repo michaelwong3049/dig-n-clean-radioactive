@@ -2500,12 +2500,12 @@ end
 -- preference. Training is an edge, so overlapping station radii would mean a player at
 -- one machine being registered at another. MOVED TO THE -X SIDE, into the wash pad's
 -- old spot, when the pad was removed on request -- it used to stand in the middle of
--- the strip, on the entrance path. Belt centre sits at plot-local (-21, -33.5), Radius
--- up to ~8.2 on the gold rung (installTreadmillLook sizes it to the belt):
+-- the strip, on the entrance path. Belt centre sits at plot-local (-21, -31), Radius
+-- up to ~9 on the diamond rung (installTreadmillLook sizes it to the belt):
 --
---   to the Basin  (26, -32), Radius 9 ...... 47.0 studs against a 17-stud combined reach
---   to PlotSpawn  (0, -24), 6x6 ............ 23.1 studs against 11
---   to Stand10    (-20, -6), Radius 7 ...... 27.5 studs against 15
+--   to the Basin  (26, -32), Radius 9 ...... 47.0 studs against an 18-stud combined reach
+--   to PlotSpawn  (0, -24), 6x6 ............ 22.1 studs against 12
+--   to Stand10    (-20, -6), Radius 7 ...... 25.0 studs against 16
 --
 -- Keep those gaps if either moves. World.verify() is the actual authority and asserts
 -- the first every rebuild, not this comment.
@@ -2515,13 +2515,16 @@ end
 local TREADMILL = {
 	cx = -21,
 	-- Moved back from -35 as the models grew, so the gold rung's console end stays on
-	-- the pad: see `scale`.
-	cz = -33.5,
+	-- the pad: see `scale`. Then from -33.5 to -31 (2026-10-02), because the diamond
+	-- rung's nose ran 1.2 studs through the front fence. A saved place built at the
+	-- old spot is moved at runtime (placeTreadmill), so this needs no rebuild.
+	cz = -31,
 	-- The imported models come in at ~2 studs long; every rung is scaled by the SAME
 	-- factor, so the machine visibly grows as it is upgraded (the gold one is half again
 	-- the basic one's length, as authored). 4.5, then 5, then 5.6, each on request
-	-- ("slightly bigger", "a little bit bigger again"). At 5.6 the gold one's console
-	-- reaches plot-local z -42.6 against a pad that ends at -43. Behind it the strip is
+	-- ("slightly bigger", "a little bit bigger again"). At 5.6 the diamond one (the
+	-- biggest) reaches plot-local z -40.8, clear of the front fence's rail at ~-41.7,
+	-- and its back end z -23.7. Behind it the strip is
 	-- clear to the upper-floor posts at z -11 (PlotSpawn is off at x 0), so a bigger
 	-- scale moves `cz` back by 1.62 studs per unit of scale to keep the console end put.
 	scale = 5.6,
@@ -2851,15 +2854,13 @@ end
 ---
 --- PLACED OFF THE BELT, never from plot-local numbers: the sign stands at a fixed
 --- offset from the skeleton `Belt`, whose centre never moves (installTreadmillLook),
---- on the +X side between the machine and the entrance path, its face turned back
---- toward the belt (-X, on request) and `yaw` degrees toward the entrance (-Z), so it
---- reads both to the runner and to someone walking in.
---- Clear of the widest rung's body (~3.3 studs off the belt's centre line) and the
---- entrance arch's foot (plot-local x -10, z -47.8).
+--- on the +X side between the machine and the entrance path, PARALLEL TO THE FRONT
+--- FENCE (on request), its face turned back into the base (+Z), a little ahead of the
+--- belt's centre so a runner facing out sees it front-on to their right. Its near
+--- edge stays clear of the diamond rung's body (6.8 studs off the belt's centre line).
 local UPGRADE_SIGN = {
-	x = 6.5, -- off the belt's centre, toward the plot's middle
-	z = 0,
-	yaw = 20,
+	x = 10.6, -- off the belt's centre, toward the plot's middle: 0.8 clear of the diamond rung
+	z = -3, -- toward the entrance (-Z), ahead of the runner
 	-- Three quarters of the first cut ("make the sign smaller"). The client draws its
 	-- face at the board's own size, so these can change freely.
 	boardW = 6,
@@ -2871,6 +2872,34 @@ local UPGRADE_SIGN = {
 	postW = 1,
 	color = "1D2B4F",
 }
+
+--- Where a treadmill built before `TREADMILL.cz` moved stood (no `BeltZ` attribute).
+local LEGACY_TREADMILL_CZ = -33.5
+
+--- Move a treadmill saved in the place at an older `TREADMILL.cz` to the current one:
+--- the skeleton belt, console, look and sign all slide along the plot's Z axis by the
+--- difference, and `BeltZ` records where it now is. A no-op once it is in place, so
+--- setTreadmillTier calls it on every repaint. The belt's rotation IS the plot's.
+local function placeTreadmill(treadmill: Instance)
+	local belt = treadmill:FindFirstChild("Belt")
+	if belt == nil or not belt:IsA("BasePart") then
+		return
+	end
+	local at = treadmill:GetAttribute("BeltZ")
+	local shift = TREADMILL.cz - (if type(at) == "number" then at else LEGACY_TREADMILL_CZ)
+	if math.abs(shift) < 1e-3 then
+		return
+	end
+	local offset = belt.CFrame.ZVector * shift
+	for _, child in treadmill:GetChildren() do
+		if child:IsA("BasePart") then
+			child.CFrame += offset
+		elseif child:IsA("Model") then
+			child:PivotTo(child:GetPivot() + offset)
+		end
+	end
+	treadmill:SetAttribute("BeltZ", TREADMILL.cz)
+end
 
 --- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
 --- setTreadmillTier calls it on every repaint.
@@ -2885,8 +2914,8 @@ local function ensureUpgradeSign(treadmill: Instance)
 	local u = UPGRADE_SIGN
 	local padTop = belt.Position.Y + belt.Size.Y / 2 - TREADMILL.beltTop
 	local level = belt.CFrame.Rotation + Vector3.new(belt.Position.X, padTop, belt.Position.Z)
-	-- The board's front face (-Z) looks along -X (at the belt) turned `yaw` toward -Z.
-	local frame = level * CFrame.new(u.x, 0, u.z) * CFrame.Angles(0, math.pi / 2 - math.rad(u.yaw), 0)
+	-- The board's front face (-Z) is turned to look along +Z, back into the base.
+	local frame = level * CFrame.new(u.x, 0, u.z) * CFrame.Angles(0, math.pi, 0)
 
 	local sign = Instance.new("Model")
 	sign.Name = "UpgradeSign"
@@ -2935,6 +2964,7 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	local wanted = math.clamp(math.floor(tier or 1), 1, Treadmill.maxTier())
 	local def = Treadmill.tier(wanted)
 
+	placeTreadmill(treadmill)
 	if treadmill:GetAttribute("ImportedLook") and treadmill:GetAttribute("LookTier") ~= wanted then
 		installTreadmillLook(treadmill, wanted)
 	end
@@ -3007,6 +3037,7 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "Treadmill"
 	m:SetAttribute("ImportedLook", true)
+	m:SetAttribute("BeltZ", TREADMILL.cz) -- where it was built (placeTreadmill)
 	local t = TREADMILL
 	local B = Plots.PAD.topY + t.beltTop
 
