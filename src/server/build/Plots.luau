@@ -4056,86 +4056,8 @@ function Plots.dressFloorSign(board: BasePart)
 	gui.Parent = board
 end
 
---- A floor sign's stand: the treadmill upgrade sign's navy studded board on a post
---- as thick as it (on request: it used to hang on the inside of the fence, where it
---- hid in the rails). It stands OUTSIDE the base, just past the side fence where the
---- flight's foot landing goes once the floor is bought (the flight is part of the
---- floor, so the apron there is empty until then), face turned to the entrance (-Z)
---- so it reads from the plaza. The owner can still reach its prompt through the fence
---- gate from inside. EVERY SIGN STANDS ON THE GROUND, floor 3's too (under its
---- flight on the other side): at floor 2's height it needed a 37-stud pole. `Placement`
---- on the model is the version stood up.
-local FLOOR_SIGN = {
-	placement = 2,
-	gap = 0.6, -- the board's near edge off the pad's side edge
-	boardW = UPGRADE_SIGN.boardW,
-	boardH = UPGRADE_SIGN.boardH,
-	boardT = UPGRADE_SIGN.boardT,
-	boardBottom = UPGRADE_SIGN.boardBottom, -- above the ground floor
-	postW = UPGRADE_SIGN.postW,
-	color = UPGRADE_SIGN.color,
-}
-
-local function studAll(p: BasePart)
-	p.Material = Enum.Material.Plastic
-	for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
-		(p :: any)[face] = Enum.SurfaceType.Studs
-	end
-end
-
---- Stand `board` (and a fresh post) up in its place outside the fence. Every other
---- part in `m` is taken down first, so a sign saved in the old hung-on-the-fence look
---- (its SignStripe) is reshaped in place: the board keeps its prompt, tag and wiring.
-local function standFloorSign(m: Instance, origin: CFrame, board: BasePart, floor: number)
-	local f = FLOOR_SIGN
-	for _, child in m:GetChildren() do
-		if child ~= board and child:IsA("BasePart") then
-			child:Destroy()
-		end
-	end
-	local x = flightSide(floor - 1) * (HALF_W + f.gap + f.boardW / 2)
-	local z = (FOOT_GATE.z0 + FOOT_GATE.z1) / 2
-	local bottom = floorTopY(1) + f.boardBottom
-	local ground = Plots.PAD.topY - 1.5 -- the apron (as under a flight's foot landing)
-
-	board.Size = Vector3.new(f.boardW, f.boardH, f.boardT)
-	-- No turn: the board's Front (-Z) already looks out the plot's entrance side.
-	board.CFrame = origin * CFrame.new(x, bottom + f.boardH / 2, z)
-	board.Color = Color3.fromHex(f.color)
-	board.CanCollide = true
-	studAll(board)
-
-	local postTop = bottom + 0.5 -- runs half a stud up into the board
-	build(m, origin, {
-		name = "SignPost",
-		pos = { x, (ground + postTop) / 2, z },
-		size = { f.postW, postTop - ground, f.boardT },
-		color = f.color,
-		material = "Plastic",
-		studs = true,
-	})
-	m:SetAttribute("Placement", f.placement)
-end
-
---- Move a floor sign saved in an older place to where FLOOR_SIGN stands it now.
---- ExhibitService calls it as it wires each board, so no world rebuild is needed.
---- Idempotent: a sign already at the current `Placement` is left alone.
-function Plots.placeFloorSign(board: BasePart)
-	local floor, index = board:GetAttribute("BuysFloor"), board:GetAttribute("PlotIndex")
-	local m = board.Parent
-	local center = type(index) == "number" and Plots.CENTERS[index]
-	if type(floor) ~= "number" or not center or m == nil or not m:IsA("Model") then
-		return
-	end
-	if m:GetAttribute("Placement") == FLOOR_SIGN.placement then
-		return
-	end
-	local origin = CFrame.new(center.x, 0, center.z) * CFrame.Angles(0, math.rad(center.facing), 0)
-	standFloorSign(m, origin, board, floor)
-end
-
---- The sign that sells floor `floor`, standing outside the base beside the gate out
---- to that floor's flight of stairs (standFloorSign). Holding
+--- The sign that sells floor `floor`: a post and a board standing just inside
+--- the fence gate out to that floor's flight of stairs, on the floor below it. Holding
 --- E on the board buys the floor (ExhibitService wires it by Kit.FLOOR_TAG); the sign
 --- then disappears, the gate opens and the stairs are outside it. Plots.setFloors shows exactly one of these on a
 --- claimed plot — the next floor up — and none on a full or unclaimed one.
@@ -4144,21 +4066,41 @@ end
 --- subtitle for a moment (ExhibitService), not sent as a StationResult toast, which
 --- nobody sees away from a panel (memory: station-result-toast-needs-panel).
 --- `SignText` on the board is the subtitle to put back afterwards.
-local function buildFloorSign(parent: Instance, origin: CFrame, index: number, floor: number)
+local function buildFloorSign(parent: Instance, origin: CFrame, index: number, floor: number, accent: string)
 	local m = Instance.new("Model")
 	m.Name = `FloorSign{floor}`
+	local base = floorTopY(floor - 1)
+	-- Hung on the inside of the fence, across the gate out to that floor's flight
+	-- (on request: it used to stand on a post). Turned so its face looks into the base.
+	local sd = flightSide(floor - 1)
+	local railX = HALF_W - RAIL_POST_W / 2
+	local x = sd * (railX - RAIL_BAR_T / 2 - 0.27)
+	local z = (FOOT_GATE.z0 + FOOT_GATE.z1) / 2
+	local face = Kit.ang(0, sd * 90, 0)
 	local price = withCommas(Floors.PRICES[floor] or 0)
 
+	-- The accent stripe along the board's top edge doubles as the bar it hangs from,
+	-- resting on the fence's top rail.
+	build(m, origin, {
+		name = "SignStripe",
+		pos = { x, base + RAIL_H + RAIL_BAR_T / 2 + 0.15, z },
+		size = { 5.2, 0.3, 0.7 },
+		rot = face,
+		color = accent,
+		material = "SmoothPlastic",
+		canCollide = false,
+		attributes = { Accent = true },
+	})
 	local board = build(m, origin, {
 		name = "SignBoard",
-		pos = { 0, 0, 0 }, -- standFloorSign places it
-		size = { FLOOR_SIGN.boardW, FLOOR_SIGN.boardH, FLOOR_SIGN.boardT },
-		color = FLOOR_SIGN.color,
-		material = "Plastic",
-		studs = true,
+		pos = { x, base + RAIL_H + RAIL_BAR_T / 2 - 1.2, z },
+		size = { 5, 2.4, 0.5 },
+		rot = face,
+		color = ARCH_SIGN_FILL,
+		material = "SmoothPlastic",
 		attributes = { BuysFloor = floor, PlotIndex = index },
 	})
-	standFloorSign(m, origin, board, floor)
+	-- Front is the face turned into the base.
 	Plots.dressFloorSign(board)
 
 	local prompt = Instance.new("ProximityPrompt")
@@ -4476,7 +4418,7 @@ local function buildPlot(parent: Instance, index: number)
 	-- plot's owner has not bought are hidden at runtime (Plots.setFloors).
 	for floor = 2, Floors.MAX do
 		buildFloor(m, origin, index, floor, accent)
-		buildFloorSign(m, origin, index, floor)
+		buildFloorSign(m, origin, index, floor, accent)
 	end
 	hidePillarPosts(m)
 

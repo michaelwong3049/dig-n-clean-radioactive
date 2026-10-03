@@ -1732,9 +1732,6 @@ local function wireFloorSign(board: Instance)
 		return
 	end
 	wiredSigns[board] = true
-	-- A place saved with the sign hung on the inside of the fence gets it stood up
-	-- outside the base instead, the same no-rebuild way.
-	Plots.placeFloorSign(board :: BasePart)
 	-- A place saved before the painted "Floor N / Purchase floor for $X" look still
 	-- wears the old billboard; this swaps it in without a world rebuild.
 	Plots.dressFloorSign(board :: BasePart)
