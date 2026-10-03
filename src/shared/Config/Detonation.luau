@@ -32,14 +32,16 @@ local Detonation = {}
 -- its own temper (TEMPER_BANDS) bend it. It was thirty; the brief is now "about twenty
 -- on average, and nothing like the same twenty twice"; then trimmed to 17 so the
 -- average fuse runs about three seconds shorter; then roughly halved to 9 so pulls are
--- a race -- the faster you mash, the more you land.
-Detonation.BASE_WINDOW = 9
+-- a race -- the faster you mash, the more you land; then cut to 6 because that race was
+-- still too easy to win.
+Detonation.BASE_WINDOW = 6
 
 -- THE RANGE A FUSE CAN HAVE. Whatever rarity, weight, temper and the fairness floor
 -- (below) multiply and lift out to is clamped into this, LAST, so the fastest nuke in
--- the ground is a three-second scramble and the most patient is seventeen. Nothing goes
+-- the ground is a two-second scramble and the most patient is seventeen (only the
+-- fairness floor's slow, deep, heavy pulls get anywhere near it). Nothing goes
 -- past it except a TROLL nuke (below) -- Spec pins every other window inside it.
-Detonation.MIN_WINDOW = 3
+Detonation.MIN_WINDOW = 2
 Detonation.MAX_WINDOW = 17
 
 -- TROLL NUKES. A small share of nukes ignore everything above -- rarity, weight, temper,
@@ -60,19 +62,19 @@ Detonation.TROLL_MAX = 2.8
 -- the band. Spec pins the order, that the last band ends where the MAX_WINDOW clamp
 -- above expects and that the chances total 100.
 --
--- Against BASE_WINDOW = 9: the first band is the "under five seconds" hair-triggers and
--- the last is the slow burn that tops out at MAX_WINDOW.
+-- Against BASE_WINDOW = 6: the first band is the two-second hair-triggers and the last
+-- is the slow burn, about nine seconds before the floor lifts anything.
 Detonation.TEMPER_MIN = 0.25
 Detonation.TEMPER_BANDS = {
-	{ upTo = 0.4, chance = 16 }, -- hair-trigger: 3-4s
-	{ upTo = 0.85, chance = 24 }, -- twitchy: 4-8s
-	{ upTo = 1.15, chance = 34 }, -- steady: 8-10s
-	{ upTo = 1.5, chance = 26 }, -- slow burn: 10-17s
+	{ upTo = 0.4, chance = 16 }, -- hair-trigger: 2-2.5s
+	{ upTo = 0.85, chance = 24 }, -- twitchy: 2.5-5s
+	{ upTo = 1.15, chance = 34 }, -- steady: 5-7s
+	{ upTo = 1.5, chance = 26 }, -- slow burn: 7-9s
 }
 
 -- THE TUTORIAL'S FIRST NUKE IS NEVER A QUICK ONE. Its spot re-rolls its uid until the
 -- fuse is no troll and its temper is at least this (the "steady" band and up), so a
--- brand-new player's first pull has ~8s+ to read the bar and let go
+-- brand-new player's first pull has ~5s+ to read the bar and let go
 -- (Shared/Detonation.isCalmFuse).
 Detonation.TUTORIAL_MIN_TEMPER = 0.85
 
@@ -141,7 +143,7 @@ Detonation.WARN_AT = 0.5
 -- magnet is simply safer; an under-rated one pulling over its tier is slower than the
 -- floor assumed and can run the fuse down -- over-tier pulls were already a grind
 -- (Tuning.PULL_GRIP_FALLOFF) and are now a gamble as well, which is the intent.
-Detonation.REF_CPS = 4 -- clicks/sec: relaxed desktop, a busy thumb on a phone
+Detonation.REF_CPS = 6 -- clicks/sec: a brisk mash, not a relaxed one -- a lazy pull loses the race
 Detonation.SAFE_AT = 0.7 -- the rated pull has to land by this fraction of the window
 
 -- How fast an unheld fuse cools, as a multiple of the rate it heated. 1 = it takes as

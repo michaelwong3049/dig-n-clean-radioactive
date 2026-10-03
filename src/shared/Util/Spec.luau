@@ -2020,8 +2020,8 @@ function Spec.run(): boolean
 
 		local ordinary = Detonation.baseWindow("Uncommon", D.WEIGHT_REF_KG)
 		check(
-			string.format("§fuse an ordinary Uncommon is centred on about nine seconds: %.1fs (want 7-12)", ordinary),
-			ordinary >= 7 and ordinary <= 12
+			string.format("§fuse an ordinary Uncommon is centred on about six seconds: %.1fs (want 5-8)", ordinary),
+			ordinary >= 5 and ordinary <= 8
 		)
 
 		-- THE TEMPER: every nuke rolls its own multiplier off its uid, and the bands that
@@ -2063,7 +2063,7 @@ function Spec.run(): boolean
 		)
 
 		-- THE ANNOUNCED DROP's fuse (RARE_DROP_*): far longer than any ordinary one, and
-		-- long enough that the slowest guaranteed pull (MIN_PULL_SECONDS at REF_CPS) lands
+		-- long enough that the slowest guaranteed pull (MIN_PULL_SECONDS at MIN_PULL_CPS) lands
 		-- before SAFE_AT of the SHORTEST rare window.
 		local rareHeld, rareSum, rareCount = true, 0, 0
 		for sample = 1, 200 do
@@ -2167,16 +2167,16 @@ function Spec.run(): boolean
 			rangeHeld
 		)
 		check(
-			string.format("§fuse the average window is about ten seconds: %.1fs (want 8-12)", mean),
-			mean >= 8 and mean <= 12
+			string.format("§fuse the average window is about seven seconds: %.1fs (want 5.5-8.5)", mean),
+			mean >= 5.5 and mean <= 8.5
 		)
 		check(
 			string.format("§fuse windows vary widely, not a nudge off one number: sd %.1fs (want >= 2.5)", spread),
 			spread >= 2.5
 		)
 		check(
-			string.format("§fuse a real share of nukes are hair-triggers under five seconds: %.1f%% (want 4-25%%)", hairTrigger * 100),
-			hairTrigger >= 0.04 and hairTrigger <= 0.25
+			string.format("§fuse a real share of nukes are hair-triggers under five seconds: %.1f%% (want 10-40%%)", hairTrigger * 100),
+			hairTrigger >= 0.10 and hairTrigger <= 0.40
 		)
 		check(
 			string.format("§fuse the slowest burns reach the cap and the fastest the floor: %.1f..%.1fs", windowMin, windowMax),
@@ -2184,7 +2184,7 @@ function Spec.run(): boolean
 		)
 
 		-- THE FAIRNESS FLOOR, and the reason the window is not just the roll. A rated
-		-- magnet at a relaxed REF_CPS must have the nuke out by SAFE_AT of its window
+		-- magnet at a brisk REF_CPS must have the nuke out by SAFE_AT of its window
 		-- whenever the cap allows a window that long -- so an honest pull on your own tier
 		-- gets nowhere near the arm line...
 		check("§fuse no window is shorter than its pull's floor (up to the cap)", floorHeld)
