@@ -52,6 +52,13 @@ local PASSES: { Pass } = {
 
 GamePasses.PASSES = PASSES
 
+-- Group roles comped every pass (GamePassService). Matched by NAME, not rank: in the
+-- game's group (GroupReward.GROUP_ID) Playtest shares rank 1 with plain Member, so a
+-- rank threshold would hand passes to everyone who joins for the chest. The group's
+-- owner (rank 255) is always comped too. Lose the role and the next join clears them.
+GamePasses.COMP_ROLES = { Playtest = true }
+GamePasses.COMP_MIN_RANK = 255
+
 -- Player attribute a pass is mirrored to, for the Shop card's OWNED state.
 function GamePasses.attr(key: string): string
 	return `Pass_{key}`
