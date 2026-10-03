@@ -231,6 +231,10 @@ local TEMPLATE = {
 	-- The group chest on Stage 1 (Config/GroupReward): paid out once, ever.
 	groupRewardClaimed = false,
 
+	-- Shop codes already redeemed (Config/Codes, CodeService): NORMALIZED code -> true.
+	-- Once per player per code.
+	redeemedCodes = {},
+
 	-- What the stands earned while the player was offline, waiting for COLLECT on the
 	-- "While you were away" card (AwayEarningsService). On the save so leaving with the
 	-- card up loses nothing. `awayLast` is the last amount the card showed, which a

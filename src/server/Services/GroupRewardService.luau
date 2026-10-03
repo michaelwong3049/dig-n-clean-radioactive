@@ -68,6 +68,9 @@ local function isMember(player: Player): boolean
 	return ok2 and member == true
 end
 
+--- Shared with CodeService: shop codes are group-only, by the same live check.
+GroupRewardService.isMember = isMember
+
 -- ── Claiming ─────────────────────────────────────────────────────────────────
 
 local function publish(player: Player, data: any)
