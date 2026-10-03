@@ -22,6 +22,10 @@ Tuning.EXPOSURE_CAP = 100 -- a full meter: heavy sickness (SICKNESS_FULL_METER)
 Tuning.EXPOSURE_WARN = 0.50 -- vignette + click bed
 Tuning.EXPOSURE_DANGER = 0.80 -- distortion, false pings
 Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon shower
+-- Base Camp's two heal pads (build/HealPads): a shower anyone can use, which also
+-- heals this fraction of your MAX health per second -- full from empty in ~2 s at any
+-- aura tier, where the camp's plain regen takes the better part of a minute late on.
+Tuning.HEAL_PAD_HEAL_FRAC = 0.5
 -- A detonated nuke's crater orb fills the meter as well as burning health: rads/sec
 -- = the orb's HP/sec burn on you * this, capped. A Common's orb (20 HP/sec at the
 -- centre, 7 at the rim) fills an empty meter in ~5s at the centre, ~14s at the rim;
