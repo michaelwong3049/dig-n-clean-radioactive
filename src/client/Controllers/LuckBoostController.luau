@@ -15,8 +15,8 @@
 	clocks. Green at x2, purple at x4 (CloverArt.paletteFor), timer pill to match. Hovering it names both; clicking it opens the Shop, which is where more
 	clover time is sold. The last 30 seconds pulse.
 
-	POSITION IS A FORMULA OVER Dock: the right column margin, one band above the hotbar
-	(the haul widget's own floor, Dock.HAULPANEL_BOTTOM), and no wider than the haul
+	POSITION IS A FORMULA OVER Dock: the right column margin, just above the hotbar
+	(one Dock.GAP over its top edge), and no wider than the haul
 	widget's right-hand clearance (Dock.HAULPANEL_RIGHT) so the two never overlap. On a
 	touch screen it lifts clear of the jump button (UIKit.touchCorner).
 
@@ -313,7 +313,10 @@ local function place()
 	local corner = UIKit.touchCorner()
 	-- The lowest it may sit: above the hotbar, and above the jump button on touch.
 	local floor = math.max(Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP, if corner.Y > 0 then corner.Y + Dock.GAP else 0)
-	local bottom = math.max(Dock.HAULPANEL_BOTTOM, floor)
+	-- Lowered on request: it sits right on that floor rather than up level with the haul
+	-- widget (Dock.HAULPANEL_BOTTOM) -- it is hard in the right corner, clear of the
+	-- centred hotbar and vitals bars.
+	local bottom = floor
 	-- The highest its top may reach, measured up from the bottom edge like `bottom`.
 	local ceiling = height - Dock.sideColumnBottom(height) - Dock.GAP
 	if ceiling - bottom < BADGE_H then

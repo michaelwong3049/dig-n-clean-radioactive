@@ -38,8 +38,8 @@
 	    Liquids has no cap, so there doubling the stat is the honest reading, and the
 	    rarest liquids gain the most (weight x luck^luckBias).
 
-	UPTIME, written down because it is the balance number. A 10-minute event after
-	20-30 minutes of quiet is ~25-33% of a session spent boosted. That is generous
+	UPTIME, written down because it is the balance number. A 5-minute event after
+	20-30 minutes of quiet is ~14-20% of a session spent boosted. That is generous
 	on purpose (the user asked for it) and it is the first knob to turn if rare
 	finds start to feel cheap: widen EVENT_GAP_*, not MULT.
 ]]
@@ -51,9 +51,9 @@ LuckBoost.MULT = 2
 
 -- ── The server-wide event ──────────────────────────────────────────────────────
 LuckBoost.EVENT_NAME = "Violet Aurora"
-LuckBoost.EVENT_SECONDS = 10 * 60
+LuckBoost.EVENT_SECONDS = 5 * 60
 -- Quiet time between one event ENDING and the next one starting, rolled uniformly
--- per gap. Measured from the end, not the start, so a 10-minute event can never
+-- per gap. Measured from the end, not the start, so a 5-minute event can never
 -- shorten the quiet stretch after it.
 LuckBoost.EVENT_GAP_MIN = 20 * 60
 LuckBoost.EVENT_GAP_MAX = 30 * 60
