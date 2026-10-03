@@ -1785,12 +1785,12 @@ function Spec.run(): boolean
 		Magnet = {
 			base = { "Horseshoe Magnet", "Salvage Magnet", "Electromagnet", "Winch Coil" },
 			twilight = { "Rail Coil", "Singularity Coil", "Lattice Magnet", "Solar Magnet" },
-			magma = { "Void Magnet", "Nebula Magnet", "Omega Magnet" },
+			magma = { "Void Magnet", "Nebula Magnet", "Omega Magnet", "Magma Magnet" },
 		},
 		Cleaner = {
 			base = { "Garden Hose", "Patched Fire Hose", "Pressure Lance", "Chem Injector" },
 			twilight = { "Ion Cannon", "Plasma Lance", "Singularity Nozzle", "Cryo Nova" },
-			magma = { "Solar Forge", "Quantum Rift", "Celestial Deluge" },
+			magma = { "Solar Forge", "Quantum Rift", "Celestial Deluge", "Magma Cannon" },
 		},
 		Aura = {
 			base = { "None", "Static Veil", "Lead Halo", "Ion Shroud" },

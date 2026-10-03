@@ -95,6 +95,8 @@ ToolTiers.Magnet = {
 	{ name = "Void Magnet", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal, glow = Color3.fromHex("B08CFF") },
 	{ name = "Nebula Magnet", scale = 1.00, body = Color3.fromHex("C45AD8"), accent = Color3.fromHex("4F8BFF"), material = Enum.Material.Metal, glow = Color3.fromHex("FF8FE0") },
 	{ name = "Omega Magnet", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal, glow = Color3.fromHex("FFE9A0") },
+	-- Magma Hollow's Stage 12 rung, imported (Assets/Tools/Magnet/T12).
+	{ name = "Magma Magnet", scale = 1.00, body = Color3.fromHex("2C2624"), accent = Color3.fromHex("FF6A1A"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9A3C") },
 } :: { TierLook }
 
 -- THE ONLY TRACK WHOSE ROWS ARE ACTUALLY READ AT RUNTIME. The note above this table
@@ -142,6 +144,8 @@ ToolTiers.Cleaner = {
 	{ name = "Solar Forge", scale = 1.00, body = Color3.fromHex("E0A21E"), accent = Color3.fromHex("7A4A12"), material = Enum.Material.Metal, glow = Color3.fromHex("FFD36B") },
 	{ name = "Quantum Rift", scale = 1.00, body = Color3.fromHex("2FB8B0"), accent = Color3.fromHex("FF5FA8"), material = Enum.Material.Metal, glow = Color3.fromHex("7FF2E8") },
 	{ name = "Celestial Deluge", scale = 1.00, body = Color3.fromHex("D8B84A"), accent = Color3.fromHex("FFF4D0"), material = Enum.Material.Metal, glow = Color3.fromHex("FFF0A0") },
+	-- Magma Hollow's Stage 12 rung, imported (Assets/HoseModels/T13): basalt drum, lava line.
+	{ name = "Magma Cannon", scale = 1.00, body = Color3.fromHex("2C2624"), accent = Color3.fromHex("FF6A1A"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9A3C") },
 } :: { TierLook }
 
 function ToolTiers.get(track: string, tier: number): TierLook

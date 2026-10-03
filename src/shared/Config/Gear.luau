@@ -227,7 +227,13 @@ Gear.Magnet = {
 	{ name = "Solar Magnet", price = 320000000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
 	{ name = "Void Magnet", price = 1700000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "magma" }, -- 0.0045
 	{ name = "Nebula Magnet", price = 10000000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "magma" }, -- 0.0019
-	{ name = "Omega Magnet", price = 60000000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The last magnet. The earth just hands things over.", camp = "magma" }, -- 0.0006
+	{ name = "Omega Magnet", price = 60000000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The earth just hands things over.", camp = "magma" }, -- 0.0006
+	-- STAGE 12'S OWN, on request (2026-10-03): the user's imported lava magnet
+	-- (tools/studio-migrations/import-magma-magnet.luau, Assets/Tools/Magnet/T12). maxGrip
+	-- 12 meets Ground Zero's soilHardness 12, so the Omega's one-over haul there finally
+	-- has a rung that matches it. pullSpeed keeps the ~x1.22 climb, draw creeps the last
+	-- step under the 0.75 drag, price keeps the x6 stride off the Omega.
+	{ name = "Magma Magnet", price = 360000000000, pullSpeed = 13.4, draw = 0.749, maxGrip = 12, blurb = "The last magnet. The ground melts loose around the haul.", camp = "magma" },
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -301,7 +307,12 @@ Gear.Cleaner = {
 	{ name = "Cryo Nova", price = 570000000, power = 9, volume = 5.8, blurb = "Freezes the grime, then shatters it off.", camp = "twilight" },
 	{ name = "Solar Forge", price = 3000000000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "magma" },
 	{ name = "Quantum Rift", price = 15000000000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "magma" },
-	{ name = "Celestial Deluge", price = 58000000000, power = 12, volume = 11.0, blurb = "The last hose. It rains from somewhere higher.", camp = "magma" },
+	{ name = "Celestial Deluge", price = 58000000000, power = 12, volume = 11.0, blurb = "It rains from somewhere higher.", camp = "magma" },
+	-- STAGE 12'S OWN, on request (2026-10-03): the user's imported lava hose
+	-- (tools/studio-migrations/import-magma-hose.luau, Assets/HoseModels/T13). power 13
+	-- meets a Stage 12 Anomaly's crust (Tuning's hardness note), one over the Deluge;
+	-- volume keeps the ~x1.25 climb, price ~x4.5 off the Deluge.
+	{ name = "Magma Cannon", price = 260000000000, power = 13, volume = 13.7, blurb = "The last hose. Spits liquid fire. The crust just slides off.", camp = "magma" },
 }
 
 -- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -678,7 +689,7 @@ end
 --- you own you carry anywhere, and can switch to at any stall of the track.
 --- FOUR STAGES PER ZONE (2026-10-03): each camp sells its zone's rungs. Aura, Magnet and
 --- Cleaner tier N belongs to Stage N, so Base Camp sells 1-4, Toxic Twilight 5-8 and
---- Magma Hollow 9+ (the Aura track has its Stage 12 rung, the Molten Serpent). The Detector ladder
+--- Magma Hollow 9-12 (Stage 12's rungs: Molten Serpent, Magma Magnet, Magma Cannon). The Detector ladder
 --- has fifteen rungs and is split evenly, 5/5/5.
 function Gear.campOf(track: string, index: number): string
 	return (Gear.tier(track, index) :: any).camp or "base"

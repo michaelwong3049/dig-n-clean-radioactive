@@ -295,14 +295,15 @@ end
 --- The rungs that exist only as imported art, by Gear.Cleaner name, after FORMS' six.
 --- Listed rather than counted off the Assets folder so Spec (and an offline run with no
 --- place file) still knows how long the ladder is.
-local ART_ONLY = { "Singularity Nozzle", "Cryo Nova", "Solar Forge", "Quantum Rift", "Celestial Deluge" }
+local ART_ONLY = { "Singularity Nozzle", "Cryo Nova", "Solar Forge", "Quantum Rift", "Celestial Deluge", "Magma Cannon" }
 
 --- Which Assets/HoseModels template each rung clones, by rung. The place file still
---- holds T1-T12 as imported, one per the ORIGINAL twelve rungs; T5 is the cut
+--- holds T1-T12 as imported, one per the ORIGINAL twelve rungs, plus T13 (Magma Cannon,
+--- import-magma-hose.luau); T5 is the cut
 --- Ultrasonic Jet and nothing points at it. Mapping here rather than renaming the
 --- templates keeps this a code-only change -- no Studio rebuild, nothing to publish
 --- before the shop and the mast agree again.
-local ART_SLOTS = { 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12 }
+local ART_SLOTS = { 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13 }
 
 function Hose.count(): number
 	return #FORMS + #ART_ONLY
