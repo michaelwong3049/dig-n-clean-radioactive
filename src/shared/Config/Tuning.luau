@@ -335,6 +335,18 @@ Tuning.WASH_WEAK_POP = 1.5
 Tuning.WASH_WEAK_BURST = 0.4
 Tuning.WASH_WEAK_RESPAWN = 1
 
+-- ── Stage-scaled crust (Contamination.rollPatches) ─────────────────────
+--
+-- Crust hardness USED TO BE THE RARITY'S AND NOTHING ELSE, so a Stage 11 Legendary
+-- came up exactly as soft as a Stage 4 one. Every patch on an item now gets this many
+-- points on top of its rarity's hardness, by the stage it was dug in. Base Camp (1-6)
+-- adds nothing -- its six hoses are fitted rung-for-rung to the rarity scale -- and
+-- Toxic Twilight adds +1 a stage, which is what finally gives that camp's hoses
+-- (power 8-12, Config/Gear.Cleaner) crust to be rated for: a Stage 11 Legendary is a
+-- 10 (Quantum Rift), a Stage 12 Anomaly a 13 (one over Celestial Deluge, a liquid's
+-- +2 covers it). Stages missing here add 0.
+Tuning.CRUST_STAGE_BONUS = { [7] = 1, [8] = 2, [9] = 3, [10] = 4, [11] = 5, [12] = 6 }
+
 -- ── Home-turf Common ease (DigService: `required`) ─────────────────────
 --
 -- The junk you pull most is Common, and in your own rated stage you pull a LOT of

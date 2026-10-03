@@ -50,18 +50,35 @@ function Contamination.initialCount(rarityName: string, modifier: string): numbe
 	return math.max(1, count)
 end
 
---- Roll the contamination for a freshly unearthed item.
-function Contamination.rollPatches(rarityName: string, modifier: string): { number }
+--- Points of crust hardness the stage an item was dug in adds on top of its rarity's
+--- (Tuning.CRUST_STAGE_BONUS). Zero for Base Camp, for an unknown stage, and for nil.
+function Contamination.stageBonus(stageId: number?): number
+	if stageId == nil then
+		return 0
+	end
+	return Tuning.CRUST_STAGE_BONUS[stageId] or 0
+end
+
+--- The hardest patch an item of this rarity rolls in this stage -- the gate.
+function Contamination.gateHardness(rarityName: string, stageId: number?): number
+	return Rarity.get(rarityName).hardness + Contamination.stageBonus(stageId)
+end
+
+--- Roll the contamination for a freshly unearthed item. `stageId` is where it came out
+--- of the ground: a far stage's crust is harder at the same rarity (stageBonus).
+function Contamination.rollPatches(rarityName: string, modifier: string, stageId: number?): { number }
 	local count = Contamination.initialCount(rarityName, modifier)
 	if count == 0 then
 		return {}
 	end
 
-	-- One patch always sits at the item's full hardness. That is the gate.
-	local def = Rarity.get(rarityName)
-	local patches = { def.hardness }
+	-- One patch always sits at the item's full hardness. That is the gate. The softer
+	-- rest are lifted by the same bonus, so the whole lump is tougher, not one chunk.
+	local bonus = Contamination.stageBonus(stageId)
+	local hardness = Rarity.get(rarityName).hardness
+	local patches = { hardness + bonus }
 	for _ = 2, count do
-		table.insert(patches, math.random(1, def.hardness))
+		table.insert(patches, math.random(1, hardness) + bonus)
 	end
 	return patches
 end

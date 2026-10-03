@@ -2410,6 +2410,24 @@ function Spec.run(): boolean
 		check("§2 initialCount agrees with the roll it was pulled out of", agrees)
 	end
 
+	-- A FAR STAGE'S CRUST IS HARDER AT THE SAME RARITY (Tuning.CRUST_STAGE_BONUS): a
+	-- Stage 11 Legendary must out-gate a Stage 4 one, on every patch, not just the top.
+	do
+		local stage4 = Contamination.rollPatches("Legendary", "None", 4)
+		local stage11 = Contamination.rollPatches("Legendary", "None", 11)
+		local softest11 = math.huge
+		for _, hardness in stage11 do
+			softest11 = math.min(softest11, hardness)
+		end
+		check(
+			"§2 a Stage 11 Legendary's crust is harder than a Stage 4 one",
+			Contamination.gateHardness("Legendary", 11) > Contamination.gateHardness("Legendary", 4)
+				and math.max(table.unpack(stage11)) > math.max(table.unpack(stage4))
+				and softest11 > 1 + Contamination.stageBonus(4)
+		)
+		check("§2 Base Camp crust is the rarity's own hardness", Contamination.gateHardness("Legendary", 4) == Rarity.get("Legendary").hardness)
+	end
+
 	-- YOU CLEAN THE PATCH YOU AIMED AT. The wash bay times one bank per dirty area and
 	-- names the index when that bank fills (WashService's tick), which only means
 	-- anything if `clearAt` removes THAT patch. Its predecessor `clearOne` picked the

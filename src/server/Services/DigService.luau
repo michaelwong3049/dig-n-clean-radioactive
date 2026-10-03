@@ -1090,13 +1090,13 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		frozen = false,
 		-- Contamination is rolled the moment it leaves the ground, not at the station,
 		-- because that is when it picked the dirt up. Extends ARCHITECTURE's CarriedItem.
-		patches = Contamination.rollPatches(rarity, modifier),
+		patches = Contamination.rollPatches(rarity, modifier, signal.stageId),
 		crateId = crateId,
 		-- An announced drop's stacked qualities (Config/RareDrop's buffs).
 		bonus = if signal.rareDrop then signal.bonus else nil,
 	}
 	if crateId and #carried.patches == 0 then
-		carried.patches = { Rarity.get(rarity).hardness }
+		carried.patches = { Contamination.gateHardness(rarity, signal.stageId) }
 	end
 	table.insert(data.carry, carried)
 	-- The Prospector mastery's counter (Config/Masteries): every nuke out of the ground.
@@ -1680,9 +1680,11 @@ function DigService.debugGrantDirtyCrate(player: Player, crateId: string): boole
 	end
 	local tier = Crates.get(crateId).tier
 	local itemId: string? = nil
+	local fromStage: number? = nil
 	for _, stageId in Stages.builtIds() do
 		if Items.hasAny(stageId, tier) then
 			itemId = standInFor(stageId, tier, "")
+			fromStage = stageId
 			break
 		end
 	end
@@ -1690,9 +1692,9 @@ function DigService.debugGrantDirtyCrate(player: Player, crateId: string): boole
 		return false
 	end
 	local modifier = crateModifier()
-	local patches = Contamination.rollPatches(tier, modifier)
+	local patches = Contamination.rollPatches(tier, modifier, fromStage)
 	if #patches == 0 then
-		patches = { Rarity.get(tier).hardness }
+		patches = { Contamination.gateHardness(tier, fromStage) }
 	end
 	table.insert(data.carry, {
 		uid = HttpService:GenerateGUID(false),
