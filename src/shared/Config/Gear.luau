@@ -389,7 +389,13 @@ Gear.Aura = {
 	{ name = "Eclipse Veil", price = 900000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
 	{ name = "Twilight Singularity", price = 3800000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "magma" },
 	{ name = "Seraph", price = 17000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
-	{ name = "Crimson Vortex", price = 85000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "The last aura. A red storm with you in the eye of it.", camp = "magma" },
+	{ name = "Crimson Vortex", price = 85000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "A red storm with you in the eye of it.", camp = "magma" },
+	-- STAGE 12'S OWN, on request (2026-10-03, option 3 of six lava mockups): a molten serpent
+	-- coiling up the body. Ground Zero was rated past the end of the ladder (the Vortex's
+	-- one-minute raid); now it has a rung. Fitted like the rest: reduction so the meter
+	-- takes ~13 min at Stage 12's far edge (100 / (600 * 0.00021) = 794s), tolerance just
+	-- over its deepRads, price on the ladder's widening stride (x5.5 off the Vortex).
+	{ name = "Molten Serpent", price = 470000000000, reduction = 0.99979, tolerance = 610.0, capacity = 40, haulPenalty = 0.015, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -672,7 +678,7 @@ end
 --- you own you carry anywhere, and can switch to at any stall of the track.
 --- FOUR STAGES PER ZONE (2026-10-03): each camp sells its zone's rungs. Aura, Magnet and
 --- Cleaner tier N belongs to Stage N, so Base Camp sells 1-4, Toxic Twilight 5-8 and
---- Magma Hollow 9+ (three rungs each until a Stage 12 rung exists). The Detector ladder
+--- Magma Hollow 9+ (the Aura track has its Stage 12 rung, the Molten Serpent). The Detector ladder
 --- has fifteen rungs and is split evenly, 5/5/5.
 function Gear.campOf(track: string, index: number): string
 	return (Gear.tier(track, index) :: any).camp or "base"

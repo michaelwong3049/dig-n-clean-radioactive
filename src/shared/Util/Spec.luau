@@ -631,7 +631,7 @@ function Spec.run(): boolean
 	--   * your own stage: minimal drain over the first 60%, then steadier and harsher
 	--   * one tier under: 20-30s at the entrance, under 3s past 60%
 	--   * stages 7-12 harsher than 1-6 on both
-	--   * the top aura in Stage 12 (rated past the ladder): about a minute
+	--   * Stage 12 is rated for the top aura, the Molten Serpent
 	do
 		local Z = Tuning.ZONE_SURVIVAL
 		local smooth, ratedOk, underOk, harsher = true, true, true, true
@@ -708,12 +708,14 @@ function Spec.run(): boolean
 		)
 		check("§zone the under-tier grace is about 20s", Z.UNDER_GRACE >= 15 and Z.UNDER_GRACE <= 25)
 		check("§zone an aura above the stage's rating takes no aura damage", Radiation.zoneSurvival(3, 1, 5) == math.huge)
+		-- Stage 12 has its own rung since the Molten Serpent (2026-10-03), so it is no longer
+		-- rated past the ladder: the top aura is Stage 12's rated one, and the Vortex is one
+		-- under there. The rated/under checks above cover both.
 		local top = Gear.maxTier("Aura")
 		local last = #Stages.DEFS
-		local mid = Radiation.zoneSurvival(last, 0.5, top)
 		check(
-			string.format("§zone the strongest aura (%s) lasts about a minute in Stage %d: %.0fs mid-stage (want 45-75)", Gear.tier("Aura", top).name, last, mid),
-			Stages.get(last).ratedAuraTier > top and mid >= 45 and mid <= 75
+			string.format("§zone the strongest aura (%s) is Stage %d's own", Gear.tier("Aura", top).name, last),
+			Stages.get(last).ratedAuraTier == top
 		)
 	end
 
@@ -1031,7 +1033,7 @@ function Spec.run(): boolean
 			local look = AuraLook.get(tier)
 			if tier > 1 then
 				local below = AuraLook.get(tier - 1)
-				if look.rings < below.rings or look.width <= below.width or look.speed <= below.speed or look.transparency >= below.transparency then
+				if look.rings < below.rings or look.width <= below.width or look.speed <= below.speed or (look.transparency >= below.transparency and below.transparency > 0) then
 					climbing = false
 				end
 				-- The sparkle storm only ever adds: no layer thins out going up.
@@ -1045,7 +1047,7 @@ function Spec.run(): boolean
 				offLimits = false
 			end
 		end
-		check("§5.1 each aura rung is wider, faster and brighter than the one below, never fewer rings", climbing)
+		check("§5.1 each aura rung is wider, faster and brighter than the one below (until fully opaque), never fewer rings", climbing)
 		check("§14 no aura is burn-white or exposure-green", offLimits)
 		check("§5.1 the top aura has the most rings", AuraLook.get(AuraLook.count()).rings == #AuraLook.TILTS)
 		check("§5.1 no aura rung sparkles less than the one below", sparkling)
@@ -1793,7 +1795,7 @@ function Spec.run(): boolean
 		Aura = {
 			base = { "None", "Static Veil", "Lead Halo", "Ion Shroud" },
 			twilight = { "Isotope Mantle", "Containment Nimbus", "Toxic Aurora", "Eclipse Veil" },
-			magma = { "Twilight Singularity", "Seraph", "Crimson Vortex" },
+			magma = { "Twilight Singularity", "Seraph", "Crimson Vortex", "Molten Serpent" },
 		},
 	}
 	for track, byCamp in campWant do
