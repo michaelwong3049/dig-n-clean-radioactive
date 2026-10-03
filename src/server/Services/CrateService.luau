@@ -14,6 +14,8 @@
 	                  reel popup is CrateOpened.
 	  LIQUID CRATE -> LiquidService.openCrate, which grants the fluid exactly like a
 	                  bottle roll and plays the bottle's own brew popup (FluidSpin).
+	  POTION CRATE -> PotionService.fromCrate: one potion into the stash (Config/
+	                  Potions); PotionController shows the reveal card.
 
 	THE REVEAL IS NOT SPOILED BY THE WORLD. While the reel plays, the new nuke is kept
 	out of your hands and the ItemIdentified announcement is held back; both land when
@@ -42,6 +44,7 @@ local WashService = require(script.Parent.WashService)
 local ProductService = require(script.Parent.ProductService)
 local LiquidService = require(script.Parent.LiquidService)
 local CarryService = require(script.Parent.CarryService)
+local PotionService = require(script.Parent.PotionService)
 
 local CrateService = {}
 
@@ -178,6 +181,8 @@ function CrateService.open(player: Player, uid: string): (boolean, string?)
 	local def = Crates.get(entry.crateId)
 	if def.kind == "nuke" then
 		openNuke(player, data, entry.crateId)
+	elseif def.kind == "potion" then
+		PotionService.fromCrate(player, data)
 	else
 		LiquidService.openCrate(player, data, entry.crateId)
 	end

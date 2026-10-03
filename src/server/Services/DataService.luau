@@ -220,6 +220,12 @@ local TEMPLATE = {
 	-- luckBoostLeft: seconds left, counted down only while in a server (CashBoostService).
 	cashBoostLeft = 0,
 
+	-- POTIONS (Config/Potions, PotionService). `potions` is the stash, potion id ->
+	-- count, filled by the Potion Crate. `potionLeft` is each running potion's banked
+	-- seconds, same rules as luckBoostLeft: counted down only while in a server.
+	potions = {},
+	potionLeft = {},
+
 	-- Packs bought (Config/Packs), key -> true. Once per player; PackService sets it.
 	packs = {},
 

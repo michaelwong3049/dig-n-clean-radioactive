@@ -299,6 +299,11 @@ local REMOTES: { [string]: string } = {
 	-- resetAt, days = { {cash, crates, luckSeconds, cashBoostSeconds, big} }, claimed? }.
 	DailyRewards = "RemoteEvent",
 
+	-- Potions (Config/Potions, Services/PotionService). Client -> server: "ask", or
+	-- "drink" + potion id. Server -> client: { stash = { id -> count }, got?, drank?,
+	-- notice? }.
+	Potions = "RemoteEvent",
+
 	-- The group chest on Stage 1 (Config/GroupReward, Services/GroupRewardService).
 	-- Server -> client: { result = "join" | "claimed" | "already", groupId?, text? }
 	-- on each press of the chest. Client -> server: "claim" (after joining the group).

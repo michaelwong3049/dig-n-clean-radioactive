@@ -18,6 +18,9 @@
 	  * LIQUID CRATES roll one fluid off Config/Liquids with a FLOOR on the table, and
 	    load it exactly the way a bottle roll does (charges stack, a better fluid
 	    auto-loads). The popup is the bottle's own brew reel.
+	  * THE POTION CRATE (one variant, `potion1`) drops one potion (Config/Potions)
+	    into the player's stash, every potion equally likely. It drops just as often
+	    on every stage and ignores detector luck (Crates.dropId).
 
 	FIVE VARIANTS OF EACH, and the better the crate, the higher the floor and the
 	fatter the top of its table. Variants 1-3 are the early crates (Stages 1-6);
@@ -53,7 +56,7 @@ local Crates = {}
 
 export type CrateDef = {
 	id: string,
-	kind: string, -- "nuke" | "liquid"
+	kind: string, -- "nuke" | "liquid" | "potion"
 	variant: number, -- 1 (worst) .. Crates.VARIANTS (best)
 	name: string,
 	short: string, -- hotbar / keycap label
@@ -78,8 +81,14 @@ export type CrateDef = {
 --- One in this many spawned signals is a crate instead of a nuke.
 Crates.CRATE_CHANCE = 15
 
---- Of the crates, the share that are nuke crates (the rest are liquid crates).
-Crates.NUKE_SHARE = 0.5
+--- Of the crates, how often each KIND drops (relative weights). Equal thirds, the
+--- same on every stage. The potion crate has one variant and ignores the stage ladder
+--- and detector luck: a Potion Crate is a Potion Crate wherever it is dug up.
+Crates.KIND_WEIGHTS = { nuke = 1, liquid = 1, potion = 1 }
+Crates.KIND_ORDER = { "nuke", "liquid", "potion" }
+
+--- The kinds that come in a ladder of Crates.VARIANTS (nuke1..5, liquid1..5).
+Crates.LADDER_KINDS = { nuke = true, liquid = true }
 
 --- Variants per kind: nuke1..nuke5, liquid1..liquid5.
 Crates.VARIANTS = 5
@@ -98,6 +107,7 @@ Crates.ORDER = {
 	"liquid3",
 	"liquid4",
 	"liquid5",
+	"potion1",
 }
 
 Crates.DEFS = {
@@ -232,6 +242,18 @@ Crates.DEFS = {
 		liquidLuck = 9,
 		pullWeight = 150,
 	},
+	-- One potion (Config/Potions), each equally likely. Same crate on every stage.
+	potion1 = {
+		id = "potion1",
+		kind = "potion",
+		variant = 1,
+		name = "Potion Crate",
+		short = "Potion Crate",
+		flavor = "A padded case of stoppered flasks, still bubbling. Drink responsibly.",
+		color = "B455FF",
+		tier = "Rare",
+		pullWeight = 60,
+	},
 } :: { [string]: CrateDef }
 
 --- Drop weights for variants 1..5 per stage, at detector luck 1. Deeper stages lean
@@ -269,6 +291,31 @@ function Crates.idFor(kind: string, variant: number): string
 end
 
 -- ── Which crate drops ─────────────────────────────────────────────────
+
+--- Which kind of crate a crate signal is. `rng` is a number in [0, 1).
+function Crates.rollKind(rng: number): string
+	local total = 0
+	for _, kind in Crates.KIND_ORDER do
+		total += Crates.KIND_WEIGHTS[kind] or 0
+	end
+	local pick = rng * total
+	for _, kind in Crates.KIND_ORDER do
+		pick -= Crates.KIND_WEIGHTS[kind] or 0
+		if pick < 0 then
+			return kind
+		end
+	end
+	return Crates.KIND_ORDER[#Crates.KIND_ORDER]
+end
+
+--- The crate id a signal of `kind` drops on `stageId` at this detector luck. Ladder
+--- kinds roll a variant (variantOdds); the potion crate is always potion1.
+function Crates.dropId(kind: string, stageId: number, luck: number, rng: number): string
+	if not Crates.LADDER_KINDS[kind] then
+		return Crates.idFor(kind, 1)
+	end
+	return Crates.idFor(kind, Crates.rollVariant(stageId, luck, rng))
+end
 
 --- Normalised variant odds { 1 .. VARIANTS } for a stage at this detector luck. Luck
 --- counts up from the stage's lowest dropping variant, so a late stage's Void (its

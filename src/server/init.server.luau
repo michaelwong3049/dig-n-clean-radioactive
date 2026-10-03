@@ -38,6 +38,7 @@ local ORDER = {
 	"GamePassService", -- the seven permanent passes: ownership into data.passes for StatResolver; needs Data
 	"LuckBoostService", -- 2x luck: the Violet Aurora event + the bought Lucky Clover; needs Product
 	"CashBoostService", -- 2x cash for a while, bought inside a pack; needs Data
+	"PotionService", -- the potion stash + ten-minute potion clocks; needs Data
 	"RareDropService", -- the announced drop every 8-12 min: a guaranteed Epic+ in a random stage; needs Dig + LuckBoost
 	"AwayEarningsService", -- the "While you were away" card: holds offline income for COLLECT / Robux DOUBLE IT; needs Economy + Product
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
