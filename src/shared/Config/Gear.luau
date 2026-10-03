@@ -697,6 +697,35 @@ Gear.STAT_META = {
 	-- both walk — so their columns are neither advertised nor asserted over.
 }
 
+--- WHAT EACH TRACK IS FOR, in a line a new player can act on. The shop panel shows it
+--- over the carousel the first time you open each stall (DeconService's `gearIntro`,
+--- remembered in `tutorialsSeen` as "shop" .. track) and again from the header's "?".
+--- `name` is what the stall calls it, which for Cleaner is the hose. The stat lines
+--- under it are each stat's own STAT_META `tip`, so there is one copy of those.
+Gear.OVERVIEW = {
+	Detector = {
+		name = "Detector",
+		body = "Sweeps the ground and lights up spots where nukes are buried. Dig where it glows.",
+	},
+	Magnet = {
+		name = "Magnet",
+		body = "Hauls the nuke you dig into up out of the ground. Click to pull it to the surface.",
+	},
+	Cleaner = {
+		name = "Hose",
+		body = "Blasts the crust off the nukes you dig up at the wash, so you can see what you found.",
+	},
+	Aura = {
+		name = "Aura",
+		body = "Shields you from radiation so you can survive deeper stages, and sets how much you can carry.",
+	},
+}
+
+--- The `tutorialsSeen` id for a track's shop intro.
+function Gear.introId(track: string): string
+	return `shop{track}`
+end
+
 --- Every column of `track` that is neither sold nor deliberately retired is a bug, and
 --- Spec calls this to say so. `name`, `price` and `blurb` are the card's chrome rather
 --- than stats, so they are never expected in `order`.
