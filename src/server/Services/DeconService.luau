@@ -58,6 +58,10 @@ local DeconService = {}
 --- The walkthroughs a client may mark seen ("tutorialSeen"). An allowlist, so a client
 --- cannot grow `data.tutorialsSeen` with whatever strings it likes.
 local TUTORIALS: { [string]: boolean } = { locker = true, treadmill = true, aura = true }
+-- Each stall's first-visit gear intro (StationController, Gear.OVERVIEW).
+for track in Gear.OVERVIEW do
+	TUTORIALS[Gear.introId(track)] = true
+end
 
 local stateRemote: any = nil
 local actionRemote: any = nil
@@ -239,6 +243,11 @@ local function stepPlayer(player: Player, _dt: number)
 		lockerUpgradeStep = Tuning.LOCKER_UPGRADE_STEP,
 		-- Owed the locker's first-visit walkthrough (client/LockerTutorial)?
 		lockerTutorial = kind == "locker" and table.find(data.tutorialsSeen, "locker") == nil,
+		-- Owed this stall's first-visit gear intro (Gear.OVERVIEW)?
+		gearIntro = kind == "shop"
+			and stationId ~= nil
+			and Gear.OVERVIEW[stationId] ~= nil
+			and table.find(data.tutorialsSeen, Gear.introId(stationId)) == nil,
 		-- The Merge Reactor's odds inputs (Config/Merge.odds), only at the reactor: the
 		-- failed merges per nuke since its last success, the luck multiplier, and the
 		-- Reactor mastery's flat bonus.

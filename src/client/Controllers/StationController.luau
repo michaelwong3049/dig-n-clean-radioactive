@@ -100,6 +100,7 @@ local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -337,6 +338,13 @@ local toastToken = 0
 -- you choose to go, not a thing that happens to you.
 local dismissed = false
 local lastKey: string? = nil
+
+--- THE GEAR INTRO (Gear.OVERVIEW): which stall's intro is up, or nil. It comes up by
+--- itself the first time you open each stall (the server's `gearIntro`) and from the
+--- header's "?" after that. `introShown` is per session, so a first visit's intro does
+--- not come back on the next tick before the server has heard it was seen.
+local introTrack: string? = nil
+local introShown: { [string]: boolean } = {}
 
 --- THE RACK CARD: which rack hook's E opened this panel, or nil for the storefront.
 ---
@@ -1258,6 +1266,168 @@ local function build(): ScreenGui
 	})
 	ui.shopEmpty.LayoutOrder = 3
 
+	-- ── The gear intro ───────────────────────────────────────────────
+	-- What this track is for (Gear.OVERVIEW) and what each of its stats does (the
+	-- STAT_META tips), over the carousel. A solid scrim the size of the window hides
+	-- the peeking cards; Active so a click on it does not reach the row underneath.
+	local introScrim = Instance.new("Frame")
+	introScrim.Name = "GearIntro"
+	introScrim.Size = UDim2.fromScale(1, 1)
+	introScrim.BackgroundColor3 = FIELD.panel
+	introScrim.BorderSizePixel = 0
+	introScrim.Active = true
+	introScrim.ZIndex = 40
+	introScrim.Visible = false
+	introScrim.Parent = carousel
+
+	local introCard = Instance.new("Frame")
+	introCard.Name = "Card"
+	introCard.AnchorPoint = Vector2.new(0.5, 0.5)
+	introCard.Position = UDim2.fromScale(0.5, 0.5)
+	introCard.Size = UDim2.fromOffset(CARD_WIDTH, 0)
+	introCard.AutomaticSize = Enum.AutomaticSize.Y
+	introCard.BackgroundColor3 = FIELD.card
+	introCard.BorderSizePixel = 0
+	introCard.Parent = introScrim
+	local introCorner = Instance.new("UICorner")
+	introCorner.CornerRadius = UDim.new(0, 14)
+	introCorner.Parent = introCard
+	local introEdge = Instance.new("UIStroke")
+	introEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	introEdge.Color = FIELD.amber
+	introEdge.Thickness = 2
+	introEdge.Parent = introCard
+	local introPad = Instance.new("UIPadding")
+	introPad.PaddingTop = UDim.new(0, 28)
+	introPad.PaddingBottom = UDim.new(0, 28)
+	introPad.PaddingLeft = UDim.new(0, 30)
+	introPad.PaddingRight = UDim.new(0, 30)
+	introPad.Parent = introCard
+	local introLayout = Instance.new("UIListLayout")
+	introLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	introLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	introLayout.Padding = UDim.new(0, 14)
+	introLayout.Parent = introCard
+
+	local introKicker = UIKit.label(introCard, {
+		name = "Kicker",
+		size = UDim2.new(1, 0, 0, 22),
+		font = FIELD.headline,
+		textSize = 20,
+		color = FIELD.amber,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
+	})
+	introKicker.LayoutOrder = 1
+
+	local introBody = UIKit.label(introCard, {
+		name = "Body",
+		size = UDim2.fromScale(1, 0),
+		font = FIELD.label,
+		textSize = 24,
+		color = FIELD.text,
+		xAlign = Enum.TextXAlignment.Left,
+		yAlign = Enum.TextYAlignment.Top,
+		wrapped = true,
+		outline = false,
+		shadow = false,
+	})
+	introBody.AutomaticSize = Enum.AutomaticSize.Y
+	introBody.LayoutOrder = 2
+
+	local introRule = Instance.new("Frame")
+	introRule.Name = "Rule"
+	introRule.Size = UDim2.new(1, 0, 0, 1)
+	introRule.BackgroundColor3 = FIELD.rule
+	introRule.BorderSizePixel = 0
+	introRule.LayoutOrder = 3
+	introRule.Parent = introCard
+
+	-- One row per stat, the most any track sells (Aura's five); paintIntro hides the rest.
+	local introRows = {}
+	for index = 1, 5 do
+		local statRow = Instance.new("Frame")
+		statRow.Name = `Stat{index}`
+		statRow.Size = UDim2.fromScale(1, 0)
+		statRow.AutomaticSize = Enum.AutomaticSize.Y
+		statRow.BackgroundTransparency = 1
+		statRow.LayoutOrder = 3 + index
+		statRow.Parent = introCard
+		local statName = UIKit.label(statRow, {
+			name = "StatName",
+			size = UDim2.fromOffset(130, 24),
+			font = FIELD.label,
+			textSize = 20,
+			color = FIELD.text,
+			xAlign = Enum.TextXAlignment.Left,
+			yAlign = Enum.TextYAlignment.Top,
+			outline = false,
+			shadow = false,
+		})
+		local statTip = UIKit.label(statRow, {
+			name = "StatTip",
+			position = UDim2.fromOffset(130, 1),
+			size = UDim2.new(1, -130, 0, 0),
+			font = FIELD.label,
+			textSize = 19,
+			color = FIELD.dim,
+			xAlign = Enum.TextXAlignment.Left,
+			yAlign = Enum.TextYAlignment.Top,
+			wrapped = true,
+			outline = false,
+			shadow = false,
+		})
+		statTip.AutomaticSize = Enum.AutomaticSize.Y
+		table.insert(introRows, { frame = statRow, name = statName, tip = statTip })
+	end
+
+	local introOk = UIKit.button(introCard, {
+		name = "GotIt",
+		size = UDim2.fromOffset(200, 50),
+		text = "GOT IT",
+		font = FIELD.headline,
+		textSize = 22,
+		color = FIELD.text,
+		fillColor = FIELD.amber,
+		fillTransparency = 0,
+		cornerRadius = UDim.new(0, 10),
+		strokeColor = FIELD.ink,
+		strokeThickness = 2,
+		outline = false,
+		shadow = false,
+	})
+	introOk.LayoutOrder = 20
+
+	ui.intro = {
+		scrim = introScrim,
+		edge = introEdge,
+		kicker = introKicker,
+		body = introBody,
+		rows = introRows,
+		ok = introOk,
+	}
+
+	-- The header's way back to it, beside the track name (placed off the title's
+	-- TextBounds in render).
+	ui.introButton = UIKit.button(header, {
+		name = "AboutGear",
+		anchorPoint = Vector2.new(0, 0.5),
+		position = UDim2.new(0, 200, 0.5, -1),
+		size = UDim2.fromOffset(30, 30),
+		text = "?",
+		font = FIELD.headline,
+		textSize = 20,
+		color = FIELD.text,
+		fillColor = FIELD.edge,
+		fillTransparency = 0,
+		cornerRadius = UDim.new(0.5, 0),
+		strokeThickness = 0,
+		outline = false,
+		shadow = false,
+		visible = false,
+	})
+
 	inkShopText(shop)
 
 	-- Plots have no panel any more: exhibit income auto-deposits into the owner's
@@ -1885,9 +2055,36 @@ local function syncBuySpotlight()
 	}, function() end)
 end
 
+--- Fill the intro card for `track`: its Gear.OVERVIEW line, then each stat it sells in
+--- the stat's own colour beside that stat's STAT_META tip, in the card's order.
+local function paintIntro(track: string, accent: Color3)
+	local overview = Gear.OVERVIEW[track]
+	local meta = Gear.STAT_META[track]
+	local intro = ui.intro
+	local name = string.upper(overview.name)
+	intro.kicker.Text = `WHAT {if string.match(name, "^[AEIOU]") then "AN" else "A"} {name} DOES`
+	intro.kicker.TextColor3 = accent
+	intro.edge.Color = accent
+	intro.ok.BackgroundColor3 = accent
+	intro.body.Text = overview.body
+	for index, parts in intro.rows do
+		local key = if meta then meta.order[index] else nil
+		local stat = if key then meta[key] else nil
+		parts.frame.Visible = stat ~= nil
+		if stat then
+			parts.name.Text = string.upper(stat.label)
+			parts.name.TextColor3 = stat.color
+			parts.tip.Text = stat.tip or ""
+		end
+	end
+end
+
 local function render()
 	task.defer(syncTutorial)
 	task.defer(syncBuySpotlight)
+	if state.station ~= "shop" or dismissed then
+		introTrack = nil
+	end
 	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
@@ -1957,6 +2154,32 @@ local function render()
 		ui.shopTitle.Text = track
 
 		local count = if tiers then #tiers else 0
+
+		-- The gear intro: up by itself on a stall's first visit (not during the new
+		-- player tutorial, which pins this panel to a buy), reported seen as it shows.
+		local overview = Gear.OVERVIEW[track]
+		if introTrack ~= nil and introTrack ~= track then
+			introTrack = nil
+		end
+		if
+			overview
+			and count > 0
+			and state.gearIntro == true
+			and not introShown[track]
+			and not Tutorial.isActive(Players.LocalPlayer)
+		then
+			introShown[track] = true
+			introTrack = track
+			actionRemote:FireServer({ action = "tutorialSeen", id = Gear.introId(track) })
+		end
+		ui.introButton.Visible = overview ~= nil and count > 0
+		-- Measured in design px: TextBounds is screen px, under the canvas and fit scales.
+		local titleWidth = TextService:GetTextSize(track, ui.shopTitle.TextSize, ui.shopTitle.Font, Vector2.new(1000, 100)).X
+		ui.introButton.Position = UDim2.new(0, 16 + titleWidth + 14, 0.5, -1)
+		ui.intro.scrim.Visible = introTrack == track
+		if introTrack == track then
+			paintIntro(track, accent)
+		end
 
 		ui.shopCarousel.Visible = count > 0
 		ui.shopPager.Visible = count > 0 and not single
@@ -2111,8 +2334,22 @@ function Station.start()
 	-- (IgnoreGuiInset is false, see build()).
 	-- A rack card is one card with nothing to page to, so it takes none of this input.
 	local function shopShowing(): boolean
-		return ui.panel.Visible and ui.shop.Visible and carousel.count > 0 and not carousel.single
+		return ui.panel.Visible
+			and ui.shop.Visible
+			and carousel.count > 0
+			and not carousel.single
+			and not ui.intro.scrim.Visible
 	end
+
+	-- The gear intro's two buttons: GOT IT puts it away, the header's "?" brings it back.
+	ui.intro.ok.MouseButton1Click:Connect(function()
+		introTrack = nil
+		render()
+	end)
+	ui.introButton.MouseButton1Click:Connect(function()
+		introTrack = if introTrack == nil then state.stationId else nil
+		render()
+	end)
 	local function overCarousel(position: Vector3): boolean
 		local corner = ui.shopCarousel.AbsolutePosition
 		local size = ui.shopCarousel.AbsoluteSize
