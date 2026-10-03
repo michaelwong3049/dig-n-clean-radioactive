@@ -209,7 +209,7 @@ end
 -- 45-90 ms each time — a frame hitch every 2 seconds. The attribute stays the
 -- source of truth; the tag is only the index (same as StationService).
 local SHOWER_TAG = "Shower"
-local showerCache: { { position: Vector3, radius: number, plot: number? } } = {}
+local showerCache: { { position: Vector3, radius: number, plot: number?, heals: boolean } } = {}
 local cacheAge = math.huge
 local CACHE_REFRESH = 2
 
@@ -226,21 +226,27 @@ local function refreshShowerCache()
 				radius = (descendant:GetAttribute("Radius") :: number?) or DEFAULT_SHOWER_RADIUS,
 				-- A base's cleansing station flushes its owner only; camp showers are on no plot.
 				plot = ExhibitService.plotIndexOf(descendant),
+				-- Base Camp's heal pads (build/HealPads) are showers that also heal.
+				heals = descendant:GetAttribute("HealPad") == true,
 			})
 		end
 	end
 end
 
-local function inShower(player: Player, position: Vector3): boolean
+--- (showering, healing): in any shower you may use, and whether one of them is a
+--- heal pad.
+local function inShower(player: Player, position: Vector3): (boolean, boolean)
+	local showering, healing = false, false
 	for _, shower in showerCache do
 		if
 			(shower.position - position).Magnitude <= shower.radius
 			and ExhibitService.ownsPlotStation(player, shower.plot)
 		then
-			return true
+			showering = true
+			healing = healing or shower.heals
 		end
 	end
-	return false
+	return showering, healing
 end
 
 -- ── The dropped bag (PLAN §3.1) ────────────────────────────────────────────
@@ -881,7 +887,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- rather than banked into the next life (HazardService.takeHit).
 	local blastHit = HazardService.takeHit(player)
 
-	local showering = inShower(player, root.Position)
+	local showering, healing = inShower(player, root.Position)
 	local sickDrain = 0
 
 	if not state.downed then
@@ -908,7 +914,11 @@ local function stepPlayer(player: Player, dt: number)
 			state.health = math.max(0, state.health - hpLoss * dt)
 		elseif not noRegen then
 			-- ...and fully at base camp (PLAN §3.5).
-			local rate = if stageId == nil then HEALTH_REGEN_PER_SEC * 6 else HEALTH_REGEN_PER_SEC
+			-- A heal pad tops you up in a couple of seconds (Tuning.HEAL_PAD_HEAL_FRAC).
+			local rate = if healing
+				then maxHealthOf(player) * Tuning.HEAL_PAD_HEAL_FRAC
+				elseif stageId == nil then HEALTH_REGEN_PER_SEC * 6
+				else HEALTH_REGEN_PER_SEC
 			state.health = math.min(maxHealthOf(player), state.health + rate * dt)
 		end
 

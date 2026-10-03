@@ -44,6 +44,7 @@ local BaseCamp = require(script.Parent.BaseCamp)
 local Hub = require(script.Parent.Hub)
 local StageFields = require(script.Parent.StageFields)
 local Shops = require(script.Parent.Shops)
+local HealPads = require(script.Parent.HealPads)
 local Plots = require(script.Parent.Plots)
 local CampSite = require(script.Parent.CampSite)
 local MergeReactor = require(script.Parent.MergeReactor)
@@ -66,6 +67,7 @@ function World.rebuild()
 	Hub.rebuild()
 	BaseCamp.rebuild(Hub.CAMP_ORIGIN)
 	Shops.rebuild()
+	HealPads.rebuild()
 	Plots.rebuild()
 	CampSite.rebuild()
 	Scenery.rebuild()
@@ -736,6 +738,15 @@ function World.verify(): (boolean, { string })
 			end
 		end
 	end
+
+	-- Base Camp's two heal pads (build/HealPads): showers on no plot that also heal.
+	local healPads = 0
+	for _, tagged in CollectionService:GetTagged(Kit.SHOWER_TAG) do
+		if tagged:IsDescendantOf(Workspace) and tagged:GetAttribute("HealPad") == true then
+			healPads += 1
+		end
+	end
+	check(healPads == 2, `expected 2 Base Camp heal pads, found {healPads}`)
 
 	-- ── Spawning ─────────────────────────────────────────────────────────
 	check(
