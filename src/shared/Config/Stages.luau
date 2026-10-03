@@ -258,23 +258,31 @@ for id, x in GROWN_X do
 end
 
 -- Centres are BUTTED, not typed: Stage 1's west edge is pinned at x = 100
--- (Hub.PLAZA.maxX) and each plate starts where the last one ends. Stages 7-12 start
--- at the Twilight exit, TWILIGHT_GAP past Stage 6's east edge -- it must equal
--- Config/Camps' 2 * TWILIGHT_CENTRE_OFFSET (Camps requires this module, so it
--- can't be read from there; Spec checks the two agree).
+-- (Hub.PLAZA.maxX) and each plate starts where the last one ends -- except after
+-- every stage in CAMP_AFTER, where a site camp's disc sits in the chain and the next
+-- stage starts CAMP_GAP further east, at that camp's exit.
+--
+-- FOUR STAGES PER ZONE, on request (2026-10-03): Toxic Twilight sits past Stage 4
+-- (was Stage 6) and Magma Hollow past Stage 8, so the chain is three runs of four.
+-- CAMP_GAP must equal Config/Camps' 2 * SITE_CENTRE_OFFSET (Camps requires this
+-- module, so it can't be read from there; Spec checks the two agree).
 local STAGE1_WEST_X = 100
-local TWILIGHT_GAP = 2 * 165
+local CAMP_GAP = 2 * 165
+Stages.CAMP_AFTER = { 4, 8 }
 local CENTER_X: { [number]: number } = {}
 do
-	local x = STAGE1_WEST_X
-	for id = 1, 6 do
-		CENTER_X[id] = x + NEAR_X[id] / 2
-		x += NEAR_X[id]
+	local gapAfter: { [number]: boolean } = {}
+	for _, id in Stages.CAMP_AFTER do
+		gapAfter[id] = true
 	end
-	x += TWILIGHT_GAP
-	for id = 7, 12 do
-		CENTER_X[id] = x + FAR_X / 2
-		x += FAR_X
+	local x = STAGE1_WEST_X
+	for id = 1, 12 do
+		local len = NEAR_X[id] or FAR_X
+		CENTER_X[id] = x + len / 2
+		x += len
+		if gapAfter[id] then
+			x += CAMP_GAP
+		end
 	end
 end
 

@@ -4401,7 +4401,7 @@ end
 --- has its own walls (build/CampSite), and one pair spanning the whole chain would
 --- cut straight across it. Every run's east end opens into a camp, except the last
 --- run's when no site camp starts there: that one opens on void, so it gets an end wall.
---- (Zone 3, COMING SOON, now starts at Stage 12's edge and closes the chain itself.)
+--- (Toxic Twilight and Magma Hollow open the first two runs' ends; Stage 12 gets the wall.)
 local function buildBoundaryWalls(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "BoundaryWalls"
