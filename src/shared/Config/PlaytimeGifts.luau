@@ -17,6 +17,8 @@
 	                     same scaling as the daily calendar, so it is never huge early or
 	                     worthless late
 	  speed              Speed points (the treadmill stat)
+	  speedLevels        whole walk-speed levels on top of `speed` (+1 = one stud/sec faster), so
+	                     a late-game player whose points buy nothing still gets a real step
 	  luckSeconds        seconds of 2x luck
 	  cashBoostSeconds   seconds of 2x cash
 	  potions            { { id = Potions id, count = n } } into the potion stash
@@ -37,6 +39,7 @@ export type Gift = {
 	minutes: number,
 	cashMinutes: number?,
 	speed: number?,
+	speedLevels: number?,
 	luckSeconds: number?,
 	cashBoostSeconds: number?,
 	potions: { Potion }?,
@@ -60,6 +63,7 @@ PlaytimeGifts.GIFTS = {
 		potions = { { id = "luck", count = 1 }, { id = "cash", count = 1 }, { id = "speed", count = 1 } },
 		crates = { { kind = "liquid", count = 1 } },
 		speed = 7_500,
+		speedLevels = 1,
 	},
 	{
 		minutes = 90,
@@ -68,6 +72,7 @@ PlaytimeGifts.GIFTS = {
 		cashBoostSeconds = 20 * 60,
 		crates = { { kind = "nuke", count = 1 } },
 		speed = 12_000,
+		speedLevels = 1,
 	},
 	{
 		minutes = 120,
@@ -77,6 +82,7 @@ PlaytimeGifts.GIFTS = {
 		potions = { { id = "luck", count = 2 }, { id = "cash", count = 2 }, { id = "strength", count = 1 } },
 		crates = { { kind = "nuke", count = 1 }, { kind = "nuke", count = 1, bump = 1 } },
 		speed = 20_000,
+		speedLevels = 2,
 		big = true,
 	},
 } :: { Gift }
