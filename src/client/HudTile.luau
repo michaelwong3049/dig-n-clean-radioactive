@@ -1,7 +1,8 @@
 --[[
-	HudTile — one right-edge HUD tile (Gear, Nukes, Warp): the "glow orb" look.
+	HudTile — one HUD tile: the right-edge column (Gear, Nukes, Warp) in "Glossy Candy", the
+	top-right corner buttons (Settings, Daily) in the dark "glow orb" look.
 
-	A small dark square with a soft glow in the tile's own colour behind a full-colour
+	The glow orb: a small dark square with a soft glow in the tile's own colour behind a full-colour
 	symbol (Artwork.IMAGE), picture only: the name caption under it was dropped on request
 	when the tiles went from a 2x2 grid to one smaller column. Index and Shop build the
 	left-column bars through the same function (spec.leftRow), and keep their names.
@@ -45,6 +46,16 @@ local ICON_SIZE = 48
 local GLOW_SIZE = 60
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
+
+-- THE RIGHT-EDGE COLUMN (Gear, Nukes, Warp), on request: "Glossy Candy" (2026-10-03), the
+-- tile's own colour solid under a hard two-band gloss (a shiny top half, a shade darker
+-- below the line), a black outline and no glow. The corner buttons (Settings, Daily,
+-- placed by spec.position) keep the dark glow-orb look.
+local CANDY_CORNER = 11
+local CANDY_EDGE_THICKNESS = 3
+local CANDY_SHINE_TOP = 0.45
+local CANDY_SHINE_LINE = 0.12
+local CANDY_SHADE_FOOT = 0.18
 
 local HOVER_SCALE = 1.07
 local PRESS_SCALE = 0.94
@@ -133,6 +144,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local canvas = UIKit.canvas(gui)
 
 	local bar = spec.leftRow ~= nil
+	local candy = not bar and spec.position == nil
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
 		size = if bar then UDim2.fromOffset(BAR_W, BAR_H) else UDim2.fromOffset(SIZE, SIZE),
@@ -143,7 +155,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		fillTransparency = FILL_TRANSPARENCY,
 		strokeColor = spec.color,
 		strokeThickness = EDGE_THICKNESS,
-		cornerRadius = UDim.new(0, if bar then BAR_CORNER else CORNER),
+		cornerRadius = UDim.new(0, if bar then BAR_CORNER elseif candy then CANDY_CORNER else CORNER),
 		zIndex = 4,
 	})
 	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -153,6 +165,24 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		edge.Color = Color3.new(0, 0, 0)
 		edge.Thickness = BAR_EDGE_THICKNESS
 		edge.Transparency = 0
+	elseif candy then
+		edge.Color = Color3.new(0, 0, 0)
+		edge.Thickness = CANDY_EDGE_THICKNESS
+		edge.Transparency = 0
+		-- The fill is white so the gradient's colours are the colours drawn. The two keys
+		-- either side of the middle make the gloss's hard line.
+		button.BackgroundColor3 = Color3.new(1, 1, 1)
+		button.BackgroundTransparency = 0
+		local white, black = Color3.new(1, 1, 1), Color3.new(0, 0, 0)
+		local gloss = Instance.new("UIGradient")
+		gloss.Rotation = 90
+		gloss.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, spec.color:Lerp(white, CANDY_SHINE_TOP)),
+			ColorSequenceKeypoint.new(0.49, spec.color:Lerp(white, CANDY_SHINE_LINE)),
+			ColorSequenceKeypoint.new(0.5, spec.color),
+			ColorSequenceKeypoint.new(1, spec.color:Lerp(black, CANDY_SHADE_FOOT)),
+		})
+		gloss.Parent = button
 	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
@@ -272,12 +302,14 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 			place()
 		end
 
-		-- The glow and the picture, both on the tile's centre.
-		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
-		glow.AnchorPoint = Vector2.new(0.5, 0.5)
-		glow.Position = UDim2.fromScale(0.5, 0.5)
-		glow.ImageTransparency = GLOW_TRANSPARENCY
-		glow.ZIndex = 5
+		-- The glow (corner buttons only) and the picture, both on the tile's centre.
+		if not candy then
+			glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
+			glow.AnchorPoint = Vector2.new(0.5, 0.5)
+			glow.Position = UDim2.fromScale(0.5, 0.5)
+			glow.ImageTransparency = GLOW_TRANSPARENCY
+			glow.ZIndex = 5
+		end
 
 		icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -290,9 +322,9 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		local target = if pressed then PRESS_SCALE elseif hovered then HOVER_SCALE else 1
 		TweenService:Create(scale, TWEEN, { Scale = target }):Play()
 		TweenService:Create(edge, TWEEN, {
-			Transparency = if bar then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
+			Transparency = if bar or candy then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
 		}):Play()
-		-- The bright bars have no glow.
+		-- The bright bars and candy tiles have no glow.
 		if glow then
 			TweenService:Create(glow, TWEEN, {
 				ImageTransparency = if hovered then GLOW_TRANSPARENCY_HOVER else GLOW_TRANSPARENCY,
