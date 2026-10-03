@@ -1631,11 +1631,18 @@ function Detector.start()
 		state.hasSignal = payload.hasSignal == true
 		state.radius = payload.radius or 0
 		state.contacts = payload.contacts or {}
-		-- Snapshot where the player is now, so FieldController can turn each contact
-		-- offset back into a world point and match it to an aura well (contactRarityAt).
-		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-		if root and root:IsA("BasePart") then
-			state.contactOrigin = root.Position
+		-- The point the offsets were measured from, so FieldController can turn each
+		-- contact back into a world point and match it to an aura well (contactRarityAt).
+		-- The server sends its own snapshot (DigService, `origin`): our root is ahead of
+		-- it by the replication lag, which at run speed drifted past the match tolerance
+		-- and left a fast player's spots dark. Our root is only the fallback.
+		if typeof(payload.origin) == "Vector3" then
+			state.contactOrigin = payload.origin
+		else
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			if root and root:IsA("BasePart") then
+				state.contactOrigin = root.Position
+			end
 		end
 		state.rarityHint = payload.rarityHint
 		state.inRange = payload.inRange == true
