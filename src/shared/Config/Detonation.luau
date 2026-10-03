@@ -34,8 +34,8 @@ local Detonation = {}
 -- average fuse runs about three seconds shorter; then roughly halved to 9 so pulls are
 -- a race -- the faster you mash, the more you land; then cut to 6 because that race was
 -- still too easy to win; then eased back to 9 (with MIN_WINDOW 3 and REF_CPS 5) because 6
--- overshot -- about 2-3 seconds more on the average fuse.
-Detonation.BASE_WINDOW = 9
+-- overshot -- about 2-3 seconds more on the average fuse; then 10, a tad easier still.
+Detonation.BASE_WINDOW = 10
 
 -- THE RANGE A FUSE CAN HAVE. Whatever rarity, weight, temper and the fairness floor
 -- (below) multiply and lift out to is clamped into this, LAST, so the fastest nuke in
@@ -63,19 +63,19 @@ Detonation.TROLL_MAX = 2.8
 -- the band. Spec pins the order, that the last band ends where the MAX_WINDOW clamp
 -- above expects and that the chances total 100.
 --
--- Against BASE_WINDOW = 9: the first band is the three-second hair-triggers and the last
--- is the slow burn, about thirteen seconds before the floor lifts anything.
+-- Against BASE_WINDOW = 10: the first band is the three-to-four-second hair-triggers and
+-- the last is the slow burn, about fifteen seconds before the floor lifts anything.
 Detonation.TEMPER_MIN = 0.25
 Detonation.TEMPER_BANDS = {
-	{ upTo = 0.4, chance = 16 }, -- hair-trigger: 3-3.5s
-	{ upTo = 0.85, chance = 24 }, -- twitchy: 3.5-7.5s
-	{ upTo = 1.15, chance = 34 }, -- steady: 7.5-10s
-	{ upTo = 1.5, chance = 26 }, -- slow burn: 10-13.5s
+	{ upTo = 0.4, chance = 16 }, -- hair-trigger: 3-4s
+	{ upTo = 0.85, chance = 24 }, -- twitchy: 4-8.5s
+	{ upTo = 1.15, chance = 34 }, -- steady: 8.5-11.5s
+	{ upTo = 1.5, chance = 26 }, -- slow burn: 11.5-15s
 }
 
 -- THE TUTORIAL'S FIRST NUKE IS NEVER A QUICK ONE. Its spot re-rolls its uid until the
 -- fuse is no troll and its temper is at least this (the "steady" band and up), so a
--- brand-new player's first pull has ~7.5s+ to read the bar and let go
+-- brand-new player's first pull has ~8.5s+ to read the bar and let go
 -- (Shared/Detonation.isCalmFuse).
 Detonation.TUTORIAL_MIN_TEMPER = 0.85
 
@@ -85,6 +85,17 @@ Detonation.TUTORIAL_MIN_TEMPER = 0.85
 -- pull of a shallow Common takes. The fuse still burns and the bar still warms, so the
 -- lesson ("let go before it explodes") is there to read; it just never catches anyone.
 Detonation.TUTORIAL_WINDOW = 60
+
+-- THE FIRST STAGES ARE BEGINNER GROUND. A nuke dug in a listed stage has its finished
+-- window (after rarity, weight, temper, the fairness floor and the clamp) multiplied by
+-- this, and never rolls a TROLL fuse -- a 1.5s gag is a wall to someone on their first
+-- magnet. Stages not listed get 1. Spec pins the multipliers >= 1 and non-increasing,
+-- so the ramp only ever eases off towards Stage 4.
+Detonation.BEGINNER_WINDOW = {
+	[1] = 1.6,
+	[2] = 1.45,
+	[3] = 1.3,
+}
 
 -- RARER NUKES ARE LESS STABLE. Multiplies BASE_WINDOW. Monotonic non-increasing down
 -- Rarity.ORDER (Spec pins it): the find worth the most is the one with the shortest
