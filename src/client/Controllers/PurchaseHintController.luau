@@ -15,6 +15,11 @@
 	up, since that banner sits at the same height. Rows already up are kept while hidden
 	and come back with the bar; anything that became affordable meanwhile pops then.
 
+	THE NEXT BASE FLOOR GETS A LINE TOO (on request): "You can afford Floor 2" once
+	your cash covers the next floor your base is missing. Your plot is read off
+	RespawnLocation (its PlotSpawn carries PlotIndex) and the floors you own off that
+	plot's `Floors` attribute (build/Plots.setFloors).
+
 	READS CashState (the balance) and GearList (what you own). GearList only answers a
 	GearAction "list", so this asks once on start and again whenever cash goes DOWN —
 	a spend is the only way ownership changes. Pure presentation; nothing is bought
@@ -29,6 +34,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Gear = require(Shared.Config.Gear)
+local Floors = require(Shared.Config.Floors)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
@@ -64,6 +70,10 @@ local TRACK_COLOR: { [string]: Color3 } = {
 	Cleaner = Color3.fromHex("4DE3E0"), -- cyan
 	Aura = Color3.fromHex("B77BFF"), -- purple
 }
+-- The base-floor line's key, beside the gear tracks, and its word's colour (the
+-- floor sign's own price green, build/Plots FLOOR_SIGN_PRICE_COLOR).
+local FLOOR_KEY = "Floor"
+local FLOOR_COLOR = Color3.fromHex("8FE36B")
 
 local cash: number? = nil
 -- Best tier owned per track. Every stat climbs with the tier (see Config/Gear), so
@@ -78,17 +88,39 @@ local tutorialBanner: GuiObject? = nil
 
 -- Tracks already queued or shown while something on them is affordable.
 local announced: { [string]: boolean } = {}
-type Rung = { track: string, price: number }
+type Rung = { track: string, price: number, floor: number? }
 local queue: { Rung } = {} -- tracks waiting to pop
 local orderSeq = 0
 type Row = { rung: Rung, frame: Frame }
 local rows: { [string]: Row } = {} -- track -> the row on screen
 local rowCount = 0
 
+--- The floor your base would buy next and its price, or nil (no plot, or all built).
+local function nextFloor(): (number?, number?)
+	local spawn = Players.LocalPlayer.RespawnLocation
+	local index = spawn and spawn:GetAttribute("PlotIndex")
+	local row = workspace:FindFirstChild("Plots")
+	local plot = type(index) == "number" and row and row:FindFirstChild(`Plot{index}`)
+	if not plot then
+		return nil, nil
+	end
+	local owned = Floors.clamp(plot:GetAttribute("Floors"))
+	local price = Floors.nextPrice(owned)
+	if price == nil then
+		return nil, nil
+	end
+	return owned + 1, price
+end
+
 --- Cheapest price of any tier above the best owned on this track, if within cash.
+--- For FLOOR_KEY: the next floor's price, if within cash.
 local function cheapestAffordable(track: string): number?
 	if cash == nil or bestOwned == nil then
 		return nil
+	end
+	if track == FLOOR_KEY then
+		local _, price = nextFloor()
+		return if price ~= nil and price <= cash then price else nil
 	end
 	local best: number? = nil
 	for tier = (bestOwned[track] or 1) + 1, Gear.maxTier(track) do
@@ -107,15 +139,20 @@ local function scan()
 		return
 	end
 	local fresh: { Rung } = {}
-	for _, track in Gear.TRACKS do
+	local tracks = table.clone(Gear.TRACKS)
+	table.insert(tracks, FLOOR_KEY)
+	for _, track in tracks do
 		local price = cheapestAffordable(track)
+		-- Each floor is announced once on its own, so Floor 3 still pops after Floor 2.
+		local floor = if track == FLOOR_KEY then (nextFloor()) else nil
+		local key = if floor ~= nil then `{FLOOR_KEY}{floor}` else track
 		if price ~= nil then
-			if not announced[track] then
-				announced[track] = true
-				table.insert(fresh, { track = track, price = price })
+			if not announced[key] then
+				announced[key] = true
+				table.insert(fresh, { track = track, price = price, floor = floor })
 			end
 		else
-			announced[track] = nil
+			announced[key] = nil
 		end
 	end
 	table.sort(fresh, function(a, b)
@@ -127,6 +164,9 @@ local function scan()
 end
 
 local function stillTrue(rung: Rung): boolean
+	if rung.floor ~= nil and (nextFloor()) ~= rung.floor then
+		return false -- that floor was bought; the next one pops on its own
+	end
 	return cheapestAffordable(rung.track) ~= nil
 end
 
@@ -201,9 +241,13 @@ local function popRow(list: Frame, key: string, rung: Rung, order: number)
 	label.TextSize = 22
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.RichText = true
-	local word = TRACK_LABEL[rung.track] or rung.track
-	local color = TRACK_COLOR[rung.track] or Color3.new(1, 1, 1)
-	label.Text = `You can afford a new <font color="#{color:ToHex()}">{word}</font>`
+	if rung.floor ~= nil then
+		label.Text = `You can afford <font color="#{FLOOR_COLOR:ToHex()}">Floor {rung.floor}</font> for your base`
+	else
+		local word = TRACK_LABEL[rung.track] or rung.track
+		local color = TRACK_COLOR[rung.track] or Color3.new(1, 1, 1)
+		label.Text = `You can afford a new <font color="#{color:ToHex()}">{word}</font>`
+	end
 	label.Parent = row
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.new(0, 0, 0)
