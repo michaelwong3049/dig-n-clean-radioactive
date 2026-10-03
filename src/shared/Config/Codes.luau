@@ -11,6 +11,8 @@
 	  luckSeconds        seconds of 2x luck
 	  cashBoostSeconds   seconds of 2x cash
 	  crates             list of Config/Crates ids, e.g. { "nuke1", "liquid2" }
+	  potions            list of { id = Config/Potions id, count = n }, into the potion stash,
+	                     e.g. { { id = "luck", count = 1 } }
 	  expires            os.time() after which the code stops working (UTC)
 	  disabled           true to switch a code off without deleting it
 
@@ -28,6 +30,7 @@ export type Code = {
 	luckSeconds: number?,
 	cashBoostSeconds: number?,
 	crates: { string }?,
+	potions: { { id: string, count: number } }?,
 	expires: number?,
 	disabled: boolean?,
 }
@@ -37,7 +40,26 @@ local Codes = {}
 Codes.MAX_LENGTH = 32
 
 Codes.LIST = {
-	{ code = "WELCOME", cash = 10_000, luckSeconds = 10 * 60 },
+	-- One of each potion.
+	{
+		code = "POTIONS!",
+		potions = {
+			{ id = "luck", count = 1 },
+			{ id = "cash", count = 1 },
+			{ id = "speed", count = 1 },
+			{ id = "strength", count = 1 },
+			{ id = "clean", count = 1 },
+		},
+	},
+	-- Release code: a Luck, a Strength and a Cash potion.
+	{
+		code = "RELEASE!",
+		potions = {
+			{ id = "luck", count = 1 },
+			{ id = "strength", count = 1 },
+			{ id = "cash", count = 1 },
+		},
+	},
 } :: { Code }
 
 local byCode: { [string]: Code } = {}
@@ -77,6 +99,15 @@ function Codes.describe(entry: Code): string
 	end
 	if entry.cashBoostSeconds then
 		table.insert(parts, `{math.floor(entry.cashBoostSeconds / 60)} min of 2x cash`)
+	end
+	if entry.potions then
+		local total = 0
+		for _, potion in entry.potions do
+			total += potion.count
+		end
+		if total > 0 then
+			table.insert(parts, `{total} potion{if total == 1 then "" else "s"}`)
+		end
 	end
 	if entry.crates and #entry.crates > 0 then
 		table.insert(parts, `{#entry.crates} crate{if #entry.crates == 1 then "" else "s"}`)
