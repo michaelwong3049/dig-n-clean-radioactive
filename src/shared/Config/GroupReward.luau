@@ -20,7 +20,11 @@ GroupReward.GROUP_ID = 924430099
 
 GroupReward.CASH = 25_000
 GroupReward.SPEED = 25_000
-GroupReward.LUCK_SECONDS = 5 * 60
+GroupReward.LUCK_SECONDS = 15 * 60
+-- PERMANENT: once claimed, every sale and every stand's income pays this much more
+-- for good (StatResolver folds it into sellMultiplier + yieldMultiplier, like the
+-- 2x Cash pass). Keyed off `data.groupRewardClaimed`, so it never expires.
+GroupReward.CASH_MULT = 1.1
 
 -- On the camp side of the Stage 1 entrance, by the brown shoulder wall that runs out
 -- from the entrance's left corner (its camp-facing face is X 96, from Z -88 outward).
@@ -40,7 +44,17 @@ GroupReward.CLAIMED_ATTR = "GroupRewardClaimed"
 
 --- The line on the sign and the toast: what the chest pays.
 function GroupReward.rewardText(): string
-	return `$25K Cash  •  25K Speed  •  2x Luck {math.floor(GroupReward.LUCK_SECONDS / 60)} min`
+	return `$25K Cash  •  25K Speed  •  2x Luck {math.floor(GroupReward.LUCK_SECONDS / 60)} min  •  +{GroupReward.cashPercent()}% Cash forever`
+end
+
+--- The permanent cash bonus as a whole percent (10 for CASH_MULT 1.1).
+function GroupReward.cashPercent(): number
+	return math.floor((GroupReward.CASH_MULT - 1) * 100 + 0.5)
+end
+
+--- The permanent cash multiplier for a profile: CASH_MULT once claimed, else 1.
+function GroupReward.cashMultiplier(claimed: boolean?): number
+	return if claimed then GroupReward.CASH_MULT else 1
 end
 
 --- Whether a point is standing in the ring (flat distance; a few studs of height either

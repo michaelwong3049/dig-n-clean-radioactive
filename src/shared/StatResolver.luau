@@ -34,6 +34,7 @@ local Treadmill = require(Config.Treadmill)
 local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
+local GroupReward = require(Config.GroupReward)
 local IndexProgress = require(script.Parent.IndexProgress)
 local Mastery = require(script.Parent.Mastery)
 
@@ -72,6 +73,9 @@ export type Profile = {
 	-- Permanent Robux passes owned (Config/GamePasses), key -> true. Optional for the
 	-- same reason; absent means none.
 	passes: { [string]: boolean }?,
+	-- The group chest's one-time claim (Config/GroupReward). Optional for the same
+	-- reason; absent means not claimed, no permanent cash bonus.
+	groupRewardClaimed: boolean?,
 }
 
 export type Stats = {
@@ -194,6 +198,8 @@ function StatResolver.get(profile: Profile): Stats
 	-- The 2x Cash pass and a pack's timed 2x cash stack (x4), like luck's sources do.
 	local passCash = (if GamePasses.owns(profile, "cash") then GamePasses.CASH else 1)
 		* CashBoost.multiplier((profile.cashBoostLeft or 0) > 0)
+		-- The group chest's permanent +10% (Config/GroupReward), on the same two payouts.
+		* GroupReward.cashMultiplier(profile.groupRewardClaimed)
 	local liquidId, liquid = liquidFor(profile)
 	-- A completed stage's index pays in cash (Tuning.INDEX_COMPLETE_CASH), on every
 	-- sale and every stand's income alike -- both multipliers below take it.

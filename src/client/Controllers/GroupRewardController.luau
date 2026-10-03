@@ -5,7 +5,7 @@
 
 	STEP IN THE RING, SEE THE CARD. Standing inside the gold ring round the chest
 	(GroupReward.inRing, checked a few times a second) opens the rewards card: the
-	three gifts and a CLAIM button. Walking out closes it. Closing it with X while still
+	four gifts (cash, speed, 2x luck, permanent +10% cash) and a CLAIM button. Walking out closes it. Closing it with X while still
 	inside keeps it shut until you step out and back in.
 
 	The server answers a claim on Net GroupReward:
@@ -54,7 +54,7 @@ local PAD = 20
 local TILE_W = 150
 local TILE_H = 150
 local TILE_GAP = 12
-local PANEL_W = PAD * 2 + TILE_W * 3 + TILE_GAP * 2
+local PANEL_W = PAD * 2 + TILE_W * 4 + TILE_GAP * 3
 local PANEL_H = PAD + 86 + TILE_H + 18 + 54 + PAD
 local CHECK_EVERY = 0.15
 local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -275,6 +275,7 @@ local function build()
 	local clover = CloverArt.build(luckTile, 76, 13)
 	clover.AnchorPoint = Vector2.new(0.5, 0)
 	clover.Position = UDim2.new(0.5, 0, 0, 12)
+	icon(rewardTile(panel, 4, `+{GroupReward.cashPercent()}% Cash`, "Forever", PANEL.gold), Artwork.IMAGE.cashBundle)
 
 	local button = Instance.new("TextButton")
 	button.Name = "Claim"
