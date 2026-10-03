@@ -1,6 +1,6 @@
 --[[
-	PlaytimeGiftController — the Free Gifts tile (left edge, right beside Masteries: the
-	clock, with "Free Gifts" under it), the 12-gift
+	PlaytimeGiftController — the Free Gifts tile (left edge, stacked right above Masteries:
+	the clock, with "Free Gifts" under it), the 12-gift
 	panel it opens, and the CLAIM buttons. Reads PlaytimeGifts (Services/
 	PlaytimeGiftService, Config/PlaytimeGifts).
 
@@ -31,10 +31,11 @@ local ShinyCard = require(script.Parent.Parent.ShinyCard)
 
 local PlaytimeGiftController = {}
 
--- The left-edge row Masteries sits on (MasteriesController BAR_ROW), and how far right of
--- it this tile stands: Masteries' own width (HudTile BARE_W, 100) plus a small gap.
+-- The left-edge row Masteries sits on (MasteriesController BAR_ROW), and how far above it
+-- this tile stands: Masteries' own height (HudTile BARE_ICON 78 + BARE_CAPTION_GAP -11 +
+-- its caption 17 + 4 = 88) plus a small gap.
 local TILE_ROW = 3
-local TILE_SHIFT = 108
+local TILE_LIFT = 96
 local TILE_COLOR = Color3.fromRGB(255, 150, 40)
 local TILE_LIGHT = Color3.fromRGB(255, 214, 150)
 local TILE_CAPTION_SIZE = 17
@@ -660,8 +661,8 @@ function PlaytimeGiftController.start()
 		captionSize = TILE_CAPTION_SIZE,
 		bare = true,
 	})
-	-- Right beside Masteries, on the same row.
-	button.Position += UDim2.fromOffset(TILE_SHIFT, 0)
+	-- Stacked right above Masteries, same left edge.
+	button.Position -= UDim2.fromOffset(0, TILE_LIFT)
 	badge, badgeMark = HudTile.badge(button, PANEL.close, PANEL.ink)
 	-- On the clock's shoulder, not the (invisible) button's far corner.
 	badge.AnchorPoint = Vector2.new(0, 0)
