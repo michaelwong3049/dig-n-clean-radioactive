@@ -90,6 +90,9 @@ export type Spec = {
 	-- Optional, with leftRow: no box at all, on request — just the picture, big, with the
 	-- caption centred under it (Masteries' medal).
 	bare: boolean?,
+	-- Optional, with bare: extra design px up from the row's spot, to stack one bare tile
+	-- over another on the same row (Free Gifts over Masteries).
+	lift: number?,
 }
 
 -- THE LEFT-COLUMN BARS (Index, Shop, Masteries), on request: a rounded bar in the button's own
@@ -114,10 +117,10 @@ local BAR_TEXT_LEFT = 54
 local BAR_TEXT_SIZE = 28
 local BAR_TEXT_STROKE = 3
 local BAR_TEXT_DROP = Vector2.new(2, 3)
--- The space between the two bars, and how far the pair sits ABOVE the left edge's
--- middle, both on request.
+-- The space between the two bars, on request. The pair is centred on the right-edge
+-- tile column's middle (Dock.sideColumnTop + half the grid), so both sides of the screen
+-- share one centre line, on request -- re-run on resize, as the column is.
 local BAR_GAP = 18
-local BAR_RAISE = 20
 -- A bare row (no box): the picture, the caption under it, and the button's whole size.
 local BARE_ICON = 78
 local BARE_GLOW = 112
@@ -190,17 +193,26 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local glow, icon
 	if bar then
 		local row = spec.leftRow :: number
-		-- Rows 1 and 2 are centred as a pair BAR_RAISE over the left edge's middle, row 1
-		-- under; row 3 (Masteries) stacks on top of them without moving the pair.
-		local up = (row - 1.5) * (BAR_H + BAR_GAP) + BAR_RAISE
+		-- Rows 1 and 2 are centred as a pair on the right column's middle, row 1 under;
+		-- row 3 (Masteries) stacks on top of them without moving the pair. `raise` is
+		-- how far that middle sits above the screen's.
+		local function raise(): number
+			local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
+			return -(Dock.sideColumnTop(height) + Dock.SIDE_GRID_HEIGHT / 2)
+		end
 		if spec.bare then
 			-- Its bottom edge BAR_GAP + BARE_LIFT over the top of the row below, its left edge on the
 			-- bars' left edge (on request: further left than centring over the bar).
 			local captionSize = spec.captionSize or BAR_TEXT_SIZE
 			local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
-			local belowTop = (row - 2.5) * (BAR_H + BAR_GAP) + BAR_RAISE + BAR_H / 2
 			button.Size = UDim2.fromOffset(BARE_W, height)
-			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BARE_W / 2, 0.5, -(belowTop + BAR_GAP + BARE_LIFT + height / 2))
+			local function place()
+				local belowTop = (row - 2.5) * (BAR_H + BAR_GAP) + raise() + BAR_H / 2
+				local up = belowTop + BAR_GAP + BARE_LIFT + height / 2 + (spec.lift or 0)
+				button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BARE_W / 2, 0.5, -up)
+			end
+			canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+			place()
 			button.BackgroundTransparency = 1
 			edge.Enabled = false
 
@@ -228,7 +240,12 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 				zIndex = 8,
 			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
 		else
-			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
+			local function place()
+				local up = (row - 1.5) * (BAR_H + BAR_GAP) + raise()
+				button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
+			end
+			canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+			place()
 			-- The bar's own colour, solid, under a top-lit gloss. The fill is white so the
 			-- gradient's colours are the colours drawn.
 			button.BackgroundColor3 = Color3.new(1, 1, 1)

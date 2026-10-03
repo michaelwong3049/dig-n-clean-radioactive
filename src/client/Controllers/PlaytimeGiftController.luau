@@ -660,9 +660,9 @@ function PlaytimeGiftController.start()
 		leftRow = TILE_ROW,
 		captionSize = TILE_CAPTION_SIZE,
 		bare = true,
+		-- Stacked right above Masteries, same left edge.
+		lift = TILE_LIFT,
 	})
-	-- Stacked right above Masteries, same left edge.
-	button.Position -= UDim2.fromOffset(0, TILE_LIFT)
 	badge, badgeMark = HudTile.badge(button, PANEL.close, PANEL.ink)
 	-- On the clock's shoulder, not the (invisible) button's far corner.
 	badge.AnchorPoint = Vector2.new(0, 0)
