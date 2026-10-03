@@ -1,6 +1,6 @@
 --[[
 	PlaytimeGiftController — the Free Gifts tile (left edge, right beside Masteries: the
-	clock, "Free Gifts" under it and the countdown to the next gift over it), the 12-gift
+	clock, with "Free Gifts" under it), the 12-gift
 	panel it opens, and the CLAIM buttons. Reads PlaytimeGifts (Services/
 	PlaytimeGiftService, Config/PlaytimeGifts).
 
@@ -37,7 +37,6 @@ local TILE_SHIFT = 108
 local TILE_COLOR = Color3.fromRGB(255, 150, 40)
 local TILE_LIGHT = Color3.fromRGB(255, 214, 150)
 local TILE_CAPTION_SIZE = 17
-local TIMER_GREEN = Color3.fromRGB(80, 255, 110)
 
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
@@ -96,7 +95,6 @@ local panelScale: UIScale? = nil
 local claimAllButton: TextButton? = nil
 local badge: Frame? = nil
 local badgeMark: TextLabel? = nil
-local timerLabel: TextLabel? = nil
 local remote: any = nil
 local state: State? = nil
 
@@ -333,37 +331,6 @@ local function paintGifts()
 	end
 end
 
---- The tile's timer: the countdown to the next gift in green, CLAIM! (gold) while any is
---- waiting, and nothing once every gift is claimed.
-local function paintTimer(s: State, now: number, ready: number)
-	local label = timerLabel
-	if label == nil then
-		return
-	end
-	if ready > 0 then
-		label.Text = "CLAIM!"
-		label.TextColor3 = PANEL.gold
-		label.Visible = true
-		return
-	end
-	local nextIn: number? = nil
-	for index, gift in s.gifts do
-		if not s.claimed[index] then
-			local left = gift.minutes * 60 - now
-			if nextIn == nil or left < nextIn then
-				nextIn = left
-			end
-		end
-	end
-	if nextIn == nil then
-		label.Visible = false
-		return
-	end
-	label.Text = clock(nextIn)
-	label.TextColor3 = TIMER_GREEN
-	label.Visible = true
-end
-
 --- Repaint the countdowns and states. Cheap; runs four times a second.
 local function paintTimes()
 	local s = state
@@ -391,7 +358,6 @@ local function paintTimes()
 		end
 	end
 	local count = readyCount()
-	paintTimer(s, now, count)
 	if badge and badgeMark then
 		badge.Visible = count > 0
 		badgeMark.Text = tostring(count)
@@ -599,19 +565,6 @@ function PlaytimeGiftController.start()
 	-- On the clock's shoulder, not the (invisible) button's far corner.
 	badge.AnchorPoint = Vector2.new(0, 0)
 	badge.Position = UDim2.new(0.5, 22, 0, -2)
-	timerLabel = UIKit.hudNumber(button, {
-		name = "Timer",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 0, 2),
-		size = UDim2.fromOffset(100, 24),
-		text = "",
-		font = Enum.Font.GothamBlack,
-		textSize = 22,
-		color = TIMER_GREEN,
-		xAlign = Enum.TextXAlignment.Center,
-		visible = false,
-		zIndex = 8,
-	}, 3, Vector2.new(2, 3))
 	tileGui.Parent = playerGui
 	buildPanel().Parent = playerGui
 	HudTile.registerPanel("PlaytimeGifts", panelFrame :: Frame)
