@@ -118,8 +118,8 @@ Sfx.DEFS = DEFS
 
 -- ── Groups ──────────────────────────────────────────────────────────
 
--- Music starts silent: it is opt-in (Config/Prefs musicVol defaults to 0).
-local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1, geiger = 1, music = 0 }
+-- Music starts at half, matching Config/Prefs musicLevel's default.
+local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1, geiger = 1, music = 0.5 }
 
 local folder: Folder? = nil
 local master: SoundGroup? = nil
