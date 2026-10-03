@@ -27,6 +27,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local Sfx = require(script.Parent.Parent.Sfx)
+local ShinyCard = require(script.Parent.Parent.ShinyCard)
 
 local PlaytimeGiftController = {}
 
@@ -90,6 +91,8 @@ type State = {
 }
 
 local cards: { Card } = {}
+-- The stop functions of the ShinyCard effect on the big gift, by card index.
+local shiny: { [number]: () -> () } = {}
 local panelFrame: Frame? = nil
 local panelScale: UIScale? = nil
 local claimAllButton: TextButton? = nil
@@ -343,10 +346,23 @@ local function paintTimes()
 		if gift then
 			local done = s.claimed[index] == true
 			local ready = not done and now >= gift.minutes * 60
-			card.button.BackgroundColor3 = if done
-				then PANEL.cardDone
-				elseif gift.big then PANEL.big
-				else PANEL.card
+			-- THE BIG LAST GIFT SHINES while it is unclaimed and the panel is up (ShinyCard):
+			-- rainbow border, rays, sweep. Claimed or hidden, the effect goes and the card
+			-- gets its own colours back. The fill is the effect's while it runs.
+			local panelUp = panelFrame ~= nil and panelFrame.Visible
+			local shine = gift.big == true and not done and panelUp
+			if shine and shiny[index] == nil then
+				shiny[index] = ShinyCard.apply(card.button, { icon = card.icon, timer = card.pill, badgeText = "BEST!" })
+			elseif not shine and shiny[index] ~= nil then
+				shiny[index]()
+				shiny[index] = nil
+			end
+			if shiny[index] == nil then
+				card.button.BackgroundColor3 = if done
+					then PANEL.cardDone
+					elseif gift.big then PANEL.big
+					else PANEL.card
+			end
 			card.edge.Color = if ready then PANEL.gold else PANEL.ink
 			card.edge.Thickness = if ready then 5 else 3
 			card.pill.BackgroundColor3 = if done then PANEL.pillDone elseif ready then PANEL.claim else PANEL.pill
