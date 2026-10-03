@@ -11,12 +11,17 @@
 	when it does, the saved mirror from last time stands, so a hiccup never strips a
 	pass someone paid for. A successful "no" does clear it -- that is a refund, or a
 	`/pass` test grant wearing off.
+
+	COMPED ROLES. A player in GamePasses.COMP_ROLES in the game's group (or its owner)
+	owns every pass, checked on join only -- a role change takes a rejoin.
 ]]
 
+local GroupService = game:GetService("GroupService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GamePasses = require(ReplicatedStorage.Shared.Config.GamePasses)
+local GroupReward = require(ReplicatedStorage.Shared.Config.GroupReward)
 
 local DataService = require(script.Parent.DataService)
 local SfxService = require(script.Parent.SfxService)
@@ -30,10 +35,32 @@ function GamePassService.set(player: Player, data: any, key: string, owned: bool
 	player:SetAttribute(GamePasses.attr(key), owned)
 end
 
+-- In a comped group role (GamePasses.COMP_ROLES, or the group's owner)? Nil when the
+-- web call fails, so a hiccup falls through to the normal per-pass check.
+local function comped(player: Player): boolean?
+	local ok, groups = pcall(GroupService.GetGroupsAsync, GroupService, player.UserId)
+	if not ok or type(groups) ~= "table" then
+		warn(`[pass] group role check for {player.Name} failed: {groups}`)
+		return nil
+	end
+	for _, g in groups do
+		if g.Id == GroupReward.GROUP_ID then
+			return GamePasses.COMP_ROLES[g.Role] == true or (g.Rank or 0) >= GamePasses.COMP_MIN_RANK
+		end
+	end
+	return false
+end
+
 local function check(player: Player, data: any)
+	local comp = comped(player) == true
+	if comp then
+		print(`[pass] {player.Name} comped every pass (group role)`)
+	end
 	for _, pass in GamePasses.PASSES do
 		local owned = GamePasses.owns(data, pass.key)
-		if pass.id ~= 0 then
+		if comp then
+			owned = true
+		elseif pass.id ~= 0 then
 			local ok, result = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, pass.id)
 			if ok then
 				owned = result == true
