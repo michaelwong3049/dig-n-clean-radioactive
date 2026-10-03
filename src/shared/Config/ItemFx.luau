@@ -245,6 +245,38 @@ ItemFx.PRISTINE = {
 	sparkle = { color = Color3.fromHex("BFF6FF"), rate = 2.5 },
 }
 
+-- FUSED: caught in a blast and baked. Every painted part is bleached most of the way
+-- to a warm bone white, keeping a trace of its own colour so the nuke still reads as
+-- itself; glowing (Neon) and see-through parts keep theirs. A thin pale wisp still
+-- comes off it. `whiten` is how far toward `color` each part goes.
+ItemFx.FUSED = {
+	color = Color3.fromHex("F3EFE6"),
+	whiten = 0.7,
+	reflectance = 0.05,
+	smoke = { color = Color3.fromHex("E8E4DA"), rate = 1.2 },
+}
+
+-- IRRADIATED: hotter than it should be (twice the emission, Rarity.MODIFIERS). The
+-- shell takes a faint green cast and a green glow breathes over the whole model --
+-- a Highlight fill between `fillMin` and `fillMax` transparency and a pale green rim
+-- between `rimMin` and `rimMax`, one breath every `period` seconds -- with a green
+-- light and motes rising off it. Anything fainter vanishes on a green nuke over
+-- green grass. The green is the arsenal's RAD_GREEN.
+ItemFx.IRRADIATED = {
+	color = RAD_GREEN,
+	tint = 0.12,
+	glow = {
+		fillMin = 0.68,
+		fillMax = 0.42,
+		rim = Color3.fromHex("B6FF7A"),
+		rimMin = 0.45,
+		rimMax = 0.1,
+		period = 1.8,
+	},
+	light = { brightness = 1.4, range = 1.0 },
+	drift = { color = SOFT_GREEN, rate = 4 },
+}
+
 ItemFx.DEFS = {
 	-- Atomic Bomb (Mythic). The flavour says "still glowing, still humming", so this
 	-- one leaks the light. The casing seams and nose ring breathe green, the arming

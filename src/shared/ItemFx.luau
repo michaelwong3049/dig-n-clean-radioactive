@@ -33,6 +33,17 @@ ItemFx.ATTRIBUTE = "FxId"
 -- Set on a Pristine-rolled item: the client lays its own shine over the whole model,
 -- on top of (or instead of) any Config/ItemFx entry.
 ItemFx.PRISTINE_ATTRIBUTE = "Pristine"
+-- The same for the other two good qualities: a Fused nuke is bleached toward bone
+-- white, an Irradiated one leaks a breathing green glow (Config/ItemFx).
+ItemFx.FUSED_ATTRIBUTE = "Fused"
+ItemFx.IRRADIATED_ATTRIBUTE = "Irradiated"
+
+-- The qualities with a look of their own, and the attribute each one sets.
+local QUALITY_ATTRIBUTES: { [string]: string } = {
+	Pristine = ItemFx.PRISTINE_ATTRIBUTE,
+	Fused = ItemFx.FUSED_ATTRIBUTE,
+	Irradiated = ItemFx.IRRADIATED_ATTRIBUTE,
+}
 
 function ItemFx.get(itemId: string?): Config.ItemFxDef?
 	return if itemId then Config.DEFS[itemId] or Config.CRATE_DEFS[itemId] else nil
@@ -121,18 +132,18 @@ end
 
 --- Label a freshly cloned item model for the client. A no-op for any item without an
 --- entry in Config/ItemFx, so the nukes without effects are untouched -- unless the
---- dig rolled Pristine, which shines whatever the item.
+--- dig rolled Pristine, Fused or Irradiated, which show whatever the item.
 function ItemFx.tag(model: Model, itemId: string?, modifier: string?)
 	local hasDef = itemId ~= nil and Config.DEFS[itemId] ~= nil
-	local pristine = modifier == "Pristine"
-	if not hasDef and not pristine then
+	local quality = if modifier then QUALITY_ATTRIBUTES[modifier] else nil
+	if not hasDef and quality == nil then
 		return
 	end
 	if hasDef then
 		model:SetAttribute(ItemFx.ATTRIBUTE, itemId)
 	end
-	if pristine then
-		model:SetAttribute(ItemFx.PRISTINE_ATTRIBUTE, true)
+	if quality then
+		model:SetAttribute(quality, true)
 	end
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	CollectionService:AddTag(model, ItemFx.TAG)
