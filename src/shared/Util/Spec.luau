@@ -2053,8 +2053,8 @@ function Spec.run(): boolean
 
 		local ordinary = Detonation.baseWindow("Uncommon", D.WEIGHT_REF_KG)
 		check(
-			string.format("§fuse an ordinary Uncommon is centred on about six seconds: %.1fs (want 5-8)", ordinary),
-			ordinary >= 5 and ordinary <= 8
+			string.format("§fuse an ordinary Uncommon is centred on about nine seconds: %.1fs (want 7.5-10.5)", ordinary),
+			ordinary >= 7.5 and ordinary <= 10.5
 		)
 
 		-- THE TEMPER: every nuke rolls its own multiplier off its uid, and the bands that
@@ -2200,8 +2200,8 @@ function Spec.run(): boolean
 			rangeHeld
 		)
 		check(
-			string.format("§fuse the average window is about seven seconds: %.1fs (want 5.5-8.5)", mean),
-			mean >= 5.5 and mean <= 8.5
+			string.format("§fuse the average window is about nine and a half seconds: %.1fs (want 8-11)", mean),
+			mean >= 8 and mean <= 11
 		)
 		check(
 			string.format("§fuse windows vary widely, not a nudge off one number: sd %.1fs (want >= 2.5)", spread),
