@@ -687,14 +687,14 @@ function Spec.run(): boolean
 		for stageId = 1, #Stages.DEFS do
 			local rated = Stages.get(stageId).ratedAuraTier
 			if rated <= Gear.maxTier("Aura") then
-				-- Rated: never steps -- every 1% further in is at most a few % shorter.
-				-- The one allowed step is the line into a dead zone (checked below).
+				-- Rated: never steps -- every 1% further in is at most a few % shorter, and
+				-- inside a dead zone at most ~10% (a steep ramp, never a cliff).
 				local dz = Z.DEAD_ZONE[stageId]
 				local prev = Radiation.zoneSurvival(stageId, 0, rated)
 				for i = 1, 100 do
 					local now = Radiation.zoneSurvival(stageId, i / 100, rated)
-					local crossed = dz ~= nil and (i - 1) / 100 < dz.from and i / 100 >= dz.from
-					if now > prev + 1e-6 or (now < prev * 0.95 and not crossed) then
+					local inDead = dz ~= nil and i / 100 > dz.from
+					if now > prev + 1e-6 or now < prev * (if inDead then 0.9 else 0.95) then
 						smooth = false
 						detail = `stage {stageId} at {i}%`
 					end
@@ -732,15 +732,20 @@ function Spec.run(): boolean
 		for _, stageId in Stages.CAMP_AFTER do
 			local dz = Z.DEAD_ZONE[stageId]
 			local rated = Stages.get(stageId).ratedAuraTier
-			local into = dz and Radiation.zoneSurvival(stageId, dz.from, rated) or math.huge
+			local mid = Radiation.zoneSurvival(stageId, 0.6, rated)
+			local late = Radiation.zoneSurvival(stageId, 0.8, rated)
 			local edge = Radiation.zoneSurvival(stageId, 1, rated)
 			check(
-				string.format("§zone Stage %d's last 40%% is deadly for its own aura: %.0fs at 60%%, %.0fs at the far edge (want <= 30, <= 10)", stageId, into, edge),
-				dz ~= nil and dz.from <= 0.6 and into <= 30 and edge <= 10
+				string.format("§zone Stage %d's back is deadly for its own aura: %.0fs at 60%%, %.0fs at 80%%, %.0fs at the far edge (want <= 120, <= 30, <= 10)", stageId, mid, late, edge),
+				dz ~= nil and dz.from <= 0.6 and mid <= 120 and late <= 30 and edge <= 10
 			)
+			-- No cliff on the line: the dead zone picks up from the normal curve's own time.
+			local before = dz and Radiation.zoneSurvival(stageId, dz.from - 0.001, rated) or 0
+			local after = dz and Radiation.zoneSurvival(stageId, dz.from + 0.001, rated) or 0
+			check(`§zone ...and Stage {stageId}'s dead zone ramps in, no jump on its line`, dz ~= nil and after >= before * 0.98)
 			check(`§zone ...Stage {stageId}'s aura is failing there, not wearing`, dz ~= nil and readingAt(stageId, rated, 0, dz.from).failing)
 			check(`§zone ...but still holds just before it`, dz ~= nil and not readingAt(stageId, rated, 0, dz.from - 0.01).failing)
-			check(`§zone ...and the aura above it takes nothing there`, Radiation.zoneSurvival(stageId, 1, rated + 1) == math.huge)
+			check(`§zone ...and the aura above it only wears there, it does not fail`, not readingAt(stageId, rated + 1, 0, 1).failing and Radiation.zoneSurvival(stageId, 1, rated + 1) > edge * 10)
 		end
 		for stageId in Z.DEAD_ZONE do
 			check(`§zone Stage {stageId}'s dead zone ends at a camp's gate`, table.find(Stages.CAMP_AFTER, stageId) ~= nil)
@@ -755,7 +760,18 @@ function Spec.run(): boolean
 			Radiation.zoneSurvival(5, 0, 3) <= 1.5 + Z.UNDER_GRACE
 		)
 		check("§zone the under-tier grace is about 20s", Z.UNDER_GRACE >= 15 and Z.UNDER_GRACE <= 25)
-		check("§zone an aura above the stage's rating takes no aura damage", Radiation.zoneSurvival(3, 1, 5) == math.huge)
+		-- Overgeared by one or two tiers still wears, and visibly more with every step
+		-- deeper (the "walked through 6 and 7 with no change" fix). Three over is free.
+		do
+			local oneOver = { Radiation.zoneSurvival(7, 0, 8), Radiation.zoneSurvival(7, 0.5, 8), Radiation.zoneSurvival(7, 1, 8) }
+			check(
+				string.format("§zone one tier over wears and the clock falls as you walk: %.0fs -> %.0fs -> %.0fs", oneOver[1], oneOver[2], oneOver[3]),
+				oneOver[1] < math.huge and oneOver[1] > oneOver[2] and oneOver[2] > oneOver[3] and oneOver[3] > Radiation.zoneSurvival(7, 1, 7)
+			)
+			check("§zone ...two over wears slower than one over", Radiation.zoneSurvival(6, 1, 8) > Radiation.zoneSurvival(6, 1, 7))
+			check("§zone ...and overgeared wear is never failing", not readingAt(6, 8, 0, 1).failing)
+			check("§zone an aura three tiers above the stage's rating takes no aura damage", Radiation.zoneSurvival(3, 1, 6) == math.huge)
+		end
 		-- Stage 12 has its own rung since the Molten Serpent (2026-10-03), so it is no longer
 		-- rated past the ladder: the top aura is Stage 12's rated one, and the Vortex is one
 		-- under there. The rated/under checks above cover both.
