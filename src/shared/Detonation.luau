@@ -139,15 +139,25 @@ end
 --- floor"), and clamped into MIN_WINDOW..MAX_WINDOW. The clamp is last: the floor can
 --- lift a fuse up to MAX_WINDOW and no further, so the few slowest pulls can outrun
 --- their fuse at REF_CPS -- they want a better magnet or a quicker thumb.
---- Troll nukes skip all of it and take their own short window.
-function Detonation.windowFor(rarity: string, kg: number, depth: number, soil: number, uid: string): number
-	local troll = Detonation.trollWindowFor(uid)
+--- Troll nukes skip all of it and take their own short window. A beginner stage
+--- (Config/Detonation, BEGINNER_WINDOW) never rolls a troll and stretches the finished
+--- window by its multiplier; with no `stageId` the window is stage-neutral.
+function Detonation.windowFor(
+	rarity: string,
+	kg: number,
+	depth: number,
+	soil: number,
+	uid: string,
+	stageId: number?
+): number
+	local beginner = if stageId then Cfg.BEGINNER_WINDOW[stageId] or 1 else 1
+	local troll = if beginner == 1 then Detonation.trollWindowFor(uid) else nil
 	if troll then
 		return troll
 	end
 	local rolled = Detonation.baseWindow(rarity, kg) * Detonation.temperFor(uid)
 	local window = math.max(rolled, Detonation.floorFor(rarity, kg, depth, soil))
-	return math.clamp(window, Cfg.MIN_WINDOW, Cfg.MAX_WINDOW)
+	return math.clamp(window, Cfg.MIN_WINDOW, Cfg.MAX_WINDOW) * beginner
 end
 
 --- The announced drop's window (Config/Detonation, RARE_DROP_*): rolled per uid in

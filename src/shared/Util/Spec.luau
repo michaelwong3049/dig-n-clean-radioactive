@@ -2053,8 +2053,8 @@ function Spec.run(): boolean
 
 		local ordinary = Detonation.baseWindow("Uncommon", D.WEIGHT_REF_KG)
 		check(
-			string.format("§fuse an ordinary Uncommon is centred on about nine seconds: %.1fs (want 7.5-10.5)", ordinary),
-			ordinary >= 7.5 and ordinary <= 10.5
+			string.format("§fuse an ordinary Uncommon is centred on about ten seconds: %.1fs (want 8.5-11.5)", ordinary),
+			ordinary >= 8.5 and ordinary <= 11.5
 		)
 
 		-- THE TEMPER: every nuke rolls its own multiplier off its uid, and the bands that
@@ -2068,6 +2068,26 @@ function Spec.run(): boolean
 			bandTotal += band.chance
 		end
 		check("§fuse temper bands ascend from TEMPER_MIN with a positive chance each", bandsOrdered)
+
+		-- Beginner stages only ever ease the fuse, easing off towards Stage 4, and never troll.
+		local beginnerEases, lastMult, beginnerTrolls = true, math.huge, 0
+		for stageId = 1, #Stages.DEFS do
+			local mult = D.BEGINNER_WINDOW[stageId] or 1
+			if mult < 1 or mult > lastMult then
+				beginnerEases = false
+			end
+			lastMult = mult
+			if mult > 1 then
+				for sample = 1, 400 do
+					local uid = `spec:beginner:{stageId}:{sample}`
+					local window = Detonation.windowFor("Rare", D.WEIGHT_REF_KG, 10, Stages.get(stageId).soilHardness, uid, stageId)
+					if window < D.MIN_WINDOW * mult - 1e-9 then
+						beginnerTrolls += 1
+					end
+				end
+			end
+		end
+		check("§fuse beginner stages stretch the fuse, ease off towards Stage 4, and never troll", beginnerEases and beginnerTrolls == 0)
 		check(string.format("§fuse temper chances total 100 (got %d)", bandTotal), bandTotal == 100)
 		check(
 			"§fuse temper roll runs from TEMPER_MIN up to the last band's edge",
@@ -2200,8 +2220,8 @@ function Spec.run(): boolean
 			rangeHeld
 		)
 		check(
-			string.format("§fuse the average window is about nine and a half seconds: %.1fs (want 8-11)", mean),
-			mean >= 8 and mean <= 11
+			string.format("§fuse the average window is about ten seconds: %.1fs (want 8.5-11.5)", mean),
+			mean >= 8.5 and mean <= 11.5
 		)
 		check(
 			string.format("§fuse windows vary widely, not a nudge off one number: sd %.1fs (want >= 2.5)", spread),

@@ -1484,7 +1484,7 @@ local function stepPlayer(player: Player, dt: number)
 				signal.uid,
 				RareDrop.PULL_MULT
 			)
-			else Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid)
+			else Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid, signal.stageId)
 		local claim = fuseClaims[signal.uid]
 		if claim == nil or (fuseWindow :: number) < claim.window then
 			fuseClaims[signal.uid] = {
