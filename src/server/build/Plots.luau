@@ -3264,16 +3264,12 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	gui.Name = "Plate"
 	gui.Size = UDim2.fromOffset(128, 156)
 	gui.AlwaysOnTop = true
-	-- SHORT on purpose, on request — this identifies one specific base to someone
-	-- standing near it, not a wayfinding beacon like BaseMarkerController's own
-	-- plaza-wide "YOUR BASE" (600). At 600 every plot's plate was readable from
-	-- clear across the ring and even from inside a stage. `MaxDistance` is
-	-- CAMERA-to-adornee (not player-to-adornee — see the BillboardGui note in
-	-- Studio verification history), and the plate sits 38 studs up. 100 (up
-	-- slightly from 70, on request) gives more slack for the camera's own
-	-- trailing distance without reaching a neighbouring plot (~100+ studs apart
-	-- centre to centre) or a stage.
-	gui.MaxDistance = 100
+	-- Readable from way out across the plaza (on request) — walked from 600 down to
+	-- 70, then 100, and now back out to 400 so a base's owner shows from the far
+	-- side of the ring. `MaxDistance` is CAMERA-to-adornee and the plate sits 38
+	-- studs up. ExhibitService.renderName stamps the same value on every repaint,
+	-- so a live place picks it up without a Plots rebuild — keep the two in step.
+	gui.MaxDistance = 400
 	-- Every plot sits next to a PointLight or two; LightInfluence defaults to 1 and
 	-- washes the plate back toward white up close, the same bug Kit.surfaceText and
 	-- BaseMarkerController both already document and fix.

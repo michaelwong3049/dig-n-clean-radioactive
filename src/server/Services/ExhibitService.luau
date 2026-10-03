@@ -133,6 +133,11 @@ local function plotModel(index: number): Model?
 	return row:FindFirstChild(`Plot{index}`) :: Model?
 end
 
+-- How far away the plate stays drawn (camera-to-plate, studs). Mirrors
+-- build/Plots.buildNamePlate's own value; stamped here too so an already-built
+-- place picks a change up on the next claim without a Plots rebuild.
+local NAMEPLATE_REACH = 400
+
 --- Repaint one plot's avatar plate (build/Plots.buildNamePlate) with the owner's
 --- headshot and display name AS THEY CAPITALISED it (no `string.upper` — a name
 --- like "MattM" stays "MattM"). `owner == nil` clears it back to a blank face and
@@ -146,6 +151,9 @@ local function renderName(index: number, owner: Player?)
 	local gui = plate and plate:FindFirstChildWhichIsA("BillboardGui")
 	local face = gui and gui:FindFirstChild("Face")
 	local caption = gui and gui:FindFirstChild("Caption")
+	if gui and gui:IsA("BillboardGui") then
+		gui.MaxDistance = NAMEPLATE_REACH
+	end
 	if face and face:IsA("ImageLabel") then
 		face.Image = if owner then `rbxthumb://type=AvatarHeadShot&id={owner.UserId}&w=150&h=150` else ""
 	end
