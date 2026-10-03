@@ -71,6 +71,11 @@ Prefs.DEFS = {
 	-- CONFIRM RARE NUKE DROPS. The "are you sure?" before a Rare+ nuke is bombed
 	-- (client InventoryController); its "Don't show again" box turns this off.
 	confirmDrop = { kind = "flag", default = true },
+
+	-- FAST MODE (client FastModeController). On = the nukes standing on OTHER players'
+	-- bases are hidden from you, along with their effects: far less to draw on a busy
+	-- server. Your own base is untouched.
+	fastMode = { kind = "flag", default = false },
 } :: { [string]: Def }
 
 --- A fresh table of every default, for the profile template and a client that has not
