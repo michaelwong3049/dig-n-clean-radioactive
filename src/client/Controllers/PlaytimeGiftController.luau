@@ -41,9 +41,10 @@ local TILE_CAPTION_SIZE = 17
 
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
-	card = Color3.fromHex("D9812A"),
+	-- One colour per row of the panel, so the ladder reads as three tiers: a warm orange,
+	-- a light blue for the second, a gold for the last (which holds the shiny plate).
+	tier = { Color3.fromHex("FF9A2E"), Color3.fromHex("63C5F2"), Color3.fromHex("F7C531") },
 	cardDone = Color3.fromHex("3A3F45"),
-	big = Color3.fromHex("8A5CE0"),
 	pill = Color3.fromHex("4C9BFF"),
 	pillDone = Color3.fromHex("2A2E33"),
 	claim = Color3.fromHex("3EBE5A"),
@@ -234,6 +235,11 @@ end
 
 -- ── The panel ───────────────────────────────────────────────────────
 
+--- The colour of the row gift `index` sits in.
+local function tierColor(index: number): Color3
+	return PANEL.tier[math.clamp((index - 1) // COLS + 1, 1, #PANEL.tier)]
+end
+
 local function buildCard(parent: Instance, index: number, position: Vector2): Card
 	local button = Instance.new("TextButton")
 	button.Name = `Gift{index}`
@@ -241,12 +247,21 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	button.Text = ""
 	button.Size = UDim2.fromOffset(CARD_W, CARD_H)
 	button.Position = UDim2.fromOffset(position.X, position.Y)
-	button.BackgroundColor3 = PANEL.card
+	button.BackgroundColor3 = tierColor(index)
 	button.BorderSizePixel = 0
 	button.ZIndex = 11
 	button.Parent = parent
 	round(button, 14)
 	local cardEdge = edge(button, PANEL.ink, 3)
+	-- A soft top-lit sheen, so the plates are not flat. Not on the big last plate:
+	-- ShinyCard clears a card's gradients when it takes over (and has its own look).
+	local giftDef = PlaytimeGifts.GIFTS[index]
+	if not (giftDef and giftDef.big) then
+		local sheen = Instance.new("UIGradient")
+		sheen.Rotation = 90
+		sheen.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(0.82, 0.82, 0.82))
+		sheen.Parent = button
+	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
 
@@ -360,8 +375,7 @@ local function paintTimes()
 			if shiny[index] == nil then
 				card.button.BackgroundColor3 = if done
 					then PANEL.cardDone
-					elseif gift.big then PANEL.big
-					else PANEL.card
+					else tierColor(index)
 			end
 			card.edge.Color = if ready then PANEL.gold else PANEL.ink
 			card.edge.Thickness = if ready then 5 else 3
