@@ -28,6 +28,9 @@ local RunService = game:GetService("RunService")
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
+-- Roblox's own Robux glyph (private-use U+E002), same as ShopController's Robux buttons.
+local ROBUX = utf8.char(0xE002)
+
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local AwayEarnings = require(Shared.Config.AwayEarnings)
@@ -452,7 +455,7 @@ local function open(offer: any)
 		local price = UIKit.label(chip, {
 			name = "Text",
 			size = UDim2.fromScale(1, 1),
-			text = "R$",
+			text = ROBUX,
 			font = STYLE.body,
 			textSize = 17,
 			color = STYLE.chip,
@@ -467,7 +470,7 @@ local function open(offer: any)
 				return MarketplaceService:GetProductInfo(AwayEarnings.PRODUCT_ID, Enum.InfoType.Product)
 			end)
 			if ok and info and info.PriceInRobux then
-				price.Text = `R$ {info.PriceInRobux}`
+				price.Text = `{ROBUX} {info.PriceInRobux}`
 			end
 		end)
 	end
