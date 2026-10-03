@@ -915,6 +915,48 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 		end
 		spinAll(bend, one(model, "apex_star"), { spin = 1.5, bob = 0.05, hz = 0.5 })
 	end,
+	["Magma Magnet"] = function(model: Model, bend: BasePart)
+		-- The magma core over the poles floats, and everything round it floats with it:
+		-- two molten rings tumbling, the rock ring and the ten flares wheeling opposite
+		-- ways, the crown of horns and its embers turning on top.
+		local c = at(bend, partNamed(model, "magma_core"))
+		if c then
+			local float = { bob = 0.1, hz = 0.35 }
+			local function ride(parts: { BasePart }, motion: Motion)
+				spinAll(bend, parts, { pivot = motion.pivot or c, axis = motion.axis, spin = motion.spin, bob = float.bob, hz = float.hz })
+			end
+			ride(one(model, "magma_core"), { spin = 0.8 })
+			ride(one(model, "magma_halo"), { axis = TILT, spin = 0.6 })
+			ride(one(model, "molten_ring_b"), { axis = Vector3.xAxis, spin = 1.4 })
+			ride(one(model, "molten_ring_c"), { axis = Vector3.zAxis, spin = -1.1 })
+			ride(gather(model, { "^rock_ring$", "^rock_ring_glow$" }), { spin = 0.5 })
+			ride(partsMatching(model, "^flare_%d+$"), { spin = -0.9 })
+			ride(gather(model, { "^crown_horn_%d+$", "^horn_ember_%d+$" }), { spin = 0.7 })
+		end
+		-- Eight meteors circle the legs, each with its trail behind it.
+		local meteors = partsMatching(model, "^meteor_%d+$")
+		if #meteors > 0 then
+			local sum = Vector3.zero
+			for _, m in meteors do
+				sum += at(bend, m) :: Vector3
+			end
+			local mid = sum / #meteors
+			local wheel = gather(model, { "^meteor_%d+$", "^meteor_trail_%d+$" })
+			-- Negative: the trails sit on the far side of each meteor's way round.
+			spinAll(bend, wheel, { pivot = Vector3.new(0, mid.Y, 0), spin = -1.2 })
+		end
+		-- Embers swirl round each eruption vent, and the vents throb.
+		for i, side in { "l", "r" } do
+			local vent = partNamed(model, `eruption_core_{side}`)
+			orbit(bend, partsMatching(model, `^ember_{side}_%d+$`), vent, if i == 1 then 2.2 else -2.2)
+			spinAll(bend, one(model, `eruption_core_{side}`), { bob = 0.03, hz = 1.2, phase = i * math.pi })
+		end
+		-- The lava runs round the little volcano under the bend; the drips bead and fall.
+		orbit(bend, partsMatching(model, "^lava_flow_%d+$"), partNamed(model, "volcano"), 0.4)
+		for i, bead in partsMatching(model, "^drip_bead_%d+$") do
+			rig(bend, bead, { bob = 0.06, hz = 0.8, phase = i * 0.9 })
+		end
+	end,
 }
 
 --[[
