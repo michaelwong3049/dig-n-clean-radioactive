@@ -42,6 +42,11 @@ end
 local function publish(player: Player, id: string)
 	local ends = endsAt[player]
 	player:SetAttribute(Potions.attrFor(id), ends and ends[id] or 0)
+	if id == "speed" then
+		-- The Walk Speed badge prints the boosted speed: resend it now rather than at the
+		-- next training tick. Lazy, like ExposureService's: Treadmill boots after this.
+		require(script.Parent.TreadmillService).refresh(player)
+	end
 end
 
 local function stashOf(data: any): { [string]: number }

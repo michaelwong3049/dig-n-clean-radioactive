@@ -1244,6 +1244,18 @@ function Spec.run(): boolean
 	check("§5.1 walk speed is whatever the treadmill trained", stats.walkSpeed == 45)
 	check("§5.1 a full bag physically slows you", StatResolver.effectiveWalkSpeed(stats, stats.capacity, false) < stats.walkSpeed)
 	check("§5.1 but never immobilises you", StatResolver.effectiveWalkSpeed(stats, 999, false) >= 6)
+	-- speedBonus: an aura bonus, never a penalty, and never slower than the rung under it.
+	check("§5.1 no aura (tier 1) adds no speed", Gear.tier("Aura", 1).speedBonus == 0)
+	for tier = 1, Gear.maxTier("Aura") do
+		local bonus = Gear.tier("Aura", tier).speedBonus
+		check(`§5.1 Aura {tier} has a speedBonus >= 0`, type(bonus) == "number" and bonus >= 0)
+		if tier > 1 and type(bonus) == "number" then
+			check(`§5.1 Aura {tier}'s speedBonus is not below Aura {tier - 1}'s`, bonus >= Gear.tier("Aura", tier - 1).speedBonus)
+		end
+	end
+	check("§5.1 the worn aura's speedBonus scales effective walk speed", math.abs(
+		StatResolver.effectiveWalkSpeed(stats, 0, false) - stats.walkSpeed * (1 + Gear.tier("Aura", 3).speedBonus)
+	) < 1e-9)
 
 	-- ── §8 BASE FLOORS ────────────────────────────────────────────────────
 	--
@@ -3041,10 +3053,12 @@ function Spec.run(): boolean
 					and spent.sellMultiplier == base.sellMultiplier
 					and base.walkMult == 1
 			)
-			local stats = with("speed")
 			check(
-				"§potion the Speed Potion lifts the speed you picked, before the haul penalty",
-				math.abs(StatResolver.effectiveWalkSpeed(stats, 0, false, nil) - stats.walkSpeed * 1.25) < 1e-6
+				"§potion the Speed Potion lifts the walk you actually move at by 25%",
+				math.abs(
+					StatResolver.effectiveWalkSpeed(with("speed"), 2, false, nil)
+						- StatResolver.effectiveWalkSpeed(base, 2, false, nil) * 1.25
+				) < 1e-6
 			)
 		end
 		check("§crate every crate's prize table sums to 1", sums)

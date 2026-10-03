@@ -100,6 +100,10 @@ export type Stats = {
 	walkSpeed: number,
 	speedProgress: number,
 	haulPenalty: number,
+	-- The worn aura's walk-speed bonus as a fraction (Gear.Aura speedBonus, 0.03 = +3%).
+	-- Kept OUT of `walkSpeed` so the treadmill's trained number (the HUD, the picker, the
+	-- leaderboard) stays the player's own; effectiveWalkSpeed applies it last.
+	auraSpeedBonus: number,
 	-- loop
 	detectorRadius: number,
 	detectorLuck: number, -- dig roll only; Config/Items.luckBias. NOT the wash pad's luck.
@@ -145,8 +149,8 @@ export type Stats = {
 	-- into capacity, luckBoost, trainingMult, bombDamageMult and the two cash ones.
 	digPower: number, -- DigService: scales the magnet's side of a haul (yank + draw)
 	instantClean: boolean, -- WashService: a patch breaks the moment water touches it
-	-- The Speed Potion (Config/Potions): multiplies walk speed after the walk-speed
-	-- picker's cap, in effectiveWalkSpeed. 1 when none is running.
+	-- The Speed Potion (Config/Potions): multiplies walk speed alongside the aura's
+	-- bonus, in effectiveWalkSpeed (walkBonus). 1 when none is running.
 	walkMult: number,
 }
 
@@ -243,6 +247,7 @@ function StatResolver.get(profile: Profile): Stats
 		-- penalty wherever that stat lives, and it has moved tracks twice (Boots, then
 		-- Satchel, then Aura) without changing what the perk means.
 		haulPenalty = aura.haulPenalty * (if perks.sureFooting then 0.5 else 1) * Mastery.value(profile, "haulDrag"),
+		auraSpeedBonus = aura.speedBonus or 0,
 
 		detectorRadius = detector.radius,
 		detectorLuck = detector.luck,
@@ -314,9 +319,19 @@ end
 ---
 --- `picked` is the walk-speed picker's cap (profile `walkCap`, Treadmill.chosenWalk). It
 --- trims the trained speed BEFORE the haul penalty, so a full bag still slows you down
---- from the speed you chose.
+--- from the speed you chose. The worn aura's `speedBonus` and the Speed Potion multiply
+--- the result last (walkBonus).
+--- Every multiplier on top of the chosen walk: the worn aura's bonus and the Speed
+--- Potion (Config/Potions). The Walk Speed badge prints the chosen walk times this.
+function StatResolver.walkBonus(stats: Stats): number
+	return (1 + stats.auraSpeedBonus) * (stats.walkMult or 1)
+end
+
 function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean, picked: number?): number
-	local speed = Treadmill.chosenWalk(stats.walkSpeed, picked) * (stats.walkMult or 1) - (carriedCount * stats.haulPenalty)
+	local speed = Treadmill.chosenWalk(stats.walkSpeed, picked) - (carriedCount * stats.haulPenalty)
+	-- The aura's bonus and the Speed Potion ride on what is left, so a slowed-down pick
+	-- or a full bag is still scaled by them rather than handed a flat top-up.
+	speed *= StatResolver.walkBonus(stats)
 	if sprinting then
 		speed *= Gear.SPRINT_MULTIPLIER
 	end

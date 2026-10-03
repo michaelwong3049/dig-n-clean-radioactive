@@ -23,6 +23,7 @@
 	(CloverArt's header -- purple is kept for the stacked x4).
 ]]
 
+local GroupService = game:GetService("GroupService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,6 +36,8 @@ local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 local GamePasses = require(ReplicatedStorage.Shared.Config.GamePasses)
 local Packs = require(ReplicatedStorage.Shared.Config.Packs)
 local CashBoost = require(ReplicatedStorage.Shared.Config.CashBoost)
+local GroupReward = require(ReplicatedStorage.Shared.Config.GroupReward)
+local Net = require(ReplicatedStorage.Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -184,6 +187,7 @@ local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out
 local panelFrame: Frame? = nil
 local panelScale: UIScale? = nil
 local statusLabel: TextLabel? = nil
+local codeRemote: any = nil
 
 --- A label in the panel's cartoon voice: white, INK-outlined. `props` are set as-is.
 local function inked(parent: Instance, props: { [string]: any }): TextLabel
@@ -1042,6 +1046,187 @@ local function buildCrates(parent: Instance)
 	end
 end
 
+-- ── Codes ────────────────────────────────────────────────────────────────────
+
+local CODES_H = 138
+local CODE_MESSAGES: { [string]: { string | Color3 } } = {
+	invalid = { "That code isn't valid.", PANEL.close },
+	used = { "You've already used that code.", Color3.fromHex("F0A20F") },
+	busy = { "Slow down - try again in a moment.", Color3.fromHex("F0A20F") },
+}
+local codeBox: TextBox? = nil
+local codeButton: TextButton? = nil
+local codeStatus: TextLabel? = nil
+local codeWaiting = false
+local codePrompting = false
+local lastCode = ""
+
+local function setCodeStatus(text: string, color: Color3)
+	if codeStatus then
+		codeStatus.Text = text
+		codeStatus.TextColor3 = color
+	end
+end
+
+local function paintCodeButton()
+	local button = codeButton
+	if button == nil then
+		return
+	end
+	button.Text = if codeWaiting then "..." else "REDEEM"
+	button.BackgroundColor3 = if codeWaiting then PANEL.off else PANEL.buy
+	button.Active = not codeWaiting
+	button.AutoButtonColor = false
+end
+
+local function sendCode(text: string)
+	if codeWaiting or codeRemote == nil then
+		return
+	end
+	lastCode = text
+	codeWaiting = true
+	paintCodeButton()
+	setCodeStatus("Checking...", PANEL.white)
+	codeRemote:FireServer(text)
+	-- Never leave the button stuck on "..." if the answer goes missing.
+	task.delay(8, function()
+		if codeWaiting then
+			codeWaiting = false
+			paintCodeButton()
+		end
+	end)
+end
+
+--- Not in the group: Roblox's own join prompt, then the same code again.
+local function askToJoin(groupId: number)
+	if codePrompting then
+		return
+	end
+	codePrompting = true
+	local ok, status = pcall(GroupService.PromptJoinAsync, GroupService, groupId)
+	codePrompting = false
+	if ok and (status == Enum.GroupMembershipStatus.Joined or status == Enum.GroupMembershipStatus.AlreadyMember) then
+		sendCode(lastCode)
+	elseif ok and status == Enum.GroupMembershipStatus.JoinRequestPending then
+		setCodeStatus("Join request sent - redeem again once you're in!", Color3.fromHex("F0A20F"))
+	else
+		setCodeStatus("Codes are for group members - join the group, then redeem.", Color3.fromHex("F0A20F"))
+	end
+end
+
+local function onCodeResult(payload: any)
+	if type(payload) ~= "table" then
+		return
+	end
+	codeWaiting = false
+	paintCodeButton()
+	if payload.result == "ok" then
+		setCodeStatus(`Redeemed! +{payload.text or "reward"}`, PANEL.cash)
+		if codeBox then
+			codeBox.Text = ""
+		end
+	elseif payload.result == "join" then
+		setCodeStatus("Codes are for group members - opening the group...", Color3.fromHex("F0A20F"))
+		task.spawn(askToJoin, tonumber(payload.groupId) or GroupReward.GROUP_ID)
+	else
+		local message = CODE_MESSAGES[payload.result]
+		if message then
+			setCodeStatus(message[1] :: string, message[2] :: Color3)
+		end
+	end
+end
+
+--- The CODES section, under the crates: one card with the box and the REDEEM button.
+local function buildCodes(parent: Instance)
+	section(parent, 20, "CODES")
+	local card = Instance.new("Frame")
+	card.Name = "Codes"
+	card.LayoutOrder = 21
+	card.Size = UDim2.new(1, -8, 0, CODES_H)
+	card.BackgroundColor3 = PANEL.cardEdge:Lerp(PANEL.liquidTile, 0.5)
+	darkGlass(card)
+	card.BorderSizePixel = 0
+	card.ZIndex = 12
+	card.Parent = parent
+	round(card, 14)
+	edge(card, PANEL.tileEdge, 3)
+	gloss(card)
+
+	inked(card, {
+		Name = "Hint",
+		Text = "Group members only - type a code for a free reward",
+		Font = PANEL.label,
+		TextSize = 16,
+		TextColor3 = PANEL.dim,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, -32, 0, 20),
+		Position = UDim2.fromOffset(16, 10),
+		ZIndex = 14,
+	})
+
+	local box = Instance.new("TextBox")
+	box.Name = "CodeBox"
+	box.Position = UDim2.fromOffset(16, 38)
+	box.Size = UDim2.new(1, -196, 0, 48)
+	box.BackgroundColor3 = Color3.new(0, 0, 0)
+	box.BackgroundTransparency = 0.4
+	box.BorderSizePixel = 0
+	box.ClearTextOnFocus = false
+	box.Font = PANEL.label
+	box.TextSize = 22
+	box.TextColor3 = PANEL.white
+	box.PlaceholderText = "ENTER CODE"
+	box.PlaceholderColor3 = PANEL.dim
+	box.Text = ""
+	box.TextXAlignment = Enum.TextXAlignment.Center
+	box.ZIndex = 14
+	box.Parent = card
+	round(box, 10)
+	edge(box, PANEL.ink, 3)
+	codeBox = box
+
+	local button = Instance.new("TextButton")
+	button.Name = "Redeem"
+	button.AnchorPoint = Vector2.new(1, 0)
+	button.Position = UDim2.new(1, -16, 0, 38)
+	button.Size = UDim2.fromOffset(150, 48)
+	button.Font = PANEL.label
+	button.TextSize = 22
+	button.TextColor3 = PANEL.white
+	button.ZIndex = 14
+	button.Parent = card
+	round(button, 10)
+	edge(button, PANEL.ink, 3)
+	codeButton = button
+	paintCodeButton()
+
+	codeStatus = inked(card, {
+		Name = "Status",
+		Text = "",
+		Font = PANEL.label,
+		TextSize = 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, -32, 0, 22),
+		Position = UDim2.fromOffset(16, 96),
+		ZIndex = 14,
+	})
+
+	local function submit()
+		local text = box.Text
+		if string.match(text, "%S") == nil then
+			setCodeStatus("Type a code first.", PANEL.close)
+			return
+		end
+		sendCode(text)
+	end
+	button.Activated:Connect(submit)
+	box.FocusLost:Connect(function(enterPressed)
+		if enterPressed then
+			submit()
+		end
+	end)
+end
+
 --- "Active: 9:42 left" while a bought clover is running, else nothing.
 local function refreshStatus()
 	local label = statusLabel
@@ -1184,6 +1369,7 @@ local function buildPanel(): ScreenGui
 	buildCash(body)
 	buildSpeed(body)
 	buildCrates(body)
+	buildCodes(body)
 
 	panelFrame = panel
 	panelScale = scale
@@ -1208,6 +1394,8 @@ end
 function Shop.start()
 	local player = Players.LocalPlayer
 	local playerGui = player:WaitForChild("PlayerGui")
+	codeRemote = Net.get("RedeemCode")
+	codeRemote.OnClientEvent:Connect(onCodeResult)
 	build().Parent = playerGui
 	buildPanel().Parent = playerGui
 	HudTile.registerPanel("Shop", panelFrame :: Frame)

@@ -115,13 +115,21 @@ local function snapshot(player: Player, data: any)
 	local nextTier = Treadmill.TIERS[tier + 1]
 	-- The Runner mastery (Config/Masteries) speeds every belt, so the card's rates are
 	-- the ones step() really pays.
-	local trainingMult = StatResolver.get(data).trainingMult
+	local stats = StatResolver.get(data)
+	local trainingMult = stats.trainingMult
 	return {
 		points = points,
 		level = level,
 		walk = Treadmill.walkSpeedFor(level),
 		-- The walk-speed picker's cap (0 = full speed). The HUD shows chosenWalk(walk, walkCap).
 		walkCap = if type(data.walkCap) == "number" then data.walkCap else 0,
+		-- Every walk-speed bonus as one fraction: the worn aura's and the Speed Potion's
+		-- (StatResolver.walkBonus). The badge shows the chosen walk times (1 + this),
+		-- which is what ExposureService really walks you at.
+		auraSpeed = StatResolver.walkBonus(stats) - 1,
+		-- The debug /speed pin, when set: the badge shows it in place of the chosen walk, with
+		-- the aura bonus on top as for any speed (Lazy require: ExposureService reaches back here).
+		override = require(script.Parent.ExposureService).speedOverrideOf(player),
 		progress = progress,
 		current = Treadmill.requirementFor(level),
 		nextReq = Treadmill.requirementFor(level + 1),

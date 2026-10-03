@@ -273,6 +273,16 @@ local function shownWalk(): number
 	return Treadmill.chosenWalk(view.walk, pending or view.walkCap)
 end
 
+--- What the badge prints: the walk you chose, scaled by the worn aura's bonus -- the
+--- speed you actually move at. The slider stays in trained units (what you can pick).
+local function badgeWalk(): number
+	local walk = shownWalk()
+	if view == nil then
+		return walk
+	end
+	return math.floor((view.override or walk) * (1 + (view.auraSpeed or 0)) + 0.5)
+end
+
 local function drawPicker()
 	if ui.picker == nil then
 		return
@@ -280,11 +290,19 @@ local function drawPicker()
 	local low, high = pickRange()
 	local walk = shownWalk()
 	local alpha = if high > low then math.clamp((walk - low) / (high - low), 0, 1) else 1
+	if view and view.override then
+		alpha = 1 -- a pinned speed IS the top of the slider
+	end
 	ui.pickFill.Size = UDim2.fromScale(alpha, 1)
 	ui.pickKnob.Position = UDim2.fromScale(alpha, 0.5)
-	ui.pickValue.Text = tostring(walk)
-	ui.pickLow.Text = tostring(low)
-	ui.pickHigh.Text = tostring(high)
+	-- The numbers are printed in the units the badge uses -- the aura's bonus included,
+	-- and the debug /speed pin standing in for the trained top -- so the slider and the
+	-- badge never disagree. The slider itself still works in trained units underneath.
+	local scale = 1 + ((view and view.auraSpeed) or 0)
+	local override = view and view.override
+	ui.pickValue.Text = tostring(if override then math.floor(override * scale + 0.5) else math.floor(walk * scale + 0.5))
+	ui.pickLow.Text = tostring(math.floor(low * scale + 0.5))
+	ui.pickHigh.Text = tostring(if override then math.floor(override * scale + 0.5) else math.floor(high * scale + 0.5))
 	local atMax = walk >= high
 	ui.pickMax.BackgroundColor3 = if atMax then PICKER.track else PICKER.fill
 	ui.pickMax.TextColor3 = if atMax then UIKit.C.dim else UIKit.C.outline
@@ -520,7 +538,7 @@ function Speed.start()
 	-- written when it changes.
 	local lastText = ""
 	RunService.RenderStepped:Connect(function()
-		local text = tostring(shownWalk())
+		local text = tostring(badgeWalk())
 		if text ~= lastText then
 			lastText = text
 			ui.value.Text = text

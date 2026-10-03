@@ -19,8 +19,9 @@
 	            (luckMultiplier). Kept under the Clover's x2 so the Robux one stays the
 	            better buy; it stacks on top of it.
 	  cash      x1.5 on every sale and every stand's income (sell + yield multipliers).
-	  speed     x1.25 walk speed, AFTER the walk-speed picker's cap and before the haul
-	            penalty (StatResolver.effectiveWalkSpeed).
+	  speed     x1.25 walk speed, on the same footing as the aura's speed bonus: after
+	            the picker and the haul penalty (StatResolver.walkBonus), and shown on
+	            the Walk Speed badge.
 	  strength  x1.5 on `digPower`, the magnet's whole side of a haul (DigService).
 	  clean     x1.5 on `scrubRate`, so the wash bay strips crust faster.
 

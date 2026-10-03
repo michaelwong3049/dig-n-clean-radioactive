@@ -260,7 +260,7 @@ local function statsFor(track: string, def: any): { StatCell }
 			table.insert(cells, {
 				key = key,
 				label = field.label,
-				value = num(value),
+				value = if field.format == "percent" then `+{math.floor(value * 100 + 0.5)}%` else num(value),
 				fraction = math.clamp(fraction, 0, 1),
 				kind = "number",
 				on = true,
@@ -414,6 +414,7 @@ function ShopService.offerFor(data: any, track: string, camp: string?): Offer?
 end
 
 local landPurchase: (player: Player, track: string) -> ()
+local pokeSpeedBadge: (player: Player) -> ()
 
 --- Buy a SPECIFIC tier of `track`, not necessarily the next one. Returns (ok,
 --- message) like EconomyService.sell.
@@ -491,6 +492,12 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	return true, `bought {def.name} for ${def.price}`
 end
 
+--- The Walk Speed badge shows the aura's speed bonus, so a swap has to resend it.
+--- Lazy: TreadmillService requires this file's neighbours, and nothing here needs it at load.
+function pokeSpeedBadge(player: Player)
+	require(script.Parent.TreadmillService).refresh(player)
+end
+
 --- What a purchase does outside the profile, shared by the cash and Robux paths.
 function landPurchase(player: Player, track: string)
 	-- THE PURCHASE HAS TO LAND SOMEWHERE THE PLAYER CAN SEE. Three of the four tracks
@@ -508,6 +515,7 @@ function landPurchase(player: Player, track: string)
 	if track == "Aura" then
 		-- Lazy: ExposureService -> WashService -> LiquidService -> ShopService is a require cycle.
 		require(script.Parent.ExposureService).healFull(player)
+		pokeSpeedBadge(player)
 	end
 end
 
@@ -573,6 +581,9 @@ function ShopService.equipTier(player: Player, track: string, tier: number?): (b
 	-- silent, and exactly the sort of thing that only turns up as "the shop is lying".
 	if track == "Cleaner" then
 		ExhibitService.refreshHose(player)
+	end
+	if track == "Aura" then
+		pokeSpeedBadge(player)
 	end
 
 	return true, `equipped {Gear.tier(track, tier).name}`
