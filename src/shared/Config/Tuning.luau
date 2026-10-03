@@ -549,7 +549,7 @@ Tuning.LIQUID_MAX_STACK = 5
 Tuning.DIRTY_SELL_MULTIPLIER = 0.12
 -- CLEAN nukes only sell for this much more (on request: heavily raised sell prices,
 -- dirty/blind sales left as they were). Stand income is untouched.
-Tuning.CLEAN_SELL_MULTIPLIER = 5
+Tuning.CLEAN_SELL_MULTIPLIER = 10
 Tuning.ASSAY_FEE_FRACTION = 0.02
 
 -- ── Exhibition (PLAN §8.2) ────────────────────────────────────────────────────
