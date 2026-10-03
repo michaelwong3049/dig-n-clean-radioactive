@@ -6,19 +6,27 @@
 	tracks and reshuffles when it runs out. It joins Sfx's "music" group, so the
 	Settings mute and master volume quieten it with everything else.
 
+	Only plays at Base Camp and in Stage 1. Past that (Stage 2+, or a site camp like
+	Toxic Twilight, both off ExposureState) it fades out and pauses, and picks the
+	same track back up when you return.
+
 	TRACKS are Roblox-licensed APM library music: bouncy, cartoony picks chosen by ear.
 	Swapping one is one line here; the place file is not involved.
 ]]
 
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local Sfx = require(script.Parent.Parent.Sfx)
+local Net = require(game:GetService("ReplicatedStorage").Shared.Net)
 
 local MusicController = {}
 
--- Very quiet on purpose: a bed under the game, never over it. The Music slider scales
--- this down further, so even 100% there stays low.
-local VOLUME = 0.12
+-- Very quiet on purpose: a bed under the game, never over it. The Music slider
+-- defaults to 50%, which halves this back to the intended 0.12; 100% doubles it.
+local VOLUME = 0.24
+-- Seconds to fade out leaving Stage 1, and back in on return.
+local FADE = 2
 -- Silence between two tracks, so one ending does not crash into the next.
 local GAP = 2
 
@@ -52,11 +60,42 @@ function MusicController.start()
 	Sfx.adopt(sound, "music")
 	sound.Parent = SoundService
 
+	-- Base Camp (no stage, no camp) and Stage 1 only.
+	local allowed = true
+	local fade: Tween? = nil
+	local function setAllowed(on: boolean)
+		if on == allowed then
+			return
+		end
+		allowed = on
+		if fade then
+			fade:Cancel()
+		end
+		local tween = TweenService:Create(sound, TweenInfo.new(FADE), { Volume = if on then VOLUME else 0 })
+		fade = tween
+		if on and sound.IsPaused and sound.TimePosition > 0 then
+			sound:Resume()
+		end
+		tween.Completed:Connect(function(state)
+			if state == Enum.PlaybackState.Completed and not allowed then
+				sound:Pause()
+			end
+		end)
+		tween:Play()
+	end
+	Net.get("ExposureState").OnClientEvent:Connect(function(state)
+		setAllowed((state.stageId == nil and state.campId == nil) or state.stageId == 1)
+	end)
+
 	task.spawn(function()
 		local queue = shuffled(nil)
 		local index = 0
 		local last: number? = nil
 		while true do
+			-- Do not start a fresh track while faded out past Stage 1.
+			while not allowed do
+				task.wait(1)
+			end
 			index += 1
 			if index > #queue then
 				queue = shuffled(last)
