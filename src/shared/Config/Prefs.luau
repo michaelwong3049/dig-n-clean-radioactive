@@ -59,8 +59,9 @@ Prefs.DEFS = {
 	volGeiger = { kind = "volume", default = 1 },
 	-- The background playlist (MusicController). OFF by default: players opt in by
 	-- raising the slider. MusicController's track volume is set so 50% is the intended
-	-- quiet bed.
-	volMusic = { kind = "volume", default = 0 },
+	-- quiet bed. Was `volMusic`: renamed because old saves stored volMusic = 1 from the
+	-- defaults snapshot, which kept music on for them; the stale key is now ignored.
+	musicVol = { kind = "volume", default = 0 },
 
 	-- RARE DROP ANNOUNCEMENTS (client RareDropController). "mine" keeps only the line
 	-- when YOU claim one. The drop's glow in the field is untouched either way.
