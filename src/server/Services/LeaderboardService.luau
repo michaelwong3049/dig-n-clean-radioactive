@@ -101,7 +101,7 @@ type Board = {
 local BOARDS: { Board } = {
 	{
 		key = "cash",
-		storeName = "LB_CashEarned_v2",
+		storeName = "LB_CashEarned_v3",
 		title = "Top Cash",
 		subtitle = "Lifetime cash earned",
 		color = CASH,
@@ -112,7 +112,7 @@ local BOARDS: { Board } = {
 	},
 	{
 		key = "speed",
-		storeName = "LB_Speed_v2",
+		storeName = "LB_Speed_v3",
 		title = "Top Speed",
 		subtitle = "Trained walk speed",
 		color = SPEED,
