@@ -95,6 +95,8 @@ local T = {
 	FLASH_FROM = 6, -- Legendary
 
 	GOLD = Color3.fromHex("FFD23F"),
+	-- The skip hint: a bright green that stands out against every background.
+	HINT_GREEN = Color3.fromHex("5CFF5C"),
 	RIBBON_NEW = Color3.fromHex("E0362E"),
 	INK = Color3.fromHex("0B0D10"),
 
@@ -817,7 +819,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		font = UIKit.Font.hero,
 		textSize = 26,
 		xAlign = Enum.TextXAlignment.Center,
-		color = Color3.new(1, 1, 1),
+		color = T.HINT_GREEN,
 		visible = false,
 	})
 	local hintScale = scaler(hint)
