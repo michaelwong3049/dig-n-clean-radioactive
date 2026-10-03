@@ -1,8 +1,8 @@
 --!strict
 --[[
 	StarterOfferController — the Starter Pack offer card in the top-right corner, under
-	the Settings / Daily / Potions row: spinning light rays behind it, the pack's crate
-	and cash on it, the R$ button along the bottom and a red X to close it.
+	the Settings / Daily / Potions row: spinning light rays behind it and, floating on
+	them with no card behind, the pack's crate and cash, its R$ price and a red X.
 
 	WHO SEES IT: everyone who is done with the walkthrough and hasn't bought the pack.
 	`TutorialActive` (TutorialService, every tick) must read false, so a new player only
@@ -13,8 +13,9 @@
 
 	THE X HIDES IT FOR THIS SESSION ONLY: it comes back next join, until it is bought.
 
-	Pressing the card anywhere opens the same purchase prompt as its button (the Shop's
-	PACKS row sells the same product; PackService grants it either way).
+	The whole offer is ONE click target (the X aside): pressing anywhere on it opens the
+	purchase prompt (the Shop's PACKS row sells the same product; PackService grants it
+	either way).
 ]]
 
 local Players = game:GetService("Players")
@@ -44,8 +45,6 @@ local CLOSE = 30
 local MIN_FIT = 0.6
 
 local COLOR = {
-	top = Color3.fromHex("FFB13B"),
-	bottom = Color3.fromHex("E0640C"),
 	ink = Color3.fromHex("1A1A1A"),
 	white = Color3.new(1, 1, 1),
 	gold = Color3.fromRGB(255, 214, 92),
@@ -167,15 +166,11 @@ function StarterOfferController.start()
 	card.AutoButtonColor = false
 	card.Text = ""
 	card.Size = UDim2.fromScale(1, 1)
-	card.BackgroundColor3 = COLOR.white
+	-- No card behind it, on request: the crate, cash and R$ price float on the rays. It is
+	-- still the one button the whole offer clicks through to.
+	card.BackgroundTransparency = 1
 	card.ZIndex = 3
 	card.Parent = body
-	round(card, 14)
-	stroke(card, 3, true)
-	local tint = Instance.new("UIGradient")
-	tint.Rotation = 90
-	tint.Color = ColorSequence.new(COLOR.top, COLOR.bottom)
-	tint.Parent = card
 	local cardScale = Instance.new("UIScale")
 	cardScale.Parent = card
 
@@ -221,6 +216,14 @@ function StarterOfferController.start()
 	buy.button.Size = UDim2.new(1, -16, 0, BUY_H)
 	buy.button.ZIndex = 6
 	buy.price.ZIndex = 7
+	-- Just the R$ price, no purple button behind it (on request), and not a button of its
+	-- own: the whole offer is one click target, the card underneath.
+	buy.button.BackgroundTransparency = 1
+	local buyEdge = buy.button:FindFirstChildOfClass("UIStroke")
+	if buyEdge then
+		buyEdge:Destroy()
+	end
+	buy.button.Interactable = false
 
 	card.Activated:Connect(buy.press)
 	card.MouseEnter:Connect(function()
