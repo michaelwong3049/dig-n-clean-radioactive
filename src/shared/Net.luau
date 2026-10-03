@@ -304,6 +304,12 @@ local REMOTES: { [string]: string } = {
 	-- on each press of the chest. Client -> server: "claim" (after joining the group).
 	GroupReward = "RemoteEvent",
 
+	-- The Shop's CODES section (Config/Codes, Services/CodeService). Client -> server:
+	-- the typed code (a string). Server -> client: { result = "ok" | "invalid" | "used" |
+	-- "join" | "busy", text?, groupId? } -- "join" means not in the group yet (the client
+	-- opens the join prompt and sends the same code again).
+	RedeemCode = "RemoteEvent",
+
 	-- Gifting the nuke in your hands (Config/Gift, Services/GiftService), unlocked at
 	-- Toxic Twilight for both players. Client -> server: ("offer", targetPlayer) from the
 	-- giver's prompt, then a bare "accept" / "decline" from the receiver's card -- never
