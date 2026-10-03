@@ -551,6 +551,9 @@ end
 
 --- DetectorController's per-player contacts read; an aura this client has no reading
 --- for is hidden outright until (if ever) a rarity lands.
+-- How close (flat studs) an aura must be to the tutorial spot to be it.
+local TUTORIAL_SPOT_MATCH = 2
+
 local function stepAuras()
 	local player = Players.LocalPlayer
 	local character = player.Character
@@ -558,11 +561,53 @@ local function stepAuras()
 	local here = if root and root:IsA("BasePart") then root.Position else nil
 
 	local now = os.clock()
+	-- THE TUTORIAL'S ONE SPOT (ON REQUEST): while DigService has this set, the new
+	-- player's detector registers nothing else, but auras are public, so another
+	-- player's spots, a haul in progress or an announced drop would still glow. Every
+	-- aura but this one is kept dark for them until the first dig is done.
+	local tutorialSpot = player:GetAttribute("TutorialDigSpot")
+	if typeof(tutorialSpot) ~= "Vector3" then
+		tutorialSpot = nil
+	end
 
 	for model, entry in tracked do
 		if entry.core.Parent == nil then
 			forget(model)
 			continue
+		end
+
+		if tutorialSpot then
+			local dx = entry.core.Position.X - tutorialSpot.X
+			local dz = entry.core.Position.Z - tutorialSpot.Z
+			if dx * dx + dz * dz > TUTORIAL_SPOT_MATCH * TUTORIAL_SPOT_MATCH then
+				-- Torn down rather than faded, and rebuilt off the next reading once
+				-- the tutorial lets go of the field.
+				if entry.burst then
+					entry.burst.model:Destroy()
+					entry.burst = nil
+				end
+				if entry.beacon then
+					for _, beam in entry.beacon do
+						beam:Destroy()
+					end
+					for _, name in { "BeaconFoot", "BeaconTop" } do
+						local attachment = entry.core:FindFirstChild(name)
+						if attachment then
+							attachment:Destroy()
+						end
+					end
+					entry.beacon = nil
+				end
+				entry.rarity = nil
+				entry.core.Transparency = 1
+				if entry.light then
+					entry.light.Brightness = 0
+				end
+				if entry.motes then
+					entry.motes.Rate = 0
+				end
+				continue
+			end
 		end
 
 		local close = false

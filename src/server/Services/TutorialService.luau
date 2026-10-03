@@ -13,8 +13,9 @@
 	changes.
 
 	The save holds one flag, `onboarding` ("active" / "done", DataService). It goes
-	"done" when you reach the finish, or on SKIP, and after that this service ignores
-	you for good.
+	"done" on the last step ("navigate": the HOME / SHOPS buttons) when you use one of
+	them (WarpService calls TutorialService.complete) or after Tutorial.NAVIGATE_SECONDS,
+	or on SKIP, and after that this service ignores you for good.
 
 	ONE NUDGE, NOT A RAIL: when your first nuke comes out of the ground it is put in
 	your hands if they are empty, so "clean the nuke" does not start with a hunt through
@@ -44,6 +45,8 @@ local stateRemote: any = nil
 --- The last payload signature each player was sent, so an unchanged step costs a
 --- string compare and not a remote.
 local lastSent: { [Player]: string } = {}
+--- os.clock() each player reached the "navigate" step, for its timeout.
+local navigateSince: { [Player]: number } = {}
 
 local function ownsTier(data: any, tier: number): boolean
 	local owned = data.gearOwned and data.gearOwned.detector
@@ -76,7 +79,7 @@ end
 --- already achieved wins over anything earlier.
 function TutorialService.stepFor(player: Player, data: any): (Tutorial.StepId, boolean)
 	if ownsTier(data, Tutorial.UPGRADE_TIER) then
-		return "finish", true
+		return "navigate", true
 	end
 	if #data.exhibit.pedestals > 0 then
 		return "upgrade", true
@@ -116,6 +119,12 @@ local function stepPlayer(player: Player)
 	player:SetAttribute("TutorialActive", data.onboarding == "active")
 	if data.onboarding ~= "active" then
 		player:SetAttribute("TutorialStep", nil)
+		navigateSince[player] = nil
+		-- Ended outside this tick (a warp on the last step, /tutorial off): clear the
+		-- client's banner. `send` drops it if the client was already cleared.
+		if lastSent[player] ~= nil then
+			send(player, nil)
+		end
 		return
 	end
 
@@ -132,14 +141,38 @@ local function stepPlayer(player: Player)
 		end
 	end
 
-	if step == "finish" then
-		data.onboarding = "done"
-		print(`[tutorial] {player.Name} finished the walkthrough`)
+	-- The last step ends itself if neither HOME nor SHOPS gets pressed.
+	if step == "navigate" then
+		local since = navigateSince[player]
+		if since == nil then
+			navigateSince[player] = os.clock()
+		elseif os.clock() - since >= Tutorial.NAVIGATE_SECONDS then
+			TutorialService.complete(player)
+			return
+		end
+	else
+		navigateSince[player] = nil
 	end
 	-- `plot` rides along because the trail points at YOUR cleansing station and YOUR
 	-- stands, and PlotState fires once on assignment, before this controller may be
 	-- listening.
 	send(player, { step = step, holding = holding, plot = ExhibitService.plotOf(player) })
+end
+
+--- End the walkthrough from its last step ("navigate"). WarpService calls this when a
+--- HOME / SHOPS warp lands; the step's own timeout calls it too. Does nothing on any
+--- earlier step, so a stray call cannot cut a walkthrough short.
+function TutorialService.complete(player: Player)
+	local data = DataService.data(player)
+	if data == nil or data.onboarding ~= "active" or player:GetAttribute("TutorialStep") ~= "navigate" then
+		return
+	end
+	data.onboarding = "done"
+	navigateSince[player] = nil
+	player:SetAttribute("TutorialActive", false)
+	player:SetAttribute("TutorialStep", nil)
+	print(`[tutorial] {player.Name} finished the walkthrough`)
+	send(player, nil)
 end
 
 function TutorialService.init()
@@ -162,6 +195,7 @@ function TutorialService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastSent[player] = nil
+		navigateSince[player] = nil
 	end)
 
 	Ticker.every(TICK_HZ, function()
