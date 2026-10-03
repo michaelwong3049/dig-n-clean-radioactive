@@ -297,6 +297,11 @@ type Entry = {
 	glint: GlintRun?,
 	pristine: boolean,
 	pristineGlint: GlintRun?,
+	fused: boolean,
+	irradiated: boolean,
+	-- The Irradiated glow over the whole model. A Highlight, and the client draws only
+	-- so many of those at once, so it is lit in the full tier only.
+	irradiatedGlow: Highlight?,
 	seam: CylinderHandleAdornment?,
 	ping: CylinderHandleAdornment?,
 	bolts: { BoltRun },
@@ -470,6 +475,48 @@ local function applyFinish(model: Model, def: Def)
 				local level = tonumber(string.match(part.Name, "%d+")) or 1
 				local t = if ramp.levels > 1 then (level - 1) / (ramp.levels - 1) else 0
 				part.Transparency = ramp.from + (ramp.to - ramp.from) * math.clamp(t, 0, 1)
+			end
+		end
+	end
+end
+
+--- Every part of the model that can be seen, largest first, so [1] is the body
+--- rather than some small fitting.
+local function visibleParts(model: Model): { BasePart }
+	local visible: { BasePart } = {}
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant.Transparency < 0.9 then
+			table.insert(visible, descendant)
+		end
+	end
+	table.sort(visible, function(a, b)
+		return a.Size.Magnitude > b.Size.Magnitude
+	end)
+	return visible
+end
+
+--- Pull each painted part's colour `amount` of the way to `color` (the Fused bleach,
+--- the Irradiated cast). Glowing (Neon) and see-through parts keep their own. The
+--- colour before the first pull is kept in an attribute, so a second pass over the
+--- same model starts from it again instead of compounding.
+local function pullColour(parts: { BasePart }, color: Color3, amount: number, reflectance: number?)
+	for _, part in parts do
+		if part.Material ~= Enum.Material.Neon and part.Transparency < 0.5 then
+			local appearance = part:FindFirstChildOfClass("SurfaceAppearance")
+			if appearance then
+				-- A colour map can only be multiplied, never lightened; it has to go.
+				-- Every imported map is one flat colour already baked into Part.Color
+				-- (tools/studio-migrations/bake-nuke-texture-colours), so little is lost.
+				appearance:Destroy()
+			end
+			local base = part:GetAttribute("FxQualityBaseColor")
+			if typeof(base) ~= "Color3" then
+				base = part.Color
+				part:SetAttribute("FxQualityBaseColor", base)
+			end
+			part.Color = (base :: Color3):Lerp(color, amount)
+			if reflectance then
+				part.Reflectance = math.max(part.Reflectance, reflectance)
 			end
 		end
 	end
@@ -1356,6 +1403,54 @@ local function activate(entry: Entry, now: number)
 
 	applyFinish(model, def)
 
+	if entry.fused then
+		local fused = ItemFxConfig.FUSED
+		local visible = visibleParts(model)
+		pullColour(visible, fused.color, fused.whiten, fused.reflectance)
+		if #visible > 0 then
+			local e = PRESETS.smoke(fused.smoke.color, fused.smoke.rate, entry.scale)
+			e.Parent = visible[1]
+			table.insert(entry.emitters, e)
+		end
+	end
+
+	if entry.irradiated then
+		local hot = ItemFxConfig.IRRADIATED
+		local visible = visibleParts(model)
+		pullColour(visible, hot.color, hot.tint)
+		local glow = Instance.new("Highlight")
+		glow.Name = "ItemFxIrradiated"
+		glow.Adornee = model
+		glow.DepthMode = Enum.HighlightDepthMode.Occluded
+		glow.FillColor = hot.color
+		glow.FillTransparency = hot.glow.fillMin
+		glow.OutlineColor = hot.glow.rim
+		glow.OutlineTransparency = 1
+		-- On, like the emitters: activate starts an entry in the full tier.
+		glow.Enabled = true
+		glow.Parent = model
+		entry.irradiatedGlow = glow
+		local body = visible[1]
+		if body then
+			-- Its own light only when the nuke has none; one that already glows just
+			-- takes the green breath on top (stepEntry).
+			if def.light == nil then
+				local light = Instance.new("PointLight")
+				light.Name = "ItemFxLight"
+				light.Color = hot.color
+				light.Range = math.clamp(longest * hot.light.range, 3, 60)
+				light.Brightness = 0
+				light.Shadows = false
+				light.Parent = body
+				entry.light = light
+				entry.lightBase = hot.light.brightness
+			end
+			local e = PRESETS.drift(hot.drift.color, hot.drift.rate, entry.scale)
+			e.Parent = body
+			table.insert(entry.emitters, e)
+		end
+	end
+
 	if def.light then
 		local part = ItemFx.firstPart(model, def.light.part)
 		if part then
@@ -1423,17 +1518,8 @@ local function activate(entry: Entry, now: number)
 	end
 
 	if entry.pristine then
-		-- Every part that can be seen, largest first so the reference part (the one
-		-- the sweep is measured from) is the body rather than some small fitting.
-		local visible: { BasePart } = {}
-		for _, descendant in model:GetDescendants() do
-			if descendant:IsA("BasePart") and descendant.Transparency < 0.9 then
-				table.insert(visible, descendant)
-			end
-		end
-		table.sort(visible, function(a, b)
-			return a.Size.Magnitude > b.Size.Magnitude
-		end)
+		-- The reference part (the one the sweep is measured from) is the body.
+		local visible = visibleParts(model)
 		if #visible > 0 then
 			entry.pristineGlint = buildGlint(model, ItemFxConfig.PRISTINE.glint, entry.scale, now, entry.rng, visible)
 			local frost = ItemFxConfig.PRISTINE.sparkle
@@ -1533,9 +1619,11 @@ local function track(instance: Instance)
 	end
 	local model = instance :: Model
 	local pristine = model:GetAttribute(ItemFx.PRISTINE_ATTRIBUTE) == true
+	local fused = model:GetAttribute(ItemFx.FUSED_ATTRIBUTE) == true
+	local irradiated = model:GetAttribute(ItemFx.IRRADIATED_ATTRIBUTE) == true
 	local def = ItemFx.get(model:GetAttribute(ItemFx.ATTRIBUTE) :: string?)
 	if def == nil then
-		if not pristine then
+		if not (pristine or fused or irradiated) then
 			return
 		end
 		def = {}
@@ -1565,6 +1653,9 @@ local function track(instance: Instance)
 		glint = nil,
 		pristine = pristine,
 		pristineGlint = nil,
+		fused = fused,
+		irradiated = irradiated,
+		irradiatedGlow = nil,
 		seam = nil,
 		ping = nil,
 		bolts = {},
@@ -1607,6 +1698,9 @@ local function setTier(entry: Entry, tier: Tier)
 	entry.tier = tier
 	if full == wasFull then
 		return
+	end
+	if entry.irradiatedGlow then
+		entry.irradiatedGlow.Enabled = full
 	end
 	for _, e in entry.emitters do
 		e.Enabled = full
@@ -1716,10 +1810,31 @@ local function stepEntry(entry: Entry, now: number, cameraPosition: Vector3)
 		end
 	end
 
+	-- The Irradiated breath: 0..1, eased at both ends. It swells the glow and, for a
+	-- nuke whose only light is the Irradiated one, that light too.
+	local hotBreath = 0
+	local glowDef = if entry.irradiated then ItemFxConfig.IRRADIATED.glow else nil
+	if glowDef then
+		hotBreath = 0.5 - 0.5 * math.cos(t / glowDef.period * TAU)
+		if entry.def.light == nil then
+			lightFactor = 0.55 + 0.45 * hotBreath
+		end
+	end
+
 	local light = entry.light
 	if light and light.Enabled then
 		local flare = if struck then BOLT_FLARE * entry.rng:NextNumber(0.6, 1) else 0
 		light.Brightness = entry.lightBase * (lightFactor + flare) * smoothstep(t / IGNITE_TIME)
+	end
+
+	local glow = entry.irradiatedGlow
+	if glow and glowDef and glow.Enabled then
+		local fill = glowDef.fillMin + (glowDef.fillMax - glowDef.fillMin) * hotBreath
+		local rim = glowDef.rimMin + (glowDef.rimMax - glowDef.rimMin) * hotBreath
+		-- Eases in with the light at the reveal.
+		local ignite = smoothstep(t / IGNITE_TIME)
+		glow.FillTransparency = 1 - (1 - fill) * ignite
+		glow.OutlineTransparency = 1 - (1 - rim) * ignite
 	end
 
 	local ref = entry.spinRef
