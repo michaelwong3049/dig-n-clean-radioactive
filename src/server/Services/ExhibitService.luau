@@ -859,6 +859,17 @@ function ExhibitService.refreshTreadmill(player: Player)
 	renderTreadmill(index, DataService.data(player))
 end
 
+--- Repaint this player's own stand cards' $/s. Called when something outside this
+--- service raises their yieldMultiplier for good (the group chest's permanent cash
+--- bonus); income itself needs nothing, tickPlayer resolves stats fresh.
+function ExhibitService.refreshStandCards(player: Player)
+	local index = plotOf[player]
+	if index == nil then
+		return
+	end
+	refreshStandCards(index, DataService.data(player))
+end
+
 --- Refill this player's own fluid bottle from their profile. Called by LiquidService
 --- when their loaded fluid or its charges change, and once a spin has landed on their
 --- screen. Exactly refreshTreadmill's contract, including the no-op without a plot.
