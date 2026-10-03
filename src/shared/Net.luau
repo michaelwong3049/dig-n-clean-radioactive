@@ -303,6 +303,14 @@ local REMOTES: { [string]: string } = {
 	-- Server -> client: { result = "join" | "claimed" | "already", groupId?, text? }
 	-- on each press of the chest. Client -> server: "claim" (after joining the group).
 	GroupReward = "RemoteEvent",
+
+	-- Gifting the nuke in your hands (Config/Gift, Services/GiftService), unlocked at
+	-- Toxic Twilight for both players. Client -> server: ("offer", targetPlayer) from the
+	-- giver's prompt, then a bare "accept" / "decline" from the receiver's card -- never
+	-- a uid: the server gifts whatever the giver is holding. Server -> client, to the
+	-- receiver: { kind = "offer", from, fromUserId, seconds, item }, { kind = "result",
+	-- ok, message, keep? } after ACCEPT, or { kind = "closed", reason } when it lapses.
+	Gift = "RemoteEvent",
 }
 
 local Net = {}
