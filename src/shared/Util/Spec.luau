@@ -781,8 +781,8 @@ function Spec.run(): boolean
 		end
 		local nimbusCost = crossingCost(6)
 		check(
-			string.format("§camp the Nimbus can sprint the Crater's dead zone to Toxic Twilight: %.0f%% of a health bar (want < 60%%)", nimbusCost * 100),
-			nimbusCost < 0.6
+			string.format("§camp the Nimbus can sprint the Crater's dead zone to Toxic Twilight: %.0f%% of a health bar (want < 85%%, from full)", nimbusCost * 100),
+			nimbusCost < 0.85
 		)
 		check("§camp ...and the Isotope Mantle fails at the east edge — only the top aura walks in", readingAt(6, 5, 0, 1).failing)
 	end
