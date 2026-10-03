@@ -678,19 +678,24 @@ function Spec.run(): boolean
 		end
 		check(`§zone the rated drain climbs smoothly, no steps ({detail ~= "" and detail or "ok"})`, smooth)
 		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge (outside dead zones)", ratedOk)
-		-- Stage 6's last 40% is a dead zone, on request: the Nimbus fails out there.
-		do
-			local dz = Z.DEAD_ZONE[6]
-			local nimbus = Stages.get(6).ratedAuraTier
-			local into = dz and Radiation.zoneSurvival(6, dz.from, nimbus) or math.huge
-			local edge = Radiation.zoneSurvival(6, 1, nimbus)
+		-- The last stage of every zone ends in a dead zone (Tuning.ZONE_SURVIVAL.DEAD_ZONE):
+		-- the stage's own aura fails out there, and only there.
+		check("§zone the old Stage 6 dead zone is gone", Z.DEAD_ZONE[6] == nil)
+		for _, stageId in Stages.CAMP_AFTER do
+			local dz = Z.DEAD_ZONE[stageId]
+			local rated = Stages.get(stageId).ratedAuraTier
+			local into = dz and Radiation.zoneSurvival(stageId, dz.from, rated) or math.huge
+			local edge = Radiation.zoneSurvival(stageId, 1, rated)
 			check(
-				string.format("§zone Stage 6's last 40%% is deadly for the Nimbus: %.0fs at 60%%, %.0fs at the far edge (want <= 30, <= 10)", into, edge),
+				string.format("§zone Stage %d's last 40%% is deadly for its own aura: %.0fs at 60%%, %.0fs at the far edge (want <= 30, <= 10)", stageId, into, edge),
 				dz ~= nil and dz.from <= 0.6 and into <= 30 and edge <= 10
 			)
-			check("§zone ...and the Nimbus is failing there, not wearing", dz ~= nil and readingAt(6, nimbus, 0, dz.from).failing)
-			check("§zone ...but still holds just before it", dz ~= nil and not readingAt(6, nimbus, 0, dz.from - 0.01).failing)
-			check("§zone ...and the aura above it (Stage 7's) takes nothing there", Radiation.zoneSurvival(6, 1, nimbus + 1) == math.huge)
+			check(`§zone ...Stage {stageId}'s aura is failing there, not wearing`, dz ~= nil and readingAt(stageId, rated, 0, dz.from).failing)
+			check(`§zone ...but still holds just before it`, dz ~= nil and not readingAt(stageId, rated, 0, dz.from - 0.01).failing)
+			check(`§zone ...and the aura above it takes nothing there`, Radiation.zoneSurvival(stageId, 1, rated + 1) == math.huge)
+		end
+		for stageId in Z.DEAD_ZONE do
+			check(`§zone Stage {stageId}'s dead zone ends at a camp's gate`, table.find(Stages.CAMP_AFTER, stageId) ~= nil)
 		end
 		check(
 			string.format("§zone one tier under: 20-30s at the entrance (15-30s in the harsh stages), under 3s past 60%%, +%ds grace", Z.UNDER_GRACE),
@@ -780,33 +785,35 @@ function Spec.run(): boolean
 		check(`§4 a Twilight aura's meter takes 4m+ to fill at its own stage's far edge ({meterFirst or "ok"})`, meterFirst == nil)
 	end
 
-	-- THE CRATER'S FAR EDGE IS TOXIC TWILIGHT'S DOORSTEP (Config/Camps). The top aura has
-	-- to be able to walk out into the camp -- its aura holding at the east edge, where
-	-- the camp's gate is -- and the aura under it must not, or reaching the camp stops
-	-- being earned. Checked on the zone curve, then as a survival time, so the Nimbus's
-	-- exposure clock still leaves room for the walk.
-	-- The Crater's last 40% is a dead zone now (Tuning.ZONE_SURVIVAL.DEAD_ZONE), so the
-	-- Nimbus no longer HOLDS at the gate -- it has to SPRINT there. Pinned as a crossing:
-	-- an untrained walker (Treadmill.START_WALK) from the dead zone's line to the east
-	-- edge, integrating the aura's share of the damage, arrives with health to spare.
+	-- EVERY ZONE'S LAST STAGE IS A CAMP'S DOORSTEP (Stages.CAMP_AFTER). Its last 40% is a
+	-- dead zone (Tuning.ZONE_SURVIVAL.DEAD_ZONE), so the stage's own aura no longer HOLDS
+	-- at the gate -- it has to SPRINT there. Pinned as a crossing: an untrained walker
+	-- (Treadmill.START_WALK) from the dead zone's line to the east edge, integrating the
+	-- aura's share of the damage, arrives with health to spare. The aura under it must
+	-- fail at the edge, or reaching the camp stops being earned.
 	do
-		local function crossingCost(auraTier: number): number
-			local from = (Tuning.ZONE_SURVIVAL.DEAD_ZONE[6] or { from = 1 }).from
-			local minX, _, maxX = Stages.bounds(6)
+		local function crossingCost(stageId: number, auraTier: number): number
+			local from = (Tuning.ZONE_SURVIVAL.DEAD_ZONE[stageId] or { from = 1 }).from
+			local minX, _, maxX = Stages.bounds(stageId)
 			local seconds = (1 - from) * (maxX - minX) / Treadmill.START_WALK
 			local steps, lost = 50, 0
 			for i = 1, steps do
 				local d = from + (1 - from) * (i - 0.5) / steps
-				lost += (seconds / steps) / Radiation.zoneSurvival(6, d, auraTier)
+				lost += (seconds / steps) / Radiation.zoneSurvival(stageId, d, auraTier)
 			end
 			return lost
 		end
-		local nimbusCost = crossingCost(6)
-		check(
-			string.format("§camp the Nimbus can sprint the Crater's dead zone to Toxic Twilight: %.0f%% of a health bar (want < 85%%, from full)", nimbusCost * 100),
-			nimbusCost < 0.85
-		)
-		check("§camp ...and the Isotope Mantle fails at the east edge — only the top aura walks in", readingAt(6, 5, 0, 1).failing)
+		for _, stageId in Stages.CAMP_AFTER do
+			local rated = Stages.get(stageId).ratedAuraTier
+			local cost = crossingCost(stageId, rated)
+			check(
+				string.format("§camp Stage %d's own aura can sprint its dead zone to the camp: %.0f%% of a health bar (want < 85%%, from full)", stageId, cost * 100),
+				cost < 0.85
+			)
+			check(`§camp ...and the aura under Stage {stageId}'s fails at the east edge — only the top aura walks in`, readingAt(stageId, rated - 1, 0, 1).failing)
+		end
+		local early, late = crossingCost(4, Stages.get(4).ratedAuraTier), crossingCost(8, Stages.get(8).ratedAuraTier)
+		check(string.format("§camp Stage 4's sprint is gentler than Stage 8's (%.0f%% vs %.0f%%)", early * 100, late * 100), early < late)
 	end
 
 	-- Config/StageCraters — the craters pocking the Crater. Level design, so what is
