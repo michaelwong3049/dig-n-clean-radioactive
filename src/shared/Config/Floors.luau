@@ -39,10 +39,11 @@ Floors.HEIGHT = 33
 --- Raised on request to 50M (floor 2) and 1B (floor 3), then moved with their stages in
 --- the early-easier / late-harder refit (Config/Gear's header): floor 2 is part of the
 --- Stage 5 bill (x0.78 -> 40M), floor 3 of the Stage 9 bill (x1.55 -> 1.5B). Floor 3 then
---- went to 1.4B when floors dropped to nine stands (Config/Gear's header).
+--- went to 1.4B when floors dropped to nine stands, then 8.7M / 2.2B in the new-map
+--- price curve, with twelve stands again (Config/Gear's header).
 Floors.PRICES = {
-	[2] = 40000000,
-	[3] = 1400000000,
+	[2] = 8700000,
+	[3] = 2200000000,
 }
 
 --- Every stand across every floor. Loops that clear or scan "all stands" walk this.

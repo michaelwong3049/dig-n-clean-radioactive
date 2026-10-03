@@ -81,6 +81,19 @@
 	6 x0.981, 7 x0.968, 8 x0.917, 9 x0.964, 10 x0.967, 11 x0.939, 12 x0.947, then rounded to
 	2 significant figures (so a few tiers did not move). Floor 3 went 1.5B -> 1.4B.
 	Medians after rounding: 20/18/24/37/31/42/65/90/105/142/128 min, ~11.7 h.
+
+	NEW-MAP PRICE CURVE (balance/new-map-price-curve). Back to 12 stands a floor, and
+	priced by zone on request: early (Stages 1-4, Base Camp) way easier, mid (5-8,
+	Twilight) and late (9-12, Magma Hollow) harder. By then the sim had drifted to
+	~23.6 h (2.1 / 6.4 / 15.2 h a zone) through later price hikes and the tier-12 gear.
+	Target: early -50% time, mid and late +25%. A stage's time is set by the NEXT
+	stage's gear, so Stage 2-5's tiers (Floor 2 included) carry the early cut. The sim's
+	Detector map now follows the camp split: 3->2, 4->3, 5->4, 6-7->5, 8->6, 9->7, 10->8,
+	11-12->9, 13->10, 14->11, 15->12. Factors: Stage 2 x0.204, 3 x0.254, 4 x0.280,
+	5 x0.218, 6 x0.945, 7 x1.141, 8 x1.293, 9 x1.548, 10 x1.530, 11 x1.373, 12 x1.437,
+	rounded to 2 significant figures. Halving early time needs prices near a quarter,
+	because stand income compounds. Medians: 10/10.5/14.5/24/41/74.5/124.5/241.5/281.5/
+	331/495 min, ~27.5 h (early 1.0 h, mid 8.0 h, late 18.5 h). The Bent Coil stays $15.
 ]]
 
 export type GearTier = {
@@ -140,13 +153,13 @@ local Gear = {}
 Gear.Detector = {
 	{ name = "Rust Bucket", price = 0, radius = 11, luck = 1.00, depth = 5, clarity = 0, blurb = "Found in a ditch. Mostly works." },
 	{ name = "Bent Coil", price = 15, radius = 13, luck = 1.06, depth = 6, clarity = 0, blurb = "A coat hanger with ambition." },
-	{ name = "Scrap Sweeper", price = 28000, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
-	{ name = "Surplus Geiger", price = 190000, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
-	{ name = "Pulse Array", price = 1100000, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
-	{ name = "Isotope Scanner", price = 3600000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig.", camp = "twilight" },
-	{ name = "Resonance Mapper", price = 11000000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass.", camp = "twilight" },
-	{ name = "Deep Core Array", price = 34000000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it.", camp = "twilight" },
-	{ name = "The Oracle", price = 98000000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it.", camp = "twilight" },
+	{ name = "Scrap Sweeper", price = 5700, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
+	{ name = "Surplus Geiger", price = 48000, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
+	{ name = "Pulse Array", price = 310000, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
+	{ name = "Isotope Scanner", price = 780000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig.", camp = "twilight" },
+	{ name = "Resonance Mapper", price = 2400000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass.", camp = "twilight" },
+	{ name = "Deep Core Array", price = 32000000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it.", camp = "twilight" },
+	{ name = "The Oracle", price = 110000000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it.", camp = "twilight" },
 	-- THE SIX DRAWN FOR TOXIC TWILIGHT (Assets/Tools/Detector/T10-T15). Since FOUR STAGES
 	-- PER ZONE the ladder is split 5/5/5 by camp (`camp`, Gear.campOf): the Vein Whisperer
 	-- closes Twilight's stall and the other five are Magma Hollow's. The order is the
@@ -161,12 +174,12 @@ Gear.Detector = {
 	-- Oracle's last 0.35. It buys less than it looks like: Items.luckBias caps a weight at
 	-- DIG_LUCK_BIAS_CAP (20), and luck^3 (Legendary) reaches that at 2.71 and luck^2 (Epic)
 	-- at 4.47, so from the second rung up the extra luck is mostly Rare and Epic weight.
-	{ name = "Vein Whisperer", price = 310000000, radius = 35, luck = 2.80, depth = 48, clarity = 3, blurb = "Hums along a vein and tells you where it thickens.", camp = "twilight" },
-	{ name = "Aurora Rake", price = 1000000000, radius = 36, luck = 3.10, depth = 53, clarity = 3, blurb = "Combs the ground with light. The rare things snag first.", camp = "magma" },
-	{ name = "Strata Lance", price = 4000000000, radius = 37, luck = 3.40, depth = 58, clarity = 3, blurb = "One beam through every layer at once.", camp = "magma" },
-	{ name = "Leyline Tap", price = 21000000000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "magma" },
-	{ name = "Null Compass", price = 110000000000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "magma" },
-	{ name = "Prime Meridian", price = 420000000000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "magma" },
+	{ name = "Vein Whisperer", price = 400000000, radius = 35, luck = 2.80, depth = 48, clarity = 3, blurb = "Hums along a vein and tells you where it thickens.", camp = "twilight" },
+	{ name = "Aurora Rake", price = 1500000000, radius = 36, luck = 3.10, depth = 53, clarity = 3, blurb = "Combs the ground with light. The rare things snag first.", camp = "magma" },
+	{ name = "Strata Lance", price = 6200000000, radius = 37, luck = 3.40, depth = 58, clarity = 3, blurb = "One beam through every layer at once.", camp = "magma" },
+	{ name = "Leyline Tap", price = 32000000000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "magma" },
+	{ name = "Null Compass", price = 150000000000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "magma" },
+	{ name = "Prime Meridian", price = 600000000000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "magma" },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
@@ -202,11 +215,11 @@ Gear.Detector = {
 -- the ladder (x1.2 Electromagnet -> x1.8 Singularity Coil, ~x2.4-6 across Twilight).
 Gear.Magnet = {
 	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1, blurb = "A fridge magnet on a rope. Pull like you mean it." }, -- 2.50 clicks/sec to hold
-	{ name = "Salvage Magnet", price = 23000, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
-	{ name = "Electromagnet", price = 190000, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
-	{ name = "Winch Coil", price = 1300000, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
-	{ name = "Rail Coil", price = 4800000, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing.", camp = "twilight" }, -- 0.23
-	{ name = "Singularity Coil", price = 17000000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest.", camp = "twilight" }, -- 0.04, effectively hands-free
+	{ name = "Salvage Magnet", price = 4700, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
+	{ name = "Electromagnet", price = 48000, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
+	{ name = "Winch Coil", price = 360000, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
+	{ name = "Rail Coil", price = 1000000, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing.", camp = "twilight" }, -- 0.23
+	{ name = "Singularity Coil", price = 16000000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest.", camp = "twilight" }, -- 0.04, effectively hands-free
 	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, Lattice and Solar
 	-- are Twilight's (tiers 5-8 with the two coils) and Void/Nebula/Omega Magma Hollow's
 	-- (`camp`, Gear.campOf). The order is the art pack's
@@ -223,17 +236,17 @@ Gear.Magnet = {
 	-- nothing until Stage 7 is built, and it is written down now so those stages have a
 	-- ladder to be rated against. PRICES CLIMB HARDER EACH RUNG (on request, Omega pinned
 	-- at 60B): x4.1, x4.6, x5.3, x5.9, x6.0 off the Singularity Coil's 17M.
-	{ name = "Lattice Magnet", price = 70000000, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
-	{ name = "Solar Magnet", price = 320000000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
-	{ name = "Void Magnet", price = 1700000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "magma" }, -- 0.0045
-	{ name = "Nebula Magnet", price = 10000000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "magma" }, -- 0.0019
-	{ name = "Omega Magnet", price = 60000000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The earth just hands things over.", camp = "magma" }, -- 0.0006
+	{ name = "Lattice Magnet", price = 80000000, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
+	{ name = "Solar Magnet", price = 410000000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
+	{ name = "Void Magnet", price = 2600000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "magma" }, -- 0.0045
+	{ name = "Nebula Magnet", price = 15000000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "magma" }, -- 0.0019
+	{ name = "Omega Magnet", price = 82000000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The earth just hands things over.", camp = "magma" }, -- 0.0006
 	-- STAGE 12'S OWN, on request (2026-10-03): the user's imported lava magnet
 	-- (tools/studio-migrations/import-magma-magnet.luau, Assets/Tools/Magnet/T12). maxGrip
 	-- 12 meets Ground Zero's soilHardness 12, so the Omega's one-over haul there finally
 	-- has a rung that matches it. pullSpeed keeps the ~x1.22 climb, draw creeps the last
 	-- step under the 0.75 drag, price keeps the x6 stride off the Omega.
-	{ name = "Magma Magnet", price = 360000000000, pullSpeed = 13.4, draw = 0.749, maxGrip = 12, blurb = "The last magnet. The ground melts loose around the haul.", camp = "magma" },
+	{ name = "Magma Magnet", price = 520000000000, pullSpeed = 13.4, draw = 0.749, maxGrip = 12, blurb = "The last magnet. The ground melts loose around the haul.", camp = "magma" },
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -287,11 +300,11 @@ Gear.Magnet = {
 -- unchanged. Spec still pins ascending price/power/volume.
 Gear.Cleaner = {
 	{ name = "Garden Hose", price = 0, power = 1, volume = 1.0, blurb = "A dribble and a prayer." },
-	{ name = "Patched Fire Hose", price = 36000, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
-	{ name = "Pressure Lance", price = 210000, power = 3, volume = 1.6, blurb = "Narrow jet. Strips crust, not your patience." },
-	{ name = "Chem Injector", price = 1250000, power = 4, volume = 2.1, blurb = "Doses the stream. Eats what water cannot." },
-	{ name = "Ion Cannon", price = 7500000, power = 6, volume = 2.9, blurb = "Charges the water. The dirt lets go first.", camp = "twilight" },
-	{ name = "Plasma Lance", price = 43000000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you.", camp = "twilight" },
+	{ name = "Patched Fire Hose", price = 7300, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
+	{ name = "Pressure Lance", price = 53000, power = 3, volume = 1.6, blurb = "Narrow jet. Strips crust, not your patience." },
+	{ name = "Chem Injector", price = 350000, power = 4, volume = 2.1, blurb = "Doses the stream. Eats what water cannot." },
+	{ name = "Ion Cannon", price = 1600000, power = 6, volume = 2.9, blurb = "Charges the water. The dirt lets go first.", camp = "twilight" },
+	{ name = "Plasma Lance", price = 41000000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you.", camp = "twilight" },
 	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, the Nozzle and Cryo
 	-- Nova are Twilight's (tiers 5-8 with the Ion Cannon and Plasma Lance) and the last
 	-- three Magma Hollow's (`camp`, Gear.campOf). The order is the user's.
@@ -303,16 +316,16 @@ Gear.Cleaner = {
 	-- faster than the last. The stream's girth is already capped (WashController's
 	-- JET_GIRTH_MAX), so the extra water is speed, not a wall of spray. Prices keep
 	-- the other Twilight ladders' x3 stride.
-	{ name = "Singularity Nozzle", price = 140000000, power = 8, volume = 4.7, blurb = "Folds the stream down to a point. The crust folds with it.", camp = "twilight" },
-	{ name = "Cryo Nova", price = 570000000, power = 9, volume = 5.8, blurb = "Freezes the grime, then shatters it off.", camp = "twilight" },
-	{ name = "Solar Forge", price = 3000000000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "magma" },
-	{ name = "Quantum Rift", price = 15000000000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "magma" },
-	{ name = "Celestial Deluge", price = 58000000000, power = 12, volume = 11.0, blurb = "It rains from somewhere higher.", camp = "magma" },
+	{ name = "Singularity Nozzle", price = 160000000, power = 8, volume = 4.7, blurb = "Folds the stream down to a point. The crust folds with it.", camp = "twilight" },
+	{ name = "Cryo Nova", price = 740000000, power = 9, volume = 5.8, blurb = "Freezes the grime, then shatters it off.", camp = "twilight" },
+	{ name = "Solar Forge", price = 4600000000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "magma" },
+	{ name = "Quantum Rift", price = 23000000000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "magma" },
+	{ name = "Celestial Deluge", price = 80000000000, power = 12, volume = 11.0, blurb = "It rains from somewhere higher.", camp = "magma" },
 	-- STAGE 12'S OWN, on request (2026-10-03): the user's imported lava hose
 	-- (tools/studio-migrations/import-magma-hose.luau, Assets/HoseModels/T13). power 13
 	-- meets a Stage 12 Anomaly's crust (Tuning's hardness note), one over the Deluge;
 	-- volume keeps the ~x1.25 climb, price ~x4.5 off the Deluge.
-	{ name = "Magma Cannon", price = 260000000000, power = 13, volume = 13.7, blurb = "The last hose. Spits liquid fire. The crust just slides off.", camp = "magma" },
+	{ name = "Magma Cannon", price = 370000000000, power = 13, volume = 13.7, blurb = "The last hose. Spits liquid fire. The crust just slides off.", camp = "magma" },
 }
 
 -- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -363,11 +376,11 @@ Gear.Cleaner = {
 -- harder, not smoother.
 Gear.Aura = {
 	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 0.60, blurb = "No aura yet. Buy one to shield yourself from the rads." },
-	{ name = "Static Veil", price = 110000, reduction = 0.9750, tolerance = 4.4, capacity = 6, haulPenalty = 0.48, blurb = "Crackles more than it shields. Shields a little." },
-	{ name = "Lead Halo", price = 870000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
-	{ name = "Ion Shroud", price = 5300000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 18000000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back.", camp = "twilight" },
-	{ name = "Containment Nimbus", price = 63000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim.", camp = "twilight" },
+	{ name = "Static Veil", price = 22000, reduction = 0.9750, tolerance = 4.4, capacity = 6, haulPenalty = 0.48, blurb = "Crackles more than it shields. Shields a little." },
+	{ name = "Lead Halo", price = 220000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 1500000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 3900000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back.", camp = "twilight" },
+	{ name = "Containment Nimbus", price = 60000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim.", camp = "twilight" },
 	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, Toxic Aurora and
 	-- Eclipse Veil are Twilight's (tiers 5-8 with the Mantle and Nimbus) and the last
 	-- three Magma Hollow's (`camp`, Gear.campOf). Shapes picked by the user
@@ -396,17 +409,17 @@ Gear.Aura = {
 	-- every stage below lasts longer the higher the aura.
 	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
-	{ name = "Toxic Aurora", price = 230000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 900000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 3800000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "magma" },
-	{ name = "Seraph", price = 17000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
-	{ name = "Crimson Vortex", price = 85000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "A red storm with you in the eye of it.", camp = "magma" },
+	{ name = "Toxic Aurora", price = 260000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 1200000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 5900000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "magma" },
+	{ name = "Seraph", price = 26000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
+	{ name = "Crimson Vortex", price = 120000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "A red storm with you in the eye of it.", camp = "magma" },
 	-- STAGE 12'S OWN, on request (2026-10-03, option 3 of six lava mockups): a molten serpent
 	-- coiling up the body. Ground Zero was rated past the end of the ladder (the Vortex's
 	-- one-minute raid); now it has a rung. Fitted like the rest: reduction so the meter
 	-- takes ~13 min at Stage 12's far edge (100 / (600 * 0.00021) = 794s), tolerance just
 	-- over its deepRads, price on the ladder's widening stride (x5.5 off the Vortex).
-	{ name = "Molten Serpent", price = 470000000000, reduction = 0.99979, tolerance = 610.0, capacity = 40, haulPenalty = 0.015, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
+	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 40, haulPenalty = 0.015, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
