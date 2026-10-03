@@ -379,7 +379,22 @@ function World.verify(): (boolean, { string })
 						table.insert(anchors, d)
 					end
 				end
-				check(#anchors == 1, `camp "{def.name}" has {#anchors} {CampSite.ANCHOR_NAME}s, expected 1 — WarpService lands players on it`)
+				-- A COMING SOON camp has none: no anchor is what keeps its warp shut.
+				local wantAnchors = if def.comingSoon then 0 else 1
+				check(
+					#anchors == wantAnchors,
+					`camp "{def.name}" has {#anchors} {CampSite.ANCHOR_NAME}s, expected {wantAnchors} — WarpService lands players on it`
+				)
+				-- And its entrance barricade's collider is the only thing between the
+				-- stage it opens off and a camp nobody may enter yet.
+				if def.comingSoon then
+					local gate = model:FindFirstChild("EntryGate")
+					local collider = gate and gate:FindFirstChild("GateCollider")
+					check(
+						collider ~= nil and collider:IsA("BasePart") and collider.CanCollide,
+						`COMING SOON camp "{def.name}" has no collidable EntryGate.GateCollider — players can walk in`
+					)
+				end
 				local anchor = anchors[1] :: BasePart?
 				if anchor then
 					check(anchor:GetAttribute("CampKey") == def.key, `camp "{def.name}"'s anchor has CampKey {tostring(anchor:GetAttribute("CampKey"))}`)
@@ -433,12 +448,19 @@ function World.verify(): (boolean, { string })
 	-- The sell loop needs one shared, visible destination. A missing trader leaves
 	-- EconomyService working but makes every carried item effectively unsellable;
 	-- a second one makes the intended central rendezvous point ambiguous.
-	-- ONE PER CAMP now: Base Camp's, plus one in every site camp (build/CampSite).
-	local traders = 1 + #sites
+	-- ONE PER CAMP now: Base Camp's, plus one in every site camp (build/CampSite) --
+	-- except a COMING SOON camp, which stands neither a trader nor a station yet.
+	local openSites = 0
+	for _, def in sites do
+		if not def.comingSoon then
+			openSites += 1
+		end
+	end
+	local traders = 1 + openSites
 	check((census.trader or 0) == traders, `expected {traders} trader stations (one per camp), found {census.trader or 0}`)
 	-- One cleansing station per base, not one shared station at Base Camp -- plus the
 	-- one shared station each site camp stands, since those have no plots.
-	local deconCount = Plots.COUNT + #sites
+	local deconCount = Plots.COUNT + openSites
 	check(
 		(census.decon or 0) == deconCount,
 		`expected {deconCount} decon stations (one per base + one per site camp), found {census.decon or 0}`

@@ -127,7 +127,9 @@ COMMANDS["/camp"] = {
 		if camp == nil or camp.key == Camps.BASE then
 			local keys = {}
 			for _, def in Camps.sites() do
-				table.insert(keys, def.key)
+				if not def.comingSoon then
+					table.insert(keys, def.key)
+				end
 			end
 			return `usage: /camp <{table.concat(keys, "|")}>`
 		end

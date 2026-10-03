@@ -443,10 +443,13 @@ local function render(force: boolean?)
 	for index, def in defs do
 		row(scroll, index, def, def.id, statuses[index])
 	end
-	-- Numbered after every camp in the config, listed here or not.
+	-- Numbered after every camp in the config, listed here or not -- except a COMING
+	-- SOON one, which IS that "???" row (Zone 3 is seen past Stage 12, never warped to).
 	local lastId = 0
 	for _, def in Camps.DEFS do
-		lastId = math.max(lastId, def.id)
+		if not def.comingSoon then
+			lastId = math.max(lastId, def.id)
+		end
 	end
 	row(scroll, #defs + 1, nil, lastId + 1, "soon")
 
