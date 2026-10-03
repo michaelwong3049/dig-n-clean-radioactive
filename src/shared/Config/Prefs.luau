@@ -57,11 +57,12 @@ Prefs.DEFS = {
 	volSfx = { kind = "volume", default = 1 },
 	volUi = { kind = "volume", default = 1 },
 	volGeiger = { kind = "volume", default = 1 },
-	-- The background playlist (MusicController). OFF by default: players opt in by
-	-- raising the slider. MusicController's track volume is set so 50% is the intended
-	-- quiet bed. Was `volMusic`: renamed because old saves stored volMusic = 1 from the
-	-- defaults snapshot, which kept music on for them; the stale key is now ignored.
-	musicVol = { kind = "volume", default = 0 },
+	-- The background playlist (MusicController). ON at 50% by default: MusicController's
+	-- track volume is set so 50% is the intended quiet bed. Key history: `volMusic` (old
+	-- saves held 1) → `musicVol` (opt-in, default 0) → `musicLevel`. Each rename is
+	-- because profiles snapshot Prefs.defaults(), so a changed default never reaches
+	-- existing saves; the stale keys are ignored.
+	musicLevel = { kind = "volume", default = 0.5 },
 
 	-- RARE DROP ANNOUNCEMENTS (client RareDropController). "mine" keeps only the line
 	-- when YOU claim one. The drop's glow in the field is untouched either way.
