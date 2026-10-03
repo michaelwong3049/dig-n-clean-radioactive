@@ -484,6 +484,8 @@ local CARD_BUY_BOTTOM = 18
 local CARD_BUY_TOP = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT
 -- The purple Robux button splits the buy row on a tier sold for Robux: cash on the
 -- left, this on the right.
+-- Roblox's own Robux glyph (private-use U+E002), same as ShopController's Robux buttons.
+local ROBUX = utf8.char(0xE002)
 local CARD_ROBUX_WIDTH = 150
 local CARD_ROBUX_GAP = 10
 local CARD_CHIPS_TOP = CARD_BUY_TOP - CARD_ROW_GAP - STAT_CHIP_HEIGHT
@@ -823,7 +825,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		anchorPoint = Vector2.new(1, 1),
 		position = UDim2.new(1, -CARD_INSET, 1, -CARD_BUY_BOTTOM),
 		size = UDim2.fromOffset(CARD_ROBUX_WIDTH, CARD_BUY_HEIGHT),
-		text = "R$",
+		text = ROBUX,
 		font = FIELD.headline,
 		textSize = 22,
 		color = FIELD.text,
@@ -1589,12 +1591,12 @@ end
 -- change). `false` = asked and still waiting, or the lookup failed.
 local robuxPrices: { [number]: number | false } = {}
 
---- "R$ 199", or a bare "R$" until the price arrives. The first ask starts the lookup,
+--- The Robux glyph and price ("<glyph> 199"), or the bare glyph until the price arrives. The first ask starts the lookup,
 --- and the answer repaints whichever card is showing that product.
 local function robuxText(productId: number): string
 	local price = robuxPrices[productId]
 	if price then
-		return `R$ {price}`
+		return `{ROBUX} {price}`
 	end
 	if price == nil then
 		robuxPrices[productId] = false
@@ -1608,12 +1610,12 @@ local function robuxText(productId: number): string
 			robuxPrices[productId] = info.PriceInRobux
 			for _, card in ui.shopCards or {} do
 				if card:GetAttribute("ProductId") == productId then
-					(card.CardRobux :: TextButton).Text = `R$ {info.PriceInRobux}`
+					(card.CardRobux :: TextButton).Text = `{ROBUX} {info.PriceInRobux}`
 				end
 			end
 		end)
 	end
-	return "R$"
+	return ROBUX
 end
 
 --- Four states, and all four are drawn on the same card rather than on four layouts.
