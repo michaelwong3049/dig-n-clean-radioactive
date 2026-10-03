@@ -9,8 +9,9 @@
 	that is still built from Frames is the cracks, on purpose — the user kept them.
 
 	PLAN §14's ONE COLOUR RULE still holds: exposure damage is GREEN, aura failure is
-	WHITE, and blood is RED and answers to HEALTH, never to rads. Green is the dose,
-	white is the aura, red is you.
+	WHITE, and the hurt shade is DARK and answers to HEALTH, never to rads. Green is the
+	dose, white is the aura, dark is you. (No blood: the hurt layer is a plain dark
+	edge so the game can answer "no" to blood on its maturity questionnaire.)
 
 	THE LAYERS, back to front:
 
@@ -21,8 +22,8 @@
 	            every heartbeat (the heartbeat used to be a full-screen green flash).
 	            When blind, it shrinks to a keyhole and four bars fill in around it.
 	  signal    thin scanline flickers. The light over-tier grade only.
-	  blood     a red rim, out-of-focus splats pinned to the top and sides, and drips
-	            that lengthen (ImageRectSize) only while you are losing health.
+	  hurt      a charcoal edge (the vignette texture again) that closes in as health
+	            drops. Deliberately no red, no splats, no drips.
 	  snow      what radiation looks like on a camera sensor: pixel hits and short
 	            streaks. Three tiling images re-offset every frame so it never repeats.
 	  cracks    white fractures raking in from the frame's edges, only while the aura
@@ -82,6 +83,8 @@ local MOTE_TINT = Color3.fromRGB(120, 255, 140)
 -- Aura failure bleaches the world COLD, not warm: white is the aura's colour.
 local BLEACH = Color3.fromRGB(228, 240, 255)
 local SICK = Color3.fromRGB(170, 240, 150)
+-- Low health darkens the edge of your view. Neutral charcoal, never red.
+local HURT = Color3.fromRGB(14, 14, 16)
 
 -- WHERE THE LIGHT GRADE ENDS AND SIGHT STARTS GOING, on HudController's `over` ramp
 -- (0 = rated for this air, 1 = three times your tolerance). ~1.7x your rating.
@@ -93,14 +96,6 @@ local FAIL_FLOOR = 0.25
 local REDUCED = 0.5
 local REDUCED_BLIND = 0.7
 
--- Splats are pinned to the TOP and SIDES so their drips have somewhere to run.
--- Blood in the middle of your view is a texture; blood running down from the rim is
--- your own.
-local SPLAT_SPOTS = {
-	Vector2.new(0.06, 0.08), Vector2.new(0.22, 0.04), Vector2.new(0.93, 0.06),
-	Vector2.new(0.97, 0.35), Vector2.new(0.03, 0.45), Vector2.new(0.72, 0.03),
-	Vector2.new(0.97, 0.62), Vector2.new(0.4, 0.02), Vector2.new(0.02, 0.7),
-}
 local SIGNAL_COUNT = 3
 
 -- Seeded, so the damage layout is identical every session. A layout that reshuffles
@@ -110,8 +105,8 @@ local rng = Random.new(0x2A0D)
 local fx = Random.new()
 
 local ui = {}
-local rots, snows, signals, splats, cracks, impacts = {}, {}, {}, {}, {}, {}
-local st = { t = 0, fail = 0, run = 0, over = 0, live = false, built = false, reduced = false }
+local rots, snows, signals, cracks, impacts = {}, {}, {}, {}, {}
+local st = { t = 0, fail = 0, over = 0, live = false, built = false, reduced = false }
 
 -- Every pixel measurement in this file is quoted against a 720-tall viewport and
 -- scaled at layout time, so the damage does not depend on how big the window is.
@@ -196,34 +191,10 @@ local function buildSignal(parent: Instance)
 	end
 end
 
---- The drip is a SIBLING of its splat, built first so it sits under it, and it is
---- cropped with ImageRect so it genuinely gets longer rather than stretching.
-local function buildBlood(parent: Instance)
-	ui.bloodRim = image("BloodRim", RadFxArt.bloodRim, 3, parent)
-	ui.bloodRim.Size = UDim2.fromScale(1.08, 1.24)
-
-	for i, spot in SPLAT_SPOTS do
-		local drip = image(string.format("Drip%d", i), RadFxArt.drip, 3, parent)
-		drip.AnchorPoint = Vector2.new(0.5, 0)
-		drip.ImageTransparency = 0
-
-		local splat = image(string.format("Splat%d", i), RadFxArt.splats[(i - 1) % #RadFxArt.splats + 1], 3, parent)
-		splat.Position = UDim2.fromScale(spot.X, spot.Y)
-		splat.Rotation = rng:NextNumber() * 360
-
-		splats[i] = {
-			splat = splat,
-			drip = drip,
-			u = spot.X,
-			v = spot.Y,
-			scale = 0.7 + rng:NextNumber() * 0.6,
-			-- Staggered: you do not get sprayed all at once, you get hit, then hit again.
-			at = (i - 1) / #SPLAT_SPOTS * 0.7,
-			hasDrip = rng:NextNumber() < 0.75,
-			dx = (rng:NextNumber() - 0.5) * 0.02,
-			dripMax = 0.4 + rng:NextNumber() * 0.6,
-		}
-	end
+--- Low health: the vignette texture again, tinted charcoal, closing in as you get hurt.
+local function buildHurt(parent: Instance)
+	ui.hurt = image("Hurt", RadFxArt.vignette, 3, parent)
+	ui.hurt.ImageColor3 = HURT
 end
 
 --- Cracks are walked in NORMALISED space (0..1 on both axes) and converted to pixels
@@ -414,7 +385,7 @@ function RadFx.build(parent: Instance)
 	buildRot(root)
 	buildVignette(root)
 	buildSignal(root)
-	buildBlood(root)
+	buildHurt(root)
 	buildSnow(root)
 	buildCracks(root)
 	buildMotes()
@@ -446,8 +417,8 @@ function RadFx.build(parent: Instance)
 	-- Snow swaps between its three tiles every frame; one that has not loaded yet
 	-- would blink blank, so fetch them all up front.
 	task.spawn(function()
-		local art = { RadFxArt.vignette, RadFxArt.mote, RadFxArt.drip, RadFxArt.bloodRim }
-		for _, list in { RadFxArt.rot, RadFxArt.snow, RadFxArt.splats } do
+		local art = { RadFxArt.vignette, RadFxArt.mote }
+		for _, list in { RadFxArt.rot, RadFxArt.snow } do
 			for _, id in list do
 				table.insert(art, id)
 			end
@@ -507,13 +478,12 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 		st.fail = math.max(failTarget, st.fail - dt / 0.6)
 	end
 
-	-- Blood starts at a scratch and is total at a quarter health. A failing aura opens
-	-- you up whatever the health bar says, graded by how far past your rating you are.
-	local bleed = math.clamp((0.75 - healthFrac) / 0.5, 0, 1)
-	bleed = math.max(bleed, st.fail * (0.3 + 0.65 * st.over))
+	-- The hurt shade starts at a scratch and is total at a quarter health. A failing aura
+	-- hurts whatever the health bar says, graded by how far past your rating you are.
+	local hurt = math.clamp((0.75 - healthFrac) / 0.5, 0, 1)
+	hurt = math.max(hurt, st.fail * (0.3 + 0.65 * st.over))
 
-	if intensity < 0.002 and st.fail < 0.002 and bleed < 0.002 and st.over < 0.002 then
-		st.run = 0
+	if intensity < 0.002 and st.fail < 0.002 and hurt < 0.002 and st.over < 0.002 then
 		sleep()
 		return
 	end
@@ -541,7 +511,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 		dose *= REDUCED
 		fail *= REDUCED
 		light *= REDUCED
-		bleed *= REDUCED
+		hurt *= REDUCED
 		blind *= REDUCED_BLIND
 	end
 	local breath = 0.5 + 0.5 * math.sin(st.t * (1.1 + dose * 1.6))
@@ -617,41 +587,12 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 		end
 	end
 
-	-- Blood -----------------------------------------------------------
-	-- `run` is a bleeding clock: it advances only while blood is on the glass, so the
-	-- drips grow while you are hurt and freeze the moment you stop losing health.
-	st.run += dt * bleed
-	ui.bloodRim.Visible = bleed > 0.002
-	ui.bloodRim.ImageTransparency = 1 - math.clamp(bleed * 0.75 * (0.9 + 0.1 * beat), 0, 1)
-	local dripSize = RadFxArt.DRIP_SIZE
-	for _, splat in splats do
-		local landed = math.clamp((bleed - splat.at) / 0.15, 0, 1)
-		if landed <= 0.001 then
-			splat.splat.Visible = false
-			splat.drip.Visible = false
-			continue
-		end
-		local size = 200 * splat.scale * px * 1.25 * (0.8 + 0.2 * landed)
-		splat.splat.Visible = true
-		splat.splat.Size = UDim2.fromOffset(size, size)
-		splat.splat.ImageTransparency = 1 - landed * 0.75
-
-		-- Runs a fraction of the way down in ten seconds of solid bleeding, then keeps
-		-- creeping, capped per drip so a long fight does not curtain the screen.
-		local run = if splat.hasDrip then math.clamp(st.run * 0.09 - splat.at, 0, 1) * splat.dripMax else 0
-		local shown = math.floor(dripSize.Y * run)
-		if shown > 2 then
-			splat.drip.Visible = true
-			-- The bottom of the texture (the bead) is always the leading edge.
-			splat.drip.ImageRectOffset = Vector2.new(0, dripSize.Y - shown)
-			splat.drip.ImageRectSize = Vector2.new(dripSize.X, shown)
-			splat.drip.Position = UDim2.fromScale(splat.u + splat.dx, splat.v)
-			splat.drip.Size = UDim2.fromOffset(19 * px, shown / dripSize.Y * 240 * px)
-			splat.drip.ImageTransparency = 1 - landed
-		else
-			splat.drip.Visible = false
-		end
-	end
+	-- Hurt ------------------------------------------------------------
+	-- Pulls in from past the frame as health drops, and tightens a touch on the beat.
+	local hs = 1.5 - 0.3 * hurt - beat * 0.02 * hurt
+	ui.hurt.Visible = hurt > 0.002
+	ui.hurt.Size = UDim2.fromScale(hs * 1.12, hs * 1.45)
+	ui.hurt.ImageTransparency = 1 - math.clamp(hurt * 0.8 * (0.9 + 0.1 * beat), 0, 1)
 
 	-- Snow ------------------------------------------------------------
 	-- Up to three tile layers a frame, each at a fresh offset: density comes from how
@@ -704,7 +645,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	ui.colour.TintColor = tint:Lerp(BLEACH, fail * 0.6)
 	ui.colour.Saturation = math.max(-1, -0.35 * dose - 0.3 * light - 0.35 * fail - 0.3 * blind)
 	ui.colour.Contrast = 0.08 * dose + 0.15 * light + 0.1 * fail - 0.2 * blind
-	ui.colour.Brightness = -0.03 * dose - 0.07 * beat * (dose + blind) - 0.05 * bleed - 0.3 * blind + 0.05 * fail
+	ui.colour.Brightness = -0.03 * dose - 0.07 * beat * (dose + blind) - 0.05 * hurt - 0.3 * blind + 0.05 * fail
 
 	-- Focus: the ground at your feet stays readable, the distance goes. Focused on the
 	-- camera's own subject, so it follows zoom. Blind takes the near field too, and a
