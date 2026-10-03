@@ -143,14 +143,14 @@ Gear.Detector = {
 	{ name = "Scrap Sweeper", price = 28000, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
 	{ name = "Surplus Geiger", price = 190000, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
 	{ name = "Pulse Array", price = 1100000, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
-	{ name = "Isotope Scanner", price = 3600000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig." },
-	{ name = "Resonance Mapper", price = 11000000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass." },
-	{ name = "Deep Core Array", price = 34000000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it." },
-	{ name = "The Oracle", price = 98000000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it." },
-	-- TOXIC TWILIGHT'S SIX. Sold at the Detector stall in that camp and nowhere else
-	-- (`camp` below, and Gear.campOf), so a player has to reach the end of Stage 6 to
-	-- spend on them. The order is the order they were drawn in, which is the order they
-	-- cost.
+	{ name = "Isotope Scanner", price = 3600000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig.", camp = "twilight" },
+	{ name = "Resonance Mapper", price = 11000000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass.", camp = "twilight" },
+	{ name = "Deep Core Array", price = 34000000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it.", camp = "twilight" },
+	{ name = "The Oracle", price = 98000000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it.", camp = "twilight" },
+	-- THE SIX DRAWN FOR TOXIC TWILIGHT (Assets/Tools/Detector/T10-T15). Since FOUR STAGES
+	-- PER ZONE the ladder is split 5/5/5 by camp (`camp`, Gear.campOf): the Vein Whisperer
+	-- closes Twilight's stall and the other five are Magma Hollow's. The order is the
+	-- order they were drawn in, which is the order they cost.
 	--
 	-- THE CLIMB IS IN LUCK AND DEPTH, AND `radius` BARELY MOVES, ON PURPOSE. The note above
 	-- says why the reveal curve is flat, and the Spec pins a ratio guard on it (top radius
@@ -162,11 +162,11 @@ Gear.Detector = {
 	-- DIG_LUCK_BIAS_CAP (20), and luck^3 (Legendary) reaches that at 2.71 and luck^2 (Epic)
 	-- at 4.47, so from the second rung up the extra luck is mostly Rare and Epic weight.
 	{ name = "Vein Whisperer", price = 310000000, radius = 35, luck = 2.80, depth = 48, clarity = 3, blurb = "Hums along a vein and tells you where it thickens.", camp = "twilight" },
-	{ name = "Aurora Rake", price = 1000000000, radius = 36, luck = 3.10, depth = 53, clarity = 3, blurb = "Combs the ground with light. The rare things snag first.", camp = "twilight" },
-	{ name = "Strata Lance", price = 4000000000, radius = 37, luck = 3.40, depth = 58, clarity = 3, blurb = "One beam through every layer at once.", camp = "twilight" },
-	{ name = "Leyline Tap", price = 21000000000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "twilight" },
-	{ name = "Null Compass", price = 110000000000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "twilight" },
-	{ name = "Prime Meridian", price = 420000000000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "twilight" },
+	{ name = "Aurora Rake", price = 1000000000, radius = 36, luck = 3.10, depth = 53, clarity = 3, blurb = "Combs the ground with light. The rare things snag first.", camp = "magma" },
+	{ name = "Strata Lance", price = 4000000000, radius = 37, luck = 3.40, depth = 58, clarity = 3, blurb = "One beam through every layer at once.", camp = "magma" },
+	{ name = "Leyline Tap", price = 21000000000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "magma" },
+	{ name = "Null Compass", price = 110000000000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "magma" },
+	{ name = "Prime Meridian", price = 420000000000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "magma" },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
@@ -205,10 +205,11 @@ Gear.Magnet = {
 	{ name = "Salvage Magnet", price = 23000, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
 	{ name = "Electromagnet", price = 190000, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
 	{ name = "Winch Coil", price = 1300000, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
-	{ name = "Rail Coil", price = 4800000, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
-	{ name = "Singularity Coil", price = 17000000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
-	-- TOXIC TWILIGHT'S FIVE. Sold at the Magnet stall in that camp and nowhere else
-	-- (`camp`, Gear.campOf), like the camp's six detectors. The order is the art pack's
+	{ name = "Rail Coil", price = 4800000, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing.", camp = "twilight" }, -- 0.23
+	{ name = "Singularity Coil", price = 17000000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest.", camp = "twilight" }, -- 0.04, effectively hands-free
+	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, Lattice and Solar
+	-- are Twilight's (tiers 5-8 with the two coils) and Void/Nebula/Omega Magma Hollow's
+	-- (`camp`, Gear.campOf). The order is the art pack's
 	-- own (its tier_6_lattice .. tier_10_omega), which is the order they cost.
 	--
 	-- `draw` HAS NOWHERE LEFT TO GO, so the climb is in pullSpeed. The Singularity Coil
@@ -224,9 +225,9 @@ Gear.Magnet = {
 	-- at 60B): x4.1, x4.6, x5.3, x5.9, x6.0 off the Singularity Coil's 17M.
 	{ name = "Lattice Magnet", price = 70000000, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
 	{ name = "Solar Magnet", price = 320000000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
-	{ name = "Void Magnet", price = 1700000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "twilight" }, -- 0.0045
-	{ name = "Nebula Magnet", price = 10000000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "twilight" }, -- 0.0019
-	{ name = "Omega Magnet", price = 60000000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The last magnet. The earth just hands things over.", camp = "twilight" }, -- 0.0006
+	{ name = "Void Magnet", price = 1700000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "magma" }, -- 0.0045
+	{ name = "Nebula Magnet", price = 10000000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "magma" }, -- 0.0019
+	{ name = "Omega Magnet", price = 60000000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The last magnet. The earth just hands things over.", camp = "magma" }, -- 0.0006
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -283,10 +284,11 @@ Gear.Cleaner = {
 	{ name = "Patched Fire Hose", price = 36000, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
 	{ name = "Pressure Lance", price = 210000, power = 3, volume = 1.6, blurb = "Narrow jet. Strips crust, not your patience." },
 	{ name = "Chem Injector", price = 1250000, power = 4, volume = 2.1, blurb = "Doses the stream. Eats what water cannot." },
-	{ name = "Ion Cannon", price = 7500000, power = 6, volume = 2.9, blurb = "Charges the water. The dirt lets go first." },
-	{ name = "Plasma Lance", price = 43000000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
-	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Hose Shop and nowhere else (`camp`,
-	-- Gear.campOf), like its detectors and magnets. The order is the user's.
+	{ name = "Ion Cannon", price = 7500000, power = 6, volume = 2.9, blurb = "Charges the water. The dirt lets go first.", camp = "twilight" },
+	{ name = "Plasma Lance", price = 43000000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you.", camp = "twilight" },
+	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, the Nozzle and Cryo
+	-- Nova are Twilight's (tiers 5-8 with the Ion Cannon and Plasma Lance) and the last
+	-- three Magma Hollow's (`camp`, Gear.campOf). The order is the user's.
 	--
 	-- `power` runs 8-12 AHEAD OF THE MAP, the way the camp's magnets' maxGrip does:
 	-- crust hardness stops at 7 (Anomaly) today, so the gate buys nothing until harder
@@ -297,9 +299,9 @@ Gear.Cleaner = {
 	-- the other Twilight ladders' x3 stride.
 	{ name = "Singularity Nozzle", price = 140000000, power = 8, volume = 4.7, blurb = "Folds the stream down to a point. The crust folds with it.", camp = "twilight" },
 	{ name = "Cryo Nova", price = 570000000, power = 9, volume = 5.8, blurb = "Freezes the grime, then shatters it off.", camp = "twilight" },
-	{ name = "Solar Forge", price = 3000000000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "twilight" },
-	{ name = "Quantum Rift", price = 15000000000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "twilight" },
-	{ name = "Celestial Deluge", price = 58000000000, power = 12, volume = 11.0, blurb = "The last hose. It rains from somewhere higher.", camp = "twilight" },
+	{ name = "Solar Forge", price = 3000000000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "magma" },
+	{ name = "Quantum Rift", price = 15000000000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "magma" },
+	{ name = "Celestial Deluge", price = 58000000000, power = 12, volume = 11.0, blurb = "The last hose. It rains from somewhere higher.", camp = "magma" },
 }
 
 -- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -353,10 +355,11 @@ Gear.Aura = {
 	{ name = "Static Veil", price = 110000, reduction = 0.9750, tolerance = 4.4, capacity = 6, haulPenalty = 0.48, blurb = "Crackles more than it shields. Shields a little." },
 	{ name = "Lead Halo", price = 870000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
 	{ name = "Ion Shroud", price = 5300000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 18000000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back." },
-	{ name = "Containment Nimbus", price = 63000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim." },
-	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Aura Shop and nowhere else (`camp`,
-	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
+	{ name = "Isotope Mantle", price = 18000000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back.", camp = "twilight" },
+	{ name = "Containment Nimbus", price = 63000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim.", camp = "twilight" },
+	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, Toxic Aurora and
+	-- Eclipse Veil are Twilight's (tiers 5-8 with the Mantle and Nimbus) and the last
+	-- three Magma Hollow's (`camp`, Gear.campOf). Shapes picked by the user
 	-- from mockup rounds (Shared/AuraLook's aurora / torus / wings / seraph / vortex).
 	--
 	-- DUSK CORONA WAS CUT AND THE REST SLID DOWN ONE RUNG, on request. STATS STAYED WITH
@@ -384,9 +387,9 @@ Gear.Aura = {
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
 	{ name = "Toxic Aurora", price = 230000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
 	{ name = "Eclipse Veil", price = 900000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 3800000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "twilight" },
-	{ name = "Seraph", price = 17000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
-	{ name = "Crimson Vortex", price = 85000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 3800000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "magma" },
+	{ name = "Seraph", price = 17000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
+	{ name = "Crimson Vortex", price = 85000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "The last aura. A red storm with you in the eye of it.", camp = "magma" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -667,6 +670,10 @@ end
 --- WHERE A RUNG IS SOLD AND WHERE YOU CAN USE IT ARE NOT THE SAME QUESTION. This gates
 --- the purchase only (ShopService.buyTier's caller, the stall's rack and card row). What
 --- you own you carry anywhere, and can switch to at any stall of the track.
+--- FOUR STAGES PER ZONE (2026-10-03): each camp sells its zone's rungs. Aura, Magnet and
+--- Cleaner tier N belongs to Stage N, so Base Camp sells 1-4, Toxic Twilight 5-8 and
+--- Magma Hollow 9+ (three rungs each until a Stage 12 rung exists). The Detector ladder
+--- has fifteen rungs and is split evenly, 5/5/5.
 function Gear.campOf(track: string, index: number): string
 	return (Gear.tier(track, index) :: any).camp or "base"
 end
