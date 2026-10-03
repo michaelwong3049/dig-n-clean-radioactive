@@ -34,6 +34,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local ExhibitService = require(script.Parent.ExhibitService)
 local GroupRewardService = require(script.Parent.GroupRewardService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
+local PotionService = require(script.Parent.PotionService)
 local TreadmillService = require(script.Parent.TreadmillService)
 
 local CodeService = {}
@@ -58,6 +59,9 @@ local function grant(player: Player, data: any, entry: Codes.Code)
 	end
 	if entry.cashBoostSeconds and entry.cashBoostSeconds > 0 then
 		CashBoostService.grant(player, data, entry.cashBoostSeconds)
+	end
+	for _, potion in entry.potions or {} do
+		PotionService.give(player, data, potion.id, potion.count)
 	end
 	if entry.crates and #entry.crates > 0 then
 		for _, crateId in entry.crates do
