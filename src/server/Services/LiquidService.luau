@@ -13,12 +13,11 @@
 	recolours to match. Both buttons send FluidAction, and the server checks the player
 	is actually standing at their own bottle before doing anything.
 
-	FREE, AND THE COOLDOWN IS THE ONLY LIMITER. Tuning.LIQUID_SPIN_COOLDOWN, per player.
-	There is no fee and no first-spin-free special case. While it runs, the panel's
-	ROLL button counts down, so the answer to "why won't it spin" is on the button.
-	The cooldown is per server session
-	-- rejoining resets it, which costs at most one early spin and is not worth a
-	profile field.
+	FREE, AND BREWS BANK UP. One brew is banked every Tuning.LIQUID_SPIN_COOLDOWN, per
+	player, up to Tuning.BREW_MAX_STORED, and the bank is saved (`brewsStored` /
+	`brewClockAt`), so brews keep stacking while you dig or are offline and you can roll
+	them back to back. There is no fee. With none banked, the panel's BREW button counts
+	down to the next one, so the answer to "why won't it spin" is on the button.
 
 	ONLY THE OWNER USES THEIR OWN BOTTLE. The bottle wears its owner's fluid, so a
 	visitor rolling at it would change their own hose while the bottle went on showing
@@ -142,16 +141,38 @@ local function cooldownFor(data: any): number
 	return Tuning.LIQUID_SPIN_COOLDOWN * StatResolver.get(data).brewCooldownMult
 end
 
---- Seconds left on a player's cooldown, 0 when a spin is ready.
+--- Bank every brew that has filled since the clock last moved, and return how many are
+--- banked. Lazy, off os.time(), so offline time counts the same as online time. While
+--- the bank is full the clock is pinned to now, so spending one starts a full wait
+--- rather than handing back a brew that "filled" while there was no room for it.
+local function accrue(data: any): number
+	local now = os.time()
+	local stored = tonumber(data.brewsStored) or 0
+	local clock = tonumber(data.brewClockAt) or 0
+	if stored >= Tuning.BREW_MAX_STORED or clock <= 0 or clock > now then
+		data.brewsStored = math.min(stored, Tuning.BREW_MAX_STORED)
+		data.brewClockAt = now
+		return data.brewsStored
+	end
+	local total = cooldownFor(data)
+	local gained = (now - clock) // total
+	if gained > 0 then
+		stored = math.min(stored + gained, Tuning.BREW_MAX_STORED)
+		data.brewsStored = stored
+		data.brewClockAt = if stored >= Tuning.BREW_MAX_STORED then now else clock + gained * total
+	end
+	return stored
+end
+
+--- Seconds until the next brew is banked, 0 when the bank is full.
 function LiquidService.cooldownLeft(player: Player): number
 	-- Read from the profile, not server memory, so a rejoin cannot skip the wait.
 	local data = DataService.data(player)
-	local previous = if data then tonumber(data.lastBrewAt) or 0 else 0
-	if previous <= 0 then
+	if data == nil or accrue(data) >= Tuning.BREW_MAX_STORED then
 		return 0
 	end
 	local total = cooldownFor(data)
-	return math.clamp(total - (os.time() - previous), 0, total)
+	return math.clamp(total - (os.time() - data.brewClockAt), 0, total)
 end
 
 --- Put one roll's worth of `id` in the player's hose. Shared by the bottle and the
@@ -219,12 +240,11 @@ end
 --- Perform one spin. Returns the liquid id, or nil plus a reason. Refusal strings are
 --- kept SHORT because they are shown on the bottle's own sign.
 local function pull(player: Player, data: any): (string?, string?, boolean?)
-	local left = LiquidService.cooldownLeft(player)
-	if left > 0 then
-		local secs = math.ceil(left)
+	if accrue(data) <= 0 then
+		local secs = math.ceil(LiquidService.cooldownLeft(player))
 		return nil, string.format("ready in %d:%02d", secs // 60, secs % 60)
 	end
-	data.lastBrewAt = os.time()
+	data.brewsStored -= 1
 
 	local stats = StatResolver.get(data)
 	local id = roll(stats.luckMultiplier)
@@ -300,7 +320,10 @@ local function stateFor(player: Player, data: any): any
 	return {
 		liquid = stats.liquidId,
 		held = data.liquids[stats.liquidId] or 0,
+		-- Seconds until the next brew banks (0 when the bank is full), and the bank.
 		cooldown = LiquidService.cooldownLeft(player),
+		stored = data.brewsStored,
+		maxStored = Tuning.BREW_MAX_STORED,
 		-- The whole wait, so the BREW key's bar fills over the Brewer-shortened one.
 		cooldownTotal = cooldownFor(data),
 		luck = Gear.luckMultiplier(level),
@@ -330,7 +353,9 @@ local function signatureOf(player: Player, data: any, stats: any): string
 		tostring(data.gear.luck or 1),
 		tostring(stats.luckBoost),
 		tostring(stats.luckMultiplier),
+		-- cooldownLeft accrues first, so a brew banking on the tick repaints the count.
 		tostring(LiquidService.cooldownLeft(player) > 0),
+		tostring(data.brewsStored),
 		tostring(#seenList(data)),
 		-- WashService bumps itemsCleaned without calling here; the tick picks it up.
 		tostring(brewHint(data)),
@@ -556,10 +581,11 @@ function LiquidService.init()
 	stateRemote = Net.get("FluidState")
 	spinRemote = Net.get("FluidSpin")
 	actionRemote = Net.get("FluidAction")
-	-- Skip Brew Timer: forget the last brew, so the next one is ready now. The tick's
-	-- signature carries readiness, so the panel repaints on its own.
+	-- Skip Brew Timer: bank one brew now (the clock toward the next keeps running).
+	-- The tick's signature carries the bank, so the panel repaints on its own.
 	ProductService.register(Tuning.BREW_SKIP_PRODUCT_ID, function(_player, data)
-		data.lastBrewAt = 0
+		accrue(data)
+		data.brewsStored = math.min((tonumber(data.brewsStored) or 0) + 1, Tuning.BREW_MAX_STORED)
 	end)
 end
 

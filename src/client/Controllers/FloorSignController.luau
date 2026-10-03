@@ -17,12 +17,16 @@
 	than required — same call ExhibitService makes: Services (and now this
 	controller) never depend on build/.
 
-	Each board carries PlotIndex (build/Plots.buildFloorSign). Net PlotState
-	tells this client its OWN plot index once, on assign — the same signal
-	BaseMarkerController reads for the "YOUR BASE" beacon.
+	Each board carries PlotIndex (build/Plots.buildFloorSign). Our OWN plot index
+	comes from RespawnLocation (assign points it at the plot's PlotSpawn, which
+	carries PlotIndex), with Net PlotState as well. PlotState alone left the
+	owner's own prompt disabled, so no popup ever opened: it is fired once on
+	load, and a queued remote event only reaches the first listener to connect,
+	which is usually not this one (same fix as OwnStationPromptController).
 ]]
 
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Net)
@@ -58,12 +62,22 @@ local function onPlot(index: number?)
 	end
 end
 
+local function fromSpawn()
+	local spawn = Players.LocalPlayer.RespawnLocation
+	local index = spawn and spawn:GetAttribute("PlotIndex")
+	if type(index) == "number" and index ~= myPlot then
+		onPlot(index)
+	end
+end
+
 function FloorSignController.start()
 	for _, board in CollectionService:GetTagged(FLOOR_TAG) do
 		onBoard(board)
 	end
 	CollectionService:GetInstanceAddedSignal(FLOOR_TAG):Connect(onBoard)
 	Net.get("PlotState").OnClientEvent:Connect(onPlot)
+	fromSpawn()
+	Players.LocalPlayer:GetPropertyChangedSignal("RespawnLocation"):Connect(fromSpawn)
 end
 
 return FloorSignController

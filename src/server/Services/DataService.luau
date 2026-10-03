@@ -97,8 +97,11 @@ local TEMPLATE = {
 	-- key at all.
 	liquids = {},
 	equippedLiquid = "",
-	-- os.time() of the last brew, so the brew cooldown survives a rejoin. 0 = never.
-	lastBrewAt = 0,
+	-- BANKED BREWS (LiquidService.accrue): how many are ready, and the os.time() the
+	-- next one started filling from (0 = start the clock on first look). Saved, so
+	-- brews keep stacking while you are offline, up to Tuning.BREW_MAX_STORED.
+	brewsStored = Tuning.BREW_START_STORED,
+	brewClockAt = 0,
 	-- liquidId -> true for every fluid this player has ever rolled (brew or crate).
 	-- Drives the brew panel's FLUIDS tab; nothing else reads it.
 	fluidsSeen = {},

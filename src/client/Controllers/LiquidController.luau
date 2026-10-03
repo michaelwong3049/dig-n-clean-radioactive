@@ -1218,6 +1218,20 @@ end
 --- cooldown runs down.
 local SKIP_W = 104
 
+--- Brews banked right now (LiquidService.accrue). Counts the next one in as soon as the
+--- local countdown runs out, so the key turns green without waiting on the push.
+local function brewsReady(): number
+	if state == nil then
+		return 0
+	end
+	local stored = tonumber(state.stored) or 0
+	local cooldown = tonumber(state.cooldown) or 0
+	if cooldown > 0 and cooldown - (os.clock() - stateAt) <= 0 then
+		stored += 1
+	end
+	return stored
+end
+
 local function buildPanelBrew(pg: Frame)
 	local lip = UIKit.panel(pg, {
 		name = "BrewLip",
@@ -1247,7 +1261,7 @@ local function buildPanelBrew(pg: Frame)
 	})
 	panel.brew = brew
 	brew.Activated:Connect(function()
-		if state and (state.cooldown or 0) - (os.clock() - stateAt) <= 0 then
+		if brewsReady() > 0 then
 			send("roll")
 		end
 	end)
@@ -1790,14 +1804,19 @@ local function paintState()
 	paintLuck()
 end
 
---- The BREW key's face: green with the flame and sheen when ready; grey, counting
---- down, with the bar filling, while the cooldown runs.
+--- The BREW key's face: green with the flame and sheen while any brew is banked
+--- ("BREW x3" past one); grey, counting down, when the bank is empty. The bar fills
+--- toward the next banked brew either way, and hides once the bank is full.
 local function paintBrew()
 	if panel.brew == nil or state == nil then
 		return
 	end
 	local left = (tonumber(state.cooldown) or 0) - (os.clock() - stateAt)
-	local waiting = left > 0
+	local ready = brewsReady()
+	local waiting = ready <= 0
+	local total = tonumber(state.cooldownTotal) or Tuning.LIQUID_SPIN_COOLDOWN
+	local done = 1 - math.clamp(left / total, 0, 1)
+	panel.cooldown.Size = UDim2.new(done, -12 * done, 0, 6)
 	if waiting then
 		local secs = math.ceil(left)
 		panel.brew.Text = string.format("BREW IN %d:%02d", secs // 60, secs % 60)
@@ -1805,17 +1824,18 @@ local function paintBrew()
 		panel.brew.BackgroundColor3 = UIKit.C.empty
 		panel.brew.TextColor3 = UIKit.C.dim
 		panel.lip.BackgroundColor3 = IDLE_LIP
-		local total = tonumber(state.cooldownTotal) or Tuning.LIQUID_SPIN_COOLDOWN
-		local done = 1 - math.clamp(left / total, 0, 1)
-		panel.cooldown.Size = UDim2.new(done, -12 * done, 0, 6)
 	else
-		panel.brew.Text = "BREW"
+		panel.brew.Text = if ready > 1 then `BREW x{ready}` else "BREW"
+		-- The flame sits left of the word; "BREW x12" is wider, so it steps out further.
+		panel.flame.Position = UDim2.new(0.5, if ready > 1 then -92 else -62, 0.5, -1)
 		panel.brew.TextSize = 28
 		panel.brew.BackgroundColor3 = BREW_READY
 		panel.brew.TextColor3 = UIKit.C.text
 		panel.lip.BackgroundColor3 = BREW_LIP
 	end
-	panel.cooldown.Visible = waiting
+	panel.cooldown.Visible = left > 0
+	-- Green on the grey key; white over the green one so the next-brew bar still reads.
+	panel.cooldown.BackgroundColor3 = if waiting then UIKit.C.green else Color3.new(1, 1, 1)
 	local room = if waiting then SKIP_W + 10 else 0
 	panel.skip.Visible = waiting
 	panel.brew.Size = UDim2.new(1, -32 - room, 0, 60)

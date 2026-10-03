@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 92
+local BUILDER_VERSION = 93
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -2189,20 +2189,17 @@ end
 --- a world built before this rack existed -- a stale world keeps its old cabinet but
 --- still gets a locker that opens.
 ---
---- WHERE: backed onto the -X fence, the treadmill's side (moved over from the +X fence
---- beside the fluid bottle, on request), facing +X into the aisle beside the front row
---- of stands. Its z is pulled 3.5 studs toward the entrance from where it stood on +X:
---- the ground flight's foot gate (and FloorSign2 across it) is on THIS fence at z
---- -12.6..-7.6 (Plots.buildFlight, flightSide(1) = -1), and the rack's half-span of
---- ~3.55 left a ~3-stud gap to it at -19; it then moved 2.5 more toward the treadmill
---- (to your right as you face it, on request), to -21.5. The treadmill's belt station
---- (Radius fitted to the model, ~6.6) is ~13.3 studs from the locker's station against
---- a combined reach of ~12.6; World.verify asserts the gap.
+--- WHERE: backed onto the +X fence beside the cleansing station (moved back on
+--- request, after a spell on the -X fence by the treadmill), facing -X into the aisle
+--- beside the front row of stands, between that row's +X plinth and the cleansing
+--- station (which ends at z ~= -21.3). This is where it first stood. A locker whose
+--- station overlapped the tub would steal the decon station, and your hose with it;
+--- World.verify asserts the gap.
 local LOCKER_TUBES_PER_TIER = 4
 local LOCKER = {
-	x = -29.6, -- the rack's centre; its back reaches x ~= -31.1
-	z = -21.5,
-	yaw = -90, -- turns the authored -Z front to face +X, its back against the -X fence
+	x = 29.6, -- the rack's centre; its back reaches x ~= 31.1
+	z = -15.5,
+	yaw = 90, -- turns the authored -Z front to face -X, its back against the +X fence
 	pitch = 1.65, -- tube centre to tube centre, along the rack
 	tubeD = 1.45, -- glass diameter
 	tubeH = 3.8, -- glass height, cap to cap (taller on request; the rack grows with it)
@@ -2341,7 +2338,7 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, index: nu
 	local floorY = Plots.PAD.topY
 
 	-- Authored facing -Z, long axis along X, centred on the rack; L.yaw turns the front
-	-- to face +X and puts the back against the -X fence.
+	-- to face -X and puts the back against the +X fence.
 	local face = origin * CFrame.new(L.x, floorY, L.z) * CFrame.Angles(0, math.rad(L.yaw), 0)
 	local template = lockerTemplate()
 	if template then
