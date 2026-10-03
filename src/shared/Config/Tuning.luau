@@ -139,14 +139,18 @@ Tuning.ZONE_SURVIVAL = {
 	-- stage's rating still takes nothing. Deliberately a step, not a blend: crossing
 	-- `from` is crossing a line.
 	--
-	-- Stage 6 on request ("make the end 40% of stage 6 very deadly"): the Nimbus goes
-	-- from ~4 minutes to 12s at 60% and 3s at the far edge (25s/6s at first, then
-	-- halved on request: "make it even harsher"). It is a sprint, not a dig site --
-	-- the 126 studs to Toxic Twilight's gate take ~4s at the starting walk speed and
-	-- cost about three quarters of a health bar, so the camp is still reachable on
-	-- foot from full health (Spec pins that), but stopping out there is how you die.
+	-- THE LAST STAGE OF EVERY ZONE (FOUR STAGES PER ZONE, 2026-10-03, on request: "remove
+	-- the stage 6 dead zone and do so with stage 4 and 8"). Each one ends at a camp's gate
+	-- -- Toxic Twilight past Stage 4, Magma Hollow past Stage 8 -- so its last 40% is a
+	-- sprint, not a dig site: the camp is reachable on foot from full health in the
+	-- stage's own aura (Spec pins that), but stopping out there is how you die.
+	--
+	-- Stage 8 carries the old Stage 6 numbers (25s/6s at first, then halved on request:
+	-- "make it even harsher"). Stage 4 is early game and gentler, as planned: about a
+	-- third of a health bar for the sprint rather than three quarters.
 	DEAD_ZONE = {
-		[6] = { from = 0.6, seconds = { 12, 3 } },
+		[4] = { from = 0.6, seconds = { 20, 6 } },
+		[8] = { from = 0.6, seconds = { 12, 3 } },
 	},
 }
 Tuning.MAX_HEALTH = 100
