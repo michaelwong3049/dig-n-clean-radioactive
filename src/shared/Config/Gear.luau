@@ -660,37 +660,37 @@ Gear.STAT_META = {
 	Detector = {
 		order = { "radius", "depth", "luck" },
 		hidden = { clarity = true },
-		radius = { label = "Radius", color = C.blue, tip = "How close a buried nuke has to be before its spot lights up." },
-		depth = { label = "Depth", color = C.red, tip = "How deep underground it can find buried nukes." },
-		luck = { label = "Luck", color = C.green, tip = "Tilts what you dig up toward rarer nukes." },
+		radius = { label = "Radius", color = C.blue, tip = "How far away it spots nukes." },
+		depth = { label = "Depth", color = C.red, tip = "How deep it finds nukes." },
+		luck = { label = "Luck", color = C.green, tip = "Better odds of rare nukes." },
 	},
 	Magnet = {
 		order = { "pullSpeed", "draw", "maxGrip" },
 		hidden = {},
-		pullSpeed = { label = "Pull", color = C.yellow, tip = "How far each click yanks a nuke up. Fewer clicks per pull." },
-		draw = { label = "Draw", color = C.cyan, tip = "Keeps lifting between clicks, so you can click slower." },
-		maxGrip = { label = "Grip", color = C.purple, tip = "How hard a soil it is rated for. Harder soil pulls much slower." },
+		pullSpeed = { label = "Pull", color = C.yellow, tip = "Lift per click." },
+		draw = { label = "Draw", color = C.cyan, tip = "Keeps lifting between clicks." },
+		maxGrip = { label = "Grip", color = C.purple, tip = "Hardest soil it can pull from." },
 	},
 	Cleaner = {
 		order = { "power", "volume" },
 		hidden = {},
-		power = { label = "Power", color = C.orange, tip = "How tough a crust it can clean. Tougher crust will not come off." },
-		volume = { label = "Volume", color = C.blue, tip = "How much water it sprays. More water cleans faster." },
+		power = { label = "Power", color = C.orange, tip = "Toughest crust it can clean." },
+		volume = { label = "Volume", color = C.blue, tip = "Cleans faster." },
 	},
 	Aura = {
 		order = { "reduction", "tolerance", "capacity", "haulPenalty", "speedBonus" },
 		hidden = {},
-		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log", tip = "How much of the radiation around you it blocks." },
-		tolerance = { label = "Tolerance", color = C.green, tip = "How strong the radiation can get before it starts hurting you." },
-		capacity = { label = "Carry", color = C.yellow, tip = "How many nukes you can carry at once." },
+		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log", tip = "Radiation it blocks." },
+		tolerance = { label = "Tolerance", color = C.green, tip = "Radiation you can take before it hurts." },
+		capacity = { label = "Carry", color = C.yellow, tip = "Nukes you can carry." },
 		-- Right under CARRY because it is the other half of the same question: how
 		-- much you can take, then how much taking it slows you. `lowerIsBetter` is
 		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
 		-- the bar would empty as the aura got better.
-		haulPenalty = { label = "Haul", color = C.purple, lowerIsBetter = true, tip = "Walk speed lost per nuke you carry. Lower is better." },
+		haulPenalty = { label = "Haul", color = C.purple, lowerIsBetter = true, tip = "Speed lost per nuke carried." },
 		-- LAST, after the two carry stats: it is the reward half of "carry more, move
 		-- slower" and reads as a bonus on top. `percent` prints it as "+3%" (ShopService).
-		speedBonus = { label = "Speed", color = C.orange, format = "percent", tip = "Extra walk speed while you wear it." },
+		speedBonus = { label = "Speed", color = C.orange, format = "percent", tip = "Extra walk speed." },
 	},
 	-- NO BOOTS OR SATCHEL ENTRY. Both tracks are retired (see the RETIRED block above)
 	-- and are not in Gear.TRACKS, which is the table Spec's coverage check and the shop
@@ -705,19 +705,19 @@ Gear.STAT_META = {
 Gear.OVERVIEW = {
 	Detector = {
 		name = "Detector",
-		body = "Sweeps the ground and lights up spots where nukes are buried. Dig where it glows.",
+		body = "Finds buried nukes. Dig where it glows.",
 	},
 	Magnet = {
 		name = "Magnet",
-		body = "Hauls the nuke you dig into up out of the ground. Click to pull it to the surface.",
+		body = "Pulls your nuke up out of the ground.",
 	},
 	Cleaner = {
 		name = "Hose",
-		body = "Blasts the crust off the nukes you dig up at the wash, so you can see what you found.",
+		body = "Washes the crust off your nukes.",
 	},
 	Aura = {
 		name = "Aura",
-		body = "Shields you from radiation so you can survive deeper stages, and sets how much you can carry.",
+		body = "Protects you from radiation.",
 	},
 }
 
