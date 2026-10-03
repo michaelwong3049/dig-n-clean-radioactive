@@ -96,7 +96,9 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 		* Merge.valueMult(Merge.levelOf(item))
 		* retained
 		* stats.sellMultiplier
-	if not clean then
+	if clean then
+		value *= Tuning.CLEAN_SELL_MULTIPLIER
+	else
 		value *= Tuning.DIRTY_SELL_MULTIPLIER
 	end
 
