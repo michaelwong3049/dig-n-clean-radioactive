@@ -106,7 +106,9 @@ Tuning.BURN_EXPONENT = 0.75
 --   (UNDER_GRACE is added on top of both failing rows, see below.)
 --   lastAura: the top aura in a stage rated past the end of the ladder (Stage 12).
 --             About a minute, on purpose: the deepest stage is a raid, not a farm.
---   (an aura ABOVE the stage's rating takes no aura damage at all)
+--   over    : one or two tiers too STRONG. The rated row stretched by OVER (x5, x25):
+--             a slow wear you can watch tick down as you walk deeper, never failing.
+--             Three or more tiers over takes no aura damage at all.
 --
 -- Each row is { at the entrance, at BREAK, at the far edge }, in seconds. Between
 -- points the time is blended geometrically, so the drain climbs smoothly and never
@@ -132,25 +134,36 @@ Tuning.ZONE_SURVIVAL = {
 	-- blend, so it is the same 20s at every depth. lastAura (the Stage 12 raid) and the
 	-- rated rows do not get it.
 	UNDER_GRACE = 20,
-	-- DEAD ZONES: stageId -> the last stretch of that stage, where even the stage's own
-	-- aura fails. `from` is the depthFrac it starts at; `seconds` is { at `from`, at the
-	-- far edge }, blended like the rows above. Applies to the rated aura and everything
-	-- under it (the shorter of this and the normal time wins); an aura ABOVE the
-	-- stage's rating still takes nothing. Deliberately a step, not a blend: crossing
-	-- `from` is crossing a line.
+	-- OVERGEARED: one / two tiers ABOVE the stage's rating wear at the rated row's times
+	-- multiplied by these, on request ("walked through stages 6 and 7 with no droppage,
+	-- time no change"): before this, any aura over the rating took nothing, so a Stage 8
+	-- aura crossed 6 and 7 with a dead clock. Now one over in a late stage is ~40m at the
+	-- entrance down to ~6m at the far edge, so the clock falls with every step deeper,
+	-- while a stage below your aura still farms comfortably (Spec: 5m+ at its far edge).
+	-- Green wear (the aura holding), never failing. Three or more over takes nothing.
+	OVER = { 5, 25 },
+	-- DEAD ZONES: stageId -> the back of that stage, where even the stage's own aura
+	-- fails. From `from` on, the time a bar lasts falls geometrically from whatever the
+	-- normal curve gives there to `edge` seconds at the far edge -- the same SHARE
+	-- shorter for every step, so it bites harder and harder but never jumps. Applies to
+	-- the rated aura and everything under it (the shorter of this and the normal time
+	-- wins); an aura above the stage's rating wears on the OVER rows instead.
+	--
+	-- Was a step (12s from the line at 60% on Stage 8), changed on request: "the death
+	-- zones are too sudden, make heavy drops in survivability each step taken". Now it
+	-- starts at 40% and roughly halves the time every tenth of the stage: Stage 8 is
+	-- ~5m at 40%, ~1m at 60%, ~25s at 70%, ~10s at 80%, 2s at the gate. The sprint costs
+	-- about the same as the old step did.
 	--
 	-- THE LAST STAGE OF EVERY ZONE (FOUR STAGES PER ZONE, 2026-10-03, on request: "remove
 	-- the stage 6 dead zone and do so with stage 4 and 8"). Each one ends at a camp's gate
-	-- -- Toxic Twilight past Stage 4, Magma Hollow past Stage 8 -- so its last 40% is a
+	-- -- Toxic Twilight past Stage 4, Magma Hollow past Stage 8 -- so its back is a
 	-- sprint, not a dig site: the camp is reachable on foot from full health in the
-	-- stage's own aura (Spec pins that), but stopping out there is how you die.
-	--
-	-- Stage 8 carries the old Stage 6 numbers (25s/6s at first, then halved on request:
-	-- "make it even harsher"). Stage 4 is early game and gentler, as planned: about a
-	-- third of a health bar for the sprint rather than three quarters.
+	-- stage's own aura (Spec pins that), but stopping out there is how you die. Stage 4
+	-- is early game and gentler.
 	DEAD_ZONE = {
-		[4] = { from = 0.6, seconds = { 20, 6 } },
-		[8] = { from = 0.6, seconds = { 12, 3 } },
+		[4] = { from = 0.4, edge = 6 },
+		[8] = { from = 0.4, edge = 2 },
 	},
 }
 Tuning.MAX_HEALTH = 100
