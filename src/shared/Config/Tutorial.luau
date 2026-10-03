@@ -41,7 +41,7 @@ Tutorial.STEPS = {
 	dig = { title = "Find a spot to dig", hint = "Walk onto a glowing spot and hold E" },
 	haul = { title = "Click the nuke to the top before it explodes", hint = "Click the button or press E" },
 	clean = {
-		title = "Clean the nuke",
+		title = "Clean your nuke at your base",
 		hint = "Take it to your cleansing station",
 		holdHint = "Pick your nuke from the hotbar, then take it to your cleansing station",
 	},
