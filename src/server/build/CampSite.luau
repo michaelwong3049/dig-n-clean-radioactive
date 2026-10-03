@@ -69,6 +69,12 @@
 	    ...<Key>.MergeReactor         StationKind = "merge", StationId = <Key>, on the
 	                                  MergeDeck south of the plaza; only where Config/Camps
 	                                  sets `mergeReactor`
+	    ...<Key>.ReforgeStation       StationKind = "reforge", StationId = <Key>, on the
+	                                  north deck where the cleansing station stands
+	                                  elsewhere; only where Config/Camps sets `reforge`.
+	                                  The cleansing station then moves to the WashYard
+	                                  deck north-west of the plaza, on a spur off the
+	                                  entry path, so you wash right as you come in.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -85,12 +91,13 @@ local Shops = require(script.Parent.Shops)
 local BaseCamp = require(script.Parent.BaseCamp)
 local Plots = require(script.Parent.Plots)
 local MergeReactor = require(script.Parent.MergeReactor)
+local ReforgeStation = require(script.Parent.ReforgeStation)
 
 local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 28
+local BUILDER_VERSION = 29
 
 local C = Kit.C
 local build = Kit.build
@@ -157,6 +164,17 @@ local BAY_Z = 134
 local MERGE_DECK_HALF_X = 18
 local MERGE_DECK_MIN_Z, MERGE_DECK_MAX_Z = 114, 146
 local MERGE_Z = 134
+
+--- WHERE THE CLEANSING STATION GOES WHEN THE REFORGE STATION TAKES THE NORTH DECK
+--- (Config/Camps `reforge`): its own deck, the wash deck's size, north-west of the
+--- octagon, clear of its diagonal side. A paved spur runs north to it off the west
+--- entry path, so a player coming in dirty from the stage washes before the plaza.
+--- Every edge is ox/oz + (2 mod 4), on a tile line; the bay keeps the wash deck's
+--- 20 studs of deck in front of the tub for WashService's stand-off.
+local YARD_MIN_X, YARD_MAX_X = -146, -102
+local YARD_MIN_Z, YARD_MAX_Z = 94, 126
+local YARD_BAY_X, YARD_BAY_Z = -124, 114
+local SPUR_MIN_X, SPUR_MAX_X = -134, -114
 
 --- The perimeter wall. Height matches the stage corridor's (Scenery WALL_HEIGHT), so
 --- the shoulder meets the Crater's wall flush.
@@ -288,6 +306,11 @@ local function paved(L: Layout, x: number, z: number): boolean
 	end
 	-- South, down to (and on under) the Merge Reactor's deck.
 	if L.def.mergeReactor and ax <= PATH_HALF and z <= L.oz and z >= L.oz - MERGE_DECK_MIN_Z - TILE then
+		return true
+	end
+	-- North off the west path, up to (and on under) the wash yard.
+	local dx = x - L.ox
+	if L.def.reforge and dx >= SPUR_MIN_X and dx <= SPUR_MAX_X and z >= L.oz and z <= L.oz + YARD_MIN_Z + TILE then
 		return true
 	end
 	return false
@@ -914,7 +937,45 @@ local function buildWashDeck(parent: Instance, L: Layout)
 	if L.def.comingSoon then
 		return -- the deck is the formation; the station is a working one, so not yet
 	end
+	if L.def.reforge then
+		-- The forge takes the deck, turned to face the plaza (it is authored facing +Z),
+		-- and the cleansing station moves to the wash yard.
+		ReforgeStation.build(parent, CFrame.new(L.ox, deckTop, L.oz + BAY_Z) * CFrame.Angles(0, math.pi, 0), L.def.key)
+		return
+	end
 	local bay = CFrame.new(L.ox, 0, L.oz + BAY_Z)
+	Plots.buildCleansingStation(parent, bay * CFrame.Angles(0, math.rad(-90), 0) * CFrame.new(-26, 0, 32), p.awnings[1])
+end
+
+--- The cleansing station's own deck when the forge has the north one (`reforge`).
+local function buildWashYard(parent: Instance, L: Layout)
+	if not L.def.reforge then
+		return
+	end
+	local p = L.palette
+	local deckTop = Plots.PAD.topY
+	local rect: Hub.Rect = {
+		minX = L.ox + YARD_MIN_X,
+		maxX = L.ox + YARD_MAX_X,
+		minZ = L.oz + YARD_MIN_Z,
+		maxZ = L.oz + YARD_MAX_Z,
+	}
+	local tint: Hub.TileOpts = { topY = deckTop, dark = p.deck, light = lighter(p.deck, 0.06) }
+	local deck = Instance.new("Model")
+	deck.Name = "WashYard"
+	Hub.groundSlab(deck, rect, "Deck", DECK_THICKNESS, tint)
+	local tiles = Instance.new("Folder")
+	tiles.Name = "DeckTiles"
+	Hub.tileRect(tiles, rect, tint)
+	tiles.Parent = deck
+	deck.Parent = parent
+
+	if L.def.comingSoon then
+		return
+	end
+	-- Same frame trick as buildWashDeck: the bay unturned, tub north, the player
+	-- walking up the spur from the south.
+	local bay = CFrame.new(L.ox + YARD_BAY_X, 0, L.oz + YARD_BAY_Z)
 	Plots.buildCleansingStation(parent, bay * CFrame.Angles(0, math.rad(-90), 0) * CFrame.new(-26, 0, 32), p.awnings[1])
 end
 
@@ -990,6 +1051,15 @@ local function buildFoliage(parent: Instance, L: Layout)
 				continue
 			end
 			if
+				L.def.reforge
+				and x - L.ox >= YARD_MIN_X - 6
+				and x - L.ox <= YARD_MAX_X + 6
+				and z >= L.oz + YARD_MIN_Z - 6
+				and z <= L.oz + YARD_MAX_Z + 6
+			then
+				continue
+			end
+			if
 				L.def.mergeReactor
 				and math.abs(x - L.ox) <= MERGE_DECK_HALF_X + 6
 				and z <= L.oz - MERGE_DECK_MIN_Z + 6
@@ -1022,6 +1092,7 @@ local function buildCamp(parent: Instance, def: Camps.CampDef)
 	buildGate(m, L)
 	buildStalls(m, L)
 	buildWashDeck(m, L)
+	buildWashYard(m, L)
 	buildMergeDeck(m, L)
 	buildAnchor(m, L)
 	buildFoliage(m, L)

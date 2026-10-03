@@ -5,7 +5,8 @@
 	Shared so the hotbar's hover card (InventoryController) and the server
 	(BombService) come out of one function: the damage a player reads before dropping is
 	the damage that lands. Everything is derived from the item record, deterministic
-	per uid -- nothing is stored, the same seeded-never-stored trick as Payload.forUid.
+	per uid -- nothing is stored, the same seeded-never-stored trick as Payload.forUid --
+	except a REFORGED copy's damage/radius wobble, which is stored as `forge` (forgeOf).
 ]]
 
 local Config = script.Parent.Config
@@ -41,6 +42,16 @@ end
 
 local function vary(salt: string, uid: string): number
 	return 1 + (roll(salt, uid) * 2 - 1) * Cfg.VARIANCE
+end
+
+--- The copy's damage and radius wobble: a reforged copy's stored `forge` pair
+--- (Config/Reforge, Services/ReforgeService), else the seeded per-uid one.
+function Bombing.forgeOf(item: any): (number, number)
+	local forge = item.forge
+	local uid = tostring(item.uid or "")
+	local dmg = if type(forge) == "table" and type(forge.dmg) == "number" then forge.dmg else vary("bombdmg:", uid)
+	local rad = if type(forge) == "table" and type(forge.rad) == "number" then forge.rad else vary("bombrad:", uid)
+	return dmg, rad
 end
 
 --- The stage a nuke comes from, for Detonation.stageMults: its item's home stage.
@@ -85,14 +96,15 @@ function Bombing.statsFor(item: any, damageMult: number?): Stats
 
 	local order = if item.rarity and Rarity.DEFS[item.rarity] then Rarity.DEFS[item.rarity].order else 1
 	local callout = Payload.calloutFor(payload)
+	local dmgWobble, radWobble = Bombing.forgeOf(item)
 	local fuse = Cfg.FUSE_BY_RARITY[math.clamp(order, 1, #Cfg.FUSE_BY_RARITY)]
 		+ (roll("bombfuse:", uid) * 2 - 1) * Cfg.FUSE_SPREAD
 		+ (if callout then Cfg.FUSE_SIZE_BONUS[callout] or 0 else 0)
 
 	return {
 		stars = stars,
-		damage = math.floor(Cfg.DAMAGE[power] * hitMult * size * vary("bombdmg:", uid) * (damageMult or 1) + 0.5),
-		radius = math.floor(Cfg.RADIUS[power] * radiusMult * size * vary("bombrad:", uid) * 10 + 0.5) / 10,
+		damage = math.floor(Cfg.DAMAGE[power] * hitMult * size * dmgWobble * (damageMult or 1) + 0.5),
+		radius = math.floor(Cfg.RADIUS[power] * radiusMult * size * radWobble * 10 + 0.5) / 10,
 		fuse = math.floor(fuse * 10 + 0.5) / 10,
 		cooldown = Cfg.COOLDOWN,
 	}

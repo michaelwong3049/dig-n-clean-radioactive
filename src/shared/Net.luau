@@ -63,6 +63,9 @@ local REMOTES: { [string]: string } = {
 	-- The Merge Reactor's roll, already decided (Services/MergeService): the outcome,
 	-- the levels either side of it and the copy that came out, for the panel's reveal.
 	MergeResult = "RemoteEvent", -- server -> client, { outcome, from, to, item }
+	-- The Reforge Station's roll (Services/ReforgeService): the old and new damage/radius
+	-- pair for the panel's KEEP / REVERT, any quality it added, and the copy as it stands.
+	ReforgeResult = "RemoteEvent", -- server -> client, { uid, old, new, quality, item }
 	-- The popup over the hotbar (InventoryController) for a refusal at something that
 	-- has no panel to toast into -- StationResult is invisible there (memory:
 	-- station-result-toast-needs-panel). The exhibit stands are the first user.

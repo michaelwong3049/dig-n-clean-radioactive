@@ -76,6 +76,10 @@ export type CampDef = {
 	-- Stands the Merge Reactor (build/MergeReactor, Services/MergeService) on its own
 	-- deck south of the plaza. Reaching the camp is what unlocks merging.
 	mergeReactor: boolean?,
+	-- Stands the Reforge Station (build/ReforgeStation, Services/ReforgeService) on the
+	-- north deck in the cleansing station's place; the cleansing station moves to its own
+	-- deck north-west of the plaza, on a spur off the entry path (build/CampSite).
+	reforge: boolean?,
 	-- Built and seen, never entered: build/CampSite stands the formation with every stall a
 	-- shell, no trader, station or warp anchor, and a COMING SOON barricade across the
 	-- entrance. The Warp panel keeps showing it as the "???" row.
@@ -152,6 +156,7 @@ Camps.DEFS = {
 		clipX = TWILIGHT_CLIP_X,
 		exitX = TWILIGHT_EXIT_X,
 		mergeReactor = true,
+		reforge = true,
 		-- Mockup #3, picked from six on request: it carries the Crater's violet on into
 		-- the camp instead of snapping back to Base Camp's green.
 		palette = {

@@ -1163,6 +1163,8 @@ local function takeOff(data: any, plot: number, index: number): (boolean, string
 		modifier = entry.modifier,
 		merge = entry.merge,
 		bonus = entry.bonus,
+		forge = entry.forge,
+		reforges = entry.reforges,
 		elapsed = 0,
 		frozen = true,
 		patches = {},
@@ -1254,6 +1256,8 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 			modifier = displaced.modifier,
 			merge = displaced.merge,
 			bonus = displaced.bonus,
+			forge = displaced.forge,
+			reforges = displaced.reforges,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1268,6 +1272,8 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 		modifier = item.modifier,
 		merge = item.merge,
 		bonus = item.bonus,
+		forge = item.forge,
+		reforges = item.reforges,
 		placedAt = os.time(),
 	})
 
@@ -1506,6 +1512,8 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			modifier = entry.modifier,
 			merge = entry.merge,
 			bonus = entry.bonus,
+			forge = entry.forge,
+			reforges = entry.reforges,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1531,6 +1539,8 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			modifier = item.modifier,
 			merge = item.merge,
 			bonus = item.bonus,
+			forge = item.forge,
+			reforges = item.reforges,
 			placedAt = now,
 		}
 		table.insert(stays, entry)
