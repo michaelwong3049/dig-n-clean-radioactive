@@ -44,10 +44,10 @@ local HealPads = {}
 HealPads.MODEL_NAME = "HealPads"
 
 local BUILDER_SOURCE = "src/server/build/HealPads.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 local PAD_X = 17.5
-local PAD_Z = 63 -- either side: stall backs end at 44.1, the teeth's tips at 63 - 11.5 (pushed back on request)
+local PAD_Z = 68 -- either side: stall backs end at 44.1, the teeth's tips at 68 - 11.5 (pushed back on request)
 local PADS = {
 	{ name = "HealPadSouth", z = -PAD_Z }, -- behind the Outfitter (Aura) + Hose Shop
 	{ name = "HealPadNorth", z = PAD_Z }, -- behind the Magnet + Detector shops
