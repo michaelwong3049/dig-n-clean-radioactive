@@ -65,6 +65,7 @@ local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
 local DailyRewardService = require(script.Parent.DailyRewardService)
+local PlaytimeGiftService = require(script.Parent.PlaytimeGiftService)
 local GroupRewardService = require(script.Parent.GroupRewardService)
 local Tuning = require(Shared.Config.Tuning)
 
@@ -935,6 +936,20 @@ COMMANDS["/daily"] = {
 			return "your profile hasn't loaded yet"
 		end
 		return `daily: next claim Day {data.dailyDay}, last claim {os.time() - data.dailyLastAt}s ago`
+	end,
+}
+
+COMMANDS["/gifttime"] = {
+	-- The Free Gifts ladder without waiting: moves your session clock forward.
+	help = "/gifttime <minutes> — move the Free Gifts clock forward (default 120); /gifttime reset starts it over",
+	run = function(player, _sandbox, args)
+		if args[1] == "reset" then
+			PlaytimeGiftService.debugReset(player)
+			return "free gifts: session clock restarted"
+		end
+		local minutes = tonumber(args[1]) or 120
+		PlaytimeGiftService.debugAdvance(player, minutes)
+		return `free gifts: clock moved forward {minutes} min`
 	end,
 }
 

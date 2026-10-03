@@ -32,6 +32,7 @@ local ORDER = {
 	"GearController", -- the Gear tile under Nukes: every owned gear tier, equip from anywhere; reads GearList
 	"DailyRewardsController", -- the Daily tile under Warp and its 7-day calendar; reads DailyRewards
 	"PotionController", -- the Potions tile left of Daily, the stash panel + running-potion chips; reads Potions
+	"PlaytimeGiftController", -- the Free Gifts tile left of Potions and its 12-gift panel; reads PlaytimeGifts
 	"GroupRewardController", -- the group chest on Stage 1: the join-group prompt + claim toast; reads GroupReward
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
