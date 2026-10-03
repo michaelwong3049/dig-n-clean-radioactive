@@ -5,7 +5,7 @@
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
 	walking up to a stall on the plaza (StationController). One scrolling body, five
 	sections: the PACKS (Config/Packs) first, two once-per-player bundles that turn to
-	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), seven permanent upgrades on top, which
+	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), eight permanent upgrades on top, which
 	turn to OWNED off the Player attribute GamePassService writes; the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
 	row of four packs; and a CRATES row with the two Mystery crates (Config/ShopProducts,
 	whose grants live in EconomyService and CrateService). Every buy button is the gear
@@ -139,6 +139,7 @@ local PASS_TINT: { [string]: Color3 } = {
 	backpack = Color3.fromHex("EE7A1E"),
 	bombDamage = Color3.fromHex("D81B60"),
 	instantClean = Color3.fromHex("1E88E5"),
+	health = Color3.fromHex("C2185B"),
 }
 -- Flat pictures of crates (art/crates), drawn instead of the live 3D model so the card
 -- never sits blank waiting on meshes. A crate with none falls back to the viewport.
@@ -738,11 +739,12 @@ local function buildLuck(parent: Frame)
 	buildServerBoostCard(parent)
 end
 
---- The seven passes, PASSES_PER_ROW to a row. A bought one keeps its card and swaps
+--- The eight passes, PASSES_PER_ROW to a row. A bought one keeps its card and swaps
 --- the button for a green OWNED, off the attribute GamePassService sets.
 local function buildPasses(parent: Instance)
 	section(parent, -10, "PASSES")
-	-- An odd count leaves the first pass (2x Cash) alone on a full-width row up top.
+	-- An odd count would leave the first pass (2x Cash) alone on a full-width row up top;
+	-- with eight, every row is a pair.
 	local count = #GamePasses.PASSES
 	local lead = count % PASSES_PER_ROW
 	local spans = {}

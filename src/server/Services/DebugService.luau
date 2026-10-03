@@ -949,7 +949,7 @@ COMMANDS["/groupchest"] = {
 COMMANDS["/pass"] = {
 	-- A game pass without Robux, for this session: the next join's ownership check
 	-- clears it again unless the account really owns it.
-	help = "/pass <key|all> [on|off] — toggle a game pass on yourself (keys: cash luck digPower speed backpack bombDamage instantClean)",
+	help = "/pass <key|all> [on|off] — toggle a game pass on yourself (keys: cash luck digPower speed backpack bombDamage instantClean health)",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then

@@ -2836,6 +2836,8 @@ function Spec.run(): boolean
 					and math.abs(owned.sellMultiplier / plain.sellMultiplier - GamePasses.CASH) < 1e-9
 					and math.abs(owned.yieldMultiplier / plain.yieldMultiplier - GamePasses.CASH) < 1e-9
 					and owned.instantClean == true
+					and owned.healthMult == GamePasses.HEALTH
+					and plain.healthMult == 1
 					and plain.instantClean == false
 					and plain.digPower == 1
 					and owned.walkSpeed == plain.walkSpeed
