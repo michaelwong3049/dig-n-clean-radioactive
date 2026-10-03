@@ -542,6 +542,8 @@ Stages.DEFS = {
 		-- sides of that. The entrance is untouched, so the 1:30 Rig heist there is too;
 		-- the ramp is shallow now (1.04x) but Spec's "radiation climbs with depth" still
 		-- holds. If Stage 7 wants to climb past the Crater, it starts from 104.
+		-- SINCE THEN the last 40% is a DEAD ZONE (Tuning.ZONE_SURVIVAL.DEAD_ZONE): the
+		-- Nimbus fails out there too, so the walk to the camp is a sprint, not a hold.
 		baseRads = 100,
 		deepRads = 104, -- 1.04x -- see above: bounded by the Nimbus's tolerance, not a ratio
 		soilHardness = 6,

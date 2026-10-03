@@ -106,9 +106,17 @@ function Radiation.zoneCase(stageId: number, auraTier: number): string?
 	return "wayUnder"
 end
 
---- Seconds a FULL health bar lasts against the aura's share of the damage here.
---- math.huge when the aura outclasses the stage.
-function Radiation.zoneSurvival(stageId: number, depthFrac: number, auraTier: number): number
+--- Seconds a full health bar lasts in the stage's dead zone (Tuning.ZONE_SURVIVAL
+--- DEAD_ZONE), or nil when this spot isn't in one or the aura outclasses the stage.
+function Radiation.deadZone(stageId: number, depthFrac: number, auraTier: number): number?
+	local dz = Tuning.ZONE_SURVIVAL.DEAD_ZONE[stageId]
+	if dz == nil or depthFrac < dz.from or Radiation.zoneCase(stageId, auraTier) == nil then
+		return nil
+	end
+	return blend(dz.seconds[1], dz.seconds[2], (depthFrac - dz.from) / (1 - dz.from))
+end
+
+local function curveSurvival(stageId: number, depthFrac: number, auraTier: number): number
 	local Z = Tuning.ZONE_SURVIVAL
 	local case = Radiation.zoneCase(stageId, auraTier)
 	if case == nil then
@@ -124,6 +132,14 @@ function Radiation.zoneSurvival(stageId: number, depthFrac: number, auraTier: nu
 	end
 	local seconds = along(band[case], depthFrac)
 	return if case == "under" then seconds + grace else seconds
+end
+
+--- Seconds a FULL health bar lasts against the aura's share of the damage here.
+--- math.huge when the aura outclasses the stage.
+function Radiation.zoneSurvival(stageId: number, depthFrac: number, auraTier: number): number
+	local seconds = curveSurvival(stageId, depthFrac, auraTier)
+	local dead = Radiation.deadZone(stageId, depthFrac, auraTier)
+	return if dead then math.min(seconds, dead) else seconds
 end
 
 --- 0..1 out-of-depth grade for the HUD/RadFx: 0 at the gentlest under-tier time
@@ -149,8 +165,10 @@ function Radiation.resolve(ambient: number, carried: number, stats: Stats, zone:
 		local seconds = Radiation.zoneSurvival(zone.stageId, zone.depthFrac, zone.auraTier)
 		local case = Radiation.zoneCase(zone.stageId, zone.auraTier)
 		local perSec = if seconds == math.huge then 0 else zone.maxHealth / seconds
-		-- Rated wear is the aura HOLDING, so it stays green; everything under is failing.
-		local failing = case ~= nil and case ~= "rated"
+		-- Rated wear is the aura HOLDING, so it stays green; everything under is failing,
+		-- and so is the rated aura in a dead zone (white screen, UPGRADE AURA warning).
+		local dead = Radiation.deadZone(zone.stageId, zone.depthFrac, zone.auraTier) ~= nil
+		local failing = case ~= nil and (case ~= "rated" or dead)
 		return {
 			ambient = ambient,
 			carried = carried,

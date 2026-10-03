@@ -618,19 +618,22 @@ function Spec.run(): boolean
 			local rated = Stages.get(stageId).ratedAuraTier
 			if rated <= Gear.maxTier("Aura") then
 				-- Rated: never steps -- every 1% further in is at most a few % shorter.
+				-- The one allowed step is the line into a dead zone (checked below).
+				local dz = Z.DEAD_ZONE[stageId]
 				local prev = Radiation.zoneSurvival(stageId, 0, rated)
 				for i = 1, 100 do
 					local now = Radiation.zoneSurvival(stageId, i / 100, rated)
-					if now > prev + 1e-6 or now < prev * 0.95 then
+					local crossed = dz ~= nil and (i - 1) / 100 < dz.from and i / 100 >= dz.from
+					if now > prev + 1e-6 or (now < prev * 0.95 and not crossed) then
 						smooth = false
 						detail = `stage {stageId} at {i}%`
 					end
 					prev = now
 				end
 				local entrance = Radiation.zoneSurvival(stageId, 0, rated)
-				local brk = Radiation.zoneSurvival(stageId, Z.BREAK, rated)
+				local brk = Radiation.zoneSurvival(stageId, if dz then math.min(Z.BREAK, dz.from - 0.01) else Z.BREAK, rated)
 				local far = Radiation.zoneSurvival(stageId, 1, rated)
-				if not (entrance >= 300 and brk >= 180 and far >= 60 and far < brk) then
+				if not (entrance >= 300 and brk >= 180 and (dz ~= nil or far >= 60) and far < brk) then
 					ratedOk = false
 				end
 			end
@@ -652,7 +655,21 @@ function Spec.run(): boolean
 			end
 		end
 		check(`§zone the rated drain climbs smoothly, no steps ({detail ~= "" and detail or "ok"})`, smooth)
-		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge", ratedOk)
+		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge (outside dead zones)", ratedOk)
+		-- Stage 6's last 40% is a dead zone, on request: the Nimbus fails out there.
+		do
+			local dz = Z.DEAD_ZONE[6]
+			local nimbus = Stages.get(6).ratedAuraTier
+			local into = dz and Radiation.zoneSurvival(6, dz.from, nimbus) or math.huge
+			local edge = Radiation.zoneSurvival(6, 1, nimbus)
+			check(
+				string.format("§zone Stage 6's last 40%% is deadly for the Nimbus: %.0fs at 60%%, %.0fs at the far edge (want <= 30, <= 10)", into, edge),
+				dz ~= nil and dz.from <= 0.6 and into <= 30 and edge <= 10
+			)
+			check("§zone ...and the Nimbus is failing there, not wearing", dz ~= nil and readingAt(6, nimbus, 0, dz.from).failing)
+			check("§zone ...but still holds just before it", dz ~= nil and not readingAt(6, nimbus, 0, dz.from - 0.01).failing)
+			check("§zone ...and the aura above it (Stage 7's) takes nothing there", Radiation.zoneSurvival(6, 1, nimbus + 1) == math.huge)
+		end
 		check(
 			string.format("§zone one tier under: 20-30s at the entrance (15-30s in the harsh stages), under 3s past 60%%, +%ds grace", Z.UNDER_GRACE),
 			underOk
@@ -746,11 +763,28 @@ function Spec.run(): boolean
 	-- the camp's gate is -- and the aura under it must not, or reaching the camp stops
 	-- being earned. Checked on the zone curve, then as a survival time, so the Nimbus's
 	-- exposure clock still leaves room for the walk.
+	-- The Crater's last 40% is a dead zone now (Tuning.ZONE_SURVIVAL.DEAD_ZONE), so the
+	-- Nimbus no longer HOLDS at the gate -- it has to SPRINT there. Pinned as a crossing:
+	-- an untrained walker (Treadmill.START_WALK) from the dead zone's line to the east
+	-- edge, integrating the aura's share of the damage, arrives with health to spare.
 	do
-		check("§camp the Nimbus holds at the Crater's east edge — Toxic Twilight is reachable on foot", not readingAt(6, 6, 0, 1).failing)
-		check("§camp ...and the Isotope Mantle fails there — only the top aura walks in", readingAt(6, 5, 0, 1).failing)
-		local walkOut = survive(6, 6, 0, 1.0)
-		check(string.format("§camp full Rig at the Crater's east edge lasts %.0fs (want > 30, time to reach the gate)", walkOut), walkOut > 30)
+		local function crossingCost(auraTier: number): number
+			local from = (Tuning.ZONE_SURVIVAL.DEAD_ZONE[6] or { from = 1 }).from
+			local minX, _, maxX = Stages.bounds(6)
+			local seconds = (1 - from) * (maxX - minX) / Treadmill.START_WALK
+			local steps, lost = 50, 0
+			for i = 1, steps do
+				local d = from + (1 - from) * (i - 0.5) / steps
+				lost += (seconds / steps) / Radiation.zoneSurvival(6, d, auraTier)
+			end
+			return lost
+		end
+		local nimbusCost = crossingCost(6)
+		check(
+			string.format("§camp the Nimbus can sprint the Crater's dead zone to Toxic Twilight: %.0f%% of a health bar (want < 60%%)", nimbusCost * 100),
+			nimbusCost < 0.6
+		)
+		check("§camp ...and the Isotope Mantle fails at the east edge — only the top aura walks in", readingAt(6, 5, 0, 1).failing)
 	end
 
 	-- Config/StageCraters — the craters pocking the Crater. Level design, so what is
