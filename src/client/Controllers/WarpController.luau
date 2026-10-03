@@ -328,13 +328,16 @@ function WarpController.start()
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	-- HOME / SHOPS stay off until the walkthrough is done or skipped: TutorialService
-	-- sets TutorialActive (nil until the save loads, so hidden by default).
+	-- HOME / SHOPS stay off until the walkthrough's last step, which is about them
+	-- ("navigate", TutorialController points at both), or until it is done or skipped:
+	-- TutorialService sets TutorialActive (nil until the save loads, so hidden by default).
 	local inCamp = false
 	local function refresh()
-		setShown(inCamp and player:GetAttribute("TutorialActive") == false)
+		local open = player:GetAttribute("TutorialActive") == false or player:GetAttribute("TutorialStep") == "navigate"
+		setShown(inCamp and open)
 	end
 	player:GetAttributeChangedSignal("TutorialActive"):Connect(refresh)
+	player:GetAttributeChangedSignal("TutorialStep"):Connect(refresh)
 	Net.get("ExposureState").OnClientEvent:Connect(function(state)
 		inCamp = state.stageId == nil and state.downed ~= true
 		refresh()

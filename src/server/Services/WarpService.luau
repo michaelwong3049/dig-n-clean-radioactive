@@ -49,6 +49,7 @@ local DigService = require(script.Parent.DigService)
 local ExhibitService = require(script.Parent.ExhibitService)
 local ExposureService = require(script.Parent.ExposureService)
 local CampService = require(script.Parent.CampService)
+local TutorialService = require(script.Parent.TutorialService)
 
 local WarpService = {}
 
@@ -99,9 +100,11 @@ local function allowed(player: Player, dest: string): boolean
 		return false
 	end
 	-- HOME / SHOPS unlock with the walkthrough: the tutorial walks you there on foot.
+	-- Its last step ("navigate") is the one that shows you these two buttons, so they
+	-- work from then on.
 	if dest == "base" or dest == "shops" then
 		local data = DataService.data(player)
-		if data == nil or data.onboarding == "active" then
+		if data == nil or (data.onboarding == "active" and player:GetAttribute("TutorialStep") ~= "navigate") then
 			return false
 		end
 	end
@@ -156,6 +159,10 @@ local function onWarp(player: Player, payload: any)
 	end
 	root.CFrame = target
 	root.AssemblyLinearVelocity = Vector3.zero
+	-- Using HOME / SHOPS is the walkthrough's last task.
+	if instant then
+		TutorialService.complete(player)
+	end
 end
 
 function WarpService.init() end

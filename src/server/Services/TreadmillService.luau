@@ -298,7 +298,7 @@ local function onBuy(player: Player)
 	end
 	lastBuy[player] = now
 
-	if Tutorial.isActive(player) then
+	if Tutorial.gated(player) then
 		noticeRemote:FireClient(player, "FINISH THE TUTORIAL FIRST")
 		return
 	end
