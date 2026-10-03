@@ -128,6 +128,21 @@ Tuning.ZONE_SURVIVAL = {
 	-- blend, so it is the same 20s at every depth. lastAura (the Stage 12 raid) and the
 	-- rated rows do not get it.
 	UNDER_GRACE = 20,
+	-- DEAD ZONES: stageId -> the last stretch of that stage, where even the stage's own
+	-- aura fails. `from` is the depthFrac it starts at; `seconds` is { at `from`, at the
+	-- far edge }, blended like the rows above. Applies to the rated aura and everything
+	-- under it (the shorter of this and the normal time wins); an aura ABOVE the
+	-- stage's rating still takes nothing. Deliberately a step, not a blend: crossing
+	-- `from` is crossing a line.
+	--
+	-- Stage 6 on request ("make the end 40% of stage 6 very deadly"): the Nimbus goes
+	-- from ~4 minutes to 25s at 60% and 6s at the far edge. It is a sprint, not a dig
+	-- site -- the 126 studs to Toxic Twilight's gate take ~4s at the starting walk speed
+	-- and cost about a third of a health bar, so the camp is still reachable on foot
+	-- (Spec pins that), but stopping to dig out there is how you die.
+	DEAD_ZONE = {
+		[6] = { from = 0.6, seconds = { 25, 6 } },
+	},
 }
 Tuning.MAX_HEALTH = 100
 -- Every aura level past the first adds this much max health (tier 1 = 100, tier 2 = 150...).
