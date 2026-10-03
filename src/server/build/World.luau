@@ -448,12 +448,19 @@ function World.verify(): (boolean, { string })
 	-- The sell loop needs one shared, visible destination. A missing trader leaves
 	-- EconomyService working but makes every carried item effectively unsellable;
 	-- a second one makes the intended central rendezvous point ambiguous.
-	-- ONE PER CAMP now: Base Camp's, plus one in every site camp (build/CampSite).
-	local traders = 1 + #sites
+	-- ONE PER CAMP now: Base Camp's, plus one in every site camp (build/CampSite) --
+	-- except a COMING SOON camp, which stands neither a trader nor a station yet.
+	local openSites = 0
+	for _, def in sites do
+		if not def.comingSoon then
+			openSites += 1
+		end
+	end
+	local traders = 1 + openSites
 	check((census.trader or 0) == traders, `expected {traders} trader stations (one per camp), found {census.trader or 0}`)
 	-- One cleansing station per base, not one shared station at Base Camp -- plus the
 	-- one shared station each site camp stands, since those have no plots.
-	local deconCount = Plots.COUNT + #sites
+	local deconCount = Plots.COUNT + openSites
 	check(
 		(census.decon or 0) == deconCount,
 		`expected {deconCount} decon stations (one per base + one per site camp), found {census.decon or 0}`
