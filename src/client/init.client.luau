@@ -64,6 +64,7 @@ local ORDER = {
 	"FloorSignController", -- hides a base's "Build Floor N" prompt from anyone but its owner; reads PlotState
 	"OwnStationPromptController", -- hides a base's Wash prompt from anyone but its owner; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear): GENERAL / GRAPHICS / AUDIO tabs; PlotColor, HideAura, SfxMuted + the Prefs rows (client/Prefs)
+	"FastModeController", -- FAST MODE (Settings > Graphics): hides the nukes on other players' bases; reads the fastMode pref
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
 	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute
 }

@@ -2,7 +2,7 @@
 	SettingsController.lua — the player Settings panel, in three tabs:
 
 	  GENERAL   base colour, HIDE MY AURA, rare drop announcements
-	  GRAPHICS  graphics level, radiation effects, screen shake, reduce flashing
+	  GRAPHICS  graphics level, radiation effects, screen shake, reduce flashing, FAST MODE
 	  AUDIO     SOUND EFFECTS (the mute) and the master / effects / UI / Geiger sliders
 
 	EVERYTHING BUT THE FIRST THREE IS A PREF (Config/Prefs, client/Prefs). The rows here
@@ -1042,6 +1042,8 @@ local function build(): ScreenGui
 	flagRow(row(graphics, "Flashing", y), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
 	y += step
 	flagRow(row(graphics, "ConfirmDrop", y), "confirmDrop", "Confirm rare drops", "Ask before bombing a Rare+ nuke")
+	y += step
+	flagRow(row(graphics, "FastMode", y), "fastMode", "FAST MODE", "Hides other players' nukes on their bases")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
 	local audio = pages.AUDIO
