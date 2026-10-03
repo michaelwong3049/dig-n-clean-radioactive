@@ -1777,11 +1777,9 @@ function Spec.run(): boolean
 	-- is no cap now, so this measures at Treadmill.ENDGAME_WALK (100), the old one.
 	-- That is not a rename — it is a real and unsolvable tightening. The gap
 	-- between the starting detector's reveal edge and DIG_RADIUS is 8 studs; a fully
-	-- trained player crosses it in 0.08s, and client/SpotCracks' REVEAL is 0.4s with
-	-- its own header forbidding anything under ~0.3 ("the reveal stops reading as
-	-- ground splitting open and starts reading as a part being switched on"). So a
-	-- maxed player outruns the reveal animation and arrives at ground that is still
-	-- coming up.
+	-- trained player crosses it in 0.08s, and client/SpotCracks' REVEAL is 0.25s on an
+	-- ease-out (~70% up at 0.08s since the pop pass). So a maxed player still arrives
+	-- at ground that is coming up, just much less of it.
 	--
 	-- IT CANNOT BE FIXED FROM HERE. Holding 0.2s of walk at speed 100 needs `reach`
 	-- >= 20 studs, and the starting detector's whole radius is 13 — shrinking
