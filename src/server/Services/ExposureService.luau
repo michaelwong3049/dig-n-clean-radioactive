@@ -177,10 +177,12 @@ local function finite(n: number): number
 	return if n == math.huge or n ~= n then INFINITE else n
 end
 
---- Max health grows with the equipped aura tier (Tuning.maxHealthFor).
+--- Max health grows with the equipped aura tier (Tuning.maxHealthFor), x2 with the
+--- 2x Health pass (StatResolver healthMult).
 local function maxHealthOf(player: Player): number
 	local data = DataService.data(player)
-	return Tuning.maxHealthFor(data and data.gear and data.gear.aura)
+	local base = Tuning.maxHealthFor(data and data.gear and data.gear.aura)
+	return if data then base * StatResolver.get(data).healthMult else base
 end
 
 local function stateFor(player: Player): State

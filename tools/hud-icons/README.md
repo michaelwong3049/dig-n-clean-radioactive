@@ -24,7 +24,7 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | `shop_cash_1..4.svg` | the Shop panel's CASH cards, cheapest to dearest (`ShopController`) | `shopCash` (512px) |
 | `shop_sunburst.svg` | the rays behind each CASH card's art (white, faded by ImageTransparency) | `sunburst` (512px) |
 | `potion_<id>.svg` (5), `potions_tile.svg` | the potions (luck, cash, speed, strength, clean) and the Potions tile (`PotionController`) | not in `Artwork.IMAGE`: each potion's `image` and `TILE_IMAGE` in `Config/Potions` |
-| `pass_*.svg` (7) | the Shop panel's PASSES cards (`ShopController`) | not in `Artwork.IMAGE`: each pass's `image` in `Config/GamePasses` |
+| `pass_*.svg` (8) | the Shop panel's PASSES cards (`ShopController`) | not in `Artwork.IMAGE`: each pass's `image` in `Config/GamePasses` |
 
 To change one: edit the SVG (100x100 viewBox, `#12161d` outline), render it to a
 transparent 256px PNG, upload it (Studio MCP `upload_image`, or Asset Manager), and paste

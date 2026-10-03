@@ -149,6 +149,7 @@ export type Stats = {
 	-- into capacity, luckBoost, trainingMult, bombDamageMult and the two cash ones.
 	digPower: number, -- DigService: scales the magnet's side of a haul (yank + draw)
 	instantClean: boolean, -- WashService: a patch breaks the moment water touches it
+	healthMult: number, -- ExposureService: max health (the 2x Health pass)
 	-- The Speed Potion (Config/Potions): multiplies walk speed alongside the aura's
 	-- bonus, in effectiveWalkSpeed (walkBonus). 1 when none is running.
 	walkMult: number,
@@ -302,6 +303,7 @@ function StatResolver.get(profile: Profile): Stats
 		digPower = (if GamePasses.owns(profile, "digPower") then GamePasses.DIG_POWER else 1)
 			* Potions.multiplier(profile.potionLeft, "strength"),
 		instantClean = GamePasses.owns(profile, "instantClean"),
+		healthMult = if GamePasses.owns(profile, "health") then GamePasses.HEALTH else 1,
 		walkMult = Potions.multiplier(profile.potionLeft, "speed"),
 	}
 end
