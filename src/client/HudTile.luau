@@ -51,7 +51,7 @@ local GLOW_TRANSPARENCY_HOVER = 0.12
 -- tile's own colour solid under a hard two-band gloss (a shiny top half, a shade darker
 -- below the line), a black outline and no glow. The corner buttons (Settings, Daily,
 -- placed by spec.position) keep the dark glow-orb look.
-local CANDY_CORNER = 11
+local CANDY_CORNER = 6
 local CANDY_EDGE_THICKNESS = 3
 local CANDY_SHINE_TOP = 0.45
 local CANDY_SHINE_LINE = 0.12
