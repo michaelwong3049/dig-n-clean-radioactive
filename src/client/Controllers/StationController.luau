@@ -482,10 +482,10 @@ local CARD_ROW_GAP = 16
 local CARD_BUY_HEIGHT = 52
 local CARD_BUY_BOTTOM = 18
 local CARD_BUY_TOP = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT
--- The purple Robux button splits the buy row on a tier sold for Robux: cash on the
--- left, this on the right.
 -- Roblox's own Robux glyph (private-use U+E002), same as ShopController's Robux buttons.
 local ROBUX = utf8.char(0xE002)
+-- The purple Robux button splits the buy row on a tier sold for Robux: cash on the
+-- left, this on the right.
 local CARD_ROBUX_WIDTH = 150
 local CARD_ROBUX_GAP = 10
 local CARD_CHIPS_TOP = CARD_BUY_TOP - CARD_ROW_GAP - STAT_CHIP_HEIGHT
@@ -1591,8 +1591,8 @@ end
 -- change). `false` = asked and still waiting, or the lookup failed.
 local robuxPrices: { [number]: number | false } = {}
 
---- The Robux glyph and price ("<glyph> 199"), or the bare glyph until the price arrives. The first ask starts the lookup,
---- and the answer repaints whichever card is showing that product.
+--- The Robux glyph and price, or the bare glyph until the price arrives. The first ask
+--- starts the lookup, and the answer repaints whichever card is showing that product.
 local function robuxText(productId: number): string
 	local price = robuxPrices[productId]
 	if price then
