@@ -247,7 +247,14 @@ end
 -- a maxed detector lights ~4 glows instead of ~7.6. Per-dig odds are untouched, so
 -- the loot tables were NOT re-weighted -- the field just holds fewer jackpots at once
 -- (~1.2 Rare+ in Stage 1, was ~2.2), and Spec §7's floor moved with N to say so.
-Tuning.SIGNALS_PER_STAGE = 40
+--
+-- 40 -> 28 ON REQUEST (2026-10-03: "even mid tier detectors shouldn't have that many
+-- detector spots show up"). 30% fewer everywhere: standing still in Stage 1 a Pulse
+-- Array (r=22) lights ~0.95 glows (was ~1.36), The Oracle (r=34) ~2.3 (was ~3.3);
+-- the starting detector walks ~2.2s between contacts (was ~1.7s). Same call as the
+-- last pass: per-dig odds untouched, loot NOT re-weighted -- the field just holds
+-- fewer jackpots at once (~0.74 Rare+ in Stage 1), and Spec §7's floor moved again.
+Tuning.SIGNALS_PER_STAGE = 28
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
