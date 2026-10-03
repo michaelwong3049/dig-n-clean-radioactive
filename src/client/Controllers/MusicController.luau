@@ -28,7 +28,6 @@ local TRACKS: { number } = {
 	1836295968, -- Doris Duck
 	1842262519, -- Baby Bouncer
 	1842214009, -- Plenty Funny
-	1839153331, -- Fun Kidz
 }
 
 local function shuffled(last: number?): { number }
