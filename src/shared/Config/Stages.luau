@@ -236,20 +236,45 @@ Stages.PLATE_THICKNESS = 16
 --- pass, 400x200 -> 340x170, N left at 75) and again to 657.33 (the length-only
 --- pass, 340 -> 290 on X with Z held, N left at 75) -- both on request. Move the
 --- footprint again and SIGNALS_PER_STAGE (Config/Tuning) is how you retarget it.
-local FOOTPRINT_X, FOOTPRINT_Z = 290, 170
--- Stages 7-12 only: 15% longer (290 -> 334) along the walk axis.
-local FAR_X = 334
+local FOOTPRINT_X, FOOTPRINT_Z = 290, 154
+-- Z (wall to wall) went 170 -> 154 on EVERY stage, on request (2026-10-02).
+-- Stages 7-12 only: 15% longer (290 -> 334) along the walk axis, then 5% shorter
+-- (334 -> 317, on request 2026-10-02).
+local FAR_X = math.round(334 * 0.95)
 -- Stages 2-6 only: PROGRESSIVELY LONGER, on request -- +5/+10/+15/+20/+20% over
 -- FOOTPRINT_X, grown at the EAST end. Decor spreads over the whole grown plate
 -- (no `decorLength`), so props stay evenly spaced end to end.
 local GROWN_X = { [2] = 305, [3] = 319, [4] = 334, [5] = 348, [6] = 348 }
--- Stages 1-6: 5% SHORTER along the walk axis, on request (2026-10-01), rounded to
--- whole studs: 290/305/319/334/348/348 -> 276/290/303/317/331/331. The chain now ends
--- at x = 1948 (was 2044), and Toxic Twilight + Stages 7-12 slide 96 studs west with it.
-local NEAR_SHORTEN = 0.95
+-- Stages 1-6: 5% SHORTER along the walk axis, TWICE, on request (2026-10-01, then
+-- 2026-10-02), rounded to whole studs from the unshortened lengths:
+-- 290/305/319/334/348/348 -> 276/290/303/317/331/331 -> 262/275/288/301/314/314.
+-- The chain now ends at x = 1854 (1948 after the first pass, 2044 before it), and
+-- Toxic Twilight + Stages 7-12 slide west with it.
+local NEAR_SHORTEN = 0.95 * 0.95
 local NEAR_X: { [number]: number } = { [1] = math.round(FOOTPRINT_X * NEAR_SHORTEN) }
 for id, x in GROWN_X do
 	NEAR_X[id] = math.round(x * NEAR_SHORTEN)
+end
+
+-- Centres are BUTTED, not typed: Stage 1's west edge is pinned at x = 100
+-- (Hub.PLAZA.maxX) and each plate starts where the last one ends. Stages 7-12 start
+-- at the Twilight exit, TWILIGHT_GAP past Stage 6's east edge -- it must equal
+-- Config/Camps' 2 * TWILIGHT_CENTRE_OFFSET (Camps requires this module, so it
+-- can't be read from there; Spec checks the two agree).
+local STAGE1_WEST_X = 100
+local TWILIGHT_GAP = 2 * 165
+local CENTER_X: { [number]: number } = {}
+do
+	local x = STAGE1_WEST_X
+	for id = 1, 6 do
+		CENTER_X[id] = x + NEAR_X[id] / 2
+		x += NEAR_X[id]
+	end
+	x += TWILIGHT_GAP
+	for id = 7, 12 do
+		CENTER_X[id] = x + FAR_X / 2
+		x += FAR_X
+	end
 end
 
 Stages.DEFS = {
@@ -297,11 +322,11 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
 		rarityTilt = 1.32, -- ~2.5% Rare+ at a tier-1 detector (see the header)
-		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 276/2.
-		center = { 238, 0 },
-		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint of all six stages —
+		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 262/2.
+		center = { CENTER_X[1], 0 },
+		-- FOOTPRINT_Z 154 wide (was 170), the shared footprint of all six stages —
 		-- see the header. Was 660 long (then 400, then 340) and 320 wide (then 240,
-		-- 200, 170); length is the axis that made Stage 1 a long empty walk. Stage 1's
+		-- 200, 170, 154); length is the axis that made Stage 1 a long empty walk. Stage 1's
 		-- WEST edge has never moved, so its entrance-side tuning (stationDistance, the
 		-- deepRads/depthFrac notes above) is untouched; only the east half pulls in.
 		size = { NEAR_X[1], FOOTPRINT_Z },
@@ -348,9 +373,9 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("E8D9B0"),
 		fogEnd = 800,
 		rarityTilt = 1.72, -- ~6% Rare+ at a tier-1 detector
-		-- West edge = Stage 1's east edge (x = 376); centre = 376 + 290/2.
-		center = { 521, 0 },
-		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 1's east edge (x = 362); centre = 362 + 275/2.
+		center = { CENTER_X[2], 0 },
+		-- FOOTPRINT_Z 154 wide (was 170), the shared footprint — see the header.
 		-- Was 220 long, the shortest stage; the uniform pass grew it to match the rest,
 		-- the 15% and length passes took the lot back down.
 		size = { NEAR_X[2], FOOTPRINT_Z },
@@ -387,9 +412,9 @@ Stages.DEFS = {
 		-- stocks nothing at Scrap; the roll only ever picks from what is stocked, so
 		-- Common is the floor here with no dead rolls to fold away.
 		rarityTilt = 2.26, -- ~14% Rare+ at a tier-1 detector
-		-- West edge = Stage 2's east edge (x = 666); centre = 666 + 303/2.
-		center = { 817.5, 0 },
-		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 2's east edge (x = 637); centre = 637 + 288/2.
+		center = { CENTER_X[3], 0 },
+		-- FOOTPRINT_Z 154 wide (was 170), the shared footprint — see the header.
 		-- Was 260 long.
 		size = { NEAR_X[3], FOOTPRINT_Z },
 		-- Deeper desert khaki-brown — the endpoint of the Stage 1-3 gradient. Slate
@@ -430,9 +455,9 @@ Stages.DEFS = {
 		fogEnd = 600,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
 		rarityTilt = 3.18, -- ~28% Rare+ at a tier-1 detector (the Dive stage; loot is the reward)
-		-- West edge = Stage 3's east edge (x = 969); centre = 969 + 317/2.
-		center = { 1127.5, 0 },
-		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 3's east edge (x = 925); centre = 925 + 301/2.
+		center = { CENTER_X[4], 0 },
+		-- FOOTPRINT_Z 154 wide (was 170), the shared footprint — see the header.
 		-- Was 290 long, the "deliberately short" dive; that framing is gone (comment
 		-- above) — and now the shared length has landed back on that same 290 by a
 		-- different route.
@@ -481,9 +506,9 @@ Stages.DEFS = {
 		fogEnd = 500,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
 		rarityTilt = 2.72, -- ~2.5% Mythic+ at the stage's own detector (economy pacing pass; was 5.06)
-		-- West edge = Stage 4's east edge (x = 1286); centre = 1286 + 331/2.
-		center = { 1451.5, 0 },
-		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 4's east edge (x = 1226); centre = 1226 + 314/2.
+		center = { CENTER_X[5], 0 },
+		-- FOOTPRINT_Z 154 wide (was 170), the shared footprint — see the header.
 		-- Was 600 long, the second of the two big empty-walk stages; still the biggest
 		-- single shrink of the six.
 		size = { NEAR_X[5], FOOTPRINT_Z },
@@ -537,10 +562,10 @@ Stages.DEFS = {
 		fogEnd = 400,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
 		rarityTilt = 1.93, -- ~3% Mythic+ at the stage's own detector (economy pacing pass; was 5.40)
-		-- West edge = Stage 5's east edge (x = 1617); centre = 1617 + 331/2. The chain
-		-- ends at x = 1948 (2044 before the 5%-shorter pass, 1840 before the longer one).
-		center = { 1782.5, 0 },
-		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 5's east edge (x = 1540); centre = 1540 + 314/2. The chain
+		-- ends at x = 1854 (1948 / 2044 before the two 5%-shorter passes, 1840 before the longer one).
+		center = { CENTER_X[6], 0 },
+		-- FOOTPRINT_Z 154 wide (was 170), the shared footprint — see the header.
 		-- Was 360 long.
 		size = { NEAR_X[6], FOOTPRINT_Z },
 		color = "5B1FA8",
@@ -556,7 +581,7 @@ Stages.DEFS = {
 
 	-- ── STAGES 7-12: THE CHAIN PAST TOXIC TWILIGHT ──────────────────────────────
 	-- A second run of six, opening east out of the Twilight camp's mouth (Camps
-	-- TWILIGHT_EXIT_X, x = 2278) at the same FOOTPRINT_X pitch. The camp disc sits
+	-- TWILIGHT_EXIT_X, x = 2184) at the same FOOTPRINT_X pitch. The camp disc sits
 	-- between Stage 6 and Stage 7, so the two runs do NOT share an edge -- see
 	-- Stages.runs(), which the corridor walls and seam lines are built per.
 	--
@@ -584,8 +609,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("5A5560"),
 		fogEnd = 400,
 		rarityTilt = 2.21, -- ~3% Mythic+ at the stage's own detector (economy pacing pass; was 5.6)
-		-- West edge = the Twilight exit (x = 2278).
-		center = { 2445, 0 },
+		-- West edge = the Twilight exit (x = 2184).
+		center = { CENTER_X[7], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "34313A", -- charcoal
 		material = "Slate",
@@ -603,7 +628,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("7FA6D6"),
 		fogEnd = 400,
 		rarityTilt = 2.59, -- ~3.5% Mythic+ at the stage's own detector (economy pacing pass; was 5.8)
-		center = { 2779, 0 },
+		center = { CENTER_X[8], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "3D6FB0", -- steel blue
 		material = "Slate",
@@ -621,7 +646,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF4F5"),
 		fogEnd = 400,
 		rarityTilt = 2.5, -- ~3.5% Mythic+ at the stage's own detector (economy pacing pass; was 6.0)
-		center = { 3113, 0 },
+		center = { CENTER_X[9], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "9FE3E6", -- pale ice-cyan
 		material = "Glass",
@@ -639,7 +664,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("5E8C5A"),
 		fogEnd = 400,
 		rarityTilt = 2.57, -- ~4% Mythic+ at the stage's own detector (economy pacing pass; was 6.2)
-		center = { 3447, 0 },
+		center = { CENTER_X[10], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "2E3A2F", -- basalt, green-black
 		material = "Slate",
@@ -657,7 +682,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("C45A6A"),
 		fogEnd = 400,
 		rarityTilt = 2.18, -- ~4% Mythic+ at the stage's own detector (economy pacing pass; was 6.4)
-		center = { 3781, 0 },
+		center = { CENTER_X[11], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "9E1B32", -- crimson
 		material = "Slate",
@@ -676,7 +701,7 @@ Stages.DEFS = {
 		fogEnd = 400,
 		rarityTilt = 1.8, -- ~5% Mythic+ at the stage's own detector (economy pacing pass; was 6.6)
 		-- The chain's east end (x = 4378), closed by build/Scenery's end wall.
-		center = { 4115, 0 },
+		center = { CENTER_X[12], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "FF6A1A", -- molten orange
 		material = "Glass",
