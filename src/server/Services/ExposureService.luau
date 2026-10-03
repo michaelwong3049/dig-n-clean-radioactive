@@ -804,7 +804,7 @@ local function stepPlayer(player: Player, dt: number)
 			local override = speedOverrides[player]
 			-- The pin is the BASE speed: the worn aura's bonus still rides on top of it, the
 			-- same as it does on trained speed, so /speed 40 in a +6% aura walks at 42.4.
-			humanoid.WalkSpeed = if override then override * (1 + stats.auraSpeedBonus) else StatResolver.effectiveWalkSpeed(stats, #data.carry, false, data.walkCap)
+			humanoid.WalkSpeed = if override then override * StatResolver.walkBonus(stats) else StatResolver.effectiveWalkSpeed(stats, #data.carry, false, data.walkCap)
 
 			-- Same deal for /jump. JumpPower is DERIVED from the requested height via
 			-- the standard projectile relation (v0 = sqrt(2 * g * h)) rather than a

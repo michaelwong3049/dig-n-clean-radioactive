@@ -532,8 +532,7 @@ local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number
 	-- still looks like an ordinary nuke of the rarity it shows.
 	if signal.crateId then
 		local kind = Crates.get(signal.crateId).kind
-		local variant = Crates.rollVariant(signal.stageId, detectorLuck * boost, math.random())
-		local crateId = Crates.idFor(kind, variant)
+		local crateId = Crates.dropId(kind, signal.stageId, detectorLuck * boost, math.random())
 		local tier = Crates.get(crateId).tier
 		local crateRoll: PlayerRoll = {
 			itemId = if tier == signal.rarity then signal.itemId else standInFor(signal.stageId, tier, signal.itemId),
@@ -636,8 +635,7 @@ local function spawnSignal(stageId: number)
 	-- takes the crust off.
 	local crateId: string? = nil
 	if math.random() * Crates.CRATE_CHANCE < 1 then
-		local kind = if math.random() < Crates.NUKE_SHARE then "nuke" else "liquid"
-		crateId = Crates.idFor(kind, Crates.rollVariant(stageId, 1, math.random()))
+		crateId = Crates.dropId(Crates.rollKind(math.random()), stageId, 1, math.random())
 		rarity = Crates.get(crateId :: string).tier
 		itemId = standInFor(stageId, rarity, itemId)
 		weight = Items.get(itemId).weight

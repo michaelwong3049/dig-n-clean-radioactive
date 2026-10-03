@@ -44,6 +44,7 @@ local Packs = require(Config.Packs)
 local RareDrop = require(Config.RareDrop)
 local Masteries = require(Config.Masteries)
 local Crates = require(Config.Crates)
+local Potions = require(Config.Potions)
 local AuraLook = require(script.Parent.Parent.AuraLook)
 local Bag = require(script.Parent.Parent.Bag)
 local CrateModels = require(script.Parent.Parent.CrateModels)
@@ -2983,7 +2984,7 @@ function Spec.run(): boolean
 				if lowest < floor then
 					floors = false
 				end
-			else
+			elseif def.kind == "liquid" then
 				local odds = Crates.liquidOdds(id, 1)
 				local total = 0
 				for liquidId, p in odds do
@@ -3005,6 +3006,61 @@ function Spec.run(): boolean
 			end
 		end
 		check("§crate every crate is well-formed (id, tier, kind + variant)", defsOk and variantsOk)
+
+		-- Potions (Config/Potions): the crate is in the drop, every potion comes out of
+		-- it about equally often, and each effect lands on its own stat only while its
+		-- clock is running.
+		do
+			local kinds: { [string]: number } = {}
+			for i = 0, 2999 do
+				local kind = Crates.rollKind((i + 0.5) / 3000)
+				kinds[kind] = (kinds[kind] or 0) + 1
+			end
+			check(
+				"§potion crates drop as a third of all crates, the same on every stage",
+				kinds.potion == 1000
+					and kinds.nuke == 1000
+					and kinds.liquid == 1000
+					and Crates.dropId("potion", 1, 1, 0.99) == "potion1"
+					and Crates.dropId("potion", 12, 50, 0.01) == "potion1"
+			)
+			local counts: { [string]: number } = {}
+			for i = 0, #Potions.ORDER * 100 - 1 do
+				local id = Potions.roll((i + 0.5) / (#Potions.ORDER * 100))
+				counts[id] = (counts[id] or 0) + 1
+			end
+			local even = true
+			for _, id in Potions.ORDER do
+				even = even and counts[id] == 100 and Potions.get(id).image ~= ""
+			end
+			check("§potion every potion is equally likely out of the crate", even)
+
+			local base = StatResolver.get({ level = 1, gear = {}, perks = {} })
+			local function with(id: string): any
+				return StatResolver.get({ level = 1, gear = {}, perks = {}, potionLeft = { [id] = 60 } })
+			end
+			local spent = StatResolver.get({ level = 1, gear = {}, perks = {}, potionLeft = { luck = 0, cash = 0 } })
+			check(
+				"§potion each potion boosts its own stat, and only while it runs",
+				with("luck").luckBoost == base.luckBoost * 1.5
+					and with("cash").sellMultiplier == base.sellMultiplier * 1.5
+					and with("cash").yieldMultiplier == base.yieldMultiplier * 1.5
+					and with("speed").walkMult == 1.25
+					and with("strength").digPower == base.digPower * 1.5
+					and with("clean").scrubRate == base.scrubRate * 1.5
+					and with("luck").sellMultiplier == base.sellMultiplier
+					and spent.luckBoost == base.luckBoost
+					and spent.sellMultiplier == base.sellMultiplier
+					and base.walkMult == 1
+			)
+			check(
+				"§potion the Speed Potion lifts the walk you actually move at by 25%",
+				math.abs(
+					StatResolver.effectiveWalkSpeed(with("speed"), 2, false, nil)
+						- StatResolver.effectiveWalkSpeed(base, 2, false, nil) * 1.25
+				) < 1e-6
+			)
+		end
 		check("§crate every crate's prize table sums to 1", sums)
 		check("§crate no crate ever hands out anything under its floor", floors)
 

@@ -35,6 +35,7 @@ local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
 local GroupReward = require(Config.GroupReward)
+local Potions = require(Config.Potions)
 local IndexProgress = require(script.Parent.IndexProgress)
 local Mastery = require(script.Parent.Mastery)
 
@@ -76,6 +77,9 @@ export type Profile = {
 	-- The group chest's one-time claim (Config/GroupReward). Optional for the same
 	-- reason; absent means not claimed, no permanent cash bonus.
 	groupRewardClaimed: boolean?,
+	-- Banked seconds per running potion (Config/Potions), id -> seconds. Optional for
+	-- the same reason; absent means none running.
+	potionLeft: { [string]: number }?,
 }
 
 export type Stats = {
@@ -145,6 +149,9 @@ export type Stats = {
 	-- into capacity, luckBoost, trainingMult, bombDamageMult and the two cash ones.
 	digPower: number, -- DigService: scales the magnet's side of a haul (yank + draw)
 	instantClean: boolean, -- WashService: a patch breaks the moment water touches it
+	-- The Speed Potion (Config/Potions): multiplies walk speed alongside the aura's
+	-- bonus, in effectiveWalkSpeed (walkBonus). 1 when none is running.
+	walkMult: number,
 }
 
 --- Is the server-wide Violet Aurora up right now? See the header's one outside read.
@@ -199,11 +206,15 @@ function StatResolver.get(profile: Profile): Stats
 	-- roll and the wash pad exactly like the aurora and the clover (Config/GamePasses).
 	local luckBoost = LuckBoost.multiplier(StatResolver.luckEventActive(), (profile.luckBoostLeft or 0) > 0)
 		* (if GamePasses.owns(profile, "luck") then GamePasses.LUCK else 1)
+		-- The Luck Potion (Config/Potions) is one more source on the same boost.
+		* Potions.multiplier(profile.potionLeft, "luck")
 	-- The 2x Cash pass and a pack's timed 2x cash stack (x4), like luck's sources do.
 	local passCash = (if GamePasses.owns(profile, "cash") then GamePasses.CASH else 1)
 		* CashBoost.multiplier((profile.cashBoostLeft or 0) > 0)
 		-- The group chest's permanent +10% (Config/GroupReward), on the same two payouts.
 		* GroupReward.cashMultiplier(profile.groupRewardClaimed)
+		-- The Cash Potion (Config/Potions), on the same two payouts.
+		* Potions.multiplier(profile.potionLeft, "cash")
 	local liquidId, liquid = liquidFor(profile)
 	-- A completed stage's index pays in cash (Tuning.INDEX_COMPLETE_CASH), on every
 	-- sale and every stand's income alike -- both multipliers below take it.
@@ -256,7 +267,8 @@ function StatResolver.get(profile: Profile): Stats
 		-- the liquid's `rateMult` multiplies it on the way in. One number, two honest
 		-- names: `volume` where it is sold, `scrubRate` where it is spent. The wash bay
 		-- reads it back off here to size the stream (WashService.push -> `volume`).
-		scrubRate = cleaner.volume,
+		-- The Cleaning Potion (Config/Potions) speeds the scrub the same way.
+		scrubRate = cleaner.volume * Potions.multiplier(profile.potionLeft, "clean"),
 		fuseMult = mult(profile, "fuse"),
 
 		liquidId = liquidId,
@@ -287,8 +299,10 @@ function StatResolver.get(profile: Profile): Stats
 		brewCooldownMult = Mastery.value(profile, "brewCooldown"),
 		awayRate = Mastery.value(profile, "awayRate"),
 
-		digPower = if GamePasses.owns(profile, "digPower") then GamePasses.DIG_POWER else 1,
+		digPower = (if GamePasses.owns(profile, "digPower") then GamePasses.DIG_POWER else 1)
+			* Potions.multiplier(profile.potionLeft, "strength"),
 		instantClean = GamePasses.owns(profile, "instantClean"),
+		walkMult = Potions.multiplier(profile.potionLeft, "speed"),
 	}
 end
 
@@ -305,12 +319,19 @@ end
 ---
 --- `picked` is the walk-speed picker's cap (profile `walkCap`, Treadmill.chosenWalk). It
 --- trims the trained speed BEFORE the haul penalty, so a full bag still slows you down
---- from the speed you chose. The worn aura's `speedBonus` multiplies the result last.
+--- from the speed you chose. The worn aura's `speedBonus` and the Speed Potion multiply
+--- the result last (walkBonus).
+--- Every multiplier on top of the chosen walk: the worn aura's bonus and the Speed
+--- Potion (Config/Potions). The Walk Speed badge prints the chosen walk times this.
+function StatResolver.walkBonus(stats: Stats): number
+	return (1 + stats.auraSpeedBonus) * (stats.walkMult or 1)
+end
+
 function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean, picked: number?): number
 	local speed = Treadmill.chosenWalk(stats.walkSpeed, picked) - (carriedCount * stats.haulPenalty)
-	-- The aura's bonus rides on what is left, so a slowed-down pick or a full bag is
-	-- still scaled by it rather than handed a flat top-up.
-	speed *= 1 + stats.auraSpeedBonus
+	-- The aura's bonus and the Speed Potion ride on what is left, so a slowed-down pick
+	-- or a full bag is still scaled by them rather than handed a flat top-up.
+	speed *= StatResolver.walkBonus(stats)
 	if sprinting then
 		speed *= Gear.SPRINT_MULTIPLIER
 	end

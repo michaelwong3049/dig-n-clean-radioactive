@@ -39,6 +39,7 @@ local Treadmill = require(Shared.Config.Treadmill)
 local LuckBoost = require(Shared.Config.LuckBoost)
 local GamePasses = require(Shared.Config.GamePasses)
 local CashBoost = require(Shared.Config.CashBoost)
+local Potions = require(Shared.Config.Potions)
 local Packs = require(Shared.Config.Packs)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
@@ -58,6 +59,7 @@ local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 local GamePassService = require(script.Parent.GamePassService)
 local CashBoostService = require(script.Parent.CashBoostService)
+local PotionService = require(script.Parent.PotionService)
 local PackService = require(script.Parent.PackService)
 local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
@@ -858,6 +860,43 @@ COMMANDS["/cashboost"] = {
 			CashBoostService.grant(player, data, seconds)
 		end
 		return `2x cash: {math.floor(data.cashBoostLeft)}s banked, sell x{StatResolver.get(data).sellMultiplier}`
+	end,
+}
+
+COMMANDS["/potion"] = {
+	-- Potions without a crate. `time` runs one straight away instead of stashing it.
+	help = "/potion <id|all> [count] | /potion time <id|all> [seconds|0] — stash potions, or run/clear their clocks",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local function ids(which: string?): { string }?
+			if which == "all" then
+				return Potions.ORDER
+			end
+			return if Potions.has(which) then { which :: string } else nil
+		end
+		if args[1] == "time" then
+			local list = ids(args[2])
+			if list == nil then
+				return `unknown potion — one of: all, {table.concat(Potions.ORDER, ", ")}`
+			end
+			local seconds = tonumber(args[3]) or Potions.DURATION
+			for _, id in list do
+				PotionService.addTime(player, data, id, if seconds == 0 then -Potions.MAX_BANKED_SECONDS else seconds)
+			end
+			return `potion clocks set ({seconds}s) on {table.concat(list, ", ")}`
+		end
+		local list = ids(args[1])
+		if list == nil then
+			return `unknown potion — one of: all, {table.concat(Potions.ORDER, ", ")}`
+		end
+		local count = tonumber(args[2]) or 1
+		for _, id in list do
+			PotionService.give(player, data, id, count)
+		end
+		return `+{count} of {table.concat(list, ", ")} in your potion stash`
 	end,
 }
 

@@ -384,6 +384,7 @@ local BUILDERS: { [string]: (Model) -> BasePart } = {
 	nuke5 = reactor,
 	liquid4 = cryo,
 	liquid5 = cryo,
+	potion1 = hazmat,
 }
 
 --- An imported crate's FOOTPRINT once normalised: the wider of its width and depth,

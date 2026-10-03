@@ -265,6 +265,23 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 
 	-- Isotope: vapour curling off the canister on the lid, blue motes rising
 	-- through the tubes, and a cold blue glow.
+	-- Potion: violet bubbles popping off the lid and a soft purple glow.
+	potion1 = function(p)
+		emitter(p.top, {
+			name = "Bubbles",
+			texture = SPARKLE,
+			color = colour("B455FF", "F3D9FF"),
+			size = seq(0.08, 0.16, 0),
+			transparency = seq(0.1, 0.5),
+			rate = 3,
+			lifetime = NumberRange.new(0.9, 1.5),
+			speed = NumberRange.new(0.6, 1.1),
+			spread = 25,
+			lightEmission = 1,
+		})
+		light(p.core, "B455FF", math.max(p.extents.X, p.extents.Z) * 1.5, 0.6)
+	end,
+
 	liquid2 = function(p)
 		emitter(p.top, {
 			name = "Vapour",

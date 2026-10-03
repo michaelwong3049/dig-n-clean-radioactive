@@ -123,9 +123,10 @@ local function snapshot(player: Player, data: any)
 		walk = Treadmill.walkSpeedFor(level),
 		-- The walk-speed picker's cap (0 = full speed). The HUD shows chosenWalk(walk, walkCap).
 		walkCap = if type(data.walkCap) == "number" then data.walkCap else 0,
-		-- The worn aura's walk-speed bonus (a fraction). The badge shows the chosen walk
-		-- times (1 + this), which is what ExposureService really walks you at.
-		auraSpeed = stats.auraSpeedBonus,
+		-- Every walk-speed bonus as one fraction: the worn aura's and the Speed Potion's
+		-- (StatResolver.walkBonus). The badge shows the chosen walk times (1 + this),
+		-- which is what ExposureService really walks you at.
+		auraSpeed = StatResolver.walkBonus(stats) - 1,
 		-- The debug /speed pin, when set: the badge shows it in place of the chosen walk, with
 		-- the aura bonus on top as for any speed (Lazy require: ExposureService reaches back here).
 		override = require(script.Parent.ExposureService).speedOverrideOf(player),
