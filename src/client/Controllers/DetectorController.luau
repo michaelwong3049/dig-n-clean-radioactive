@@ -724,15 +724,29 @@ local function build(): ScreenGui
 	-- whose corner box reaches up past the widget's bottom edge (UIKit.touchCorner; a
 	-- phone's smaller button stays under it). Re-placed on every canvas resize,
 	-- because the design width moves with both the window and the HUD scale.
+	--
+	-- SHRUNK TO FIT A SHORT SCREEN. A landscape phone is only ~625-650 design px tall at
+	-- the MIN_SCALE floor, and the widget's 474 above HAULPANEL_BOTTOM ran its top (the
+	-- sky, the magnet, the fuse) off the screen and under the topbar buttons. Its own
+	-- UIScale shrinks the whole stack until its top clears the corner row
+	-- (Dock.HAULPANEL_TOP_CLEAR); a UIScale keeps the Position, and the AnchorPoint is
+	-- the bottom-left corner, so it shrinks down toward the hotbar, never off it.
+	local haulFit = Instance.new("UIScale")
+	haulFit.Parent = haul
 	local function placeHaul()
-		local width = canvas.AbsoluteSize.X / UIKit.canvasScale(canvas)
+		local s = UIKit.canvasScale(canvas)
+		local width = canvas.AbsoluteSize.X / s
+		local height = canvas.AbsoluteSize.Y / s
+		local room = height - Dock.HAULPANEL_BOTTOM - Dock.HAULPANEL_TOP_CLEAR
+		local fit = math.clamp(room / Dock.HAULPANEL_SIZE.Y.Offset, Dock.HAULPANEL_MIN_FIT, 1)
+		haulFit.Scale = fit
 		local nearCentre = width / 2 + Dock.HAULPANEL_CENTRE_GAP
 		local right = Dock.HAULPANEL_RIGHT
 		local jump = UIKit.touchCorner()
 		if jump.Y > Dock.HAULPANEL_BOTTOM then
 			right = math.max(right, jump.X + Dock.GAP)
 		end
-		local clearOfTiles = width - right - Dock.HAULPANEL_SIZE.X.Offset
+		local clearOfTiles = width - right - Dock.HAULPANEL_SIZE.X.Offset * fit
 		haul.Position = UDim2.new(0, math.min(nearCentre, clearOfTiles), 1, -Dock.HAULPANEL_BOTTOM)
 	end
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeHaul)
