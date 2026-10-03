@@ -49,14 +49,14 @@ export type Day = {
 }
 
 DailyRewards.DAYS = {
-	{ cashMinutes = 5, crates = {}, luckSeconds = 0, cashBoostSeconds = 0 },
+	{ cashMinutes = 1, crates = {}, luckSeconds = 0, cashBoostSeconds = 0 },
 	{ cashMinutes = 0, crates = { { kind = "liquid", count = 1 } }, luckSeconds = 10 * 60, cashBoostSeconds = 0 },
-	{ cashMinutes = 10, crates = { { kind = "nuke", count = 1 } }, luckSeconds = 0, cashBoostSeconds = 0 },
+	{ cashMinutes = 2, crates = { { kind = "nuke", count = 1 } }, luckSeconds = 0, cashBoostSeconds = 0 },
 	{ cashMinutes = 0, crates = { { kind = "nuke", count = 1 } }, luckSeconds = 0, cashBoostSeconds = 15 * 60 },
-	{ cashMinutes = 15, crates = { { kind = "liquid", count = 2 } }, luckSeconds = 0, cashBoostSeconds = 0 },
+	{ cashMinutes = 3, crates = { { kind = "liquid", count = 2 } }, luckSeconds = 0, cashBoostSeconds = 0 },
 	{ cashMinutes = 0, crates = { { kind = "nuke", count = 1 } }, luckSeconds = 20 * 60, cashBoostSeconds = 0 },
 	{
-		cashMinutes = 30,
+		cashMinutes = 6,
 		crates = { { kind = "nuke", count = 1 }, { kind = "nuke", count = 1, bump = 1 } },
 		luckSeconds = 30 * 60,
 		cashBoostSeconds = 30 * 60,
@@ -67,19 +67,22 @@ DailyRewards.DAYS = {
 -- The least $/s a day's cash minutes are worth, by deepest stage reached. Rough
 -- fractions of what a player progressing on pace earns there (the pacing pass fits
 -- ~20 min a stage early, ~2 h late); live stand income above it wins.
+-- NERFED 2026-10-03 (user: "heavily nerf"): minutes cut ~5x (5/10/15/30 -> 1/2/3/6)
+-- and these floors cut 5x, so cash is a small top-up, not a skip -- the crates and
+-- boosts are the real prizes.
 DailyRewards.FLOOR_RATE = {
-	[1] = 25,
-	[2] = 150,
-	[3] = 900,
-	[4] = 4_000,
-	[5] = 12_000,
-	[6] = 40_000,
-	[7] = 120_000,
-	[8] = 400_000,
-	[9] = 1_500_000,
-	[10] = 6_000_000,
-	[11] = 25_000_000,
-	[12] = 80_000_000,
+	[1] = 5,
+	[2] = 30,
+	[3] = 180,
+	[4] = 800,
+	[5] = 2_400,
+	[6] = 8_000,
+	[7] = 24_000,
+	[8] = 80_000,
+	[9] = 300_000,
+	[10] = 1_200_000,
+	[11] = 5_000_000,
+	[12] = 16_000_000,
 } :: { [number]: number }
 
 local function clampStage(stage: number): number
