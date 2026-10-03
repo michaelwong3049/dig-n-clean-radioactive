@@ -101,6 +101,47 @@ function PlaytimeGifts.crateIds(gift: Gift, stage: number): { string }
 	return DailyRewards.crateIds(day, stage)
 end
 
+
+--- The pictures (tools/hud-icons/playtime): the tile's clock, and each card's picture,
+--- chosen from what the gift holds (see PlaytimeGifts.iconFor).
+PlaytimeGifts.ICONS = {
+	clock = "rbxassetid://121521903989041",
+	crate = "rbxassetid://114554882287772",
+	cash = "rbxassetid://94764570856165",
+	speed = "rbxassetid://96907544325270",
+	potionCash = "rbxassetid://72828901922259",
+	potionSpeed = "rbxassetid://138408490003291",
+	potionLuck = "rbxassetid://98809831712632",
+} :: { [string]: string }
+
+local POTION_ICON: { [string]: string } = {
+	cash = "potionCash",
+	speed = "potionSpeed",
+	luck = "potionLuck",
+}
+
+--- The picture for a gift's card: its crate if it has one, else its first potion (a
+--- potion with no picture of its own here gives the spot to the next prize), else Speed,
+--- else cash. nil when the gift holds none of those.
+function PlaytimeGifts.iconFor(gift: Gift): string?
+	if gift.crates and #gift.crates > 0 then
+		return PlaytimeGifts.ICONS.crate
+	end
+	for _, potion in gift.potions or {} do
+		local key = POTION_ICON[potion.id]
+		if key then
+			return PlaytimeGifts.ICONS[key]
+		end
+	end
+	if gift.speed and gift.speed > 0 and (gift.cashMinutes or 0) <= 0 then
+		return PlaytimeGifts.ICONS.speed
+	end
+	if (gift.cashMinutes or 0) > 0 then
+		return PlaytimeGifts.ICONS.cash
+	end
+	return nil
+end
+
 --- Seconds of session time the gift opens at.
 function PlaytimeGifts.openAt(gift: Gift): number
 	return gift.minutes * 60

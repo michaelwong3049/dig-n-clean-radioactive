@@ -447,7 +447,7 @@ local function paintChips()
 		if chip then
 			shown[entry.id] = true
 			chip.frame.Visible = true
-			chip.frame.Position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX + 1 + index) + UDim2.fromOffset(0, -6)
+			chip.frame.Position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX + index) + UDim2.fromOffset(0, -6)
 			chip.time.Text = clock(entry.left)
 			local warn = entry.left <= WARN_SECONDS
 			chip.pill.BackgroundColor3 = if warn
