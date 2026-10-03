@@ -64,7 +64,7 @@ export type Look = {
 	--- "atom": `rings` tilted rings round the chest. "helix": the Nimbus's own shape,
 	--- two strands spiralling feet to head (see HELIX); `rings` is unused. The rest are
 	--- Toxic Twilight's four, each a set of moving curves (see CURVE_FORMS).
-	form: "atom" | "helix" | "aurora" | "torus" | "wings" | "seraph" | "vortex",
+	form: "atom" | "helix" | "aurora" | "torus" | "wings" | "seraph" | "vortex" | "serpent",
 	color: Color3,
 	rings: number, -- 1..3
 	electrons: number, -- per ring (per strand, for the helix)
@@ -147,6 +147,12 @@ AuraLook.TIERS = {
 	{
 		form = "vortex", color = Color3.fromRGB(255, 40, 60), rings = 3, electrons = 4, width = 0.38, transparency = 0, speed = 5.2, core = true,
 		sparkle = { dust = 28, shed = 16, embers = 34, burst = 64 },
+	},
+	-- Stage 12's, Magma Hollow's top rung, picked from six lava mockups (option 3): a
+	-- molten serpent coiling up the body. Lava orange, off the Vortex's red.
+	{
+		form = "serpent", color = Color3.fromRGB(255, 112, 26), rings = 3, electrons = 5, width = 0.40, transparency = 0, speed = 5.4, core = true,
+		sparkle = { dust = 30, shed = 17, embers = 40, burst = 68 },
 	},
 } :: { Look }
 
@@ -472,12 +478,44 @@ local function vortexForm(): CurveForm
 	}
 end
 
+--- 6. MOLTEN SERPENT: one thick molten body coiling feet to head, slithering upward,
+--- its girth rippling along its length, a hot core line laid inside it. The head is
+--- the first rider; four embers slide back down the coils behind it.
+local SERPENT_BOTTOM = AuraLook.FEET + 0.3
+local SERPENT_TOP = 3.4
+local SERPENT_TURNS = 2.3
+local function serpentPoint(inset: number): (number, number) -> Vector3
+	return function(s: number, t: number): Vector3
+		local u = s * SERPENT_TURNS * TAU - t * 2.2
+		local r = 2.6 + 0.35 * math.sin(s * 12 - t * 5) - inset
+		return Vector3.new(math.cos(u) * r, SERPENT_BOTTOM + s * (SERPENT_TOP - SERPENT_BOTTOM), math.sin(u) * r)
+	end
+end
+local function serpentForm(): CurveForm
+	local body = serpentPoint(0)
+	return {
+		curves = {
+			{ beams = 26, closed = false, width = 1.5, fade = 0, point = body },
+			{ beams = 26, closed = false, width = 0.5, fade = 0.3, point = serpentPoint(0.12) },
+		},
+		riders = function(t: number): { Vector3 }
+			local out = { body(1, t) }
+			for ember = 1, 4 do
+				table.insert(out, body(frac(-t * 0.4 + ember / 4), t))
+			end
+			return out
+		end,
+		reach = 3.6,
+	}
+end
+
 local CURVE_FORMS: { [string]: CurveForm } = {
 	aurora = auroraForm(),
 	torus = torusForm(),
 	wings = wingsForm(),
 	seraph = seraphForm(),
 	vortex = vortexForm(),
+	serpent = serpentForm(),
 }
 
 --- The moving curves for `look`, or nil for the atom and the helix.
