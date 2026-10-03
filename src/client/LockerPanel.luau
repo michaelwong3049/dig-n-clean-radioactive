@@ -105,12 +105,13 @@ local GAUGE_Y = LABEL_Y + 20
 local TUBE_H = GAUGE_Y + 10
 local RACK_PAD = 12
 local RACK_H = TUBE_H + 2 * RACK_PAD
--- Pips on the gauge: crust hardness runs 1 (Scrap) to 7 (Anomaly), the same scale as
--- the Base Camp hoses' power (Config/Gear.Cleaner), which is what makes one pip per point
--- honest on both sides.
-local PIPS = 7
-local PIP_W = 9
-local PIP_GAP = 2
+-- Pips on the gauge: crust hardness runs 1 (Scrap) to 12 (a Twilight-stage crust,
+-- Tuning.CRUST_STAGE_BONUS), the same scale as the hoses' power (Config/Gear.Cleaner),
+-- which is what makes one pip per point honest on both sides. Thin pips so twelve still
+-- fit under the glass.
+local PIPS = 12
+local PIP_W = 5
+local PIP_GAP = 1
 
 local STRIP_H = 150
 local ACTION_W = 250
