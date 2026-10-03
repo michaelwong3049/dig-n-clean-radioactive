@@ -19,7 +19,7 @@
 	    draws over the world and a ray across the nuke would be a ray on top of it,
 	  * a red award ribbon unfurls up top -- NEW FIND! / FIRST DISCOVERY, forked tails, glints
 	    (none on a repeat) -- and the words land in the lower third: the name, rarity
-	    and weight, and the price counting up,
+	    and weight, and the price and what it pays per second on a stand counting up,
 	  * and once they are down, its quality (Pristine, Cracked...) slams onto the nuke as a
 	    rubber stamp with what it does to the price, and a big size roll (OVERSIZED / GIGA)
 	    slams a second one just under it.
@@ -158,6 +158,8 @@ type Show = {
 	ring: Frame,
 	ringStroke: UIStroke,
 	valueLabel: TextLabel?,
+	rate: number?,
+	rateLabel: TextLabel?,
 	rainbowName: TextLabel?,
 	rainbowPill: Frame?,
 	spot: Part,
@@ -187,6 +189,25 @@ local function money(amount: number): string
 		end
 	end
 	return `${grouped}`
+end
+
+--- "$2.00/s", "$236/s", "$6.1K/s", "$1.2M/s" -- StandCardController's ladder, so the
+--- rate printed here is the one the stand card shows once it is placed.
+local function formatRate(perSecond: number): string
+	if perSecond >= 1_000_000_000 then
+		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
+	elseif perSecond >= 1_000_000 then
+		return string.format("$%.1fM/s", perSecond / 1_000_000)
+	elseif perSecond >= 100_000 then
+		return string.format("$%.0fK/s", perSecond / 1000)
+	elseif perSecond >= 1000 then
+		return string.format("$%.1fK/s", perSecond / 1000)
+	elseif perSecond >= 100 then
+		return string.format("$%.0f/s", perSecond)
+	elseif perSecond >= 10 then
+		return string.format("$%.1f/s", perSecond)
+	end
+	return string.format("$%.2f/s", perSecond)
 end
 
 --- Same ladder as DetectorController's banner: two sig figs under a kilo.
@@ -747,7 +768,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		local label = UIKit.label(canvas, {
 			name = "Value",
 			size = UDim2.fromOffset(600, 50),
-			position = UDim2.fromScale(0.5, 0.94),
+			-- Nudged up from 0.94 to make room for the rate under it.
+			position = UDim2.fromScale(0.5, 0.925),
 			anchorPoint = Vector2.new(0.5, 0.5),
 			text = money(0),
 			font = UIKit.Font.hero,
@@ -758,6 +780,27 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		})
 		valueLabel = label
 		valueScale = scaler(label)
+	end
+
+	-- What it pays per second on a stand (WashService's `rate`), in the cash badge's
+	-- income green under the price, counting up with it.
+	local rateLabel: TextLabel? = nil
+	local rateScale: UIScale? = nil
+	if type(found.rate) == "number" then
+		local label = UIKit.label(canvas, {
+			name = "Rate",
+			size = UDim2.fromOffset(600, 38),
+			position = UDim2.fromScale(0.5, 0.972),
+			anchorPoint = Vector2.new(0.5, 0.5),
+			text = "+" .. formatRate(0),
+			font = UIKit.Font.hero,
+			textSize = 32,
+			xAlign = Enum.TextXAlignment.Center,
+			color = UIKit.C.green,
+			visible = false,
+		})
+		rateLabel = label
+		rateScale = scaler(label)
 	end
 
 	-- The 3D half, client-local under the camera: a rarity light on the nuke, and sparks.
@@ -882,6 +925,9 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 				if valueLabel and valueScale then
 					rise(valueLabel, valueScale)
 				end
+				if rateLabel and rateScale then
+					rise(rateLabel, rateScale)
+				end
 			end,
 		},
 	}
@@ -923,6 +969,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		ring = ring,
 		ringStroke = ringStroke,
 		valueLabel = valueLabel,
+		rate = if type(found.rate) == "number" then found.rate else nil,
+		rateLabel = rateLabel,
 		rainbowName = if found.rarity == "Anomaly" then name else nil,
 		rainbowPill = if found.rarity == "Anomaly" then pill else nil,
 		spot = spot,
@@ -1018,6 +1066,12 @@ function WashReveal.drive(camera: Camera, eye: Vector3, center: Vector3)
 	if valueLabel and current.value then
 		local countK = math.clamp((t - T.VALUE_AT) / T.COUNT_TIME, 0, 1)
 		valueLabel.Text = money(current.value * (1 - (1 - countK) ^ 3))
+	end
+
+	local rateLabel = current.rateLabel
+	if rateLabel and current.rate then
+		local countK = math.clamp((t - T.VALUE_AT) / T.COUNT_TIME, 0, 1)
+		rateLabel.Text = "+" .. formatRate(current.rate * (1 - (1 - countK) ^ 3))
 	end
 end
 

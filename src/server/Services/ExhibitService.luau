@@ -1319,6 +1319,13 @@ function ExhibitService.ratePerSecond(data: any): number
 	return rawRatePerSecond(data, StatResolver.get(data))
 end
 
+--- What `item` would pay per second on a stand as a first copy (undamped): the number
+--- the wash reveal prints under its price, off the same entryYieldPerSecond the stand
+--- card uses, so the two agree once it is placed.
+function ExhibitService.itemRatePerSecond(item: any, stats: any): number
+	return entryYieldPerSecond(item, 1, stats)
+end
+
 --- Everything the Nukes panel draws, from the profile: the pieces on the stands, each
 --- with the rate its stand card prints (damped, walked in `pedestals` order like
 --- refreshStandCards). The bag is not listed -- the hotbar already shows it.
