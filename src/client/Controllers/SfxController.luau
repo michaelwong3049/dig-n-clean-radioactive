@@ -254,9 +254,9 @@ function SfxController.start()
 	-- The volume sliders (Config/Prefs). Here rather than in the panel, like the mute,
 	-- so they hold even if the Settings panel never builds.
 	local function applyVolumes()
-		Sfx.setVolumes(Prefs.get("volMaster"), Prefs.get("volSfx"), Prefs.get("volUi"), Prefs.get("volGeiger"))
+		Sfx.setVolumes(Prefs.get("volMaster"), Prefs.get("volSfx"), Prefs.get("volUi"), Prefs.get("volGeiger"), Prefs.get("volMusic"))
 	end
-	for _, key in { "volMaster", "volSfx", "volUi", "volGeiger" } do
+	for _, key in { "volMaster", "volSfx", "volUi", "volGeiger", "volMusic" } do
 		Prefs.observe(key, applyVolumes)
 	end
 
