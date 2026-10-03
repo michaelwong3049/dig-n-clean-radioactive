@@ -36,8 +36,9 @@
 	decoration is not allowed to be load-bearing.
 
 	3. THE HINT. No spotlight walkthrough: the belt is usable straight away, and while
-	   you train a small line above the bar says what it is for ("Gain permanent walk
-	   speed by leveling up your speed"). A LOCKED machine (`Locked` attribute,
+	   you train a small card above the bar (the walkthrough's dark/amber skin) says what
+	   it is for ("Gain permanent walk speed by leveling up your speed"), until its X
+	   reports it seen. A LOCKED machine (`Locked` attribute,
 	   build/Plots) stands still: its belt is not scrolled.
 ]]
 
@@ -69,6 +70,32 @@ local RANGE_REFRESH = 0.5
 local ui: any = {}
 local shown = false
 
+-- ── The first-use hint ───────────────────────────────────────────────────
+
+--- The treadmill used to open a full-screen spotlight walkthrough (LockerTutorial)
+--- the first time the player walked up to it. Now the belt is simply usable, and the
+--- explanation is a small card above the bar while they train. It stays while
+--- SpeedState's `tutorial` says it is owed; its X reports it seen, which retires it
+--- for good (and, locally, at once, without waiting for the next push).
+local actionRemote: any = nil
+local hintDismissed = false
+
+local function hintWanted(): boolean
+	local view = Speed.view()
+	return not hintDismissed and view ~= nil and view.tutorial == true
+end
+
+local function dismissHint()
+	if hintDismissed then
+		return
+	end
+	hintDismissed = true
+	if ui.hint then
+		ui.hint.Visible = false
+	end
+	actionRemote:FireServer({ action = "tutorialSeen", id = "treadmill" })
+end
+
 local runTrack: AnimationTrack? = nil
 
 -- ── The bar ───────────────────────────────────────────────────────────────
@@ -88,6 +115,13 @@ local STYLE = {
 	bodyFont = Enum.Font.GothamBlack,
 }
 
+-- The first-use explainer card wears the walkthrough's colours (client/LockerTutorial).
+local HINT_TEXT = "Gain permanent walk speed by leveling up your speed"
+local HINT_SKIN = {
+	card = Color3.fromHex("22272C"),
+	amber = Color3.fromHex("F2A93B"),
+}
+
 -- Design px. Nothing sits behind any of it, so every line of text wears a heavier ink
 -- outline to read against the floor, the grass or the sky.
 local LAYOUT = {
@@ -99,9 +133,12 @@ local LAYOUT = {
 	-- The walk-speed line sits just ABOVE the bar (negative: the footprint's top edge
 	-- is the bar's top edge, which the popups are placed against).
 	walkTop = -26,
-	-- The one-line explainer, above the walk-speed line.
-	hintTop = -50,
+	-- The explainer card, just above the walk-speed line.
+	hintGap = 6,
+	hintH = 30,
+	hintPadX = 16,
 	hintTextSize = 15,
+	hintClose = 22, -- the X badge on its top-right corner
 	height = 52,
 	stripeGap = 22, -- px between the fill's diagonal hazard stripes
 	stripeW = 9,
@@ -267,13 +304,59 @@ local function build(): Frame?
 		xAlign = Enum.TextXAlignment.Center,
 	})
 
-	ui.hint = text(root, "Hint", { -40, L.hintTop, L.barW + 80, 20 }, {
+	-- The explainer, on a small card in the walkthrough's skin (client/LockerTutorial):
+	-- dark fill, amber outline, an X on its top-right corner to put it away for good.
+	local hintW = TextService:GetTextSize(HINT_TEXT, L.hintTextSize, STYLE.bodyFont, Vector2.new(1000, 100)).X
+		+ 2 * L.hintPadX
+	local hint = Instance.new("Frame")
+	hint.Name = "Hint"
+	hint.AnchorPoint = Vector2.new(0.5, 1)
+	hint.Position = UDim2.fromOffset(L.barW / 2, L.walkTop - L.hintGap)
+	hint.Size = UDim2.fromOffset(hintW, L.hintH)
+	hint.BackgroundColor3 = HINT_SKIN.card
+	hint.BorderSizePixel = 0
+	hint.Visible = false
+	hint.ZIndex = 6
+	hint.Parent = root
+	local hintCorner = Instance.new("UICorner")
+	hintCorner.CornerRadius = UDim.new(0, 10)
+	hintCorner.Parent = hint
+	local hintStroke = Instance.new("UIStroke")
+	hintStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	hintStroke.Color = HINT_SKIN.amber
+	hintStroke.Thickness = 2
+	hintStroke.Parent = hint
+	ui.hint = hint
+	text(hint, "Body", { 0, 0, hintW, L.hintH }, {
 		textSize = L.hintTextSize,
-		color = STYLE.caption,
 		xAlign = Enum.TextXAlignment.Center,
-		stroke = 2,
-		text = "Gain permanent walk speed by leveling up your speed",
+		stroke = 1.5,
+		text = HINT_TEXT,
+		zIndex = 7,
 	})
+
+	local close = Instance.new("TextButton")
+	close.Name = "Close"
+	close.AnchorPoint = Vector2.new(0.5, 0.5)
+	close.Position = UDim2.new(1, -2, 0, 2)
+	close.Size = UDim2.fromOffset(L.hintClose, L.hintClose)
+	close.BackgroundColor3 = HINT_SKIN.card
+	close.AutoButtonColor = true
+	close.Font = STYLE.valueFont
+	close.Text = "X"
+	close.TextSize = 13
+	close.TextColor3 = WHITE
+	close.ZIndex = 8
+	close.Parent = hint
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = ROUND
+	closeCorner.Parent = close
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	closeStroke.Color = HINT_SKIN.amber
+	closeStroke.Thickness = 2
+	closeStroke.Parent = close
+	close.Activated:Connect(dismissHint)
 
 	-- The 2x Speed pass (Config/GamePasses: training x2) right where it pays off, on
 	-- request. Purple with its Robux price; a grey OWNED once bought.
@@ -317,6 +400,7 @@ local function paint()
 		-- never the lifetime total.
 		ui.need.Text = `{Speed.format(math.max(points - from, 0))} / {Speed.format(to - from)}`
 	end
+	ui.hint.Visible = hintWanted()
 	ui.fill.Size = UDim2.fromScale(progress, 1)
 	-- The shine is inset 8 px each side, so a sliver of fill would turn it inside out.
 	ui.shine.Visible = progress * LAYOUT.barW > 28
@@ -665,24 +749,6 @@ local function onCharacter()
 	runTrack = nil
 end
 
--- ── The first-use hint ───────────────────────────────────────────────────
-
---- The treadmill used to open a full-screen spotlight walkthrough (LockerTutorial)
---- the first time the player walked up to it. Now the belt is simply usable, and the
---- explanation is the Hint line above the bar, shown whenever the player trains.
---- SpeedState's `tutorial` flag is still retired on the first run so the server stops
---- reporting it owed.
-local actionRemote: any = nil
-local tutorialReported = false
-
-local function reportTutorialSeen(view: any)
-	if tutorialReported or view == nil or view.tutorial ~= true then
-		return
-	end
-	tutorialReported = true
-	actionRemote:FireServer({ action = "tutorialSeen", id = "treadmill" })
-end
-
 -- ── Wiring ────────────────────────────────────────────────────────────────
 
 function Treadmill.start()
@@ -694,7 +760,6 @@ function Treadmill.start()
 		if view.training and not wasTraining then
 			startRunning()
 			show(true)
-			reportTutorialSeen(view)
 		elseif not view.training and wasTraining then
 			stopRunning()
 			show(false)
