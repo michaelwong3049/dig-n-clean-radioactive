@@ -1741,19 +1741,6 @@ function Spec.run(): boolean
 		return true
 	end)())
 
-	-- Twilight's six, pinned by name so a reorder of the ladder is a decision, not a drift:
-	-- the shop's rack and cards, the model templates (Assets/Tools/Detector/T10-T15) and
-	-- the hold poses were all made for exactly this order.
-	local twilightWant = { "Vein Whisperer", "Aurora Rake", "Strata Lance", "Leyline Tap", "Null Compass", "Prime Meridian" }
-	local twilightHave = Gear.tiersAt("Detector", "twilight")
-	local twilightOk = #twilightHave == #twilightWant
-	for slot, tier in twilightHave do
-		if Gear.tier("Detector", tier).name ~= twilightWant[slot] or tier ~= 9 + slot then
-			twilightOk = false
-		end
-	end
-	check("Toxic Twilight sells detector tiers 10-15, in the order they were drawn", twilightOk)
-
 	-- The magnet ladder is sold the same way (Twilight sells tiers 7-11), so the same
 	-- three drifts apply: a look per rung (ToolFX keys off the name, and get clamps, so
 	-- an Omega with no row would sprout the Singularity Coil's core halo), real camps,
@@ -1783,41 +1770,51 @@ function Spec.run(): boolean
 	check(string.format("the magnet ladder has one look per rung, by name (%d rungs, %d looks)", magnetRungs, ToolTiers.count("Magnet")), magnetLooks)
 	check("each camp's magnet rungs are one unbroken run at a real camp", magnetCampsOk)
 
-	local twilightMagnetsWant = { "Lattice Magnet", "Solar Magnet", "Void Magnet", "Nebula Magnet", "Omega Magnet" }
-	local twilightMagnetsHave = Gear.tiersAt("Magnet", "twilight")
-	local twilightMagnetsOk = #twilightMagnetsHave == #twilightMagnetsWant
-	for slot, tier in twilightMagnetsHave do
-		if Gear.tier("Magnet", tier).name ~= twilightMagnetsWant[slot] or tier ~= 6 + slot then
-			twilightMagnetsOk = false
+	-- FOUR STAGES PER ZONE: every camp's stall of every track, pinned by name so a reorder
+	-- or a re-split is a decision, not a drift. The shop racks, model templates and hold
+	-- poses were all made for exactly this ladder order. Aura/Magnet/Cleaner tier N is
+	-- Stage N's, so each camp sells its own zone's rungs; the Detector splits 5/5/5.
+	local campWant: { [string]: { [string]: { string } } } = {
+		Detector = {
+			base = { "Rust Bucket", "Bent Coil", "Scrap Sweeper", "Surplus Geiger", "Pulse Array" },
+			twilight = { "Isotope Scanner", "Resonance Mapper", "Deep Core Array", "The Oracle", "Vein Whisperer" },
+			magma = { "Aurora Rake", "Strata Lance", "Leyline Tap", "Null Compass", "Prime Meridian" },
+		},
+		Magnet = {
+			base = { "Horseshoe Magnet", "Salvage Magnet", "Electromagnet", "Winch Coil" },
+			twilight = { "Rail Coil", "Singularity Coil", "Lattice Magnet", "Solar Magnet" },
+			magma = { "Void Magnet", "Nebula Magnet", "Omega Magnet" },
+		},
+		Cleaner = {
+			base = { "Garden Hose", "Patched Fire Hose", "Pressure Lance", "Chem Injector" },
+			twilight = { "Ion Cannon", "Plasma Lance", "Singularity Nozzle", "Cryo Nova" },
+			magma = { "Solar Forge", "Quantum Rift", "Celestial Deluge" },
+		},
+		Aura = {
+			base = { "None", "Static Veil", "Lead Halo", "Ion Shroud" },
+			twilight = { "Isotope Mantle", "Containment Nimbus", "Toxic Aurora", "Eclipse Veil" },
+			magma = { "Twilight Singularity", "Seraph", "Crimson Vortex" },
+		},
+	}
+	for track, byCamp in campWant do
+		for camp, want in byCamp do
+			local have = Gear.tiersAt(track, camp)
+			local ok = #have == #want
+			for slot, tier in have do
+				if Gear.tier(track, tier).name ~= want[slot] then
+					ok = false
+				end
+			end
+			check(`§zones {camp} sells the {track} rungs {table.concat(want, ", ")}`, ok)
 		end
 	end
-	check("Toxic Twilight sells magnet tiers 7-11, in the art pack's order", twilightMagnetsOk)
-
-	-- Twilight's five hoses, pinned by name for the same reason: the templates
-	-- (Assets/HoseModels/T8-T12, via ToolModels/Hose's ART_SLOTS) were made for
-	-- exactly this order, the user's. Tiers 7-11 since the Ultrasonic Jet was cut.
-	local twilightHosesWant = { "Singularity Nozzle", "Cryo Nova", "Solar Forge", "Quantum Rift", "Celestial Deluge" }
-	local twilightHosesHave = Gear.tiersAt("Cleaner", "twilight")
-	local twilightHosesOk = #twilightHosesHave == #twilightHosesWant
-	for slot, tier in twilightHosesHave do
-		if Gear.tier("Cleaner", tier).name ~= twilightHosesWant[slot] or tier ~= 6 + slot then
-			twilightHosesOk = false
-		end
+	-- And each zone's last stage is covered by a rung its own camp sells: a player
+	-- standing in Stage 4 or 8 can buy that stage's aura without walking past it.
+	for _, stageId in Stages.CAMP_AFTER do
+		local rated = Stages.get(stageId).ratedAuraTier
+		local zoneCamp = if stageId == Stages.CAMP_AFTER[1] then Camps.BASE else "twilight"
+		check(`§zones Stage {stageId}'s own aura is sold before its gate ({zoneCamp})`, Gear.campOf("Aura", rated) == zoneCamp)
 	end
-	check("Toxic Twilight sells hose tiers 7-11, in the user's order", twilightHosesOk)
-
-	-- Twilight's five auras, pinned by name: AuraLook's shapes (aurora, torus, wings,
-	-- seraph, vortex) are drawn per tier in exactly this order. Dusk Corona was cut
-	-- and the rest slid down one rung (Config/Gear).
-	local twilightAurasWant = { "Toxic Aurora", "Eclipse Veil", "Twilight Singularity", "Seraph", "Crimson Vortex" }
-	local twilightAurasHave = Gear.tiersAt("Aura", "twilight")
-	local twilightAurasOk = #twilightAurasHave == #twilightAurasWant
-	for slot, tier in twilightAurasHave do
-		if Gear.tier("Aura", tier).name ~= twilightAurasWant[slot] or tier ~= 6 + slot then
-			twilightAurasOk = false
-		end
-	end
-	check("Toxic Twilight sells aura tiers 7-11, in the order their shapes were picked", twilightAurasOk)
 
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.
