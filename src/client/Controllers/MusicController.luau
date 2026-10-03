@@ -18,7 +18,7 @@ local MusicController = {}
 
 -- Very quiet on purpose: a bed under the game, never over it. The Music slider scales
 -- this down further, so even 100% there stays low.
-local VOLUME = 0.08
+local VOLUME = 0.12
 -- Silence between two tracks, so one ending does not crash into the next.
 local GAP = 2
 
