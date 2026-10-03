@@ -17,6 +17,7 @@ local ORDER = {
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
 	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, the death screen (DeathScreen)
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
+	"MusicController", -- the background playlist: shuffled Roblox-licensed tracks under the Sfx master (mute + master volume)
 	"SfxController", -- sound effects no one screen owns: server cues, the mute, other players' dig/haul/hose, aura hums, heartbeat/hurt/warp (reads HudController)
 	"AuraTipController", -- the one-time "upgrade your aura" popup the first time the aura fails; reads ExposureState
 	"AuraWarningController", -- Phase 2: the "UPGRADE AURA" card when an over-tier stage is burning you down; reads ExposureState

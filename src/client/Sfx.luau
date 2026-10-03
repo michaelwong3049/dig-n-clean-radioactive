@@ -36,7 +36,7 @@ local Workspace = game:GetService("Workspace")
 
 local Sfx = {}
 
-export type Group = "sfx" | "ui" | "ambient" | "geiger"
+export type Group = "sfx" | "ui" | "ambient" | "geiger" | "music"
 
 type Def = {
 	id: string,
@@ -118,7 +118,7 @@ Sfx.DEFS = DEFS
 
 -- ── Groups ──────────────────────────────────────────────────────────
 
-local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1, geiger = 1 }
+local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1, geiger = 1, music = 1 }
 
 local folder: Folder? = nil
 local master: SoundGroup? = nil
@@ -170,7 +170,7 @@ end
 
 --- Settings' volume sliders (Config/Prefs), each 0..1. `ambient` follows the effects
 --- slider: it is the hum and drone under them, not a channel anyone asked for.
-function Sfx.setVolumes(master_: number, sfx: number, ui: number, geiger: number)
+function Sfx.setVolumes(master_: number, sfx: number, ui: number, geiger: number, music: number)
 	masterVolume = master_
 	ensure()
 	if master then
@@ -180,6 +180,7 @@ function Sfx.setVolumes(master_: number, sfx: number, ui: number, geiger: number
 	groups.ambient.Volume = sfx
 	groups.ui.Volume = ui
 	groups.geiger.Volume = geiger
+	groups.music.Volume = music
 end
 
 function Sfx.muted(): boolean

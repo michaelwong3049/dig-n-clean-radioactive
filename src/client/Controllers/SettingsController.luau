@@ -1055,6 +1055,8 @@ local function build(): ScreenGui
 	volumeRow(row(audio, "Interface", y), "volUi", "Interface")
 	y += step
 	volumeRow(row(audio, "Geiger", y), "volGeiger", "Geiger")
+	y += step
+	volumeRow(row(audio, "Music", y), "volMusic", "Music")
 
 	choose("GENERAL")
 
