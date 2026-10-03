@@ -90,13 +90,13 @@ local CRATER_EAST_X = select(3, Stages.bounds(6))
 
 --- How far east of the Crater's edge the disc's centre sits. With a 225 floor radius (1.5x the first cut, on request)
 --- the disc's chord at the clip line is ~153 wide either side of z = 0 -- a little past
---- the corridor walls (z = +-89), so two short shoulder walls close the gap the same
+--- the corridor walls (z = +-81), so two short shoulder walls close the gap the same
 --- way Base Camp's shoulders meet Stage 1 (build/Scenery buildCampWallLayer).
 local TWILIGHT_CENTRE_OFFSET = 165
 
 --- THE WAY ON EAST, ON REQUEST: the disc is cut off at the mirror of the Crater's clip
 --- line, so the next stage opens out of the camp through a mouth exactly as wide as the
---- one the Crater opens in by. Stage 7's west edge belongs here (x = 2278); until it is
+--- one the Crater opens in by. Stage 7's west edge belongs here (x = 2184); until it is
 --- built, build/CampSite stands a COMING SOON barricade across the mouth.
 local TWILIGHT_EXIT_X = CRATER_EAST_X + 2 * TWILIGHT_CENTRE_OFFSET
 
