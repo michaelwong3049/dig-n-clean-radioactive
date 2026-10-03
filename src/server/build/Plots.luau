@@ -2844,9 +2844,11 @@ end
 --- on the +X side between the machine and the entrance path, PARALLEL TO THE FRONT
 --- FENCE (on request), its face turned back into the base (+Z), a little ahead of the
 --- belt's centre so a runner facing out sees it front-on to their right. Its near
---- edge stays clear of the diamond rung's body (6.8 studs off the belt's centre line).
+--- edge stands `gap` off the INSTALLED rung's +X side (treadmillSideX), so it hugs
+--- the small belts too instead of always clearing the diamond (on request: closer).
 local UPGRADE_SIGN = {
-	x = 9.3, -- off the belt's centre, toward the plot's middle: just touching the diamond rung's edge (on request: closer again)
+	gap = 0.5, -- board's near edge to the installed rung's +X side
+	fallbackSide = 6.8, -- the diamond rung's side, for a treadmill with no Look
 	z = -3, -- toward the entrance (-Z), ahead of the runner
 	-- Five sixths of the second cut (on request: slightly smaller again). The client
 	-- draws its face at the board's own size, so these can change freely.
@@ -2891,31 +2893,62 @@ end
 --- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
 --- setTreadmillTier calls it on every repaint. A sign built to an older UPGRADE_SIGN
 --- (its board a different size, or stood at a different offset) is taken down and put up again to the current one.
+--- How far the installed rung's `Look` reaches off the belt's centre line on its +X
+--- side (the sign's side), measured once per look and kept as its `SideX` attribute:
+--- setTreadmillTier asks on every repaint and the look only changes on a swap.
+local function treadmillSideX(treadmill: Instance, belt: BasePart): number
+	local look = treadmill:FindFirstChild("Look")
+	if look == nil then
+		return UPGRADE_SIGN.fallbackSide
+	end
+	local cached = look:GetAttribute("SideX")
+	if type(cached) == "number" then
+		return cached
+	end
+	local side = 0
+	for _, d in look:GetDescendants() do
+		if d:IsA("BasePart") and d.Transparency < 1 then
+			local h = d.Size / 2
+			for _, sx in { 1, -1 } do
+				for _, sy in { 1, -1 } do
+					for _, sz in { 1, -1 } do
+						local corner = d.CFrame * Vector3.new(h.X * sx, h.Y * sy, h.Z * sz)
+						side = math.max(side, belt.CFrame:PointToObjectSpace(corner).X)
+					end
+				end
+			end
+		end
+	end
+	side = math.ceil(side * 10) / 10
+	look:SetAttribute("SideX", side)
+	return side
+end
+
 local function ensureUpgradeSign(treadmill: Instance)
+	local belt = treadmill:FindFirstChild("Belt")
+	if belt == nil or not belt:IsA("BasePart") then
+		return
+	end
+	local u = UPGRADE_SIGN
+	local x = treadmillSideX(treadmill, belt) + u.gap + u.boardW / 2
 	local existing = treadmill:FindFirstChild("UpgradeSign")
 	if existing then
 		local board = existing:FindFirstChild("Board")
-		local u = UPGRADE_SIGN
 		if
 			board
 			and board:IsA("BasePart")
 			and (board.Size - Vector3.new(u.boardW, u.boardH, u.boardT)).Magnitude < 1e-3
-			and existing:GetAttribute("OffsetX") == u.x
+			and existing:GetAttribute("OffsetX") == x
 			and existing:GetAttribute("OffsetZ") == u.z
 		then
 			return
 		end
 		existing:Destroy()
 	end
-	local belt = treadmill:FindFirstChild("Belt")
-	if belt == nil or not belt:IsA("BasePart") then
-		return
-	end
-	local u = UPGRADE_SIGN
 	local padTop = belt.Position.Y + belt.Size.Y / 2 - TREADMILL.beltTop
 	local level = belt.CFrame.Rotation + Vector3.new(belt.Position.X, padTop, belt.Position.Z)
 	-- The board's front face (-Z) is turned to look along +Z, back into the base.
-	local frame = level * CFrame.new(u.x, 0, u.z) * CFrame.Angles(0, math.pi, 0)
+	local frame = level * CFrame.new(x, 0, u.z) * CFrame.Angles(0, math.pi, 0)
 
 	local sign = Instance.new("Model")
 	sign.Name = "UpgradeSign"
@@ -2936,7 +2969,7 @@ local function ensureUpgradeSign(treadmill: Instance)
 		material = "Plastic",
 		studs = true,
 	})
-	sign:SetAttribute("OffsetX", u.x)
+	sign:SetAttribute("OffsetX", x)
 	sign:SetAttribute("OffsetZ", u.z)
 	sign.Parent = treadmill
 end
