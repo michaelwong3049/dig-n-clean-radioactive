@@ -25,6 +25,8 @@
 	    RAD SICKNESS (red), AURA FAILING (white), CRATER BURN (crater yellow-green);
 	  - top right, where you are and how deep ("BASE CAMP · 0 m" in camp: camp shows
 	    the full readout rather than collapsing, asked for explicitly);
+	  - top centre, "Clean at base" while the thing in your hands still has crust on it
+	    (ToolService's `Crust` attribute on the held model), the nudge back to the wash;
 	  - RADS: a radiation badge (hover or tap it: what 50/80/100% do) and a green bar with notches at EXPOSURE_WARN (black) and
 	    EXPOSURE_DANGER (red), the two lines the escalation above actually happens at,
 	    and the % inside it with arrows instead of "+0.00 r/s": green ▲ filling, blue ▼
@@ -106,6 +108,8 @@ local ARROW_TWO = 1 / 60
 local ARROW_THREE = 1 / 15
 
 local ROUND = UDim.new(0.5, 0)
+
+local HELD_ITEM_NAME = "HeldItem" -- ToolService's name for whatever is in your hands
 
 local state = {
 	exposureFrac = 0,
@@ -406,6 +410,10 @@ local function build(): ScreenGui
 	end
 	ui.countdownText = rowLabel("Countdown", Enum.TextXAlignment.Left)
 	ui.place = rowLabel("Place", Enum.TextXAlignment.Right)
+	ui.cleanHint = rowLabel("CleanHint", Enum.TextXAlignment.Center)
+	ui.cleanHint.Text = "Clean at base"
+	ui.cleanHint.TextColor3 = STYLE.header
+	ui.cleanHint.Visible = false
 
 	-- RADS
 	ui.radsScale = buildIcon(vitals, "RadsBadge", Artwork.IMAGE.radsTrefoil, V.icon / 2, V.radsY + V.icon / 2)
@@ -517,9 +525,14 @@ local function render(dt: number)
 			else STYLE.rads
 	end
 
+	-- Holding a find that still has crust on it: point the player home to the wash.
+	local character = Players.LocalPlayer.Character
+	local held = character and character:FindFirstChild(HELD_ITEM_NAME)
+	local crust = held and held:GetAttribute("Crust")
+	ui.cleanHint.Visible = not state.downed and type(crust) == "number" and crust > 0
+
 	-- Above the danger threshold the world starts moving. PLAN §3.1 wants vision
 	-- distorted here, not merely tinted — the player should be uncomfortable.
-	local character = Players.LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		-- Over-tier always sets `failing` (Radiation.resolve: failing = excess > 0), so
