@@ -43,10 +43,13 @@ RareDrop.LIFETIME = 4 * 60
 -- normally (DigService's `required`). Paired with Config/Detonation's RARE_DROP_* fuse
 -- so the haul is long enough for other players to show up and contest it.
 RareDrop.PULL_MULT = 3
--- And never quicker than this many seconds for anyone mashing at Detonation.REF_CPS
--- with their own magnet, however strong -- so a top-tier magnet cannot snatch it
--- before anyone else arrives. Must sit well under Detonation.RARE_DROP_MIN * ARM_AT.
+-- And never quicker than this many seconds for anyone mashing at MIN_PULL_CPS with
+-- their own magnet, however strong -- so a top-tier magnet cannot snatch it before
+-- anyone else arrives. Must sit well under Detonation.RARE_DROP_MIN * ARM_AT.
+-- MIN_PULL_CPS is its own number, not Detonation.REF_CPS, so tightening ordinary fuses
+-- does not lengthen this standoff too.
 RareDrop.MIN_PULL_SECONDS = 20
+RareDrop.MIN_PULL_CPS = 4
 
 -- The drop's aura, as the server builds it, carries its rarity under this attribute
 -- and streams to every client wherever they stand (ModelStreamingMode.Persistent),

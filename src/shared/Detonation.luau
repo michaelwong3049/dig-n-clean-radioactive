@@ -138,7 +138,7 @@ end
 --- rated magnet at REF_CPS lands it by SAFE_AT (Config/Detonation, "The fairness
 --- floor"), and clamped into MIN_WINDOW..MAX_WINDOW. The clamp is last: the floor can
 --- lift a fuse up to MAX_WINDOW and no further, so the few slowest pulls can outrun
---- their fuse at a relaxed click rate -- they want a better magnet or a quicker thumb.
+--- their fuse at REF_CPS -- they want a better magnet or a quicker thumb.
 --- Troll nukes skip all of it and take their own short window.
 function Detonation.windowFor(rarity: string, kg: number, depth: number, soil: number, uid: string): number
 	local troll = Detonation.trollWindowFor(uid)
