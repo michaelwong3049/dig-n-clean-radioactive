@@ -32,7 +32,6 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Treadmill = require(Shared.Config.Treadmill)
 local Mastery = require(Shared.Mastery) -- Mastery.short: "$950K", "$2.5B"
-local Artwork = require(script.Parent.Parent.HudArtwork)
 local RobuxButton = require(script.Parent.Parent.RobuxButton)
 
 local TreadmillSignController = {}
@@ -57,7 +56,6 @@ local LAYOUT = {
 	cashW = 236,
 	robuxX = 264,
 	robuxW = 120,
-	icon = 58,
 }
 local DRAW_DISTANCE = 120
 local PRESS = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -104,7 +102,7 @@ local function label(parent: Instance, name: string, rect: { number }, maxSize: 
 	return l
 end
 
---- The red cash button: a shoe and the next rung's price.
+--- The red cash button: just the next rung's price (the shoe went, on request).
 local function cashButton(parent: Instance): (TextButton, TextLabel)
 	local L = LAYOUT
 	local button = Instance.new("TextButton")
@@ -132,18 +130,7 @@ local function cashButton(parent: Instance): (TextButton, TextLabel)
 	scale.Name = "Press"
 	scale.Parent = button
 
-	local icon = Instance.new("ImageLabel")
-	icon.Name = "Icon"
-	icon.BackgroundTransparency = 1
-	icon.Image = Artwork.IMAGE.speedShoe
-	icon.ScaleType = Enum.ScaleType.Fit
-	icon.AnchorPoint = Vector2.new(0, 0.5)
-	icon.Position = UDim2.new(0, 10, 0.5, 0)
-	icon.Size = UDim2.fromOffset(L.icon, L.icon)
-	icon.ZIndex = 3
-	icon.Parent = button
-
-	local price = label(button, "Price", { L.icon + 16, 10, L.cashW - L.icon - 26, L.buttonH - 20 }, 46, WHITE, 3)
+	local price = label(button, "Price", { 12, 10, L.cashW - 24, L.buttonH - 20 }, 46, WHITE, 3)
 	return button, price
 end
 
