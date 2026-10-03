@@ -35,12 +35,10 @@
 	scrolls and the card still works, and nobody sees an error. It is decoration, and
 	decoration is not allowed to be load-bearing.
 
-	3. THE WALKTHROUGH. Having treadmill access (free now, so from the start) is owed a short
-	   spotlight walkthrough, the Quarantine Locker's (client/LockerTutorial): the
-	   machine, the Speed badge, the console. SpeedState's `tutorial` says it is owed;
-	   it starts once the player's own machine is near and on screen, and finishing or
-	   skipping reports it seen. A LOCKED machine (`Locked` attribute, build/Plots)
-	   stands still: its belt is not scrolled.
+	3. THE HINT. No spotlight walkthrough: the belt is usable straight away, and while
+	   you train a small line above the bar says what it is for ("Gain permanent walk
+	   speed by leveling up your speed"). A LOCKED machine (`Locked` attribute,
+	   build/Plots) stands still: its belt is not scrolled.
 ]]
 
 local Players = game:GetService("Players")
@@ -53,7 +51,6 @@ local Workspace = game:GetService("Workspace")
 local Net = require(ReplicatedStorage.Shared.Net)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
-local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 local Speed = require(script.Parent.SpeedController)
 local RobuxButton = require(script.Parent.Parent.RobuxButton)
 
@@ -102,6 +99,9 @@ local LAYOUT = {
 	-- The walk-speed line sits just ABOVE the bar (negative: the footprint's top edge
 	-- is the bar's top edge, which the popups are placed against).
 	walkTop = -26,
+	-- The one-line explainer, above the walk-speed line.
+	hintTop = -50,
+	hintTextSize = 15,
 	height = 52,
 	stripeGap = 22, -- px between the fill's diagonal hazard stripes
 	stripeW = 9,
@@ -265,6 +265,14 @@ local function build(): Frame?
 	ui.walk = text(root, "Walk", { 4, L.walkTop, L.barW - 8, 22 }, {
 		textSize = 18,
 		xAlign = Enum.TextXAlignment.Center,
+	})
+
+	ui.hint = text(root, "Hint", { -40, L.hintTop, L.barW + 80, 20 }, {
+		textSize = L.hintTextSize,
+		color = STYLE.caption,
+		xAlign = Enum.TextXAlignment.Center,
+		stroke = 2,
+		text = "Gain permanent walk speed by leveling up your speed",
 	})
 
 	-- The 2x Speed pass (Config/GamePasses: training x2) right where it pays off, on
@@ -657,94 +665,22 @@ local function onCharacter()
 	runTrack = nil
 end
 
--- ── The walkthrough ──────────────────────────────────────────────────────
+-- ── The first-use hint ───────────────────────────────────────────────────
 
---- Start it once the player is at their own machine (on the belt or at the console)
---- and it is on screen. Was 45, which reached the fluid bottle across the base: the
---- walkthrough's full-screen click-catcher then swallowed the brew popup's TAKE/LEAVE
---- and held the upgrade prompt off while the player was doing something else.
-local TUTORIAL_RANGE = 14
---- Walking this far off mid-way closes it, unmarked, so it comes back next visit.
-local TUTORIAL_LEAVE = 70
-local TUTORIAL_CHECK = 0.5
-
-local tutorial: { stop: () -> () }? = nil
-local tutorialDone = false
-local tutorialPrompt: ProximityPrompt? = nil
-local sinceTutorialCheck = 0
+--- The treadmill used to open a full-screen spotlight walkthrough (LockerTutorial)
+--- the first time the player walked up to it. Now the belt is simply usable, and the
+--- explanation is the Hint line above the bar, shown whenever the player trains.
+--- SpeedState's `tutorial` flag is still retired on the first run so the server stops
+--- reporting it owed.
 local actionRemote: any = nil
+local tutorialReported = false
 
-local function ownTreadmill(view: any): Instance?
-	local plots = Workspace:FindFirstChild("Plots")
-	local plot = plots and view.plot and plots:FindFirstChild(`Plot{view.plot}`)
-	return plot and plot:FindFirstChild("Treadmill", true)
-end
-
-local function rootPosition(): Vector3?
-	local character = Players.LocalPlayer.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	return if root and root:IsA("BasePart") then root.Position else nil
-end
-
-local function endTutorial(finished: boolean)
-	tutorial = nil
-	-- The console's prompt was held off so a stray E could not buy a belt mid-card.
-	if tutorialPrompt then
-		tutorialPrompt.Enabled = true
-		tutorialPrompt = nil
-	end
-	if finished then
-		tutorialDone = true
-		actionRemote:FireServer({ action = "tutorialSeen", id = "treadmill" })
-	end
-end
-
-local function checkTutorial()
-	local view = Speed.view()
-	local model = if view then ownTreadmill(view) else nil
-	local look = model and model:FindFirstChild("Look")
-	local console = model and model:FindFirstChild("Console")
-	local here = rootPosition()
-
-	if tutorial then
-		if console == nil or here == nil or (here - (console :: BasePart).Position).Magnitude > TUTORIAL_LEAVE then
-			tutorial.stop()
-		end
+local function reportTutorialSeen(view: any)
+	if tutorialReported or view == nil or view.tutorial ~= true then
 		return
 	end
-	if tutorialDone or view == nil or view.tutorial ~= true then
-		return
-	end
-	if look == nil or console == nil or not console:IsA("BasePart") or here == nil then
-		return
-	end
-	-- Never over the brew popup (LiquidController's "FluidSpin" gui): it has buttons
-	-- of its own that the walkthrough's catcher would eat.
-	local brew = Players.LocalPlayer.PlayerGui:FindFirstChild("FluidSpin")
-	if brew and brew:IsA("ScreenGui") and brew.Enabled then
-		return
-	end
-	local camera = Workspace.CurrentCamera
-	local _, visible = camera:WorldToViewportPoint(console.Position)
-	if (here - console.Position).Magnitude > TUTORIAL_RANGE or not visible then
-		return
-	end
-
-	local steps: { LockerTutorial.Step } = {
-		{
-			world = look,
-			title = "YOUR TREADMILL",
-			body = "Gain permanent walk speed by leveling up your speed",
-			low = true,
-		},
-	}
-
-	local prompt = console:FindFirstChildOfClass("ProximityPrompt")
-	if prompt then
-		prompt.Enabled = false
-		tutorialPrompt = prompt
-	end
-	tutorial = LockerTutorial.run(steps, endTutorial)
+	tutorialReported = true
+	actionRemote:FireServer({ action = "tutorialSeen", id = "treadmill" })
 end
 
 -- ── Wiring ────────────────────────────────────────────────────────────────
@@ -758,6 +694,7 @@ function Treadmill.start()
 		if view.training and not wasTraining then
 			startRunning()
 			show(true)
+			reportTutorialSeen(view)
 		elseif not view.training and wasTraining then
 			stopRunning()
 			show(false)
@@ -785,11 +722,6 @@ function Treadmill.start()
 				sinceGain = 0
 				popGain(view.rate)
 			end
-		end
-		sinceTutorialCheck += dt
-		if sinceTutorialCheck >= TUTORIAL_CHECK then
-			sinceTutorialCheck = 0
-			checkTutorial()
 		end
 	end)
 end
