@@ -23,7 +23,7 @@ local Net = require(game:GetService("ReplicatedStorage").Shared.Net)
 local MusicController = {}
 
 -- Very quiet on purpose: a bed under the game, never over it. The Music slider
--- defaults to 50%, which halves this back to the intended 0.12; 100% doubles it.
+-- defaults to 0% (off, opt-in); 50% there halves this to the intended 0.12.
 local VOLUME = 0.24
 -- Seconds to fade out leaving Stage 1, and back in on return.
 local FADE = 2
