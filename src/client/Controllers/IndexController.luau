@@ -105,30 +105,46 @@ local ART_H = 150
 local HEAVY_H = 108
 local STAT_H = 44
 
+-- THE LOOK: see-through black glass for every well, rail row, chip and empty card, so
+-- the world shows faintly behind the panel, and SOLID cartoon rarity colour behind every
+-- identified nuke (a flat fill, a top-lit shade and a thick black outline), so a found
+-- card reads as its rarity from across the grid. The GLASS numbers are each surface's
+-- BackgroundTransparency over that black.
 local COL = {
-	well = Color3.fromHex("10150D"),
-	card = Color3.fromHex("12170F"),
-	cardEmpty = Color3.fromHex("0E120C"),
-	edge = Color3.fromHex("263020"),
-	rail = Color3.fromHex("151A12"),
-	railOn = Color3.fromHex("1F2819"),
-	railEdge = Color3.fromHex("232B1E"),
-	railEdgeOn = Color3.fromHex("4B5C3D"),
-	chip = Color3.fromHex("171D14"),
-	chipOn = Color3.fromHex("2C3A22"),
-	chipEdgeOn = Color3.fromHex("5B7A44"),
-	cell = Color3.fromHex("161C12"),
-	cellEdge = Color3.fromHex("222B1C"),
-	record = Color3.fromHex("221B0C"),
-	recordEdge = Color3.fromHex("5D4718"),
+	well = Color3.new(0, 0, 0),
+	card = Color3.new(0, 0, 0),
+	cardEmpty = Color3.new(0, 0, 0),
+	edge = Color3.fromHex("3A3A40"),
+	rail = Color3.new(0, 0, 0),
+	railOn = Color3.new(0, 0, 0),
+	railEdge = Color3.fromHex("34343A"),
+	railEdgeOn = Color3.fromHex("C9C9D2"),
+	chip = Color3.new(0, 0, 0),
+	chipOn = Color3.fromHex("F5F5F5"),
+	chipEdgeOn = Color3.new(1, 1, 1),
+	cell = Color3.new(0, 0, 0),
+	cellEdge = Color3.fromHex("2E2E34"),
+	record = Color3.new(0, 0, 0),
+	recordEdge = Color3.fromHex("F5C24B"),
 	gold = Color3.fromHex("F5C24B"),
 	sand = Color3.fromHex("B6A57C"),
 	newTag = Color3.fromHex("EF4444"),
 	track = Color3.fromHex("0A0D09"),
 	meterLow = Color3.fromHex("4A4B36"),
-	silhouette = Color3.fromRGB(8, 10, 8),
+	-- Lifted off pure black: an unfound card is see-through black itself.
+	silhouette = Color3.fromRGB(46, 46, 54),
 	black = Color3.new(0, 0, 0),
 	white = Color3.new(1, 1, 1),
+}
+
+local GLASS = {
+	panel = 0.3,
+	well = 0.45,
+	rail = 0.5,
+	railOn = 0.15,
+	chip = 0.45,
+	cell = 0.35,
+	cardEmpty = 0.5,
 }
 
 -- The nuke renders. Lit like the shop card's art well (StationController's ART_LIGHT):
@@ -239,6 +255,30 @@ local function box(parent: Instance, name: string, size: UDim2, position: UDim2?
 	return f
 end
 
+--- Black glass: `frame` goes see-through black at the GLASS level given.
+local function glass(frame: GuiObject, transparency: number): GuiObject
+	frame.BackgroundColor3 = COL.black
+	frame.BackgroundTransparency = transparency
+	return frame
+end
+
+--- THE CARTOON SHADE: a flat fill lit from the top, multiplied over whatever colour the
+--- frame is painted (so an Anomaly's cycling fill keeps its shade), plus a soft white
+--- disc behind the model like a stage spotlight.
+local function cartoonShade(frame: GuiObject, spot: number?)
+	local grad = Instance.new("UIGradient")
+	grad.Rotation = 90
+	grad.Color = ColorSequence.new(COL.white, Color3.fromRGB(176, 176, 176))
+	grad.Parent = frame
+	if spot then
+		local disc = box(frame, "Spot", UDim2.fromOffset(spot, spot), UDim2.fromScale(0.5, 0.45), COL.white)
+		disc.AnchorPoint = Vector2.new(0.5, 0.5)
+		disc.BackgroundTransparency = 0.72
+		disc.ZIndex = 0
+		corner(disc, math.floor(spot / 2))
+	end
+end
+
 --- A plain label: no outline or drop shadow unless asked. UIKit.label's shadow is a
 --- SIBLING label, which a UIListLayout would lay out as an extra row.
 local function text(parent: Instance, props: any): TextLabel
@@ -285,21 +325,6 @@ local function rarityPaint(target: Instance, prop: string, rarity: string, darke
 	local painted: any = target
 	painted[prop] = Rarity.get(rarity).color:Lerp(COL.black, amount)
 	cycling[target] = if rarity == "Anomaly" then { prop = prop, darken = amount, when = when } else nil
-end
-
---- A vertical fade of `color`, for the rarity glow behind a model.
-local function glow(parent: GuiObject, color: Color3, top: number, radius: number)
-	local g = box(parent, "Glow", UDim2.fromScale(1, 1), nil, color)
-	corner(g, radius)
-	local grad = Instance.new("UIGradient")
-	grad.Rotation = 90
-	grad.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, top),
-		NumberSequenceKeypoint.new(0.7, 1),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	grad.Parent = g
-	return g
 end
 
 local function recordKg(itemId: string): number?
@@ -493,6 +518,7 @@ local function buildHeader(panel: Frame)
 
 	-- THE HEAVIEST HAUL: the single heaviest record anywhere in the catalogue.
 	local record = box(header, "HeaviestHaul", UDim2.fromOffset(0, 44), UDim2.new(1, -48, 0.5, 0), COL.record)
+	glass(record, GLASS.well)
 	record.AnchorPoint = Vector2.new(1, 0.5)
 	record.AutomaticSize = Enum.AutomaticSize.X
 	record.Visible = false
@@ -583,7 +609,7 @@ local function buildRail(panel: Frame)
 		row.AutoButtonColor = false
 		row.Text = ""
 		row.Size = UDim2.new(1, 0, 0, STAGE_ROW_H)
-		row.BackgroundColor3 = COL.rail
+		glass(row, GLASS.rail)
 		row.BorderSizePixel = 0
 		row.ClipsDescendants = true
 		row.LayoutOrder = order
@@ -695,6 +721,7 @@ local function buildMiddle(panel: Frame)
 	-- THE STAGE REWARD: what finishing this stage's index pays, the cash bundle from
 	-- the cash row beside x1.1, and a bar filling to found/total. Green once earned.
 	local reward = box(mid, "StageReward", UDim2.new(1, 0, 0, REWARD_H), UDim2.new(0, 0, 1, -REWARD_H), COL.well)
+	glass(reward, GLASS.well)
 	corner(reward, 12)
 	local rewardEdge = edge(reward, COL.edge, 2)
 
@@ -751,6 +778,7 @@ end
 --- One CAPTION / value cell of the detail's 2x3 stat block.
 local function statCell(parent: Instance, order: number, caption: string): TextLabel
 	local cell = box(parent, caption, UDim2.new(), nil, COL.cell)
+	glass(cell, GLASS.cell)
 	cell.LayoutOrder = order
 	corner(cell, 10)
 	edge(cell, COL.cellEdge, 2)
@@ -779,7 +807,7 @@ local function buildDetail(panel: Frame)
 	detail.AnchorPoint = Vector2.new(1, 0)
 	detail.Position = UDim2.new(1, 0, 0, BODY_TOP)
 	detail.Size = UDim2.new(0, DETAIL_W, 1, -BODY_TOP)
-	detail.BackgroundColor3 = COL.well
+	glass(detail, GLASS.well)
 	detail.BorderSizePixel = 0
 	detail.ScrollingDirection = Enum.ScrollingDirection.Y
 	detail.ScrollBarThickness = 4
@@ -804,14 +832,17 @@ local function buildDetail(panel: Frame)
 	art.AutoButtonColor = false
 	art.Text = ""
 	art.Size = UDim2.new(1, 0, 0, ART_H)
-	art.BackgroundColor3 = Color3.fromHex("0C100A")
+	glass(art, GLASS.cardEmpty)
 	art.BorderSizePixel = 0
 	art.ClipsDescendants = true
 	art.LayoutOrder = 1
 	art.Parent = detail
 	corner(art, 12)
-	edge(art, COL.black, 2)
-	local artGlow = glow(art, COL.white, 0.6, 12)
+	edge(art, COL.black, 3)
+	-- Solid rarity colour once identified (renderDetail paints it), glass until then.
+	local artGlow = box(art, "Fill", UDim2.fromScale(1, 1), nil, COL.white)
+	corner(artGlow, 12)
+	cartoonShade(artGlow, ART_H - 20)
 	local viewport = newViewport(art, "Model")
 	text(art, {
 		name = "DragHint",
@@ -851,6 +882,7 @@ local function buildDetail(panel: Frame)
 	-- HEAVIEST FOUND: the record, the roll that set it, and where that roll sits
 	-- between the lightest and heaviest this nuke can come out of the ground.
 	local heavy = box(detail, "Heaviest", UDim2.new(1, 0, 0, HEAVY_H), nil, COL.record)
+	glass(heavy, GLASS.cell)
 	heavy.LayoutOrder = 4
 	corner(heavy, 12)
 	edge(heavy, COL.recordEdge, 2)
@@ -1042,9 +1074,9 @@ local function build(): (ScreenGui, ScreenGui)
 		size = UDim2.new(1, -2 * SCREEN_MARGIN, 1, -2 * SCREEN_MARGIN),
 		position = UDim2.new(0.5, 0, 0.5, -PANEL_LIFT),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		color = UIKit.C.panel,
-		-- Opaque: the hotbar sits under the panel's bottom edge and ghosted through.
-		transparency = 0,
+		-- See-through black glass (see COL): the world shows faintly behind it.
+		color = COL.black,
+		transparency = GLASS.panel,
 		cornerRadius = UDim.new(0, 18),
 		strokeThickness = UIKit.Stroke.normal,
 		zIndex = 10,
@@ -1170,7 +1202,7 @@ local function renderRail()
 		local found, total = IndexProgress.stageCount(discovered, stage.id)
 		local complete = total > 0 and found == total
 		local on = stage.id == currentStage
-		refs.row.BackgroundColor3 = if on then COL.railOn else COL.rail
+		refs.row.BackgroundTransparency = if on then GLASS.railOn else GLASS.rail
 		refs.stroke.Color = if complete then UIKit.C.green elseif on then COL.railEdgeOn else COL.railEdge
 		refs.count.Text = `{found}/{total}`
 		refs.fill.Size = UDim2.fromScale(if total > 0 then found / total else 0, 1)
@@ -1230,6 +1262,7 @@ local function chip(order: number, id: string, label: string, dotRarity: string?
 	button.Size = UDim2.fromOffset(0, FILTER_H - 4)
 	button.AutomaticSize = Enum.AutomaticSize.X
 	button.BackgroundColor3 = if on then COL.chipOn else COL.chip
+	button.BackgroundTransparency = if on then 0 else GLASS.chip
 	button.BorderSizePixel = 0
 	button.LayoutOrder = order
 	button.Parent = ui.filters
@@ -1241,17 +1274,18 @@ local function chip(order: number, id: string, label: string, dotRarity: string?
 	pad.Parent = button
 	listLayout(button, Enum.FillDirection.Horizontal, 5)
 	if dotRarity then
-		local d = box(button, "Dot", UDim2.fromOffset(9, 9), nil, Rarity.get(dotRarity).color)
+		local d = box(button, "Dot", UDim2.fromOffset(11, 11), nil, Rarity.get(dotRarity).color)
 		rarityPaint(d, "BackgroundColor3", dotRarity)
 		d.LayoutOrder = 1
-		corner(d, 5)
+		corner(d, 6)
+		edge(d, COL.black, 1.5)
 	end
 	local words = text(button, {
 		name = "Text",
 		size = UDim2.fromOffset(0, FILTER_H - 4),
 		font = UIKit.Font.title,
 		textSize = 12,
-		color = if on then COL.white else Color3.fromHex("B8C2B0"),
+		color = if on then COL.black else Color3.fromHex("D2D2DA"),
 		text = label,
 	})
 	words.AutomaticSize = Enum.AutomaticSize.X
@@ -1294,7 +1328,7 @@ local function paintCardSelection()
 	for itemId, refs in cards do
 		local on = itemId == selectedId
 		refs.stroke.Color = if on then COL.white else refs.edgeColor
-		refs.stroke.Thickness = if on then 3 else 2
+		refs.stroke.Thickness = if on then 4 else 3
 		local entry = stats[itemId]
 		refs.newTag.Visible = entry ~= nil and entry.new == true and discovered[itemId] == true
 	end
@@ -1302,25 +1336,23 @@ end
 
 local function buildCard(item: any, order: number)
 	local found = discovered[item.id] == true
-	local rarityColor = Rarity.get(item.rarity).color
 
 	local card = Instance.new("TextButton")
 	card.Name = `Card_{item.id}`
 	card.AutoButtonColor = false
 	card.Text = ""
-	card.BackgroundColor3 = if found then COL.card else COL.cardEmpty
 	card.BorderSizePixel = 0
 	card.LayoutOrder = order
 	card.Parent = ui.grid
 	corner(card, 12)
-	local edgeColor = if found then rarityColor:Lerp(COL.black, 0.3) else COL.edge
-	local stroke = edge(card, edgeColor, 2)
-
+	-- Found: SOLID rarity colour under a thick black outline. Unfound: black glass.
+	local edgeColor = if found then COL.black else COL.edge
+	local stroke = edge(card, edgeColor, if found then 3 else 2)
 	if found then
-		rarityPaint(glow(card, rarityColor, 0.72, 12), "BackgroundColor3", item.rarity)
-		rarityPaint(stroke, "Color", item.rarity, 0.3, function()
-			return selectedId ~= item.id
-		end)
+		rarityPaint(card, "BackgroundColor3", item.rarity)
+		cartoonShade(card, CARD_ART - 6)
+	else
+		glass(card, GLASS.cardEmpty)
 	end
 
 	local art = box(card, "Art", UDim2.fromOffset(CARD_ART, CARD_ART), UDim2.new(0.5, 0, 0, 4))
@@ -1343,20 +1375,18 @@ local function buildCard(item: any, order: number)
 		frameStill(viewport.CurrentCamera :: Camera, fresh, 1)
 	end)
 
-	local nameLabel = text(card, {
+	text(card, {
 		name = "ItemName",
 		position = UDim2.fromOffset(4, CARD_ART + 5),
 		size = UDim2.new(1, -8, 0, 22),
-		font = UIKit.Font.title,
+		font = Enum.Font.GothamBlack,
 		textSize = 11,
-		color = if found then rarityColor else Color3.fromHex("4D5847"),
+		color = if found then COL.white else Color3.fromHex("6A6A74"),
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
+		outline = found,
 		text = if found then item.name else "???",
 	})
-	if found then
-		rarityPaint(nameLabel, "TextColor3", item.rarity)
-	end
 
 	local kg = if found then recordKg(item.id) else nil
 	if kg then
@@ -1367,7 +1397,8 @@ local function buildCard(item: any, order: number)
 			size = UDim2.new(1, -8, 0, 13),
 			font = Enum.Font.GothamBlack,
 			textSize = 11,
-			color = COL.gold,
+			color = COL.white,
+			outline = true,
 			xAlign = Enum.TextXAlignment.Center,
 			text = `BEST {UIKit.formatKg(kg)}`,
 		})
@@ -1488,12 +1519,13 @@ local function renderDetail()
 	local rarityColor = Rarity.get(item.rarity).color
 	d.name.Text = if found then item.name else "UNKNOWN"
 	if found then
+		d.artGlow.Visible = true
 		rarityPaint(d.artGlow, "BackgroundColor3", item.rarity)
 		rarityPaint(d.name, "TextColor3", item.rarity)
 	else
 		cycling[d.artGlow] = nil
 		cycling[d.name] = nil
-		d.artGlow.BackgroundColor3 = COL.edge
+		d.artGlow.Visible = false
 		d.name.TextColor3 = COL.white
 	end
 
@@ -1511,14 +1543,13 @@ local function renderDetail()
 			child:Destroy()
 		end
 	end
-	local rarityPill, rarityEdge, rarityInk =
-		pill(1, string.upper(item.rarity), rarityColor:Lerp(COL.black, 0.8), rarityColor, rarityColor)
-	rarityPaint(rarityPill, "BackgroundColor3", item.rarity, 0.8)
-	rarityPaint(rarityEdge, "Color", item.rarity)
-	rarityPaint(rarityInk, "TextColor3", item.rarity)
+	-- The rarity as a solid cartoon sticker, the stages as glass pills edged in their colour.
+	local rarityPill = pill(1, string.upper(item.rarity), rarityColor, COL.black, COL.black)
+	rarityPaint(rarityPill, "BackgroundColor3", item.rarity)
 	for i, stageId in item.stages do
 		local stage = Stages.get(stageId)
-		pill(1 + i, stage.name, Color3.fromHex("0C0F0A"), Color3.fromHex("E8DCCB"), stageColor(stage))
+		local p = pill(1 + i, stage.name, COL.black, Color3.fromHex("ECECF2"), stageColor(stage))
+		p.BackgroundTransparency = GLASS.cell
 	end
 
 	local entry = stats[item.id]
