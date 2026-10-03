@@ -263,19 +263,26 @@ local function glass(frame: GuiObject, transparency: number): GuiObject
 end
 
 --- THE CARTOON SHADE: a flat fill lit from the top, multiplied over whatever colour the
---- frame is painted (so an Anomaly's cycling fill keeps its shade), plus a soft white
---- disc behind the model like a stage spotlight.
-local function cartoonShade(frame: GuiObject, spot: number?)
+--- frame is painted (so an Anomaly's cycling fill keeps its shade), plus the shop cash
+--- cards' white light rays (Artwork.IMAGE.sunburst) fanning out from behind the model,
+--- twice the art's size and clipped to the frame like the shop's.
+local function cartoonShade(frame: GuiObject, spot: number?, centreY: number?)
 	local grad = Instance.new("UIGradient")
 	grad.Rotation = 90
 	grad.Color = ColorSequence.new(COL.white, Color3.fromRGB(176, 176, 176))
 	grad.Parent = frame
 	if spot then
-		local disc = box(frame, "Spot", UDim2.fromOffset(spot, spot), UDim2.fromScale(0.5, 0.45), COL.white)
-		disc.AnchorPoint = Vector2.new(0.5, 0.5)
-		disc.BackgroundTransparency = 0.72
-		disc.ZIndex = 0
-		corner(disc, math.floor(spot / 2))
+		frame.ClipsDescendants = true
+		local rays = Instance.new("ImageLabel")
+		rays.Name = "Rays"
+		rays.BackgroundTransparency = 1
+		rays.Image = Artwork.IMAGE.sunburst
+		rays.ImageTransparency = 0.45
+		rays.ScaleType = Enum.ScaleType.Fit
+		rays.AnchorPoint = Vector2.new(0.5, 0.5)
+		rays.Position = UDim2.fromScale(0.5, centreY or 0.5)
+		rays.Size = UDim2.fromOffset(spot * 2, spot * 2)
+		rays.Parent = frame
 	end
 end
 
@@ -842,7 +849,7 @@ local function buildDetail(panel: Frame)
 	-- Solid rarity colour once identified (renderDetail paints it), glass until then.
 	local artGlow = box(art, "Fill", UDim2.fromScale(1, 1), nil, COL.white)
 	corner(artGlow, 12)
-	cartoonShade(artGlow, ART_H - 20)
+	cartoonShade(artGlow, ART_H - 20, 0.5)
 	local viewport = newViewport(art, "Model")
 	text(art, {
 		name = "DragHint",
@@ -1350,7 +1357,8 @@ local function buildCard(item: any, order: number)
 	local stroke = edge(card, edgeColor, if found then 3 else 2)
 	if found then
 		rarityPaint(card, "BackgroundColor3", item.rarity)
-		cartoonShade(card, CARD_ART - 6)
+		-- Centred on the art square (4 + CARD_ART / 2 down the card).
+		cartoonShade(card, CARD_ART, (4 + CARD_ART / 2) / CARD_H)
 	else
 		glass(card, GLASS.cardEmpty)
 	end
