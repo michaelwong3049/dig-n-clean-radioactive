@@ -846,8 +846,16 @@ local function revealAndFinish(player: Player, session: Session, data: any, item
 		ItemCrust.clear(session.model)
 	end
 
-	local value = EconomyService.valueOf(item, StatResolver.get(data))
-	IdentifyService.announce(player, item, first, { staged = true, value = value, previousBest = previousBest })
+	local stats = StatResolver.get(data)
+	local value = EconomyService.valueOf(item, stats)
+	-- `rate`: what it pays per second on a stand, printed under the price.
+	local rate = ExhibitService.itemRatePerSecond(item, stats)
+	IdentifyService.announce(
+		player,
+		item,
+		first,
+		{ staged = true, value = value, rate = rate, previousBest = previousBest }
+	)
 
 	local def = Items.get(item.itemId)
 	task.delay(Tuning.WASH_REVEAL_HOLD, function()
