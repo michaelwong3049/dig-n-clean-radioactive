@@ -13,11 +13,12 @@
 
 	    stage    banner + trail to the nearest point of Stage 1's edge
 	    dig      banner only. Finding the glow is the lesson, so nothing points at one.
-	    haul     banner + an amber ring pulsing round the haul panel's button
+	    haul     banner + an amber ring pulsing round REEL IN, and arrows bouncing at it
 	    clean    banner + trail to YOUR cleansing station
 	    place    banner + trail to your nearest EMPTY stand
 	    upgrade  banner + trail to the Detector Shop
-	    finish   the "You're set!" card, once
+	    navigate banner + rings and arrows on the HOME and SHOPS buttons (WarpController);
+	             using one ends the walkthrough (no "You're set!" card, removed on request)
 
 	THE TRAIL IS CLIENT-ONLY PARTS in a local Workspace folder, so nobody else sees
 	anyone's trail. The route is PathfindingService's, recomputed every couple of seconds
@@ -82,7 +83,19 @@ local TITLE_SIZE = 56
 local SKIP_W = 64
 local SKIP_GAP = 18
 local SKIP_CONFIRM_SECONDS = 3
-local FINISH_AUTO_CLOSE = 10
+
+-- ── Pointing arrows (design px) ────────────────────────────────────────────────────
+-- ON REQUEST: fat amber arrows with a black outline, bouncing at what to press: REEL IN
+-- on the haul step, HOME and SHOPS on the last one. Built from rounded bars (a shaft and
+-- two arms), the outline being the same bars a size up in black underneath, so the
+-- joins read as one shape. No uploaded art.
+local ARROW_LEN = 58 -- tail to tip
+local ARROW_THICK = 11
+local ARROW_ARM = 28
+local ARROW_OUTLINE = 3
+local ARROW_GAP = 8 -- tip to the thing it points at, at rest
+local ARROW_BOB = 9 -- how far it bounces toward it
+local ARROW_BOB_SPEED = 6 -- radians per second
 
 -- ── Trail ───────────────────────────────────────────────────────────────────────
 local RIBBON_WIDTH = 2.6
@@ -261,106 +274,6 @@ local function buildBanner(canvas: Frame)
 	ui.title = title
 end
 
-local function buildFinish(canvas: Frame)
-	-- A full-screen shade that also eats clicks, so the card has to be answered.
-	local shade = Instance.new("TextButton")
-	shade.Name = "FinishShade"
-	shade.Size = UDim2.fromScale(1, 1)
-	shade.BackgroundColor3 = Color3.new(0, 0, 0)
-	shade.BackgroundTransparency = 0.45
-	shade.BorderSizePixel = 0
-	shade.AutoButtonColor = false
-	shade.Text = ""
-	shade.Visible = false
-	shade.ZIndex = 5
-	shade.Parent = canvas
-
-	local card = Instance.new("Frame")
-	card.Name = "FinishCard"
-	card.AnchorPoint = Vector2.new(0.5, 0.5)
-	card.Position = UDim2.fromScale(0.5, 0.5)
-	card.Size = UDim2.fromOffset(470, 210)
-	card.BackgroundColor3 = SKIN.card
-	card.BorderSizePixel = 0
-	card.ZIndex = 6
-	card.Parent = shade
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 18)
-	corner.Parent = card
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = SKIN.amber
-	stroke.Thickness = 4
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = card
-	local scale = Instance.new("UIScale")
-	scale.Parent = card
-
-	local finish = Tutorial.STEPS.finish
-	UIKit.label(card, {
-		name = "Title",
-		size = UDim2.new(1, 0, 0, 56),
-		position = UDim2.fromOffset(0, 22),
-		font = SKIN.headline,
-		textSize = 50,
-		color = SKIN.amber,
-		xAlign = Enum.TextXAlignment.Center,
-		text = finish.title,
-		zIndex = 7,
-	})
-	UIKit.label(card, {
-		name = "Hint",
-		size = UDim2.new(1, -40, 0, 24),
-		position = UDim2.fromOffset(20, 86),
-		font = SKIN.label,
-		textSize = 18,
-		color = SKIN.dim,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		shadow = false,
-		text = finish.hint,
-		zIndex = 7,
-	})
-
-	local go = Instance.new("TextButton")
-	go.Name = "Go"
-	go.AnchorPoint = Vector2.new(0.5, 0)
-	go.Position = UDim2.new(0.5, 0, 0, 128)
-	go.Size = UDim2.fromOffset(190, 52)
-	go.BackgroundColor3 = SKIN.go
-	go.BorderSizePixel = 0
-	go.Font = SKIN.headline
-	go.TextSize = 26
-	go.TextColor3 = SKIN.text
-	go.Text = "Let's go"
-	go.ZIndex = 7
-	go.Parent = card
-	local goCorner = Instance.new("UICorner")
-	goCorner.CornerRadius = UDim.new(0, 12)
-	goCorner.Parent = go
-	local goStroke = Instance.new("UIStroke")
-	goStroke.Color = SKIN.ink
-	goStroke.Thickness = 3
-	goStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	goStroke.Parent = go
-
-	local function close()
-		shade.Visible = false
-	end
-	go.Activated:Connect(close)
-
-	ui.finishShade = shade
-	ui.finishScale = scale
-	ui.closeFinish = close
-end
-
-local function showFinish()
-	ui.banner.Visible = false
-	ui.finishShade.Visible = true
-	ui.finishScale.Scale = 0.6
-	TweenService:Create(ui.finishScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(FINISH_AUTO_CLOSE, ui.closeFinish)
-end
-
 local function setBanner(step: Tutorial.StepId)
 	local def = Tutorial.STEPS[step]
 	local changed = ui.title.Text ~= def.title
@@ -375,27 +288,64 @@ local function setBanner(step: Tutorial.StepId)
 	end
 end
 
--- ── The haul button ring ────────────────────────────────────────────────────────
--- A child of the haul panel's own button (DetectorController, "HaulButton"), so it
--- follows the panel wherever it is laid out and hides with it, with no rect math.
-local haulRing: Frame? = nil
+-- ── Pointers on screen buttons ───────────────────────────────────────────────────
+-- A pulsing amber ring round a button plus arrows bouncing at it, all CHILDREN of that
+-- button (REEL IN in DetectorHud, HOME / SHOPS in WarpBar), so they follow it wherever
+-- it is laid out and hide with it, with no rect math.
 
-local function setHaulRing(on: boolean)
-	if not on then
-		if haulRing then
-			haulRing:Destroy()
-			haulRing = nil
-		end
-		return
+--- Which way an arrow points, as the screen direction from its tail to its tip.
+type Facing = "down" | "left" | "right"
+
+--- A rounded bar, `len` long along its local Y, centred on `at` (px in the arrow's box).
+local function bar(parent: Instance, at: Vector2, len: number, thick: number, rotation: number, color: Color3, z: number)
+	local f = Instance.new("Frame")
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.fromOffset(at.X, at.Y)
+	f.Size = UDim2.fromOffset(thick, len)
+	f.Rotation = rotation
+	f.BackgroundColor3 = color
+	f.BorderSizePixel = 0
+	f.ZIndex = z
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = f
+	f.Parent = parent
+end
+
+--- An arrow pointing DOWN in its own box (tip at the bottom middle), turned to `facing`.
+--- The box is square so a turn keeps it where it was put.
+local function buildArrow(parent: GuiObject, facing: Facing): Frame
+	local box = Instance.new("Frame")
+	box.Name = "TutorialArrow"
+	box.BackgroundTransparency = 1
+	box.Size = UDim2.fromOffset(ARROW_LEN, ARROW_LEN)
+	box.Rotation = if facing == "left" then 90 elseif facing == "right" then -90 else 0
+	local tip = Vector2.new(ARROW_LEN / 2, ARROW_LEN - ARROW_THICK / 2)
+	local s45 = math.sin(math.rad(45))
+	local z = parent.ZIndex + 3
+	for layer = 1, 2 do
+		local grow = if layer == 1 then ARROW_OUTLINE * 2 else 0
+		local color = if layer == 1 then SKIN.ink else SKIN.amber
+		local thick = ARROW_THICK + grow
+		local zLayer = z + layer - 1
+		-- The shaft, from the top of the box down to the tip.
+		local shaftLen = ARROW_LEN - ARROW_THICK / 2 + grow
+		bar(box, Vector2.new(tip.X, tip.Y - (ARROW_LEN - ARROW_THICK) / 2), shaftLen, thick, 0, color, zLayer)
+		-- Two arms rising back from the tip at 45 degrees.
+		local half = (ARROW_ARM - ARROW_THICK) / 2
+		bar(box, tip + Vector2.new(-half * s45, -half * s45), ARROW_ARM + grow, thick, -45, color, zLayer)
+		bar(box, tip + Vector2.new(half * s45, -half * s45), ARROW_ARM + grow, thick, 45, color, zLayer)
 	end
-	if haulRing and haulRing.Parent then
-		return
-	end
-	local hud = player:FindFirstChildOfClass("PlayerGui") and player.PlayerGui:FindFirstChild("DetectorHud")
-	local button = hud and hud:FindFirstChild("HaulButton", true)
-	if button == nil or not button:IsA("GuiObject") then
-		return
-	end
+	box.Parent = parent
+	return box
+end
+
+type Pointer = {
+	ring: Frame,
+	arrows: { { box: Frame, facing: Facing } },
+}
+
+local function buildPointer(button: GuiObject, facings: { Facing }, round: boolean): Pointer
 	local ring = Instance.new("Frame")
 	ring.Name = "TutorialRing"
 	ring.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -404,7 +354,7 @@ local function setHaulRing(on: boolean)
 	ring.BackgroundTransparency = 1
 	ring.ZIndex = button.ZIndex + 2
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 16)
+	corner.CornerRadius = if round then UDim.new(0.5, 0) else UDim.new(0, 16)
 	corner.Parent = ring
 	local stroke = Instance.new("UIStroke")
 	stroke.Name = "Stroke"
@@ -413,7 +363,94 @@ local function setHaulRing(on: boolean)
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	stroke.Parent = ring
 	ring.Parent = button
-	haulRing = ring
+	local arrows = {}
+	for _, facing in facings do
+		table.insert(arrows, { box = buildArrow(button, facing), facing = facing })
+	end
+	return { ring = ring, arrows = arrows }
+end
+
+local function destroyPointer(pointer: Pointer)
+	pointer.ring:Destroy()
+	for _, arrow in pointer.arrows do
+		arrow.box:Destroy()
+	end
+end
+
+--- One frame of a pointer: the ring breathes, the arrows bounce in at the button.
+local function stepPointer(pointer: Pointer, t: number)
+	local pulse = (math.sin(t * 5) + 1) / 2
+	local stroke = pointer.ring:FindFirstChild("Stroke") :: UIStroke?
+	if stroke then
+		stroke.Thickness = 3 + 3 * pulse
+		stroke.Transparency = 0.35 * (1 - pulse)
+	end
+	-- Out at ARROW_GAP + ARROW_BOB, a quick tap in to ARROW_GAP, and back out.
+	local bob = ARROW_GAP + ARROW_BOB * (1 - math.abs(math.sin(t * ARROW_BOB_SPEED / 2)))
+	for _, arrow in pointer.arrows do
+		local box = arrow.box
+		if arrow.facing == "down" then
+			-- Above the button, pointing down at it.
+			box.AnchorPoint = Vector2.new(0.5, 1)
+			box.Position = UDim2.new(0.5, 0, 0, -bob)
+		elseif arrow.facing == "right" then
+			-- Left of the button, pointing right at it.
+			box.AnchorPoint = Vector2.new(1, 0.5)
+			box.Position = UDim2.new(0, -bob, 0.5, 0)
+		else
+			-- Right of the button, pointing left at it.
+			box.AnchorPoint = Vector2.new(0, 0.5)
+			box.Position = UDim2.new(1, bob, 0.5, 0)
+		end
+	end
+end
+
+-- REEL IN, on the haul step: the ring, an arrow from above and one from the right.
+local haulPointer: Pointer? = nil
+
+local function setHaulRing(on: boolean)
+	if not on then
+		if haulPointer then
+			destroyPointer(haulPointer)
+			haulPointer = nil
+		end
+		return
+	end
+	if haulPointer and haulPointer.ring.Parent then
+		return
+	end
+	local hud = player:FindFirstChildOfClass("PlayerGui") and player.PlayerGui:FindFirstChild("DetectorHud")
+	local button = hud and hud:FindFirstChild("HaulButton", true)
+	if button == nil or not button:IsA("GuiObject") then
+		return
+	end
+	haulPointer = buildPointer(button, { "down", "left" }, false)
+end
+
+-- HOME and SHOPS, on the last step: each ringed, with an arrow coming in from the
+-- outside of the pair (HOME's from the left, SHOPS' from the right).
+local navPointers: { Pointer }? = nil
+
+local function setNavPointers(on: boolean)
+	if not on then
+		if navPointers then
+			for _, pointer in navPointers do
+				destroyPointer(pointer)
+			end
+			navPointers = nil
+		end
+		return
+	end
+	if navPointers and navPointers[1].ring.Parent then
+		return
+	end
+	local warpBar = player:FindFirstChildOfClass("PlayerGui") and player.PlayerGui:FindFirstChild("WarpBar")
+	local home = warpBar and warpBar:FindFirstChild("HOME", true)
+	local shops = warpBar and warpBar:FindFirstChild("SHOPS", true)
+	if home == nil or shops == nil or not home:IsA("GuiObject") or not shops:IsA("GuiObject") then
+		return
+	end
+	navPointers = { buildPointer(home, { "right" }, true), buildPointer(shops, { "left" }, true) }
 end
 
 -- ── World guide ─────────────────────────────────────────────────────────────────
@@ -1260,6 +1297,7 @@ local function apply(payload: any)
 		state = nil
 		ui.banner.Visible = false
 		setHaulRing(false)
+		setNavPointers(false)
 		clearGuide()
 		return
 	end
@@ -1270,16 +1308,9 @@ local function apply(payload: any)
 		clearGuide()
 	end
 
-	if payload.step == "finish" then
-		state = nil
-		setHaulRing(false)
-		clearGuide()
-		showFinish()
-		return
-	end
-
 	setBanner(payload.step)
 	setHaulRing(payload.step == "haul")
+	setNavPointers(payload.step == "navigate")
 end
 
 -- ── Shut prompts ──────────────────────────────────────────────────────────────────
@@ -1328,7 +1359,6 @@ function TutorialController.start()
 
 	local canvas = UIKit.canvas(gui)
 	buildBanner(canvas)
-	buildFinish(canvas)
 
 	Net.get("TutorialState").OnClientEvent:Connect(apply)
 	watchPrompts()
@@ -1337,16 +1367,20 @@ function TutorialController.start()
 		if state == nil then
 			return
 		end
-		-- The haul panel is built lazily; keep trying until the ring finds its button.
-		if state.step == "haul" and haulRing == nil then
+		-- The haul panel and the warp bar are built lazily; keep trying until the
+		-- pointers find their buttons.
+		if state.step == "haul" and haulPointer == nil then
 			setHaulRing(true)
+		elseif state.step == "navigate" and navPointers == nil then
+			setNavPointers(true)
 		end
-		if haulRing then
-			local stroke = haulRing:FindFirstChild("Stroke") :: UIStroke?
-			if stroke then
-				local t = (math.sin(os.clock() * 5) + 1) / 2
-				stroke.Thickness = 3 + 3 * t
-				stroke.Transparency = 0.35 * (1 - t)
+		local t = os.clock()
+		if haulPointer then
+			stepPointer(haulPointer, t)
+		end
+		if navPointers then
+			for _, pointer in navPointers do
+				stepPointer(pointer, t)
 			end
 		end
 		local ok, err = pcall(stepGuide, dt)

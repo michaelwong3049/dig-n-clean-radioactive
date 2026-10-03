@@ -1,7 +1,8 @@
 --[[
-	HudTile — one right-edge HUD tile (Gear, Nukes, Warp): the "glow orb" look.
+	HudTile — one HUD tile: the right-edge column (Gear, Nukes, Warp) in "Glossy Candy", the
+	top-right corner buttons (Settings, Daily) in the dark "glow orb" look.
 
-	A small dark square with a soft glow in the tile's own colour behind a full-colour
+	The glow orb: a small dark square with a soft glow in the tile's own colour behind a full-colour
 	symbol (Artwork.IMAGE), picture only: the name caption under it was dropped on request
 	when the tiles went from a 2x2 grid to one smaller column. Index and Shop build the
 	left-column bars through the same function (spec.leftRow), and keep their names.
@@ -46,6 +47,16 @@ local GLOW_SIZE = 60
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 
+-- THE RIGHT-EDGE COLUMN (Gear, Nukes, Warp), on request: "Glossy Candy" (2026-10-03), the
+-- tile's own colour solid under a hard two-band gloss (a shiny top half, a shade darker
+-- below the line), a black outline and no glow. The corner buttons (Settings, Daily,
+-- placed by spec.position) keep the dark glow-orb look.
+local CANDY_CORNER = 6
+local CANDY_EDGE_THICKNESS = 3
+local CANDY_SHINE_TOP = 0.45
+local CANDY_SHINE_LINE = 0.12
+local CANDY_SHADE_FOOT = 0.18
+
 local HOVER_SCALE = 1.07
 local PRESS_SCALE = 0.94
 local TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -81,15 +92,24 @@ export type Spec = {
 	bare: boolean?,
 }
 
--- THE LEFT-COLUMN BARS (Index, Shop, Masteries), on request: a solid dark rectangle on the middle
--- of the left edge, the picture on its left and the name beside it in the rows' own GothamBlack
--- (UIKit.hudNumber: same outline and drop shadow as the balance).
+-- THE LEFT-COLUMN BARS (Index, Shop, Masteries), on request: a rounded bar in the button's own
+-- BRIGHT colour on the middle of the left edge, a top-lit gloss and faint black trefoils drifting
+-- across it (option 11, "Radioactive Pattern", 2026-10-03), the picture on its left and the name
+-- beside it in white GothamBlack (UIKit.hudNumber: same outline and drop shadow as the balance).
 local BAR_W = 168
 local BAR_H = 50
 local BAR_ICON = 38
-local BAR_CORNER = 3
-local BAR_EDGE_THICKNESS = 2.5
-local BAR_GLOW = 58
+local BAR_CORNER = 10
+local BAR_EDGE_THICKNESS = 3
+-- The drifting trefoils (Artwork.IMAGE.trefoilTile): black, mostly see-through, one tile
+-- BAR_PATTERN_TILE px square, sliding one tile up and left every BAR_PATTERN_LOOP seconds (a
+-- whole tile, so the repeat is seamless). The gloss is a vertical UIGradient on the bar's
+-- fill: lighter at the top, the colour itself at the middle, a little darker at the foot.
+local BAR_PATTERN_TILE = 46
+local BAR_PATTERN_TRANSPARENCY = 0.72
+local BAR_PATTERN_LOOP = 6
+local BAR_GLOSS_TOP = 0.35
+local BAR_GLOSS_FOOT = 0.15
 local BAR_TEXT_LEFT = 54
 local BAR_TEXT_SIZE = 28
 local BAR_TEXT_STROKE = 3
@@ -124,6 +144,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local canvas = UIKit.canvas(gui)
 
 	local bar = spec.leftRow ~= nil
+	local candy = not bar and spec.position == nil
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
 		size = if bar then UDim2.fromOffset(BAR_W, BAR_H) else UDim2.fromOffset(SIZE, SIZE),
@@ -134,7 +155,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		fillTransparency = FILL_TRANSPARENCY,
 		strokeColor = spec.color,
 		strokeThickness = EDGE_THICKNESS,
-		cornerRadius = UDim.new(0, if bar then BAR_CORNER else CORNER),
+		cornerRadius = UDim.new(0, if bar then BAR_CORNER elseif candy then CANDY_CORNER else CORNER),
 		zIndex = 4,
 	})
 	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -144,6 +165,24 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		edge.Color = Color3.new(0, 0, 0)
 		edge.Thickness = BAR_EDGE_THICKNESS
 		edge.Transparency = 0
+	elseif candy then
+		edge.Color = Color3.new(0, 0, 0)
+		edge.Thickness = CANDY_EDGE_THICKNESS
+		edge.Transparency = 0
+		-- The fill is white so the gradient's colours are the colours drawn. The two keys
+		-- either side of the middle make the gloss's hard line.
+		button.BackgroundColor3 = Color3.new(1, 1, 1)
+		button.BackgroundTransparency = 0
+		local white, black = Color3.new(1, 1, 1), Color3.new(0, 0, 0)
+		local gloss = Instance.new("UIGradient")
+		gloss.Rotation = 90
+		gloss.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, spec.color:Lerp(white, CANDY_SHINE_TOP)),
+			ColorSequenceKeypoint.new(0.49, spec.color:Lerp(white, CANDY_SHINE_LINE)),
+			ColorSequenceKeypoint.new(0.5, spec.color),
+			ColorSequenceKeypoint.new(1, spec.color:Lerp(black, CANDY_SHADE_FOOT)),
+		})
+		gloss.Parent = button
 	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
@@ -190,16 +229,48 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
 		else
 			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
-			-- Solid, a dark (not near-black) shade of the bar's own colour.
-			button.BackgroundColor3 = spec.color:Lerp(Color3.new(0, 0, 0), 0.6)
+			-- The bar's own colour, solid, under a top-lit gloss. The fill is white so the
+			-- gradient's colours are the colours drawn.
+			button.BackgroundColor3 = Color3.new(1, 1, 1)
 			button.BackgroundTransparency = 0
+			local gloss = Instance.new("UIGradient")
+			gloss.Rotation = 90
+			gloss.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, spec.color:Lerp(Color3.new(1, 1, 1), BAR_GLOSS_TOP)),
+				ColorSequenceKeypoint.new(0.5, spec.color),
+				ColorSequenceKeypoint.new(1, spec.color:Lerp(Color3.new(0, 0, 0), BAR_GLOSS_FOOT)),
+			})
+			gloss.Parent = button
+
+			-- The trefoils, in a CanvasGroup so they clip to the bar's rounded corners
+			-- (ClipsDescendants clips to the square). The tiled picture is one tile bigger
+			-- than the bar each way, so sliding it a tile never shows its edge.
+			local clip = Instance.new("CanvasGroup")
+			clip.Name = "Pattern"
+			clip.Size = UDim2.fromScale(1, 1)
+			clip.BackgroundTransparency = 1
+			clip.ZIndex = 5
+			local clipCorner = Instance.new("UICorner")
+			clipCorner.CornerRadius = UDim.new(0, BAR_CORNER)
+			clipCorner.Parent = clip
+			clip.Parent = button
+			local pattern = Instance.new("ImageLabel")
+			pattern.Name = "Trefoils"
+			pattern.BackgroundTransparency = 1
+			pattern.Image = Artwork.IMAGE.trefoilTile
+			pattern.ImageColor3 = Color3.new(0, 0, 0)
+			pattern.ImageTransparency = BAR_PATTERN_TRANSPARENCY
+			pattern.ScaleType = Enum.ScaleType.Tile
+			pattern.TileSize = UDim2.fromOffset(BAR_PATTERN_TILE, BAR_PATTERN_TILE)
+			pattern.Size = UDim2.new(1, BAR_PATTERN_TILE, 1, BAR_PATTERN_TILE)
+			pattern.Parent = clip
+			TweenService:Create(
+				pattern,
+				TweenInfo.new(BAR_PATTERN_LOOP, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1),
+				{ Position = UDim2.fromOffset(-BAR_PATTERN_TILE, -BAR_PATTERN_TILE) }
+			):Play()
 
 			local iconCentre = 6 + BAR_ICON / 2
-			glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BAR_GLOW, spec.color)
-			glow.AnchorPoint = Vector2.new(0.5, 0.5)
-			glow.Position = UDim2.new(0, iconCentre, 0.5, 0)
-			glow.ImageTransparency = GLOW_TRANSPARENCY
-			glow.ZIndex = 5
 
 			icon = Artwork.picture(button, "Icon", spec.image, BAR_ICON, Color3.new(1, 1, 1))
 			icon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -214,7 +285,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 				text = spec.caption,
 				font = Enum.Font.GothamBlack,
 				textSize = spec.captionSize or BAR_TEXT_SIZE,
-				color = spec.light,
+				color = Color3.new(1, 1, 1),
 				xAlign = Enum.TextXAlignment.Left,
 				zIndex = 8,
 			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
@@ -231,12 +302,14 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 			place()
 		end
 
-		-- The glow and the picture, both on the tile's centre.
-		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
-		glow.AnchorPoint = Vector2.new(0.5, 0.5)
-		glow.Position = UDim2.fromScale(0.5, 0.5)
-		glow.ImageTransparency = GLOW_TRANSPARENCY
-		glow.ZIndex = 5
+		-- The glow (corner buttons only) and the picture, both on the tile's centre.
+		if not candy then
+			glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
+			glow.AnchorPoint = Vector2.new(0.5, 0.5)
+			glow.Position = UDim2.fromScale(0.5, 0.5)
+			glow.ImageTransparency = GLOW_TRANSPARENCY
+			glow.ZIndex = 5
+		end
 
 		icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -249,11 +322,14 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		local target = if pressed then PRESS_SCALE elseif hovered then HOVER_SCALE else 1
 		TweenService:Create(scale, TWEEN, { Scale = target }):Play()
 		TweenService:Create(edge, TWEEN, {
-			Transparency = if bar then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
+			Transparency = if bar or candy then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
 		}):Play()
-		TweenService:Create(glow, TWEEN, {
-			ImageTransparency = if hovered then GLOW_TRANSPARENCY_HOVER else GLOW_TRANSPARENCY,
-		}):Play()
+		-- The bright bars and candy tiles have no glow.
+		if glow then
+			TweenService:Create(glow, TWEEN, {
+				ImageTransparency = if hovered then GLOW_TRANSPARENCY_HOVER else GLOW_TRANSPARENCY,
+			}):Play()
+		end
 	end
 	local function setHovered(on: boolean)
 		hovered = on

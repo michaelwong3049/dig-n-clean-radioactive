@@ -640,7 +640,7 @@ Tuning.CAPACITY_EVERY_N_LEVELS = 5
 -- client (WashReveal) reads the same number to pace its slow push-in across it. Long
 -- enough for the name to land and the price to count up, short enough to be a beat
 -- rather than a wait -- and E/Q skips it anyway.
-Tuning.WASH_REVEAL_HOLD = 4.2
+Tuning.WASH_REVEAL_HOLD = 4
 
 -- The wash bay's lens, vertical field of view in degrees. WashController shoots the
 -- wash through it (see WASH_FOV there for why it is wider than the default 70), and

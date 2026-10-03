@@ -103,6 +103,10 @@ Artwork.IMAGE = {
 	-- nothing at the rim (smoothstep), so a caller tints it with ImageColor3.
 	-- tools/hud-icons/glow.svg.
 	glow = "rbxassetid://76655055685501",
+	-- One tile of the drifting pattern on the Shop and Index bars (HudTile): two WHITE
+	-- trefoils, staggered, on clear, so a caller tints and fades it.
+	-- tools/hud-icons/trefoil_tile.svg, 128px.
+	trefoilTile = "rbxassetid://123229088705923",
 	-- The warp bar's HOME and SHOPS portals (WarpController).
 	-- "House Icon" by uR1St3nLe4hH4lt0n, store decal 124662272665879.
 	house = "rbxassetid://82460327730975",

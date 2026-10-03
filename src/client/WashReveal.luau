@@ -35,6 +35,7 @@ local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage.Shared
 local Items = require(Shared.Config.Items)
@@ -85,6 +86,7 @@ local T = {
 	VALUE_AT = 0.9,
 	RECORD_AT = 0.6,
 	COUNT_TIME = 0.9,
+	HINT_AT = 0.4,
 	STAMP_AT = 1.25,
 	SECOND_STAMP_AT = 1.55,
 
@@ -803,6 +805,23 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		rateScale = scaler(label)
 	end
 
+	-- The skip hint, top centre, above the ribbon where it is easy to spot. E/Q/B ends the
+	-- show early (WashController's escape hatch); without this nobody knows they can.
+	local gamepad = string.find(UserInputService:GetLastInputType().Name, "Gamepad") ~= nil
+	local hint = UIKit.label(canvas, {
+		name = "SkipHint",
+		size = UDim2.fromOffset(500, 30),
+		position = UDim2.fromScale(0.5, 0.04),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		text = if gamepad then "PRESS B TO SKIP" else "PRESS E TO SKIP",
+		font = UIKit.Font.hero,
+		textSize = 26,
+		xAlign = Enum.TextXAlignment.Center,
+		color = Color3.new(1, 1, 1),
+		visible = false,
+	})
+	local hintScale = scaler(hint)
+
 	-- The 3D half, client-local under the camera: a rarity light on the nuke, and sparks.
 	local spot = Instance.new("Part")
 	spot.Name = "WashRevealSpot"
@@ -917,6 +936,9 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			if record and recordScale then
 				pop(record, recordScale, 0, 0.35)
 			end
+		end },
+		{ at = T.HINT_AT, done = false, run = function()
+			rise(hint, hintScale)
 		end },
 		{
 			at = T.VALUE_AT,

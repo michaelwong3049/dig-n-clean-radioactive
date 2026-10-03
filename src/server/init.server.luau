@@ -49,9 +49,11 @@ local ORDER = {
 	"PackService", -- the Starter / Pro Packs: cash, crates, luck + cash time in one receipt; needs Product + Economy + Crate + LuckBoost + CashBoost
 	"DailyRewardService", -- the 7-day login calendar; needs Economy + Crate + LuckBoost + CashBoost + Exhibit
 	"GroupRewardService", -- the group chest on Stage 1: join the group for cash + Speed + 2x luck, once; needs Economy + LuckBoost + Exhibit + Treadmill
+	"CodeService", -- the Shop's CODES section: group members redeem a code once for its reward; needs Economy + Crate + LuckBoost + CashBoost + Exhibit + Treadmill + GroupReward
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"MergeService", -- the Merge Reactor at Toxic Twilight: 3 copies in, 1 out; needs Station + Economy + Carry + Exhibit + Wash
 	"ReforgeService", -- the Reforge Station at Toxic Twilight: pay to reroll a nuke's bomb damage/radius, rare quality; same needs as Merge
+	"GiftService", -- gifting the held nuke to another player, both past Toxic Twilight; needs Carry + Dig + Wash
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
 	"BombService", -- dropping a held clean nuke as a bomb; copies ToolService's held model, needs Stage + Hazard + Dig
 	"LeaderboardService", -- mirrors data.cash into leaderstats for the player list; needs Data

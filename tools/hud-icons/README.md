@@ -14,6 +14,7 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | `mastery_medal.svg` | the Masteries bar above Shop (`MasteriesController`) | `medal` |
 | `settings_gear.svg` | the Settings button in the top-right corner (`SettingsController`) | `settingsGear` |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
+| `trefoil_tile.svg` | the faint trefoils drifting across the Shop and Index bars (white, tinted black in `HudTile`) | `trefoilTile` (128px) |
 | `speed_shoe.svg` | the SPEED row's sneaker (`SpeedController`) | `speedShoe` |
 | `edit_pencil.svg` | the pencil beside WALK SPEED that opens the walk-speed picker (`SpeedController`) | `editPencil` |
 | `cash_bundle.svg` | the cash row's bundle of notes (`CashController`) | `cashBundle` |

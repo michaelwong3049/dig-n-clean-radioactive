@@ -2,7 +2,8 @@
 --[[
 	GroupRewardService.luau — the group chest just outside Stage 1 (Config/GroupReward,
 	client GroupRewardController). Join the group, step in the ring, claim $25K + 25K
-	Speed + 5 min of 2x luck, once.
+	Speed + 15 min of 2x luck, once -- plus +10% cash forever (GroupReward.CASH_MULT,
+	read by StatResolver off `groupRewardClaimed`, so it lasts as long as the save).
 
 	THE CHEST IS PLACED HERE AT RUNTIME, not by build/Scenery: the user's imported
 	model (ServerStorage.GroupRewardChestModel, in the place file) is cloned, scaled
@@ -67,6 +68,9 @@ local function isMember(player: Player): boolean
 	return ok2 and member == true
 end
 
+--- Shared with CodeService: shop codes are group-only, by the same live check.
+GroupRewardService.isMember = isMember
+
 -- ── Claiming ─────────────────────────────────────────────────────────────────
 
 local function publish(player: Player, data: any)
@@ -80,6 +84,8 @@ local function grant(player: Player, data: any)
 	ExhibitService.refreshTreadmill(player)
 	TreadmillService.refresh(player)
 	LuckBoostService.grant(player, data, GroupReward.LUCK_SECONDS)
+	-- The permanent cash bonus is live the moment the flag is set; repaint the $/s.
+	ExhibitService.refreshStandCards(player)
 	publish(player, data)
 end
 

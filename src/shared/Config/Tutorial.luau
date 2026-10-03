@@ -3,7 +3,8 @@
 	Config/Tutorial — the new-player walkthrough's steps and what each one says.
 
 	ON REQUEST: first stage, then find a spot, pull the nuke up, clean it, put it on a
-	stand, buy the Bent Coil. The banner (client TutorialController) says only what to
+	stand, buy the Bent Coil, then the HOME / SHOPS buttons ("navigate"), and that is the
+	end: no "You're set!" card (removed on request). The banner (client TutorialController) says only what to
 	do NOW. It never says "step 3 of 6", on request, so there is no count anywhere in
 	here either.
 
@@ -17,7 +18,7 @@
 
 local Tutorial = {}
 
-export type StepId = "stage" | "dig" | "haul" | "clean" | "place" | "upgrade" | "finish"
+export type StepId = "stage" | "dig" | "haul" | "clean" | "place" | "upgrade" | "navigate"
 
 --- `title` is the whole banner. The banner went text-only on request (client
 --- TutorialController), so `hint` and `holdHint` are not drawn at the moment. They
@@ -30,8 +31,10 @@ export type Step = {
 	holdHint: string?,
 }
 
---- The walk, in order. `finish` is the "You're set!" card, not a task.
-Tutorial.ORDER = { "stage", "dig", "haul", "clean", "place", "upgrade", "finish" } :: { StepId }
+--- The walk, in order. `navigate` is the last: TutorialController points at the HOME
+--- and SHOPS buttons, and the walkthrough ends the moment you use one (WarpService) or
+--- after NAVIGATE_SECONDS.
+Tutorial.ORDER = { "stage", "dig", "haul", "clean", "place", "upgrade", "navigate" } :: { StepId }
 
 Tutorial.STEPS = {
 	stage = { title = "Head to the first stage", hint = "Follow the trail out of camp" },
@@ -48,8 +51,12 @@ Tutorial.STEPS = {
 		holdHint = "Pick your nuke from the hotbar, then hold E at an empty stand",
 	},
 	upgrade = { title = "Upgrade your detector", hint = "Buy the Bent Coil at the Detector Shop" },
-	finish = { title = "You're set!", hint = "Dig deeper, clean rarer nukes, fill your stands." },
+	navigate = { title = "Use Home and Shops to get around", hint = "Tap Home or Shops at the top of the screen" },
 } :: { [StepId]: Step }
+
+--- ON REQUEST, the "navigate" step ends the walkthrough by itself after this long if
+--- neither HOME nor SHOPS is pressed (walking home on foot is fine too).
+Tutorial.NAVIGATE_SECONDS = 45
 
 --- The tier the last step asks for: the $15 Bent Coil (Config/Gear.Detector).
 Tutorial.UPGRADE_TIER = 2
@@ -101,15 +108,21 @@ Tutorial.DIG_SPOT_IN = 18
 --- Station kinds that stay open for the whole walkthrough.
 local OPEN_STATIONS = { decon = true, pedestal = true }
 --- Steps on which the Detector shop is open.
-local SHOP_STEPS = { upgrade = true, finish = true }
+local SHOP_STEPS = { upgrade = true }
 
 function Tutorial.isActive(player: Player): boolean
 	return player:GetAttribute("TutorialActive") == true
 end
 
+--- Whether the walkthrough still shuts things. False on the last step ("navigate"):
+--- every task is done by then and it is pointing you at the shops, so they are open.
+function Tutorial.gated(player: Player): boolean
+	return Tutorial.isActive(player) and player:GetAttribute("TutorialStep") ~= "navigate"
+end
+
 --- Whether `player` may use the station (kind, id) right now.
 function Tutorial.stationOpen(player: Player, kind: string?, id: string?): boolean
-	if kind == nil or OPEN_STATIONS[kind] or not Tutorial.isActive(player) then
+	if kind == nil or OPEN_STATIONS[kind] or not Tutorial.gated(player) then
 		return true
 	end
 	return kind == "shop" and id == "Detector" and SHOP_STEPS[player:GetAttribute("TutorialStep")] == true
@@ -118,7 +131,7 @@ end
 --- Whether `player` may use this prompt right now. Only the prompts that open or buy
 --- something are named. Anything else (dig, crates, wash, stands, pickups) stays open.
 function Tutorial.promptOpen(player: Player, prompt: ProximityPrompt): boolean
-	if not Tutorial.isActive(player) then
+	if not Tutorial.gated(player) then
 		return true
 	end
 	local parent = prompt.Parent

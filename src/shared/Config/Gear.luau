@@ -366,6 +366,10 @@ Gear.Cleaner = {
 -- 40/44). haulPenalty was left alone, so a full bag drags a little less than the
 -- figures above say on the rungs that shrank.
 --
+-- BUFFED slightly on request (2026-10-03): 4/7/9/11/14/17/21/24/29/34/40/46 (was
+-- 4/6/8/10/12/15/18/21/25/30/35/40), roughly +15% on every bought rung. The bare
+-- 4-slot bag is untouched. haulPenalty left alone.
+--
 -- Faint Glow's reduction dropped 0.9000 -> 0.6296 in the third harshening pass, SOLELY
 -- to hit an explicit Stage 1 target (unshielded survival capped at 9 minutes, was ~33
 -- minutes) without touching Stage 1's ambient rate itself -- see this file's header.
@@ -385,18 +389,18 @@ Gear.Cleaner = {
 -- harder, not smoother.
 Gear.Aura = {
 	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 0.60, speedBonus = 0.00, blurb = "No aura yet. Buy one to shield yourself from the rads." },
-	{ name = "Static Veil", price = 22000, reduction = 0.9750, tolerance = 4.4, capacity = 6, haulPenalty = 0.48, speedBonus = 0.02, blurb = "Crackles more than it shields. Shields a little." },
-	{ name = "Lead Halo", price = 220000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, speedBonus = 0.04, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
-	{ name = "Ion Shroud", price = 1500000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, speedBonus = 0.06, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 3900000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, speedBonus = 0.08, blurb = "Burns hotter than the air. Walks into the red and back.", camp = "twilight" },
-	{ name = "Containment Nimbus", price = 60000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, speedBonus = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim.", camp = "twilight" },
+	{ name = "Static Veil", price = 22000, reduction = 0.9750, tolerance = 4.4, capacity = 7, haulPenalty = 0.48, speedBonus = 0.02, blurb = "Crackles more than it shields. Shields a little." },
+	{ name = "Lead Halo", price = 220000, reduction = 0.9920, tolerance = 13.4, capacity = 9, haulPenalty = 0.36, speedBonus = 0.04, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 1500000, reduction = 0.9970, tolerance = 38.4, capacity = 11, haulPenalty = 0.26, speedBonus = 0.06, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 3900000, reduction = 0.9988, tolerance = 98.4, capacity = 14, haulPenalty = 0.18, speedBonus = 0.08, blurb = "Burns hotter than the air. Walks into the red and back.", camp = "twilight" },
+	{ name = "Containment Nimbus", price = 60000000, reduction = 0.9989, tolerance = 105.0, capacity = 17, haulPenalty = 0.10, speedBonus = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim.", camp = "twilight" },
 	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, Toxic Aurora and
 	-- Eclipse Veil are Twilight's (tiers 5-8 with the Mantle and Nimbus) and the last
 	-- three Magma Hollow's (`camp`, Gear.campOf). Shapes picked by the user
 	-- from mockup rounds (Shared/AuraLook's aurora / torus / wings / seraph / vortex).
 	--
 	-- DUSK CORONA WAS CUT AND THE REST SLID DOWN ONE RUNG, on request. STATS STAYED WITH
-	-- THE SLOT: tier 7 was the 130M rung (28-slot bag then, 18 since the nerf), just named Toxic
+	-- THE SLOT: tier 7 was the 130M rung (28-slot bag then, 21 now), just named Toxic
 	-- Aurora now, and so on up -- so the economy pacing fit (#527) still holds. The old
 	-- top slot (130B, 48 slots) went with it. Stage 12 is now rated past the end of the
 	-- ladder: the Crimson Vortex lasts about a minute there (Tuning.ZONE_SURVIVAL's
@@ -418,17 +422,17 @@ Gear.Aura = {
 	-- every stage below lasts longer the higher the aura.
 	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
-	{ name = "Toxic Aurora", price = 260000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, speedBonus = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 1200000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, speedBonus = 0.14, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 5900000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, speedBonus = 0.16, blurb = "It lifts the load before you do.", camp = "magma" },
-	{ name = "Seraph", price = 26000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, speedBonus = 0.18, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
-	{ name = "Crimson Vortex", price = 120000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, speedBonus = 0.20, blurb = "A red storm with you in the eye of it.", camp = "magma" },
+	{ name = "Toxic Aurora", price = 260000000, reduction = 0.9991, tolerance = 140.0, capacity = 21, haulPenalty = 0.08, speedBonus = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 1200000000, reduction = 0.99934, tolerance = 190.0, capacity = 24, haulPenalty = 0.06, speedBonus = 0.14, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 5900000000, reduction = 0.99951, tolerance = 255.0, capacity = 29, haulPenalty = 0.045, speedBonus = 0.16, blurb = "It lifts the load before you do.", camp = "magma" },
+	{ name = "Seraph", price = 26000000000, reduction = 0.99963, tolerance = 340.0, capacity = 34, haulPenalty = 0.03, speedBonus = 0.18, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
+	{ name = "Crimson Vortex", price = 120000000000, reduction = 0.99973, tolerance = 455.0, capacity = 40, haulPenalty = 0.02, speedBonus = 0.20, blurb = "A red storm with you in the eye of it.", camp = "magma" },
 	-- STAGE 12'S OWN, on request (2026-10-03, option 3 of six lava mockups): a molten serpent
 	-- coiling up the body. Ground Zero was rated past the end of the ladder (the Vortex's
 	-- one-minute raid); now it has a rung. Fitted like the rest: reduction so the meter
 	-- takes ~13 min at Stage 12's far edge (100 / (600 * 0.00021) = 794s), tolerance just
 	-- over its deepRads, price on the ladder's widening stride (x5.5 off the Vortex).
-	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 40, haulPenalty = 0.015, speedBonus = 0.22, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
+	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 46, haulPenalty = 0.015, speedBonus = 0.22, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────

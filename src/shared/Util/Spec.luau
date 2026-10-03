@@ -39,6 +39,7 @@ local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
+local GroupReward = require(Config.GroupReward)
 local Packs = require(Config.Packs)
 local RareDrop = require(Config.RareDrop)
 local Masteries = require(Config.Masteries)
@@ -2868,6 +2869,18 @@ function Spec.run(): boolean
 				math.abs(both.sellMultiplier / plain.sellMultiplier - CashBoost.MULT * GamePasses.CASH) < 1e-9
 			)
 			check("§cashboost spent time is no boost", spent.sellMultiplier == plain.sellMultiplier)
+		end
+
+		-- The group chest's permanent cash bonus (Config/GroupReward): both payouts,
+		-- only once claimed.
+		do
+			local member = StatResolver.get({ level = 1, gear = {}, perks = {}, groupRewardClaimed = true })
+			check(
+				"§groupreward claimed adds the permanent cash bonus to sales and stand income",
+				math.abs(member.sellMultiplier / plain.sellMultiplier - GroupReward.CASH_MULT) < 1e-9
+					and math.abs(member.yieldMultiplier / plain.yieldMultiplier - GroupReward.CASH_MULT) < 1e-9
+					and member.luckBoost == plain.luckBoost
+			)
 		end
 
 		-- The packs (Config/Packs): real crates, own keys and ids, and the contents the
