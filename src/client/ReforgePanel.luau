@@ -496,7 +496,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = "Pick a washed nuke below. Each reforge rolls new damage and radius \u{2014} keep them or revert, the cash is spent either way. Every reforge of the same nuke costs a little more.",
+		text = "Pick a washed nuke below. Each reforge rolls new damage and radius \u{2014} keep them or revert, the cash is spent either way. Every reforge of the same nuke costs more.",
 		ink = false,
 	})
 

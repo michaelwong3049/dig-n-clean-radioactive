@@ -42,9 +42,9 @@ Reforge.QUALITIES = { "Pristine", "Irradiated", "Fused" }
 
 --- Price: COST_SHARE of the copy's sell value, +COST_STEP of that per reforge it has
 --- already had, never under COST_MIN.
-Reforge.COST_SHARE = 0.25
-Reforge.COST_STEP = 0.10
-Reforge.COST_MIN = 100
+Reforge.COST_SHARE = 1.0
+Reforge.COST_STEP = 0.25
+Reforge.COST_MIN = 1000
 
 --- One reforge per player per this many seconds: the anvil's strike plays that long.
 Reforge.COOLDOWN = 1.2
