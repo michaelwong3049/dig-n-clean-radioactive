@@ -43,9 +43,19 @@ local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
 	-- One colour per row of the panel, so the ladder reads as three tiers: a warm orange,
 	-- a light blue for the second, a gold for the last (which holds the shiny plate).
-	tier = { Color3.fromHex("FF9A2E"), Color3.fromHex("63C5F2"), Color3.fromHex("F7C531") },
+	-- Each is a top-lit gradient (top -> bottom) and a pale rim of the same hue.
+	tier = {
+		{ top = Color3.fromHex("FFB75E"), bottom = Color3.fromHex("F27A1A"), rim = Color3.fromHex("FFE1B4") },
+		{ top = Color3.fromHex("A4DEFF"), bottom = Color3.fromHex("4DA6EE"), rim = Color3.fromHex("E8F7FF") },
+		{ top = Color3.fromHex("FFE680"), bottom = Color3.fromHex("F4B21E"), rim = Color3.fromHex("FFF5C8") },
+	},
+	doneTop = Color3.fromHex("5A6068"),
+	doneBottom = Color3.fromHex("383D43"),
+	doneRim = Color3.fromHex("7A828B"),
+	-- The timer pill: a pale track with a deeper fill that grows toward the gift opening.
+	track = Color3.fromHex("8CC2FF"),
+	fill = Color3.fromHex("2F7DEB"),
 	cardDone = Color3.fromHex("3A3F45"),
-	pill = Color3.fromHex("4C9BFF"),
 	pillDone = Color3.fromHex("2A2E33"),
 	claim = Color3.fromHex("3EBE5A"),
 	dim = Color3.fromHex("9AA3AD"),
@@ -78,6 +88,10 @@ local POP = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 type Card = {
 	button: TextButton,
 	icon: ImageLabel,
+	sheen: UIGradient?,
+	fill: Frame,
+	pulse: Tween?,
+	bob: Tween?,
 	edge: UIStroke,
 	lines: { TextLabel },
 	pill: TextButton,
@@ -235,9 +249,13 @@ end
 
 -- ── The panel ───────────────────────────────────────────────────────
 
---- The colour of the row gift `index` sits in.
-local function tierColor(index: number): Color3
+--- The colours of the row gift `index` sits in.
+local function tierOf(index: number): { top: Color3, bottom: Color3, rim: Color3 }
 	return PANEL.tier[math.clamp((index - 1) // COLS + 1, 1, #PANEL.tier)]
+end
+
+local function gradientOf(top: Color3, bottom: Color3): ColorSequence
+	return ColorSequence.new(top, bottom)
 end
 
 local function buildCard(parent: Instance, index: number, position: Vector2): Card
@@ -247,20 +265,24 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	button.Text = ""
 	button.Size = UDim2.fromOffset(CARD_W, CARD_H)
 	button.Position = UDim2.fromOffset(position.X, position.Y)
-	button.BackgroundColor3 = tierColor(index)
+	button.BackgroundColor3 = Color3.new(1, 1, 1) -- the gradient below carries the colour
 	button.BorderSizePixel = 0
 	button.ZIndex = 11
 	button.Parent = parent
 	round(button, 14)
-	local cardEdge = edge(button, PANEL.ink, 3)
-	-- A soft top-lit sheen, so the plates are not flat. Not on the big last plate:
-	-- ShinyCard clears a card's gradients when it takes over (and has its own look).
+	local tier = tierOf(index)
+	local cardEdge = edge(button, tier.rim, 3)
+	-- The plate's colour is a top-lit gradient. Not on the big last plate: ShinyCard
+	-- clears a card's gradients when it takes over (and has its own look).
 	local giftDef = PlaytimeGifts.GIFTS[index]
+	local sheen: UIGradient? = nil
 	if not (giftDef and giftDef.big) then
-		local sheen = Instance.new("UIGradient")
+		sheen = Instance.new("UIGradient")
 		sheen.Rotation = 90
-		sheen.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(0.82, 0.82, 0.82))
+		sheen.Color = gradientOf(tier.top, tier.bottom)
 		sheen.Parent = button
+	else
+		button.BackgroundColor3 = tier.bottom
 	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
@@ -295,12 +317,22 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	pill.AnchorPoint = Vector2.new(0.5, 1)
 	pill.Position = UDim2.new(0.5, 0, 1, -8)
 	pill.Size = UDim2.new(1, -16, 0, 34)
-	pill.BackgroundColor3 = PANEL.pill
+	pill.BackgroundColor3 = PANEL.track
 	pill.BorderSizePixel = 0
+	pill.ClipsDescendants = true
 	pill.ZIndex = 12
 	pill.Parent = button
 	round(pill, 12)
 	edge(pill, PANEL.ink, 2)
+	-- The progress fill: how far the session clock has come toward this gift.
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.BackgroundColor3 = PANEL.fill
+	fill.BorderSizePixel = 0
+	fill.ZIndex = 12
+	fill.Parent = pill
+	round(fill, 12)
 	local pillLabel = inked(pill, {
 		Name = "Time",
 		Text = "",
@@ -321,6 +353,10 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	return {
 		button = button,
 		icon = icon,
+		sheen = sheen,
+		fill = fill,
+		pulse = nil,
+		bob = nil,
 		edge = cardEdge,
 		lines = lines,
 		pill = pill,
@@ -372,14 +408,49 @@ local function paintTimes()
 				shiny[index]()
 				shiny[index] = nil
 			end
-			if shiny[index] == nil then
-				card.button.BackgroundColor3 = if done
-					then PANEL.cardDone
-					else tierColor(index)
+			local tier = tierOf(index)
+			if card.sheen then
+				card.sheen.Color = if done then gradientOf(PANEL.doneTop, PANEL.doneBottom) else gradientOf(tier.top, tier.bottom)
+			elseif shiny[index] == nil then
+				-- The big plate with no effect running (claimed, or the panel is hidden).
+				card.button.BackgroundColor3 = if done then PANEL.doneBottom else tier.bottom
 			end
-			card.edge.Color = if ready then PANEL.gold else PANEL.ink
+			card.edge.Color = if ready then PANEL.gold elseif done then PANEL.doneRim else tier.rim
 			card.edge.Thickness = if ready then 5 else 3
-			card.pill.BackgroundColor3 = if done then PANEL.pillDone elseif ready then PANEL.claim else PANEL.pill
+			-- A ready gift breathes: its gold rim pulses, and its picture bobs (the big plate's
+			-- picture is ShinyCard's to bob).
+			if ready and card.pulse == nil then
+				card.edge.Transparency = 0
+				local pulse = TweenService:Create(
+					card.edge,
+					TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+					{ Transparency = 0.6 }
+				)
+				pulse:Play()
+				card.pulse = pulse
+				if not gift.big then
+					local bob = TweenService:Create(
+						card.icon,
+						TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+						{ Position = UDim2.fromScale(0.5, 0) }
+					)
+					bob:Play()
+					card.bob = bob
+				end
+			elseif not ready and card.pulse ~= nil then
+				card.pulse:Cancel()
+				card.pulse = nil
+				card.edge.Transparency = 0
+				if card.bob then
+					card.bob:Cancel()
+					card.bob = nil
+					card.icon.Position = UDim2.new(0.5, 0, 0, 6)
+				end
+			end
+			local total = gift.minutes * 60
+			card.fill.Size = UDim2.fromScale(math.clamp(now / total, 0, 1), 1)
+			card.fill.Visible = not ready and not done
+			card.pill.BackgroundColor3 = if done then PANEL.pillDone elseif ready then PANEL.claim else PANEL.track
 			card.pillLabel.Text = if done then "CLAIMED" elseif ready then "CLAIM" else clock(gift.minutes * 60 - now)
 			card.pillLabel.TextSize = if done or ready then 20 else 22
 			for _, label in card.lines do
