@@ -107,22 +107,22 @@
 	station. Built here, filled by ExhibitService.renderLocker, opened by its own E
 	prompt into the locker panel (client/LockerPanel); see buildQuarantineLocker.
 
-	9 stands: a 3-column (`GRID_COLS`) by 4-row (`GRID_ROWS`) grid with the
-	centre column's front three left out, so the middle is open floor up to
-	the back-centre stand. Slot 1 is back-left, slot 3 back-right, slot 9
-	front-right (`GRID_SLOTS`, `slotOffset`). Also slightly bigger than the old
+	12 stands: a full 3-column (`GRID_COLS`) by 4-row (`GRID_ROWS`) grid,
+	numbered left to right then back row to front row. Slot 1 is back-left,
+	slot 3 back-right, slot 12 front-right (`GRID_SLOTS`, `slotOffset`). Also
+	slightly bigger than the old
 	plinths (RISER_BASE/RISER_TOP/RISER_RIM all up ~20%), on request. The
 	cleansing station, its hose rig and the fluid bottle occupy the +X side of
 	the entrance extension, the treadmill the -X side (where the wash pad stood
 	until the pad was removed on request), with a deliberate safe gap between
 	their station radii.
 
-	FLOORS: THE GROUND 9 ARE FREE, AND UP TO TWO MORE STOREYS ARE BOUGHT.
-	A base can be built up to Config/Floors.MAX = 3 floors. The ground floor's 9
+	FLOORS: THE GROUND 12 ARE FREE, AND UP TO TWO MORE STOREYS ARE BOUGHT.
+	A base can be built up to Config/Floors.MAX = 3 floors. The ground floor's 12
 	stands are usable from the moment a plot is claimed; each floor bought on top
 	(Floors.PRICES, at the sign at the foot of the next flight of stairs) adds the
-	same 9-stand gallery, Floors.UPPER_SLOTS more. Slot numbers run on across floors:
-	1..9 are the ground grid above, 10..18 floor 2, 19..27 floor 3
+	same 12-stand gallery, Floors.UPPER_SLOTS more. Slot numbers run on across floors:
+	1..12 are the ground grid above, 13..24 floor 2, 25..36 floor 3
 	(slotPlacement). Every plot is BUILT with all of its floors; ExhibitService
 	hides the ones its owner has not bought (Plots.setFloors) — see buildFloor.
 
@@ -211,14 +211,14 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 91
+local BUILDER_VERSION = 92
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
 
 Plots.COUNT = 6
 -- Every stand built per base, across all of its floors (Config/Floors): the ground
--- floor's 9 plus UPPER_SLOTS on each floor above. Floors a plot's owner has not
+-- floor's 12 plus UPPER_SLOTS on each floor above. Floors a plot's owner has not
 -- bought are built too, and hidden at runtime (Plots.setFloors).
 Plots.VISIBLE_SLOTS = Floors.MAX_SLOTS
 
@@ -528,11 +528,9 @@ local function apronSkip(x: number, z: number): boolean
 	return false
 end
 
---- STAND LAYOUT — a 3-column x 4-row grid with the centre column's front three left
---- out: 9 stands a floor (on request, down from the full 12). The back row keeps all
---- three; the three rows in front of it keep only their outer pair, so the middle of
---- the floor is open from the entrance arch to the back-centre stand
---- (buildGalleryLanes lays its two aisles either side of it).
+--- STAND LAYOUT — a full 3-column x 4-row grid, 12 stands a floor. It was cut to 9
+--- (the centre column's front three left out) and then put back to 12 on request;
+--- buildGalleryLanes' two aisles run either side of the centre column either way.
 ---
 --- GRID_COLS are 3 evenly spaced x's (pitch 20, symmetric about x = 0): ±20
 --- leaves a wide margin to the side Trim (well past the old flanking columns'
@@ -543,16 +541,16 @@ end
 --- back wall — counting DOWN from there toward the entrance. The front row
 --- (z = -6) stays clear of PlotSpawn (z = -24).
 ---
---- GRID_SLOTS numbers the stands: the back row left to right (slot 1 back-left, slot 2
---- back-centre, slot 3 back-right), then each row in front of it left then right, so
---- slot 9 is front-right. Each entry is a { column, row } index pair.
+--- GRID_SLOTS numbers the stands left to right, back row to front row: slot 1 is
+--- back-left, slot 2 back-centre, slot 3 back-right, slot 12 front-right. Each entry
+--- is a { column, row } index pair.
 local GRID_COLS = { -20, 0, 20 }
 local GRID_ROWS = { 45, 28, 11, -6 }
 local GRID_SLOTS = {
 	{ 1, 1 }, { 2, 1 }, { 3, 1 },
-	{ 1, 2 }, { 3, 2 },
-	{ 1, 3 }, { 3, 3 },
-	{ 1, 4 }, { 3, 4 },
+	{ 1, 2 }, { 2, 2 }, { 3, 2 },
+	{ 1, 3 }, { 2, 3 }, { 3, 3 },
+	{ 1, 4 }, { 2, 4 }, { 3, 4 },
 }
 
 local function slotOffset(slot: number): (number, number)
@@ -561,8 +559,8 @@ local function slotOffset(slot: number): (number, number)
 end
 assert(#GRID_SLOTS == Floors.GROUND_SLOTS, "the ground grid must hold exactly Floors.GROUND_SLOTS stands")
 
---- THE UPPER FLOORS' GALLERY — the ground's own 9-stand layout (Floors.UPPER_SLOTS
---- = 9), on every floor above the ground (see buildFloor). The outer columns' plinths
+--- THE UPPER FLOORS' GALLERY — the ground's own 12-stand layout (Floors.UPPER_SLOTS
+--- = 12), on every floor above the ground (see buildFloor). The outer columns' plinths
 --- (edge at +/-24.45) leave the side corridors clear, and the front
 --- row (plinth front at z -10.45) sits behind the deck's front rail at FLOOR.front.
 --- The walkway corridor past them (out to the stair gates) starts at |x| 27.2.
@@ -576,7 +574,7 @@ local function floorTopY(floor: number): number
 end
 
 --- Where a slot's stand goes: plot-local x and z, and the top of the floor it stands
---- on. Slots run on across floors (Config/Floors), so 1..9 are the ground grid above
+--- on. Slots run on across floors (Config/Floors), so 1..12 are the ground grid above
 --- and every floor past that repeats the same layout one storey up.
 local function slotPlacement(slot: number): (number, number, number)
 	local floor, i = Floors.floorOf(slot)
@@ -3346,14 +3344,13 @@ end
 
 --- THE GALLERY WALKWAYS — the plaza's cream path carried on into the base, so the deck
 --- reads as a floor plan instead of one brown field (on request, the Gallery pass).
---- Kept as-is when the floors went to nine stands (on request): the open middle in
---- front of the back-centre stand is plain floor between the two aisles.
+--- Kept as-is through the nine-stand cut and back to twelve (on request).
 ---
 ---        ┌───────────── back landing ─────────────┐
 ---        │  [S]  ║     [S]      ║  [S]              │
----        │  [S]  ║ aisle    aisle║  [S]             │   ║ = aisle between
----        │  [S]  ║              ║  [S]              │       stand columns
----        │  [S]  ║              ║  [S]              │
+---        │  [S]  ║ aisle [S] aisle║  [S]             │   ║ = aisle between
+---        │  [S]  ║     [S]      ║  [S]              │       stand columns
+---        │  [S]  ║     [S]      ║  [S]              │
 ---        │  ════════ cross band ═══════             │
 ---        │  tub        ║entry║        pad           │
 ---        └─────────────╨─arch╨──────────────────────┘
