@@ -173,8 +173,12 @@ local RAY_LEVELS = 32 -- lit quantisation: one cached NumberSequence per level. 
 -- it: the whole spot now settles in ~1.15s rather than 1.5s. The fan is allowed to be
 -- still rising when the player arrives -- a ray on its way up is motion, not absence,
 -- and it is the CRACKS being missing that made the pick-up card look stranded.
-local RAY_GROW = 0.7 -- seconds for one ray to grow up out of the ground
-local RAY_STAGGER = 0.45 -- the last ray starts growing up to this long after the first
+-- POP PASS (on request: spots felt slow and delayed coming up off the ground). The
+-- rays now shoot up on an ease-out with a small overshoot (popOut) instead of easing
+-- in, and the whole fan is up in ~0.55s rather than ~1.15s.
+local RAY_GROW = 0.4 -- seconds for one ray to grow up out of the ground
+local RAY_STAGGER = 0.15 -- the last ray starts growing up to this long after the first
+local RAY_OVERSHOOT = 1.2 -- popOut's back-ease strength: how far a ray springs past full before settling
 
 -- NOTHING SNAPS (on request: the first fan popped in at full strength and blinked
 -- up hard, which read as sudden and awkward). A spot's cracks, core and light fade in
@@ -208,11 +212,14 @@ local RAY_STAGGER = 0.45 -- the last ray starts growing up to this long after th
 -- PROMPT_MIN_SHOWN, which is the other half of this fix). 0.4 puts the cracks at ~87%
 -- by the time the starting kit arrives and ~58% at the fastest arrival in the game.
 --
--- DO NOT close the rest of that gap by shortening this further. Under ~0.3 the reveal
--- stops reading as ground splitting open and starts reading as a part being switched
--- on, which is the snap the whole module is built to avoid. The card waiting a beat is
--- the cheaper half.
-local REVEAL = 0.4 -- seconds for the cracks' glow (and FieldController's core + light) to fade in
+-- POP PASS: 0.4 on a smoothstep still read as slow and delayed (on request) -- a
+-- smoothstep starts flat, so the spot was only ~16% up a tenth of a second in. It is
+-- now 0.25 on an ease-OUT (popIn): ~70% up by 0.08s, then it settles softly, so it
+-- reads as the ground cracking open fast rather than a part being switched on. That
+-- puts the cracks fully up by the time the starting kit arrives (0.31s) and ~99% at
+-- the fastest arrival (0.22s). Keep the ease-out if this is ever shortened again: it is the
+-- soft settle at the END that stops a fast reveal from looking like a snap.
+local REVEAL = 0.25 -- seconds for the cracks' glow (and FieldController's core + light) to fade in
 local FADE_OUT = 0.6 -- seconds for a retired spot to fade away to nothing
 local FADE_BACK = 0.3 -- seconds for a retired spot to come back if it is reached again
 local ON_IT_EASE = 5 -- rate the standing-on-it flare eases in and out (1/s)
@@ -652,6 +659,18 @@ local function smooth(x: number): number
 	return x * x * (3 - 2 * x)
 end
 
+-- Ease-out cubic: leaves the ground fast and settles gently -- the reveal's curve.
+local function popIn(x: number): number
+	x = 1 - math.clamp(x, 0, 1)
+	return 1 - x * x * x
+end
+
+-- Ease-out back: a ray shoots up, springs a little past full, and settles.
+local function popOut(x: number): number
+	x = math.clamp(x, 0, 1) - 1
+	return 1 + (RAY_OVERSHOOT + 1) * x * x * x + RAY_OVERSHOOT * x * x
+end
+
 --- Grow and breathe the fan. Each ray slides up out of the ground on its own delay
 --- (eased in and out, fading in as it rises), then breathes on a slow sine -- rarer
 --- spots a little quicker. Standing on the spot blends the whole fan up toward full and
@@ -668,9 +687,9 @@ local function stepRays(burst: Burst, now: number, age: number, loud: number, al
 	local turn = if burst.raySpin ~= 0 then CFrame.Angles(0, now * burst.raySpin, 0) else nil
 	for _, ray in burst.rays do
 		local grow = math.clamp((age - ray.delay) / RAY_GROW, 0, 1)
-		-- Eased in AND out: an ease-out alone still leaves the ground at full speed,
-		-- which is exactly the jolt this is here to remove.
-		local extend = smooth(grow) * alive
+		-- Shoots up off the ground and springs a touch past full before settling (POP
+		-- PASS: the old ease-in-and-out made every ray dawdle on its way out).
+		local extend = popOut(grow) * alive
 		if moving then
 			ray.extend = extend
 			-- Its own surge on a beat off the blink's, so the fan flares unevenly.
@@ -685,7 +704,8 @@ local function stepRays(burst: Burst, now: number, age: number, loud: number, al
 
 		local breathe = RAY_DIM + (1 - RAY_DIM) * (0.5 + 0.5 * math.sin(now * speed * ray.rate + ray.phase))
 		local flare = 0.9 + 0.1 * math.sin(now * 8 + ray.phase)
-		local lit = (breathe + (flare - breathe) * burst.onIt) * extend
+		-- Capped: the overshoot stretches the ray, it must not index past RAY_LEVELS.
+		local lit = (breathe + (flare - breathe) * burst.onIt) * math.min(extend, 1)
 
 		local level = math.floor(lit * RAY_LEVELS + 0.5)
 		if level ~= ray.level then
@@ -765,7 +785,7 @@ end
 --- way. Only meaningful after the frame's SpotCracks.step.
 function SpotCracks.shown(burst: Burst, now: number): number
 	local born = burst.born
-	return if born then smooth((now - born) / REVEAL) * smooth(burst.life) else 0
+	return if born then popIn((now - born) / REVEAL) * smooth(burst.life) else 0
 end
 
 --- "Nobody is revealing this spot any more" (`dying` true), or "somebody reached it

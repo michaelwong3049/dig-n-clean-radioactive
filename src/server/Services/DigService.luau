@@ -1555,6 +1555,7 @@ local function stepPlayer(player: Player, dt: number)
 				strength = if following then math.clamp(1 - (following.distance / stats.detectorRadius), 0, 1) else 0,
 				rarityHint = followRarityHint,
 				contacts = contactPayload(surviving, position, stats, player.UserId),
+				origin = position,
 				newContacts = noteContacts(player, surviving),
 				digProgress = 0,
 				locked = false,
@@ -1579,8 +1580,9 @@ local function stepPlayer(player: Player, dt: number)
 	-- this player's own reading on the very first tick of the lock.
 	local shownWindow = if signal.fuseWindow > 0 then signal.fuseWindow else fuseWindow or 0
 
-	-- OFFSETS INSIDE THE REVEAL RADIUS ONLY. No world coordinates, no uids, and
-	-- nothing the player is not already looking at a glow for.
+	-- OFFSETS INSIDE THE REVEAL RADIUS ONLY. No signal world coordinates (the one
+	-- position sent is the player's own), no uids, and nothing the player is not
+	-- already looking at a glow for.
 	sweepRemote:FireClient(player, {
 		inStage = true,
 		stageId = stageId,
@@ -1588,6 +1590,13 @@ local function stepPlayer(player: Player, dt: number)
 		hasSignal = true,
 		strength = strength,
 		contacts = contactPayload(contacts, position, stats, player.UserId),
+		-- WHERE THE OFFSETS ARE MEASURED FROM -- the player's own position as the server
+		-- saw it this tick, so nothing anyone cannot already see. The client used to
+		-- re-snapshot its OWN root when the payload landed, but that is ahead of the
+		-- server's copy by a round of replication lag: at a decent run speed the drift
+		-- beat CONTACT_MATCH_TOLERANCE, no contact ever matched its aura, and a short
+		-- detector on a fast player never showed a single spot.
+		origin = position,
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
 		modifierHint = modifierHint,
