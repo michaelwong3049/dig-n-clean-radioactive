@@ -79,6 +79,13 @@ Detonation.TEMPER_BANDS = {
 -- (Shared/Detonation.isCalmFuse).
 Detonation.TUTORIAL_MIN_TEMPER = 0.85
 
+-- ...AND, ON REQUEST, IT IS VERY HARD TO BLOW UP AT ALL. The tutorial spot skips
+-- windowFor and burns this flat window instead (DigService stepPlayer): a minute, so
+-- it arms only after ~48s of holding on -- far longer than even a lazy starter-magnet
+-- pull of a shallow Common takes. The fuse still burns and the bar still warms, so the
+-- lesson ("let go before it explodes") is there to read; it just never catches anyone.
+Detonation.TUTORIAL_WINDOW = 60
+
 -- RARER NUKES ARE LESS STABLE. Multiplies BASE_WINDOW. Monotonic non-increasing down
 -- Rarity.ORDER (Spec pins it): the find worth the most is the one with the shortest
 -- fuse, which is the same inversion the decay clock makes (PLAN §3.6) on purpose.

@@ -1467,11 +1467,15 @@ local function stepPlayer(player: Player, dt: number)
 	-- A CRATE BURNS THE SAME FUSE. It is disguised as its stand-in nuke, and a lump
 	-- that never heated would give it away; if it goes off, the crate is lost with it.
 	-- ON REQUEST the tutorial's safe dig burns its fuse like any other (the banner says
-	-- "before it explodes"); it is only the roll that is kept a plain Common.
+	-- "before it explodes"); it is only the roll that is kept a plain Common. The tutorial
+	-- SPOT itself takes DetonationConfig.TUTORIAL_WINDOW, long enough that it never
+	-- actually catches a new player.
 	local fuseWindow: number? = nil
 	if isLocked then
 		local item = Items.get(itemId)
-		fuseWindow = if signal.rareDrop
+		fuseWindow = if signal.tutorial
+			then DetonationConfig.TUTORIAL_WINDOW
+			elseif signal.rareDrop
 			then Detonation.rareDropWindowFor(
 				rarity,
 				item.weight,
