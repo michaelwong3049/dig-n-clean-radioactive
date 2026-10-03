@@ -603,6 +603,28 @@ function Spec.run(): boolean
 		check("§merge Toxic Twilight stands a Merge Reactor", (Camps.get("twilight") :: any) ~= nil and (Camps.get("twilight") :: any).mergeReactor == true and reactors >= 1)
 	end
 
+	-- FOUR STAGES PER ZONE: every gap Config/Stages leaves in the chain (CAMP_AFTER) is
+	-- filled by exactly one site camp, clipped at that stage's east edge and opening on
+	-- the next stage's west edge -- Stages' CAMP_GAP and Camps' disc offset agreeing.
+	do
+		for _, stageId in Stages.CAMP_AFTER do
+			local _, _, eastX = Stages.bounds(stageId)
+			local nextWestX = Stages.bounds(stageId + 1)
+			local found = 0
+			for _, def in Camps.sites() do
+				if def.clipX and math.abs(def.clipX - eastX) < 0.5 then
+					found += 1
+					check(
+						`§camp {def.name} opens on Stage {stageId + 1}'s west edge ({def.exitX} vs {nextWestX})`,
+						def.exitX ~= nil and math.abs(def.exitX - nextWestX) < 0.5 and not def.comingSoon
+					)
+				end
+			end
+			check(`§camp exactly one site camp sits past Stage {stageId} (found {found})`, found == 1)
+		end
+		check(`§camp every site camp fills a stage gap ({#Camps.sites()} sites, {#Stages.CAMP_AFTER} gaps)`, #Camps.sites() == #Stages.CAMP_AFTER)
+	end
+
 	-- THE ZONE SURVIVAL CURVE (Tuning.ZONE_SURVIVAL), pinned to the user's targets.
 	-- Read straight off Radiation.zoneSurvival: the aura's share of the damage only,
 	-- seconds a full health bar lasts. The exposure meter stacks on top of this.

@@ -34,7 +34,9 @@
 	floor stays open (`digFloor`), held off its own inner wall by DIG_FLOOR_MARGIN so
 	even a GIGA roll (Config/Payload) has room to come up.
 
-	UNITS. `center` is world {x, z}. `radius` is the crest's distance from the centre
+	UNITS. `center` is world {x, z}, authored as written against Stage 6's old centre
+	x = 1697 and slid onto wherever Stage 6 sits now (`at` below), so moving the stage
+	chain carries the craters with it. `radius` is the crest's distance from the centre
 	along the long axis, before any wobble; everything radial is then a fraction of the
 	crest distance on that bearing (`rho`): `floorFrac` is where the inner wall meets the
 	floor, `outerFrac` where the outer flank meets the plain. Bearings are degrees in the
@@ -62,7 +64,17 @@ export type Crater = {
 	vents: number?, -- smoking cracks in the rim (build/CraterField); none if nil
 }
 
+local Stages = require(script.Parent.Stages)
+
 local StageCraters = {}
+
+--- The crater layout was authored in world X with Stage 6 centred at x = 1697. `at`
+--- keeps those numbers readable and shifts them by however far Stage 6 has moved since
+--- (FOUR STAGES PER ZONE moved it east past Toxic Twilight, 2026-10-03).
+local AUTHORED_STAGE6_X = 1697
+local function at(x: number, z: number): { number }
+	return { x - AUTHORED_STAGE6_X + Stages.get(6).center[1], z }
+end
 
 --- How far inside the floor's edge (in rho) a signal must sit on a `digFloor` crater. On
 --- the big crater that is 3-4 studs of floor between the nearest dig and the foot of the
@@ -83,7 +95,7 @@ StageCraters.DEFS = {
 	{
 		name = "GreatCrater",
 		stageId = 6,
-		center = { 1680, 10 },
+		center = at(1680, 10),
 		radius = 38,
 		aspect = 1.24,
 		yaw = 22,
@@ -105,7 +117,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock1",
 		stageId = 6,
-		center = { 1576, -45 },
+		center = at(1576, -45),
 		radius = 6.5,
 		aspect = 1.15,
 		yaw = 60,
@@ -122,7 +134,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock2",
 		stageId = 6,
-		center = { 1590, 50 },
+		center = at(1590, 50),
 		radius = 5,
 		aspect = 1.1,
 		yaw = 140,
@@ -139,7 +151,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock3",
 		stageId = 6,
-		center = { 1630, -54 },
+		center = at(1630, -54),
 		radius = 10,
 		aspect = 1.2,
 		yaw = 10,
@@ -157,7 +169,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock4",
 		stageId = 6,
-		center = { 1750, -33 },
+		center = at(1750, -33),
 		radius = 11.5,
 		aspect = 1.3,
 		yaw = 115,
@@ -175,7 +187,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock5",
 		stageId = 6,
-		center = { 1772, 47 },
+		center = at(1772, 47),
 		radius = 8.5,
 		aspect = 1.18,
 		yaw = 35,
@@ -192,7 +204,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock6",
 		stageId = 6,
-		center = { 1814, -54 },
+		center = at(1814, -54),
 		radius = 6,
 		aspect = 1.12,
 		yaw = 160,
@@ -209,7 +221,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock7",
 		stageId = 6,
-		center = { 1801, 13 },
+		center = at(1801, 13),
 		radius = 7,
 		aspect = 1.2,
 		yaw = 80,
@@ -226,7 +238,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock8",
 		stageId = 6,
-		center = { 1740, 60 },
+		center = at(1740, 60),
 		radius = 5.5,
 		aspect = 1.1,
 		yaw = 5,

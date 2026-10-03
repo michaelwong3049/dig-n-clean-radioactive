@@ -84,25 +84,24 @@ export type CampDef = {
 
 local Camps = {}
 
---- Stage 6's east edge. The Crater's corridor opens straight into the Twilight disc
---- here, so it is read off the stage rather than typed twice.
-local CRATER_EAST_X = select(3, Stages.bounds(6))
+--- How far east of a stage's east edge a site camp's disc centre sits. With a 225 floor
+--- radius (1.5x the first cut, on request) the disc's chord at the clip line is ~153
+--- wide either side of z = 0 -- a little past the corridor walls, so two short shoulder
+--- walls close the gap the same way Base Camp's shoulders meet Stage 1 (build/Scenery
+--- buildCampWallLayer). Twice this is Stages' CAMP_GAP.
+local SITE_CENTRE_OFFSET = 165
 
---- How far east of the Crater's edge the disc's centre sits. With a 225 floor radius (1.5x the first cut, on request)
---- the disc's chord at the clip line is ~153 wide either side of z = 0 -- a little past
---- the corridor walls (z = +-81), so two short shoulder walls close the gap the same
---- way Base Camp's shoulders meet Stage 1 (build/Scenery buildCampWallLayer).
-local TWILIGHT_CENTRE_OFFSET = 165
+--- FOUR STAGES PER ZONE (2026-10-03): a site camp sits off the east edge of every stage
+--- in Stages.CAMP_AFTER -- Toxic Twilight past Stage 4, Magma Hollow past Stage 8. The
+--- disc is cut off at that edge and at its mirror, where the next stage opens out of it
+--- through a mouth exactly as wide as the one it is entered by.
+local function siteAfter(stageId: number): (number, number, number)
+	local clipX = select(3, Stages.bounds(stageId))
+	return clipX + SITE_CENTRE_OFFSET, clipX, clipX + 2 * SITE_CENTRE_OFFSET
+end
 
---- THE WAY ON EAST, ON REQUEST: the disc is cut off at the mirror of the Crater's clip
---- line, so the next stage opens out of the camp through a mouth exactly as wide as the
---- one the Crater opens in by. Stage 7's west edge belongs here (x = 2184); until it is
---- built, build/CampSite stands a COMING SOON barricade across the mouth.
-local TWILIGHT_EXIT_X = CRATER_EAST_X + 2 * TWILIGHT_CENTRE_OFFSET
-
---- Stage 12's east edge, where the chain ends and Zone 3 (COMING SOON) opens off it, set
---- out exactly as Toxic Twilight is off the Crater.
-local GROUND_ZERO_EAST_X = select(3, Stages.bounds(12))
+local TWILIGHT_X, TWILIGHT_CLIP_X, TWILIGHT_EXIT_X = siteAfter(4)
+local MAGMA_X, MAGMA_CLIP_X, MAGMA_EXIT_X = siteAfter(8)
 
 Camps.BASE = "base"
 
@@ -134,7 +133,7 @@ Camps.DEFS = {
 		id = 2,
 		key = "twilight",
 		name = "Toxic Twilight",
-		blurb = "Past the Crater, at the end of Stage 6",
+		blurb = "Past the Ooze Marsh, at the end of Stage 4",
 		-- Its palette below, under a dusk sky.
 		card = {
 			skyTop = "2B1D4A",
@@ -146,11 +145,11 @@ Camps.DEFS = {
 			roofs = { "A855FF", "4FD1C5" },
 			accent = "C084FC",
 		},
-		center = { CRATER_EAST_X + TWILIGHT_CENTRE_OFFSET, 0 },
+		center = { TWILIGHT_X, 0 },
 		-- Near Base Camp's ring (Plots.RING_OUTER 230); 1.5x the first cut, lawn only. There are no plots here,
 		-- only the plaza, the stalls, the trader and one shared cleansing station.
 		radius = 225,
-		clipX = CRATER_EAST_X,
+		clipX = TWILIGHT_CLIP_X,
 		exitX = TWILIGHT_EXIT_X,
 		mergeReactor = true,
 		-- Mockup #3, picked from six on request: it carries the Crater's violet on into
@@ -184,43 +183,50 @@ Camps.DEFS = {
 	},
 	{
 		id = 3,
-		key = "zone3",
-		name = "Zone 3",
-		blurb = "Past Ground Zero, at the end of Stage 12",
+		key = "magma",
+		name = "Magma Hollow",
+		blurb = "Past the Cobalt Shelf, at the end of Stage 8",
 		card = {
-			skyTop = "1A1416",
-			skyBottom = "6E1E26",
-			wall = "26222A",
-			wallCap = "C42A36",
-			lawn = "B02632",
-			path = "3A3539",
-			roofs = { "C42A36", "5A1A20" },
-			accent = "E04A55",
+			skyTop = "2A1410",
+			skyBottom = "C2481E",
+			wall = "2C2624",
+			wallCap = "D2541E",
+			lawn = "3B3330",
+			path = "75695F",
+			roofs = { "D2541E", "8A3A1C" },
+			accent = "FF7A2E",
 		},
-		-- ON REQUEST: Toxic Twilight's formation in black rock and red grass, past Stage
-		-- 12, that nobody can enter yet. Walled shut on the east (no exitX).
-		center = { GROUND_ZERO_EAST_X + TWILIGHT_CENTRE_OFFSET, 0 },
+		-- FOUR STAGES PER ZONE (2026-10-03): what was the Zone 3 COMING SOON formation
+		-- past Stage 12, moved to the end of Stage 8 and opened up as the lava camp.
+		-- Basalt floor and walls, ember-orange crown. Stage 9 opens out of its east mouth.
+		center = { MAGMA_X, 0 },
 		radius = 225,
-		clipX = GROUND_ZERO_EAST_X,
-		comingSoon = true,
+		clipX = MAGMA_CLIP_X,
+		exitX = MAGMA_EXIT_X,
 		-- Every pair is a 0.877 two-tone (dark = light x 0.877 per channel), so the
 		-- shared StudChecker material covers them all with no new colour maps.
 		palette = {
-			groundDark = "9A212C", -- red grass lawn
-			groundLight = "B02632",
-			lipDark = "AC252F", -- red grass over the wall crown
-			lipLight = "C42A36",
-			wallDark = "211E25", -- black rock cliff
-			wallLight = "26222A",
-			pathDark = "332E32", -- black rock plaza and paths
-			pathLight = "3A3539",
-			paverDark = "252124",
-			paverLight = "2A2629",
-			kerb = "C42A36",
-			deck = "282528",
-			bush = "D6303F",
-			bushDark = "A82230",
-			awnings = { "C42A36", "5A1A20", "E04A55", "8A1C26" },
+			groundDark = "342D2A", -- basalt lawn
+			groundLight = "3B3330",
+			lipDark = "B84A1A", -- glowing ember crust over the wall crown
+			lipLight = "D2541E",
+			wallDark = "272120", -- cooled black rock cliff
+			wallLight = "2C2624",
+			pathDark = "675C53", -- ash-grey plaza and paths
+			pathLight = "75695F",
+			paverDark = "443A35",
+			paverLight = "4E423C",
+			kerb = "FF6A1A",
+			deck = "3A302C",
+			bush = "FF7A2E",
+			bushDark = "E06B28",
+			awnings = { "D2541E", "8A3A1C", "FF9A3C", "4E423C" },
+			shopColors = {
+				Aura = "A8301C", -- deep magma red
+				Detector = "C9601A", -- burnt orange
+				Cleaner = "3E6E74", -- quench-water steel
+				Magnet = "5E3A2A", -- rust
+			},
 		},
 	},
 } :: { CampDef }
