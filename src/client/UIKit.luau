@@ -773,6 +773,15 @@ Dock.HAULPANEL_CENTRE_GAP = 100
 -- width, not a different anchor.
 Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_GRID_WIDTH + Dock.GAP
 
+-- AND NEVER TALLER THAN THE SCREEN HAS ROOM FOR. On a landscape phone (~625-650 design
+-- px tall) HAULPANEL_BOTTOM + 474 ran the widget's top off the screen, under the
+-- topbar. DetectorController.placeHaul shrinks it (its own UIScale) until its top sits
+-- this far below the screen top -- clear of the Settings/Daily corner row, which sits
+-- level with Roblox's topbar -- but never below MIN_FIT, where REEL IN stops being a
+-- comfortable thumb target. Desktop windows of 720+ design px tall are untouched.
+Dock.HAULPANEL_TOP_CLEAR = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP
+Dock.HAULPANEL_MIN_FIT = 0.6
+
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
 -- the 10-15 lines of Instance.new / UICorner / UIStroke boilerplate each call site
