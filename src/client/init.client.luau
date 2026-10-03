@@ -55,6 +55,7 @@ local ORDER = {
 	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
 	"PurchaseHintController", -- the "You can afford a new <gear>" lines under the warp bar; reads CashState + GearList
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
+	"FloorPurchaseController", -- the "Purchase floor" popup a floor sign's E opens: price, BUY / CANCEL; reads FloorPurchase
 	"FloorSignController", -- hides a base's "Build Floor N" prompt from anyone but its owner; reads PlotState
 	"OwnStationPromptController", -- hides a base's Wash prompt from anyone but its owner; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear): GENERAL / GRAPHICS / AUDIO tabs; PlotColor, HideAura, SfxMuted + the Prefs rows (client/Prefs)

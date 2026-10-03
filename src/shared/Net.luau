@@ -176,6 +176,13 @@ local REMOTES: { [string]: string } = {
 	-- DOUBLE IT half is a Robux product and arrives through ProcessReceipt instead.
 	AwayEarnings = "RemoteEvent",
 	--
+	-- The floor purchase popup (ExhibitService, client FloorPurchaseController).
+	-- Server -> client: { kind = "offer", plot, floor, price, stands, cash, board } when
+	-- you hold E on your own base's floor sign, then { kind = "result", ok, message,
+	-- floor, cash } after a BUY. Client -> server: "buy", plot, floor -- the server
+	-- range-checks it against the live sign and buyFloor does every other check.
+	FloorPurchase = "RemoteEvent",
+	--
 	-- The combined $/s every nuke on the player's stands is paying right now, hourly cap
 	-- applied -- the number the badge prints under the balance. Fired only when that
 	-- rate changes (a stand placed or cleared, a yield or level change), never per tick.

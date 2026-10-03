@@ -1629,6 +1629,74 @@ end
 
 local wiredSigns: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
+-- The floor purchase popup (client FloorPurchaseController). Holding E on a sign no
+-- longer buys: it sends the offer, and the popup's BUY button asks for it back.
+local floorRemote: RemoteEvent = nil
+-- How far from the board a BUY may be pressed. The prompt reaches 10; this leaves room
+-- to step back while reading the popup, and the popup closes itself past it.
+local FLOOR_BUY_REACH = 16
+
+--- The live (in-Workspace) board selling `floor` on plot `plot`, or nil.
+local function liveFloorBoard(plot: number, floor: number): BasePart?
+	for board in wiredSigns do
+		if
+			board:IsA("BasePart")
+			and board:IsDescendantOf(Workspace)
+			and board:GetAttribute("PlotIndex") == plot
+			and board:GetAttribute("BuysFloor") == floor
+		then
+			return board
+		end
+	end
+	return nil
+end
+
+--- Open the popup for `floor` on `player`'s screen: the price, what it adds and what
+--- they have, so the card can say up front whether they can afford it.
+local function offerFloor(player: Player, board: BasePart, plot: number, floor: number)
+	local data = DataService.data(player)
+	if data == nil then
+		return
+	end
+	floorRemote:FireClient(player, {
+		kind = "offer",
+		plot = plot,
+		floor = floor,
+		price = Floors.PRICES[floor] or 0,
+		stands = Floors.UPPER_SLOTS,
+		cash = data.cash,
+		board = board,
+	})
+end
+
+--- The popup's BUY. Range-checked here because, unlike the prompt, a remote is not.
+local function onFloorBuy(player: Player, plot: any, floor: any)
+	if type(plot) ~= "number" or type(floor) ~= "number" then
+		return
+	end
+	local board = liveFloorBoard(plot, floor)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local ok, message
+	if board == nil then
+		ok, message = false, "that floor isn't for sale"
+	elseif root == nil or ((root :: BasePart).Position - board.Position).Magnitude > FLOOR_BUY_REACH then
+		ok, message = false, "walk back to the sign"
+	else
+		ok, message = ExhibitService.buyFloor(player, plot, floor)
+	end
+	if ok then
+		print(`[exhibit] {player.Name}: {message}`)
+	end
+	local data = DataService.data(player)
+	floorRemote:FireClient(player, {
+		kind = "result",
+		ok = ok,
+		message = message,
+		floor = floor,
+		cash = if data then data.cash else nil,
+	})
+end
+
 --- Connect one floor sign's prompt to buyFloor. Built by build/Plots.buildFloorSign and
 --- saved with the place; wired here by tag, the same build-time/runtime split every
 --- world purchase uses. Once per board: a parked floor sign never leaves the DataModel
@@ -1646,6 +1714,10 @@ local function wireFloorSign(board: Instance)
 	-- A place saved before the painted "Floor N / Purchase floor for $X" look still
 	-- wears the old billboard; this swaps it in without a world rebuild.
 	Plots.dressFloorSign(board :: BasePart)
+	-- The popup is the confirm step now, so a tap opens it (a saved place still has
+	-- the old half-second hold).
+	prompt.HoldDuration = 0
+	prompt.ActionText = `Purchase Floor {board:GetAttribute("BuysFloor")}`
 
 	prompt.Triggered:Connect(function(player: Player)
 		if not Tutorial.promptOpen(player, prompt) then
@@ -1656,12 +1728,13 @@ local function wireFloorSign(board: Instance)
 		if type(plot) ~= "number" or type(floor) ~= "number" then
 			return
 		end
-		local ok, message = ExhibitService.buyFloor(player, plot, floor)
-		if ok then
-			print(`[exhibit] {player.Name}: {message}`)
-		else
-			flashSign(board, message)
+		-- Someone else's base: answer on the sign, the way it always has. Your own:
+		-- the popup, which does the buying.
+		if plotOf[player] ~= plot then
+			flashSign(board, "that isn't your base")
+			return
 		end
+		offerFloor(player, board :: BasePart, plot, floor)
 	end)
 end
 
@@ -1673,6 +1746,7 @@ function ExhibitService.init()
 	colorRemote = Net.get("PlotColor")
 	incomeRemote = Net.get("IncomeState")
 	nukeListRemote = Net.get("NukeList")
+	floorRemote = Net.get("FloorPurchase")
 end
 
 function ExhibitService.start()
@@ -1733,6 +1807,11 @@ function ExhibitService.start()
 		wireFloorSign(board)
 	end
 	CollectionService:GetInstanceAddedSignal(FLOOR_TAG):Connect(wireFloorSign)
+	floorRemote.OnServerEvent:Connect(function(player: Player, verb, plot, floor)
+		if verb == "buy" then
+			onFloorBuy(player, plot, floor)
+		end
+	end)
 
 	-- The place is saved with every floor of every plot showing (build/Plots builds
 	-- them all); nobody owns anything yet, so strip every plot to its ground floor.

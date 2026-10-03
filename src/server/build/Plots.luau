@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 90
+local BUILDER_VERSION = 91
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -2196,13 +2196,14 @@ end
 --- of stands. Its z is pulled 3.5 studs toward the entrance from where it stood on +X:
 --- the ground flight's foot gate (and FloorSign2 across it) is on THIS fence at z
 --- -12.6..-7.6 (Plots.buildFlight, flightSide(1) = -1), and the rack's half-span of
---- ~3.55 leaves a ~3-stud gap to it at -19. The treadmill's belt station (Radius fitted
---- to the model, ~6.6) is ~15 studs from the locker's station against a combined reach
---- of ~12.6; World.verify asserts the gap.
+--- ~3.55 left a ~3-stud gap to it at -19; it then moved 2.5 more toward the treadmill
+--- (to your right as you face it, on request), to -21.5. The treadmill's belt station
+--- (Radius fitted to the model, ~6.6) is ~13.3 studs from the locker's station against
+--- a combined reach of ~12.6; World.verify asserts the gap.
 local LOCKER_TUBES_PER_TIER = 4
 local LOCKER = {
 	x = -29.6, -- the rack's centre; its back reaches x ~= -31.1
-	z = -19,
+	z = -21.5,
 	yaw = -90, -- turns the authored -Z front to face +X, its back against the -X fence
 	pitch = 1.65, -- tube centre to tube centre, along the rack
 	tubeD = 1.45, -- glass diameter
