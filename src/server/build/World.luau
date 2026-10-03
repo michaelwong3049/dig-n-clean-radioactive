@@ -379,7 +379,22 @@ function World.verify(): (boolean, { string })
 						table.insert(anchors, d)
 					end
 				end
-				check(#anchors == 1, `camp "{def.name}" has {#anchors} {CampSite.ANCHOR_NAME}s, expected 1 — WarpService lands players on it`)
+				-- A COMING SOON camp has none: no anchor is what keeps its warp shut.
+				local wantAnchors = if def.comingSoon then 0 else 1
+				check(
+					#anchors == wantAnchors,
+					`camp "{def.name}" has {#anchors} {CampSite.ANCHOR_NAME}s, expected {wantAnchors} — WarpService lands players on it`
+				)
+				-- And its entrance barricade's collider is the only thing between the
+				-- stage it opens off and a camp nobody may enter yet.
+				if def.comingSoon then
+					local gate = model:FindFirstChild("EntryGate")
+					local collider = gate and gate:FindFirstChild("GateCollider")
+					check(
+						collider ~= nil and collider:IsA("BasePart") and collider.CanCollide,
+						`COMING SOON camp "{def.name}" has no collidable EntryGate.GateCollider — players can walk in`
+					)
+				end
 				local anchor = anchors[1] :: BasePart?
 				if anchor then
 					check(anchor:GetAttribute("CampKey") == def.key, `camp "{def.name}"'s anchor has CampKey {tostring(anchor:GetAttribute("CampKey"))}`)

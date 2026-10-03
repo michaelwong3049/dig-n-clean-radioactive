@@ -88,6 +88,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
+local Camps = require(Shared.Config.Camps)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -108,7 +109,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 57
+local BUILDER_VERSION = 58
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4398,8 +4399,9 @@ end
 
 --- The corridor walls, one pair PER RUN (Stages.runs) -- a site camp between two runs
 --- has its own walls (build/CampSite), and one pair spanning the whole chain would
---- cut straight across it. The last run's east end opens on void, so it gets an end
---- wall; every other run's east end opens into a camp.
+--- cut straight across it. Every run's east end opens into a camp, except the last
+--- run's when no site camp starts there: that one opens on void, so it gets an end wall.
+--- (Zone 3, COMING SOON, now starts at Stage 12's edge and closes the chain itself.)
 local function buildBoundaryWalls(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "BoundaryWalls"
@@ -4414,7 +4416,15 @@ local function buildBoundaryWalls(parent: Instance)
 				local _, az, _, bz = Stages.bounds(id)
 				minZ, maxZ = math.min(minZ, az), math.max(maxZ, bz)
 			end
-			buildEndWall(folder, last, maxX + WALL_THICKNESS / 2, minZ, maxZ)
+			local campAtEnd = false
+			for _, def in Camps.sites() do
+				if def.clipX and math.abs(def.clipX - maxX) < 0.5 then
+					campAtEnd = true
+				end
+			end
+			if not campAtEnd then
+				buildEndWall(folder, last, maxX + WALL_THICKNESS / 2, minZ, maxZ)
+			end
 		end
 	end
 

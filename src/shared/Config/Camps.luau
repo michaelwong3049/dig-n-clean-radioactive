@@ -76,6 +76,10 @@ export type CampDef = {
 	-- Stands the Merge Reactor (build/MergeReactor, Services/MergeService) on its own
 	-- deck south of the plaza. Reaching the camp is what unlocks merging.
 	mergeReactor: boolean?,
+	-- Built and seen, never entered: build/CampSite stands the formation with every stall a
+	-- shell, no trader, station or warp anchor, and a COMING SOON barricade across the
+	-- entrance. The Warp panel keeps showing it as the "???" row.
+	comingSoon: boolean?,
 }
 
 local Camps = {}
@@ -95,6 +99,10 @@ local TWILIGHT_CENTRE_OFFSET = 165
 --- one the Crater opens in by. Stage 7's west edge belongs here (x = 2278); until it is
 --- built, build/CampSite stands a COMING SOON barricade across the mouth.
 local TWILIGHT_EXIT_X = CRATER_EAST_X + 2 * TWILIGHT_CENTRE_OFFSET
+
+--- Stage 12's east edge, where the chain ends and Zone 3 (COMING SOON) opens off it, set
+--- out exactly as Toxic Twilight is off the Crater.
+local GROUND_ZERO_EAST_X = select(3, Stages.bounds(12))
 
 Camps.BASE = "base"
 
@@ -172,6 +180,47 @@ Camps.DEFS = {
 				Cleaner = "177F70", -- dark teal
 				Magnet = "3F4BA8", -- deep indigo
 			},
+		},
+	},
+	{
+		id = 3,
+		key = "zone3",
+		name = "Zone 3",
+		blurb = "Past Ground Zero, at the end of Stage 12",
+		card = {
+			skyTop = "1A1416",
+			skyBottom = "6E1E26",
+			wall = "26222A",
+			wallCap = "C42A36",
+			lawn = "B02632",
+			path = "3A3539",
+			roofs = { "C42A36", "5A1A20" },
+			accent = "E04A55",
+		},
+		-- ON REQUEST: Toxic Twilight's formation in black rock and red grass, past Stage
+		-- 12, that nobody can enter yet. Walled shut on the east (no exitX).
+		center = { GROUND_ZERO_EAST_X + TWILIGHT_CENTRE_OFFSET, 0 },
+		radius = 225,
+		clipX = GROUND_ZERO_EAST_X,
+		comingSoon = true,
+		-- Every pair is a 0.877 two-tone (dark = light x 0.877 per channel), so the
+		-- shared StudChecker material covers them all with no new colour maps.
+		palette = {
+			groundDark = "9A212C", -- red grass lawn
+			groundLight = "B02632",
+			lipDark = "AC252F", -- red grass over the wall crown
+			lipLight = "C42A36",
+			wallDark = "211E25", -- black rock cliff
+			wallLight = "26222A",
+			pathDark = "332E32", -- black rock plaza and paths
+			pathLight = "3A3539",
+			paverDark = "252124",
+			paverLight = "2A2629",
+			kerb = "C42A36",
+			deck = "282528",
+			bush = "D6303F",
+			bushDark = "A82230",
+			awnings = { "C42A36", "5A1A20", "E04A55", "8A1C26" },
 		},
 	},
 } :: { CampDef }

@@ -23,6 +23,11 @@
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
+	A COMING SOON CAMP (Config/Camps `comingSoon`, Zone 3 past Stage 12) is the same
+	formation with nothing working in it: every stall a shell, no trader kiosk, an empty
+	wash deck and no CampAnchor (so CampService offers no warp to it). A barricade with
+	an invisible collider stands across its ENTRANCE, so it is seen and never entered.
+
 	ONE CAMP'S LAYOUT, RELATIVE TO ITS OWN PLAZA CENTRE. Config/Camps gives the disc
 	(centre, radius, the clip lines where the stage chain comes in and goes on) and the
 	palette; everything on the disc is placed off `plazaCentre`, the grid cell nearest
@@ -85,7 +90,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 27
+local BUILDER_VERSION = 28
 
 local C = Kit.C
 local build = Kit.build
@@ -178,6 +183,13 @@ local GATE_POST_H = 6.4
 local GATE_SIGN_W, GATE_SIGN_H = 34, 7
 local GATE_SIGN_Y = 9
 local GATE_TEXT = "STAGE 7 · COMING SOON"
+--- Kit.surfaceText draws at 50 px/stud and TextScaled stops at 100 px, so its text can
+--- never stand taller than 2 studs -- a whisper on a 7-stud board. Fewer pixels per
+--- stud lets the same cap fill it.
+local GATE_TEXT_PPS = 22
+--- A COMING SOON camp's barricade stands across its ENTRANCE instead (Camps.comingSoon):
+--- just past the tape on the camp's floor, its collider a step behind the rails.
+local ENTRY_GATE_INSET = 2
 
 --- The hazard line on the seam where the stage chain opens into the camp, the same
 --- tape Scenery.buildStageBorderLines lays between every pair of stages.
@@ -733,15 +745,10 @@ end
 --- Across the east mouth until the next stage exists: a run of hazard-striped rails
 --- on posts with a COMING SOON board over the middle, and behind it an invisible
 --- collider the height of the wall. All of it stands on the camp's floor, facing west.
-local function buildGate(parent: Instance, L: Layout)
-	local exitX = L.exitX
-	if exitX == nil or L.nextBuilt then
-		return
-	end
+local function gateAt(parent: Instance, L: Layout, name: string, x: number, colliderX: number, text: string)
 	local folder = Instance.new("Folder")
-	folder.Name = "ExitGate"
+	folder.Name = name
 	local h = L.corridorHalfZ
-	local x = exitX - SEAM_WIDTH / 2 -- on the tape
 
 	local posts = math.ceil(2 * h / GATE_POST_EVERY)
 	for i = 0, posts do
@@ -785,11 +792,12 @@ local function buildGate(parent: Instance, L: Layout)
 		color = L.palette.wallDark,
 		material = "SmoothPlastic",
 	})
-	Kit.surfaceText(board, Enum.NormalId.Left, GATE_TEXT, C.barrelYellow)
+	local gui = Kit.surfaceText(board, Enum.NormalId.Left, text, C.barrelYellow).Parent :: SurfaceGui
+	gui.PixelsPerStud = GATE_TEXT_PPS
 
 	local block = build(folder, CFrame.new(0, 0, 0), {
 		name = "GateCollider",
-		pos = { exitX - 0.5, FLOOR_Y + WALL_H / 2, L.cz },
+		pos = { colliderX, FLOOR_Y + WALL_H / 2, L.cz },
 		size = { 1, WALL_H, 2 * h },
 		color = C.hazardBlack,
 		material = "SmoothPlastic",
@@ -798,6 +806,18 @@ local function buildGate(parent: Instance, L: Layout)
 	block.CanQuery = false
 	block.CanTouch = false
 	folder.Parent = parent
+end
+
+local function buildGate(parent: Instance, L: Layout)
+	if L.def.comingSoon then
+		local x = L.clipX + SEAM_WIDTH / 2
+		gateAt(parent, L, "EntryGate", x + ENTRY_GATE_INSET, x + ENTRY_GATE_INSET + 1.5, `{string.upper(L.def.name)} · COMING SOON`)
+	end
+	local exitX = L.exitX
+	if exitX == nil or L.nextBuilt then
+		return
+	end
+	gateAt(parent, L, "ExitGate", exitX - SEAM_WIDTH / 2, exitX - 0.5, GATE_TEXT)
 end
 
 -- ── What stands on it ─────────────────────────────────────────────────────────
@@ -862,7 +882,9 @@ local function buildStalls(parent: Instance, L: Layout)
 	-- The kiosk's frame is the camp datum, 0.9 above the unlifted floor (see
 	-- BaseCamp.buildHubTrader); dead centre. Base Camp's four-sided kiosk, on request, so
 	-- it sells to every shop around it.
-	BaseCamp.buildHubTrader(parent, CFrame.new(L.ox, FLOOR_Y + 0.9, L.oz))
+	if not L.def.comingSoon then
+		BaseCamp.buildHubTrader(parent, CFrame.new(L.ox, FLOOR_Y + 0.9, L.oz))
+	end
 end
 
 local function buildWashDeck(parent: Instance, L: Layout)
@@ -889,6 +911,9 @@ local function buildWashDeck(parent: Instance, L: Layout)
 	-- so the bay sits at BAY_Z, unturned: the tub north, WashSpot 6 south of it facing
 	-- north, i.e. the player walks up from the plaza. Y is the plot convention (0 = the
 	-- pad top's frame), which is what Plots.PAD.topY already is.
+	if L.def.comingSoon then
+		return -- the deck is the formation; the station is a working one, so not yet
+	end
 	local bay = CFrame.new(L.ox, 0, L.oz + BAY_Z)
 	Plots.buildCleansingStation(parent, bay * CFrame.Angles(0, math.rad(-90), 0) * CFrame.new(-26, 0, 32), p.awnings[1])
 end
@@ -923,6 +948,9 @@ end
 --- Where WarpService puts you: on the west path, between the plaza's west edge and the
 --- pinwheel (the kiosk now owns the middle).
 local function buildAnchor(parent: Instance, L: Layout)
+	if L.def.comingSoon then
+		return -- nowhere to warp to: CampService finds no anchor, so no warp row opens
+	end
 	local anchor = build(parent, CFrame.new(0, 0, 0), {
 		name = CampSite.ANCHOR_NAME,
 		pos = { L.ox - ANCHOR_WEST, PLAZA_Y + 0.5, L.oz },
