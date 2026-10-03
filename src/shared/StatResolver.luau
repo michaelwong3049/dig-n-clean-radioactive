@@ -92,6 +92,10 @@ export type Stats = {
 	walkSpeed: number,
 	speedProgress: number,
 	haulPenalty: number,
+	-- The worn aura's walk-speed bonus as a fraction (Gear.Aura speedBonus, 0.03 = +3%).
+	-- Kept OUT of `walkSpeed` so the treadmill's trained number (the HUD, the picker, the
+	-- leaderboard) stays the player's own; effectiveWalkSpeed applies it last.
+	auraSpeedBonus: number,
 	-- loop
 	detectorRadius: number,
 	detectorLuck: number, -- dig roll only; Config/Items.luckBias. NOT the wash pad's luck.
@@ -226,6 +230,7 @@ function StatResolver.get(profile: Profile): Stats
 		-- penalty wherever that stat lives, and it has moved tracks twice (Boots, then
 		-- Satchel, then Aura) without changing what the perk means.
 		haulPenalty = aura.haulPenalty * (if perks.sureFooting then 0.5 else 1) * Mastery.value(profile, "haulDrag"),
+		auraSpeedBonus = aura.speedBonus or 0,
 
 		detectorRadius = detector.radius,
 		detectorLuck = detector.luck,
@@ -294,9 +299,12 @@ end
 ---
 --- `picked` is the walk-speed picker's cap (profile `walkCap`, Treadmill.chosenWalk). It
 --- trims the trained speed BEFORE the haul penalty, so a full bag still slows you down
---- from the speed you chose.
+--- from the speed you chose. The worn aura's `speedBonus` multiplies the result last.
 function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean, picked: number?): number
 	local speed = Treadmill.chosenWalk(stats.walkSpeed, picked) - (carriedCount * stats.haulPenalty)
+	-- The aura's bonus rides on what is left, so a slowed-down pick or a full bag is
+	-- still scaled by it rather than handed a flat top-up.
+	speed *= 1 + stats.auraSpeedBonus
 	if sprinting then
 		speed *= Gear.SPRINT_MULTIPLIER
 	end

@@ -446,7 +446,7 @@ COMMANDS["/speed"] = {
 	-- SESSION-ONLY, AND THAT IS THE DIFFERENCE FROM /train BELOW. This pins the number
 	-- the Humanoid gets and banks nothing; /train writes real profile state. Use this
 	-- to test how a speed FEELS, and /train to test the progression around it.
-	help = "/speed <value> — pin WalkSpeed there for the session (ignores training + haul); /speed off to clear",
+	help = "/speed <value> — pin base walk speed there for the session (ignores training + haul; your aura's bonus still applies); /speed off to clear",
 	run = function(player, _sandbox, args)
 		local raw = args[1]
 		if raw == nil or raw == "off" or raw == "clear" or raw == "reset" then

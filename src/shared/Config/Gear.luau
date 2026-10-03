@@ -332,6 +332,15 @@ Gear.Cleaner = {
 -- tolerance  : ambient rads/sec the aura handles before it fails (burn track, white screen)
 -- capacity   : hot items carried before it gets unmanageable (PLAN §3.4)
 -- haulPenalty: studs/sec of walk speed lost PER CARRIED ITEM (StatResolver.effectiveWalkSpeed)
+-- speedBonus : FRACTION added to your final walk speed (0.03 = +3%), after the picker's cap
+--              and the haul penalty (StatResolver.effectiveWalkSpeed)
+--
+-- speedBonus IS A MULTIPLIER, NOT STUDS/SEC, because walk speed has no ceiling: the treadmill
+-- runs 30 to 179 and past, so a flat +2 is a rounding error at the top and a big deal at
+-- the bottom. It starts deliberately SMALL -- +2% a rung, 0 on None to +22% on the Molten
+-- Serpent -- and is retuned PER AURA by editing the column; nothing else needs to know.
+-- Keep it >= 0 and non-decreasing up the ladder (Spec pins both): a better aura never
+-- walks slower than the one under it.
 --
 -- haulPenalty MOVED HERE WITH THE SATCHEL'S RETIREMENT (see the RETIRED block below),
 -- and it is the stat that makes capacity a decision rather than a bigger number (PLAN
@@ -375,12 +384,12 @@ Gear.Cleaner = {
 -- (x3.4 -> x5.0). Never make an early rung cheaper to smooth the curve: the ask was
 -- harder, not smoother.
 Gear.Aura = {
-	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 0.60, blurb = "No aura yet. Buy one to shield yourself from the rads." },
-	{ name = "Static Veil", price = 22000, reduction = 0.9750, tolerance = 4.4, capacity = 6, haulPenalty = 0.48, blurb = "Crackles more than it shields. Shields a little." },
-	{ name = "Lead Halo", price = 220000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
-	{ name = "Ion Shroud", price = 1500000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 3900000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back.", camp = "twilight" },
-	{ name = "Containment Nimbus", price = 60000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim.", camp = "twilight" },
+	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 0.60, speedBonus = 0.00, blurb = "No aura yet. Buy one to shield yourself from the rads." },
+	{ name = "Static Veil", price = 22000, reduction = 0.9750, tolerance = 4.4, capacity = 6, haulPenalty = 0.48, speedBonus = 0.02, blurb = "Crackles more than it shields. Shields a little." },
+	{ name = "Lead Halo", price = 220000, reduction = 0.9920, tolerance = 13.4, capacity = 8, haulPenalty = 0.36, speedBonus = 0.04, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 1500000, reduction = 0.9970, tolerance = 38.4, capacity = 10, haulPenalty = 0.26, speedBonus = 0.06, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 3900000, reduction = 0.9988, tolerance = 98.4, capacity = 12, haulPenalty = 0.18, speedBonus = 0.08, blurb = "Burns hotter than the air. Walks into the red and back.", camp = "twilight" },
+	{ name = "Containment Nimbus", price = 60000000, reduction = 0.9989, tolerance = 105.0, capacity = 15, haulPenalty = 0.10, speedBonus = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim.", camp = "twilight" },
 	-- THE FIVE DRAWN FOR TOXIC TWILIGHT. Since FOUR STAGES PER ZONE, Toxic Aurora and
 	-- Eclipse Veil are Twilight's (tiers 5-8 with the Mantle and Nimbus) and the last
 	-- three Magma Hollow's (`camp`, Gear.campOf). Shapes picked by the user
@@ -409,17 +418,17 @@ Gear.Aura = {
 	-- every stage below lasts longer the higher the aura.
 	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
-	{ name = "Toxic Aurora", price = 260000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 1200000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 5900000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "magma" },
-	{ name = "Seraph", price = 26000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
-	{ name = "Crimson Vortex", price = 120000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, blurb = "A red storm with you in the eye of it.", camp = "magma" },
+	{ name = "Toxic Aurora", price = 260000000, reduction = 0.9991, tolerance = 140.0, capacity = 18, haulPenalty = 0.08, speedBonus = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 1200000000, reduction = 0.99934, tolerance = 190.0, capacity = 21, haulPenalty = 0.06, speedBonus = 0.14, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 5900000000, reduction = 0.99951, tolerance = 255.0, capacity = 25, haulPenalty = 0.045, speedBonus = 0.16, blurb = "It lifts the load before you do.", camp = "magma" },
+	{ name = "Seraph", price = 26000000000, reduction = 0.99963, tolerance = 340.0, capacity = 30, haulPenalty = 0.03, speedBonus = 0.18, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "magma" },
+	{ name = "Crimson Vortex", price = 120000000000, reduction = 0.99973, tolerance = 455.0, capacity = 35, haulPenalty = 0.02, speedBonus = 0.20, blurb = "A red storm with you in the eye of it.", camp = "magma" },
 	-- STAGE 12'S OWN, on request (2026-10-03, option 3 of six lava mockups): a molten serpent
 	-- coiling up the body. Ground Zero was rated past the end of the ladder (the Vortex's
 	-- one-minute raid); now it has a rung. Fitted like the rest: reduction so the meter
 	-- takes ~13 min at Stage 12's far edge (100 / (600 * 0.00021) = 794s), tolerance just
 	-- over its deepRads, price on the ladder's widening stride (x5.5 off the Vortex).
-	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 40, haulPenalty = 0.015, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
+	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 40, haulPenalty = 0.015, speedBonus = 0.22, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -626,6 +635,7 @@ export type StatMeta = {
 	lowerIsBetter: boolean?,
 	complement: boolean?,
 	scale: string?,
+	format: string?,
 	tip: string?,
 }
 
@@ -664,7 +674,7 @@ Gear.STAT_META = {
 		volume = { label = "Volume", color = C.blue, tip = "How much water it sprays. More water cleans faster." },
 	},
 	Aura = {
-		order = { "reduction", "tolerance", "capacity", "haulPenalty" },
+		order = { "reduction", "tolerance", "capacity", "haulPenalty", "speedBonus" },
 		hidden = {},
 		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log", tip = "How much of the radiation around you it blocks." },
 		tolerance = { label = "Tolerance", color = C.green, tip = "How strong the radiation can get before it starts hurting you." },
@@ -674,6 +684,9 @@ Gear.STAT_META = {
 		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
 		-- the bar would empty as the aura got better.
 		haulPenalty = { label = "Haul", color = C.purple, lowerIsBetter = true, tip = "Walk speed lost per nuke you carry. Lower is better." },
+		-- LAST, after the two carry stats: it is the reward half of "carry more, move
+		-- slower" and reads as a bonus on top. `percent` prints it as "+3%" (ShopService).
+		speedBonus = { label = "Speed", color = C.orange, format = "percent", tip = "Extra walk speed while you wear it." },
 	},
 	-- NO BOOTS OR SATCHEL ENTRY. Both tracks are retired (see the RETIRED block above)
 	-- and are not in Gear.TRACKS, which is the table Spec's coverage check and the shop
