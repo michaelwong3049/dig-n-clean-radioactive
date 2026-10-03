@@ -170,8 +170,8 @@ local PACK_TINT: { [string]: Color3 } = {
 	starter = Color3.fromHex("F08A12"),
 	pro = Color3.fromHex("7A2FD6"),
 }
-local PACK_H = 236
-local PACK_ART = 104
+local PACK_H = 222
+local PACK_ART = 96
 local PASSES_PER_ROW = 2
 local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
@@ -599,14 +599,14 @@ local function packLines(pack: Packs.Pack): { string }
 	return lines
 end
 
---- The two packs, one full-width row each at the top. Art on the left (the pack's best crate with
---- a cash bundle on it), contents on the right, the R$ button along the bottom. A bought
+--- The two packs, side by side on one row at the top. Art on the left (the pack's best crate
+--- with a cash bundle on it), contents on the right, the R$ button along the bottom. A bought
 --- pack keeps its card and its button turns to a green OWNED, like a pass.
 local function buildPacks(parent: Instance)
 	section(parent, -30, "PACKS")
 	local player = Players.LocalPlayer
+	local frame = row(parent, -29, "Packs", PACK_H, #Packs.PACKS)
 	for index, pack in Packs.PACKS do
-		local frame = row(parent, -30 + index, `Packs{index}`, PACK_H, 1)
 		local card = Instance.new("Frame")
 		card.Name = `Pack_{pack.key}`
 		card.LayoutOrder = index
@@ -623,8 +623,8 @@ local function buildPacks(parent: Instance)
 			Name = "PackName",
 			Text = string.upper(pack.name),
 			Font = PANEL.headline,
-			TextSize = 30,
-			Size = UDim2.new(1, -24, 0, 36),
+			TextSize = 26,
+			Size = UDim2.new(1, -24, 0, 32),
 			Position = UDim2.fromOffset(14, 10),
 			ZIndex = 14,
 		})
@@ -632,19 +632,19 @@ local function buildPacks(parent: Instance)
 			Name = "Once",
 			Text = "ONE TIME ONLY",
 			Font = PANEL.label,
-			TextSize = 14,
+			TextSize = 13,
 			TextColor3 = PANEL.cash,
 			TextXAlignment = Enum.TextXAlignment.Right,
-			Size = UDim2.fromOffset(140, 18),
+			Size = UDim2.fromOffset(110, 16),
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -14, 0, 20),
+			Position = UDim2.new(1, -14, 0, 18),
 			ZIndex = 14,
 		})
 
 		local well = Instance.new("Frame")
 		well.Name = "Art"
 		well.Size = UDim2.fromOffset(PACK_ART, PACK_ART)
-		well.Position = UDim2.fromOffset(14, 54)
+		well.Position = UDim2.fromOffset(14, 48)
 		well.BackgroundColor3 = Color3.new(0, 0, 0)
 		well.BackgroundTransparency = 0.75
 		well.BorderSizePixel = 0
@@ -683,7 +683,7 @@ local function buildPacks(parent: Instance)
 		bundle.BackgroundTransparency = 1
 		bundle.Image = Artwork.IMAGE.cashBundle
 		bundle.ScaleType = Enum.ScaleType.Fit
-		bundle.Size = UDim2.fromOffset(64, 64)
+		bundle.Size = UDim2.fromOffset(56, 56)
 		bundle.AnchorPoint = Vector2.new(0, 1)
 		bundle.Position = UDim2.new(0, -10, 1, 12)
 		bundle.Rotation = -10
@@ -695,21 +695,21 @@ local function buildPacks(parent: Instance)
 			Name = "Contents",
 			Text = "• " .. table.concat(packLines(pack), "\n• "),
 			Font = PANEL.label,
-			TextSize = 19,
+			TextSize = 16,
 			TextColor3 = PANEL.white,
 			TextYAlignment = Enum.TextYAlignment.Top,
 			TextWrapped = true,
-			LineHeight = 1.1,
-			Size = UDim2.new(1, -textLeft - 10, 0, PACK_ART + 8),
-			Position = UDim2.fromOffset(textLeft, 56),
+			LineHeight = 1.05,
+			Size = UDim2.new(1, -textLeft - 10, 0, PACK_ART + 12),
+			Position = UDim2.fromOffset(textLeft, 48),
 			ZIndex = 14,
 		})
 
 		local buy = robuxButton(card, pack.id)
 		buy.AnchorPoint = Vector2.new(0.5, 1)
-		buy.Position = UDim2.new(0.5, 0, 1, -12)
-		buy.Size = UDim2.new(1, -24, 0, BUY_H + 4)
-		buy.TextSize = BUY_TEXT + 4
+		buy.Position = UDim2.new(0.5, 0, 1, -10)
+		buy.Size = UDim2.new(1, -20, 0, BUY_H)
+		buy.TextSize = BUY_TEXT
 		local attr = Packs.attr(pack.key)
 		local function refresh()
 			if player:GetAttribute(attr) == true then
