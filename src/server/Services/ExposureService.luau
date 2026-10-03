@@ -802,7 +802,9 @@ local function stepPlayer(player: Player, dt: number)
 			-- the root above: an override still leaves you planted while locked to a
 			-- signal or washing, same as any other speed.
 			local override = speedOverrides[player]
-			humanoid.WalkSpeed = override or StatResolver.effectiveWalkSpeed(stats, #data.carry, false, data.walkCap)
+			-- The pin is the BASE speed: the worn aura's bonus still rides on top of it, the
+			-- same as it does on trained speed, so /speed 40 in a +6% aura walks at 42.4.
+			humanoid.WalkSpeed = if override then override * (1 + stats.auraSpeedBonus) else StatResolver.effectiveWalkSpeed(stats, #data.carry, false, data.walkCap)
 
 			-- Same deal for /jump. JumpPower is DERIVED from the requested height via
 			-- the standard projectile relation (v0 = sqrt(2 * g * h)) rather than a
@@ -1080,6 +1082,9 @@ end
 --- wins over this -- an override does not let you walk while locked to a signal.
 function ExposureService.setSpeedOverride(player: Player, walkSpeed: number?)
 	speedOverrides[player] = walkSpeed
+	-- The Walk Speed badge shows the override, so resend it now rather than at the next
+	-- training tick. Lazy: TreadmillService is not otherwise a dependency of this file.
+	require(script.Parent.TreadmillService).refresh(player)
 end
 
 function ExposureService.speedOverrideOf(player: Player): number?
