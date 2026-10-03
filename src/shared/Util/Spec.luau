@@ -53,6 +53,8 @@ local ToolModels = require(script.Parent.Parent.ToolModels)
 local ToolTiers = require(Config.ToolTiers)
 local Camps = require(Config.Camps)
 local Merge = require(Config.Merge)
+local Reforge = require(Config.Reforge)
+local Bombing = require(script.Parent.Parent.Bombing)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local DetonationConfig = require(Config.Detonation)
@@ -442,6 +444,52 @@ function Spec.run(): boolean
 			"§raredrop stacked qualities multiply (Pristine + Irradiated = x6)",
 			math.abs(Rarity.valueMult("Pristine", { "Irradiated" }) - 6) < 1e-9 and Rarity.valueMult("None", nil) == 1
 		)
+	end
+
+	-- Config/Reforge â€” the Reforge Station. Pins: every roll lands in the forge band,
+	-- the band reaches past the natural wobble at both ends (a reforge can make a
+	-- better bomb than any dug copy), the price climbs per reforge, and a stored forge
+	-- pair is what Shared/Bombing reads in place of the seeded wobble.
+	do
+		local inBand = true
+		for i = 0, 100 do
+			local mult = Reforge.rollStat(i / 100)
+			if mult < Reforge.ROLL_MIN - 1e-9 or mult > Reforge.ROLL_MAX + 1e-9 then
+				inBand = false
+			end
+		end
+		check("Â§reforge every roll lands in the forge band", inBand)
+		check(
+			"Â§reforge the band reaches past the natural wobble",
+			Reforge.ROLL_MIN < 1 - 0.12 + 1e-9 and Reforge.ROLL_MAX > 1 + 0.12 and Reforge.rollStat(1) == Reforge.ROLL_MAX
+		)
+		check("Â§reforge rolls lean low (the top stays rare)", Reforge.rollStat(0.5) < (Reforge.ROLL_MIN + Reforge.ROLL_MAX) / 2)
+		check(
+			"Â§reforge each reforge of a copy costs more, never under the floor",
+			Reforge.cost(10000, 1) > Reforge.cost(10000, 0) and Reforge.cost(0, 0) == Reforge.COST_MIN
+		)
+		check("Â§reforge the quality jackpot is rare", Reforge.QUALITY_CHANCE > 0 and Reforge.QUALITY_CHANCE <= 0.1)
+		local qualitiesReal = true
+		for _, name in Reforge.QUALITIES do
+			local def = Rarity.MODIFIERS[name]
+			if def == nil or def.valueMult <= 1 or def.weight <= 0 then
+				qualitiesReal = false
+			end
+		end
+		check("Â§reforge only adds good, rollable qualities", qualitiesReal)
+
+		local itemId = Items.DEFS[1].id
+		local plain = { uid = "reforge-spec", itemId = itemId, rarity = Items.DEFS[1].rarity, modifier = "None" }
+		local low = table.clone(plain)
+		low.forge = { dmg = Reforge.ROLL_MIN, rad = Reforge.ROLL_MIN }
+		local high = table.clone(plain)
+		high.forge = { dmg = Reforge.ROLL_MAX, rad = Reforge.ROLL_MAX }
+		local dmg, rad = Bombing.forgeOf(high)
+		check("Â§reforge a stored forge pair replaces the seeded wobble", dmg == Reforge.ROLL_MAX and rad == Reforge.ROLL_MAX)
+		local a, b = Bombing.statsFor(low), Bombing.statsFor(high)
+		check("Â§reforge a better roll makes a bigger bomb", b.damage > a.damage and b.radius > a.radius)
+		local same = Bombing.statsFor(plain)
+		check("Â§reforge a never-reforged copy is untouched", same.damage == Bombing.statsFor(table.clone(plain)).damage)
 	end
 
 

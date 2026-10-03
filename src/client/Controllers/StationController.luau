@@ -119,6 +119,7 @@ local GearArt = require(script.Parent.Parent.GearArt)
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
 local MergePanel = require(script.Parent.Parent.MergePanel)
+local ReforgePanel = require(script.Parent.Parent.ReforgePanel)
 local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 
 local Station = {}
@@ -147,12 +148,14 @@ local COLOR = UIKit.C
 -- a browse prompt: it stands right beside the tub, and a panel that opened on
 -- approach would sit over the screen every time you walked to the wash.
 --
--- THE MERGE REACTOR (Toxic Twilight) opens the same way, on its own E ("OpenMerge").
+-- THE MERGE REACTOR (Toxic Twilight) opens the same way, on its own E ("OpenMerge"),
+-- and so does the REFORGE STATION beside it ("OpenReforge").
 local PANEL_KINDS: { [string]: boolean } = {
 	trader = true,
 	shop = true,
 	locker = true,
 	merge = true,
+	reforge = true,
 }
 
 -- ── Shop carousel ───────────────────────────────────────────────────
@@ -370,6 +373,10 @@ local lockerPressedAt = -math.huge
 --- The Merge Reactor's prompt (build/MergeReactor), with the same press grace.
 local MERGE_PROMPT = "OpenMerge"
 local mergePressedAt = -math.huge
+
+--- The Reforge Station's prompt (build/ReforgeStation), with the same press grace.
+local REFORGE_PROMPT = "OpenReforge"
+local reforgePressedAt = -math.huge
 
 --- THE LOCKER'S FIRST-VISIT TUTORIAL (client/LockerTutorial): a spotlight walk over the
 --- panel, owed while the server's `lockerTutorial` is true. `tutorial` is the running
@@ -1280,6 +1287,8 @@ local function build(): ScreenGui
 	ui.locker = LockerPanel.new(panel, 21)
 	-- And the Merge Reactor's.
 	ui.merge = MergePanel.new(panel, 22)
+	-- And the Reforge Station's.
+	ui.reforge = ReforgePanel.new(panel, 23)
 
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
@@ -1899,10 +1908,12 @@ local function render()
 	local atShop = state.station == "shop"
 	local atLocker = state.station == "locker"
 	local atMerge = state.station == "merge"
+	local atReforge = state.station == "reforge"
 	ui.shop.Visible = atShop
 	ui.locker.frame.Visible = atLocker
 	ui.merge.frame.Visible = atMerge
-	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge
+	ui.reforge.frame.Visible = atReforge
+	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge and not atReforge
 	ui.fitPanel() -- the trader and the stalls each sit higher than the rest (TRADER_LIFT, SHOP_LIFT)
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
@@ -1923,6 +1934,7 @@ local function render()
 		if atShop then shopWidth
 			elseif atLocker then LockerPanel.WIDTH
 			elseif atMerge then MergePanel.WIDTH
+			elseif atReforge then ReforgePanel.WIDTH
 			else TraderPanel.WIDTH,
 		math.huge
 	)
@@ -2013,6 +2025,12 @@ local function render()
 		return
 	end
 
+	if atReforge then
+		ui.panelStroke.Color = FIELD.edge
+		ui.reforge.paint(state)
+		return
+	end
+
 	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
 	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
 	-- the RACK button with it -- see this file's header. The body is TraderPanel's.
@@ -2072,6 +2090,17 @@ function Station.start()
 	end)
 	Net.get("MergeResult").OnClientEvent:Connect(function(result)
 		ui.merge.showResult(result)
+	end)
+	-- The forge's two verbs. ReforgeService re-derives the station, the copy, the price
+	-- and the roll; ReforgeResult brings the old and new pair back for KEEP / REVERT.
+	ui.reforge.onReforge(function(uid)
+		actionRemote:FireServer({ action = "reforge", uid = uid })
+	end)
+	ui.reforge.onSettle(function(uid, keep)
+		actionRemote:FireServer({ action = "reforgeKeep", uid = uid, keep = keep })
+	end)
+	Net.get("ReforgeResult").OnClientEvent:Connect(function(result)
+		ui.reforge.showResult(result)
 	end)
 
 	-- ── Moving along the carousel ────────────────────────────────────
@@ -2281,6 +2310,13 @@ function Station.start()
 			else
 				mergePressedAt = os.clock()
 			end
+		elseif prompt.Name == REFORGE_PROMPT then
+			if state.station == "reforge" then
+				dismissed = not dismissed
+				render()
+			else
+				reforgePressedAt = os.clock()
+			end
 		elseif prompt.Name == LOCKER_PROMPT then
 			-- Toggles like the stand's E. Somebody else's rack reaches here too; the
 			-- server never reports it as a station (DeconService.ownsLocker), so the
@@ -2351,6 +2387,11 @@ function Station.start()
 				rackCard = nil
 				dismissed = os.clock() - mergePressedAt > LOCKER_PRESS_GRACE
 				mergePressedAt = -math.huge
+			elseif payload.station == "reforge" then
+				-- The forge too.
+				rackCard = nil
+				dismissed = os.clock() - reforgePressedAt > LOCKER_PRESS_GRACE
+				reforgePressedAt = -math.huge
 			else
 				rackCard = nil
 				dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)

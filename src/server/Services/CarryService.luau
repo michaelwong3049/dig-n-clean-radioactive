@@ -182,6 +182,10 @@ function CarryService.describe(item: any, stats: any): any
 		bonus = item.bonus,
 		-- Merge stars (Config/Merge), 0 for a copy never merged.
 		merge = Merge.levelOf(item),
+		-- The Reforge Station's stored damage/radius roll (Config/Reforge), nil = never
+		-- reforged; Shared/Bombing reads it, so the hover card matches the bomb.
+		forge = if type(item.forge) == "table" then table.clone(item.forge) else nil,
+		reforges = item.reforges,
 		patches = table.clone(patches),
 		clean = clean,
 		blockedBy = blocked,

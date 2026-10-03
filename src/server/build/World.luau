@@ -48,6 +48,7 @@ local HealPads = require(script.Parent.HealPads)
 local Plots = require(script.Parent.Plots)
 local CampSite = require(script.Parent.CampSite)
 local MergeReactor = require(script.Parent.MergeReactor)
+local ReforgeStation = require(script.Parent.ReforgeStation)
 local Scenery = require(script.Parent.Scenery)
 local Daylight = require(script.Parent.Daylight)
 
@@ -481,6 +482,23 @@ function World.verify(): (boolean, { string })
 			check(
 				tagged:FindFirstChild(MergeReactor.PROMPT_NAME) ~= nil,
 				`{tagged:GetFullName()} is a Merge Reactor station with no "{MergeReactor.PROMPT_NAME}" prompt -- its panel could never open`
+			)
+		end
+	end
+	-- One Reforge Station per open site camp that asks for one (Config/Camps `reforge`),
+	-- with the E its panel opens on (client StationController's REFORGE_PROMPT).
+	local forges = 0
+	for _, def in sites do
+		if def.reforge and not def.comingSoon then
+			forges += 1
+		end
+	end
+	check((census.reforge or 0) == forges, `expected {forges} Reforge Station stations, found {census.reforge or 0}`)
+	for _, tagged in CollectionService:GetTagged(Kit.STATION_TAG) do
+		if tagged:IsDescendantOf(Workspace) and tagged:GetAttribute("StationKind") == "reforge" then
+			check(
+				tagged:FindFirstChild(ReforgeStation.PROMPT_NAME) ~= nil,
+				`{tagged:GetFullName()} is a Reforge Station with no "{ReforgeStation.PROMPT_NAME}" prompt -- its panel could never open`
 			)
 		end
 	end
