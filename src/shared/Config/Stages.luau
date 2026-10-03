@@ -62,8 +62,9 @@
 -- global knob for how hard EVERY stage is to search, with no per-stage area lever
 -- left to forget about.
 --
---     every stage:  290 x 170   area 49,300   40 signals   mean gap ~18 studs
---     (75 signals / ~13 studs until the fewer-signals pass; see Config/Tuning)
+--     every stage:  290 x 170   area 49,300   28 signals   mean gap ~21 studs
+--     (75 signals / ~13 studs, then 40 / ~18, before the two fewer-signals passes;
+--     see Config/Tuning)
 --
 -- WIDTH WENT 240 -> 200 (the whole chain got narrower, on request), then the whole
 -- footprint went 400x200 -> 340x170 (15% shorter on BOTH axes, on request), then
