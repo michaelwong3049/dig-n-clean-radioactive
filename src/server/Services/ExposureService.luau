@@ -355,7 +355,7 @@ local function giveBagTo(bag: BasePart, taker: Player)
 	end
 
 	if taken == 0 then
-		noticeRemote:FireClient(taker, "your bag is full")
+		noticeRemote:FireClient(taker, "bag full — sell at trader or store in locker")
 		return
 	end
 

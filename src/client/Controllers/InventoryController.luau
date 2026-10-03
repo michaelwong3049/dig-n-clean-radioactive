@@ -145,7 +145,7 @@ local BAG_VISIBLE_ROWS = 4
 -- The slot's kg readout.
 local KG_GOLD = Color3.fromHex("FFC83D")
 
-local NOTICE_WIDTH = 640
+local NOTICE_WIDTH = 820
 local NOTICE_HEIGHT = 50
 local NOTICE_HOLD = 1.6
 local NOTICE_IN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)

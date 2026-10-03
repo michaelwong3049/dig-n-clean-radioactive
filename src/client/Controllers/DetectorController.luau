@@ -1397,7 +1397,7 @@ local function renderState()
 	end
 
 	if state.blocked == "full" then
-		ui.status.Text = "bag is full"
+		ui.status.Text = "bag is full — sell at trader or store in locker"
 		ui.status.TextColor3 = COLOR.red
 	else
 		-- Nothing else left for the bottom line to say: out of reach, the glow on the
