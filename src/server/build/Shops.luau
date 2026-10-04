@@ -203,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 68
+local BUILDER_VERSION = 69
 
 local C = Kit.C
 local build = Kit.build
@@ -1970,7 +1970,7 @@ end
 --- here, move Hub's SHOP_ZONE with it.
 local BOOTH_WIDTH = 26 -- longer on request (was 14, just the stand); the spine and roof run its length
 local BOOTH_DX = 25 -- east/west of PLAZA_MID (15 -> 19 -> 25 with the longer booths: 24-stud aisles)
-local BOOTH_ROW_Z = 24 -- each row's build origin; its island centre is 4 further out (was 20)
+local BOOTH_ROW_Z = 18 -- each row's build origin; its island centre is 4 further out (20 -> 24 -> 18: rows pulled together on request)
 local BOOTHS = {
 	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
 	{ track = "Detector", at = { PLAZA_MID.x + BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop" },
@@ -1992,7 +1992,7 @@ local TRADER_RADIUS = 16
 --- The booth's step pad: a studded plate in `color` on the plaza just in front of the
 --- stand (inside STAND_PROMPT_REACH of the desk), with a thin Neon rim in the same colour.
 --- Its outer edge is BOOTH_PAD_FRONT, which assertNoShopOverlap reads.
-local BOOTH_PAD_DEPTH = 4
+local BOOTH_PAD_DEPTH = 5.5 -- was 4; "slightly longer" on request
 local BOOTH_PAD_FRONT = SHOPFRONT_Z + 1.25 + 0.4 + BOOTH_PAD_DEPTH
 local function buildStepPad(parent: Instance, frame: CFrame, color: string)
 	local w, d = STAND_WIDTH, BOOTH_PAD_DEPTH

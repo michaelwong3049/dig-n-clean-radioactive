@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 37 -- compact shop square, bases pulled in (2026-10-04)
+local BUILDER_VERSION = 38 -- rectangular shop square, 12 wider each side (2026-10-04)
 
 local C = Kit.C
 local build = Kit.build
@@ -275,7 +275,9 @@ end
 --- request -- with Shops.luau's STALLS/OUTFITTER/PLAZA_MID and Hub.CAMP_ORIGIN.
 --- 2026-10-04: shrunk to the compact booths (Shops BOOTHS) and the Trader in the SE corner,
 --- on request ("everything is smaller ... more compact and closer").
-local SHOP_ZONE = { minX = -37, maxX = 47, minZ = -42, maxZ = 42 } -- x grown with the longer booths
+--- Later 2026-10-04: a rectangle, 12 (three tiles) further east toward Stage 1 and 12 west
+--- (minX now the plaza's own edge), on request. The booth rows pulled in to z +/-18.
+local SHOP_ZONE = { minX = -49, maxX = 59, minZ = -42, maxZ = 42 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
@@ -988,7 +990,7 @@ local function buildSpawns(hub: Model)
 	-- to land you at one of `RingPoints` spots that far out, facing the middle. Since
 	-- 2026-10-04 the group chest stands on this point (its ring reaches ~9) and the Trader
 	-- moved to the SE corner; 13 clears the chest ring and stays short of the booth rows
-	-- (fronts at z +/-14, the four points sit in the aisles).
+	-- (pads end at z +/-10.25 since the rows moved to +/-18; the four points sit in the aisles).
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
