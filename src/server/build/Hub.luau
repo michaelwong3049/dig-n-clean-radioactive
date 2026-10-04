@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 36 -- compact shop square, bases pulled in (2026-10-04)
+local BUILDER_VERSION = 37 -- compact shop square, bases pulled in (2026-10-04)
 
 local C = Kit.C
 local build = Kit.build
@@ -275,7 +275,7 @@ end
 --- request -- with Shops.luau's STALLS/OUTFITTER/PLAZA_MID and Hub.CAMP_ORIGIN.
 --- 2026-10-04: shrunk to the compact booths (Shops BOOTHS) and the Trader in the SE corner,
 --- on request ("everything is smaller ... more compact and closer").
-local SHOP_ZONE = { minX = -25, maxX = 39, minZ = -42, maxZ = 42 }
+local SHOP_ZONE = { minX = -37, maxX = 47, minZ = -42, maxZ = 42 } -- x grown with the longer booths
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza

@@ -203,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 64
+local BUILDER_VERSION = 65
 
 local C = Kit.C
 local build = Kit.build
@@ -1938,8 +1938,8 @@ end
 --- Hose Shop stood in until the hoses moved to each base's wash bay (Plots.setHoseSign).
 --- The group chest stands in the middle (Config/GroupReward.CHEST_POSITION). Move a booth
 --- here, move Hub's SHOP_ZONE with it.
-local BOOTH_WIDTH = STAND_WIDTH + 2 * STAND_EDGE + 2
-local BOOTH_DX = 19 -- east/west of PLAZA_MID (15 -> 19 on request: more room between shops)
+local BOOTH_WIDTH = 26 -- longer on request (was 14, just the stand); the spine and roof run its length
+local BOOTH_DX = 25 -- east/west of PLAZA_MID (15 -> 19 -> 25 with the longer booths: 24-stud aisles)
 local BOOTH_ROW_Z = 24 -- each row's build origin; its island centre is 4 further out (was 20)
 local BOOTHS = {
 	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
