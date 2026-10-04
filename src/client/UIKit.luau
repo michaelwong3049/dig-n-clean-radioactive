@@ -680,17 +680,20 @@ Dock.SIDE_TILE_SIZE = 58
 -- reference of a 2x3 grid of dark tiles with big 3D pictures and the name across the
 -- foot): Shop | Index, Nukes | Gear, Warp | Free Gifts, slots 1-6 left to right, top to
 -- bottom (HudTile builds them). It was one column of 58px Gear/Nukes/Warp squares on the
--- right, with Shop and Index as bars on the left; Masteries swapped over to the right edge,
--- alone (SIDE_SOLO_WIDTH).
+-- right, with Shop and Index as bars on the left. Masteries' bare medal stands on top of
+-- it (SIDE_SOLO_*).
 Dock.SIDE_GRID_TILE = 76
 Dock.SIDE_GRID_COLUMNS = 2
 Dock.SIDE_GRID_ROWS = 3
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
 Dock.SIDE_TILE_GAP = 12
--- Masteries' bare medal, alone on the middle of the RIGHT edge (HudTile): its width,
--- which the haul widget keeps clear of (HAULPANEL_RIGHT).
+-- Masteries' bare medal, on top of the grid with its left edge on the grid's (HudTile):
+-- its box, and the space between its foot and the tallest picture poking over the grid.
+-- 88 tall = HudTile BARE_ICON 78 + BARE_CAPTION_GAP -11 + its caption 17 + 4.
 Dock.SIDE_SOLO_WIDTH = 100
+Dock.SIDE_SOLO_HEIGHT = 88
+Dock.SIDE_SOLO_GAP = 6
 -- How far a tile's picture pokes up over its top edge (HudTile), kept clear of the corner row.
 Dock.SIDE_GRID_POKE = 12
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
@@ -720,7 +723,13 @@ end
 --- bites on a short window or a phone. Every tile places itself from this one line
 --- (Dock.sideTileCentre).
 function Dock.sideColumnTop(height: number): number
-	local underGear = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + Dock.SIDE_GRID_POKE - height / 2
+	-- Masteries stands over the grid, so the clamp leaves room for it too.
+	local underGear = Dock.CORNER_BUTTON_BOTTOM
+		+ Dock.GAP
+		+ Dock.SIDE_SOLO_HEIGHT
+		+ Dock.SIDE_SOLO_GAP
+		+ Dock.SIDE_GRID_POKE
+		- height / 2
 	return math.max(-Dock.SIDE_GRID_HEIGHT / 2, underGear)
 end
 
@@ -780,7 +789,9 @@ Dock.HAULPANEL_CENTRE_GAP = 100
 -- to overlap the surfacing item; further in it tucks behind the meter (DisplayOrder 100
 -- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
 -- width, not a different anchor.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_SOLO_WIDTH + Dock.GAP
+-- With the button grid on the LEFT edge, the right corner only holds the luck clover's
+-- badge (LuckBoostController BADGE_W 90); this keeps about the clearance it always had.
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + 100 + Dock.GAP
 
 -- AND NEVER TALLER THAN THE SCREEN HAS ROOM FOR. On a landscape phone (~625-650 design
 -- px tall) HAULPANEL_BOTTOM + 474 ran the widget's top off the screen, under the

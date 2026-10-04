@@ -1,7 +1,7 @@
 --[[
 	HudTile — one HUD tile: the 2x3 button grid on the middle left (Shop, Index, Nukes, Gear,
 	Warp, Gifts) in the dark "Grid" look, and the top-right corner buttons (Settings, Daily) in
-	the dark "glow orb" look. Masteries builds a bare picture on the right edge (spec.bare).
+	the dark "glow orb" look. Masteries builds a bare picture on top of the grid (spec.bare).
 
 	The grid tile, on request (2026-10-03, from a reference picture): a dark navy rounded
 	square with a light rim, a big picture that pokes up over its top edge, and the name in
@@ -95,8 +95,8 @@ export type Spec = {
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
 	-- Optional: no box at all, on request — just the picture, big, with the caption
-	-- centred under it, alone on the RIGHT edge on the grid's middle line (Masteries'
-	-- medal). `slot` is then unused.
+	-- centred under it, standing on top of the grid with its left edge on the grid's
+	-- (Masteries' medal). `slot` is then unused.
 	bare: boolean?,
 	-- Optional, with bare: extra design px up from the left edge's middle line.
 	lift: number?,
@@ -180,16 +180,16 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 
 	local glow, icon
 	if bare then
-		-- No box, on request: the picture with its name under it, its right edge on the
-		-- right margin and its centre on the grid's middle line, so both sides of the screen
-		-- share one centre line -- re-run on resize, as the grid is.
+		-- No box, on request: the picture with its name under it, on top of the grid with
+		-- its left edge on the grid's (on request: further left than centring over it) --
+		-- re-run on resize, as the grid is.
 		local captionSize = spec.captionSize or BARE_TEXT_SIZE
 		local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
 		button.Size = UDim2.fromOffset(BARE_W, height)
 		local function place()
 			local canvasHeight = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-			local middle = Dock.sideColumnTop(canvasHeight) + Dock.SIDE_GRID_HEIGHT / 2
-			button.Position = UDim2.new(1, -(Dock.ROW_SIDE_MARGIN + BARE_W / 2), 0.5, middle - (spec.lift or 0))
+			local foot = Dock.sideColumnTop(canvasHeight) - Dock.SIDE_GRID_POKE - Dock.SIDE_SOLO_GAP
+			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BARE_W / 2, 0.5, foot - height / 2 - (spec.lift or 0))
 		end
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()
