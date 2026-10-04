@@ -909,8 +909,11 @@ local function build(): ScreenGui
 		text = "X",
 		font = FONT,
 		textSize = SIZE.row,
-		color = C.text,
-		fillColor = C.empty,
+		color = UIKit.House.white,
+		fillColor = UIKit.House.close,
+		fillTransparency = 0,
+		strokeColor = UIKit.House.ink,
+		strokeThickness = 3,
 		cornerRadius = UIKit.Radius.slot,
 		zIndex = 12,
 	})

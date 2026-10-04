@@ -340,9 +340,9 @@ local function build(): Frame?
 	close.AnchorPoint = Vector2.new(0.5, 0.5)
 	close.Position = UDim2.new(1, -2, 0, 2)
 	close.Size = UDim2.fromOffset(L.hintClose, L.hintClose)
-	close.BackgroundColor3 = HINT_SKIN.card
+	close.BackgroundColor3 = UIKit.House.close
 	close.AutoButtonColor = true
-	close.Font = STYLE.valueFont
+	close.Font = UIKit.House.font
 	close.Text = "X"
 	close.TextSize = 13
 	close.TextColor3 = WHITE
@@ -353,7 +353,7 @@ local function build(): Frame?
 	closeCorner.Parent = close
 	local closeStroke = Instance.new("UIStroke")
 	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	closeStroke.Color = HINT_SKIN.amber
+	closeStroke.Color = UIKit.House.ink
 	closeStroke.Thickness = 2
 	closeStroke.Parent = close
 	close.Activated:Connect(dismissHint)
