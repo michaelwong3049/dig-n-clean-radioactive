@@ -93,16 +93,17 @@
 	    │      anywhere on it (Shared/         │
 	    │      Placement), PlacedNukes folder  │
 	    │ [UPGRADE]                            │
-	    ├──────── original front edge ─────────┤
 	    │  [locker]                            │
-	    │  WASHER [bottle]          TREADMILL  │
-	    │             entry (spawn)            │
-	    └──────────[post]══arch══[post]───────┘
+	    └──────── hazard line, deck edge ──────┘
+	       WASHER [bottle]          TREADMILL     ← grey path, ground level, open
+	                  entry (spawn)
 
 	THE OPEN FLOOR replaced a 12-stand grid and two bought storeys of 12 more (on
 	request): a player places each nuke wherever it fits, and the Upgrade Base sign
 	sells more of them along with a deeper floor (Config/BaseUpgrades). The entrance
-	arch names the owner (buildEntranceArch); every fence post wears an accent cap.
+	arch and the front fence are gone (on request): the raised deck stops at the hazard
+	line, and the strip in front of it is open grey path. Every fence post wears an
+	accent cap.
 	A claimed plot whose owner never picked a colour wears Plots.DEFAULT_ACCENTS.
 
 	The Quarantine Locker (PLAN §10.2) — a rack of eight specimen tubes where you park
@@ -120,8 +121,6 @@
 	    PlacedNukes Folder; ExhibitService puts one anchor part per placed nuke in it
 	                (named by uid), carrying the model, the StandCard attributes and
 	                the Take prompt. Empty in the saved place.
-	    EntranceArch  decor; its ArchSign's SurfaceGui label `OwnerName` is written
-	                by ExhibitService.renderName.
 	    NamePlate   invisible anchor; BaseMarkerController hangs the owner's floating
 	                plate off it, reading the model's OwnerUserId / OwnerName /
 	                OwnerRate attributes (ExhibitService).
@@ -198,7 +197,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 100 -- apron re-tiled for Hub's darker greys
+local BUILDER_VERSION = 101 -- arch + front fence gone, deck stops at the hazard line
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -244,14 +243,26 @@ Plots.LOCKER_SLOTS = Tuning.LOCKER_SLOTS
 -- avoids pretending an asymmetric pad is centred on the plot origin.
 local PAD_MIN_Z = -43
 local PAD_MAX_Z = 56
+--- THE DECK STOPS AT THE HAZARD LINE (2026-10-03, on request). Everything in front of
+--- it — the washer, the bottle, the treadmill, the spawn — stands on the plaza's grey
+--- path at ground level instead of on the raised brown deck, and the fence starts at
+--- the line. `minZ` is still the plot's whole footprint (the pads are placed by it, and
+--- World.verify and the foliage scatter keep clear of it); `deckMinZ` is where the
+--- raised deck itself begins, just in front of Placement.AREA.minZ (-20) so the hazard
+--- line still lies on the deck, and behind the cleansing station's back (z -21.3).
+local DECK_MIN_Z = -21
 Plots.PAD = {
 	width = 66,
 	depth = PAD_MAX_Z - PAD_MIN_Z,
 	minZ = PAD_MIN_Z,
 	maxZ = PAD_MAX_Z,
+	deckMinZ = DECK_MIN_Z,
 	topY = Hub.PLAZA.topY + 1.5,
 	thickness = 3,
 }
+--- How far the front strip's machines sit below the deck: the deck's top down to the
+--- grey path's (Hub.PLAZA_LIFT above the plaza).
+local STRIP_DROP = Plots.PAD.topY - (Hub.PLAZA.topY + Hub.PLAZA_LIFT)
 
 --- THE SQUARE. Six pads, two on each of the plaza's north, south and west edges, each
 --- facing the shops. Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are cut to
@@ -285,6 +296,8 @@ local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
 local HALF_D = Plots.PAD.depth / 2
 local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
+local DECK_CENTER_Z = (DECK_MIN_Z + Plots.PAD.maxZ) / 2
+local DECK_HALF_D = (Plots.PAD.maxZ - DECK_MIN_Z) / 2
 
 local NS_Z = NS_FRONT_Z + PAD_FRONT_REACH
 local WEST_X = WEST_FRONT_X - PAD_FRONT_REACH
@@ -368,6 +381,50 @@ local function padRect(c: { x: number, z: number, facing: number }, inset: numbe
 		halfDepth = HALF_D - d,
 		yawDeg = c.facing,
 	}
+end
+
+--- The raised deck alone (padRect minus the front strip), for apronSkip: the strip in
+--- front of it is laid by the apron, as grey path (see Hub.setPadFronts below).
+local function deckRect(c: { x: number, z: number, facing: number }, inset: number): Kit.OrientedRect
+	local yaw = math.rad(c.facing)
+	return {
+		cx = c.x + DECK_CENTER_Z * math.sin(yaw),
+		cz = c.z + DECK_CENTER_Z * math.cos(yaw),
+		halfWidth = HALF_W - inset,
+		halfDepth = DECK_HALF_D - inset,
+		yawDeg = c.facing,
+	}
+end
+
+--- Each pad's front strip (plot-local z PAD_MIN_Z..DECK_MIN_Z, full width) as a world
+--- rectangle snapped OUT to the plaza's tile grid, so the apron paints it as whole grey
+--- path cells that run on seamlessly from the gate path in front. Pads face a multiple
+--- of 90 degrees, so the strip is axis-aligned; the snap reaches at most one tile under
+--- the deck (hidden) and 2 studs past a fence line (path either way).
+local function frontStripRect(c: { x: number, z: number, facing: number }): { minX: number, maxX: number, minZ: number, maxZ: number }
+	local origin = CFrame.new(c.x, 0, c.z) * CFrame.Angles(0, math.rad(c.facing), 0)
+	local a = origin:PointToWorldSpace(Vector3.new(-HALF_W, 0, PAD_MIN_Z))
+	local b = origin:PointToWorldSpace(Vector3.new(HALF_W, 0, DECK_MIN_Z))
+	local t = Hub.TILE_SIZE
+	local function down(v: number, o: number): number
+		return o + math.floor((v - o) / t + 1e-6) * t
+	end
+	local function up(v: number, o: number): number
+		return o + math.ceil((v - o) / t - 1e-6) * t
+	end
+	return {
+		minX = down(math.min(a.X, b.X), PLAZA.minX),
+		maxX = up(math.max(a.X, b.X), PLAZA.minX),
+		minZ = down(math.min(a.Z, b.Z), PLAZA.minZ),
+		maxZ = up(math.max(a.Z, b.Z), PLAZA.minZ),
+	}
+end
+do
+	local strips = {}
+	for i, c in Plots.CENTERS do
+		strips[i] = frontStripRect(c)
+	end
+	Hub.setPadFronts(strips)
 end
 
 --- Every pad's own true footprint, exported for callers outside this file that need to
@@ -454,7 +511,7 @@ local function apronSkip(x: number, z: number): boolean
 		end
 	end
 	for _, c in Plots.CENTERS do
-		if Kit.pointInOrientedRect(x, z, padRect(c, PAD_SKIP_INSET)) then
+		if Kit.pointInOrientedRect(x, z, deckRect(c, PAD_SKIP_INSET)) then
 			return true
 		end
 	end
@@ -2824,7 +2881,7 @@ local function buildSideRailings(parent: Instance, origin: CFrame, gates: { [num
 	-- Stands on the Trim (width/2 - 1 .. width/2), outer face flush with the pad edge,
 	-- so the thicker posts still clear the wash pad / cleansing station deck edges.
 	local railX = pad.width / 2 - RAIL_POST_W / 2
-	local z0, z1 = pad.minZ + 0.5 + RAIL_POST_W / 2, pad.maxZ - 0.5 - RAIL_POST_W / 2
+	local z0, z1 = pad.deckMinZ + 0.5 + RAIL_POST_W / 2, pad.maxZ - 0.5 - RAIL_POST_W / 2
 	for _, side in { -1, 1 } do
 		fenceLineZ(folder, origin, pad.topY, side * railX, z0, z1, gates and gates[side], false)
 	end
@@ -2925,107 +2982,9 @@ local function capFencePosts(fence: Instance?, accent: string)
 	end
 end
 
---- THE ENTRANCE ARCH — two studded posts either side of the entry lane, a lintel
---- across them, and a sign naming the owner, so whose base this is reads at eye level
---- from the plaza and not only from the avatar plate floating 38 studs up.
----
---- The sign's label is named `OwnerName`; ExhibitService.renderName writes
---- "<DisplayName>'s Base" into it on claim (the player's own casing, like the plate)
---- and blanks it again on release (an empty base's sign reads nothing, not
---- "UNCLAIMED"). The post caps and the stripe under the lintel carry `Accent`.
----
---- Clear of everything on the service strip: the posts stand at x = ±ARCH.x, well
---- inside the luck button (x = -13) and the cleansing station's deck (x >= 15.6), and
---- in front of both decks in z. The lintel, stripe, caps and sign are CanQuery off:
---- the default camera pops forward when a queryable part comes between it and the
---- character, which every walk under a lintel would do.
-local ARCH = {
-	x = 10,
-	inset = 1.7, -- post centres this far in from the pad's front edge
-	postW = 2.2,
-	postH = 10.8,
-	footW = 3.2,
-	footH = 0.6,
-	capW = 2.8,
-	capH = 0.8,
-	lintelW = 22.4,
-	lintelH = 2.2,
-	lintelD = 1.8,
-	signW = 15,
-	signH = 2,
-}
+--- The dark board fill the Upgrade Base sign is painted on (it was the entrance arch's
+--- sign colour; the arch is gone, on request).
 local ARCH_SIGN_FILL = "2B2F36"
-local function buildEntranceArch(parent: Instance, origin: CFrame, accent: string)
-	local pad = Plots.PAD
-	local m = Instance.new("Model")
-	m.Name = "EntranceArch"
-	local T = pad.topY
-	local z = pad.minZ + ARCH.inset
-	local postTop = T + ARCH.footH + ARCH.postH
-	local lintelY = postTop + ARCH.lintelH / 2
-
-	local function noQuery(part: BasePart)
-		part.CanQuery = false
-	end
-
-	for _, side in { -1, 1 } do
-		local x = side * ARCH.x
-		build(m, origin, { name = "ArchFoot", pos = { x, T + ARCH.footH / 2, z }, size = { ARCH.footW, ARCH.footH, ARCH.footW }, color = C.standGrey, material = "Plastic", studs = true })
-		build(m, origin, {
-			name = "ArchPost",
-			pos = { x, T + ARCH.footH + ARCH.postH / 2, z },
-			size = { ARCH.postW, ARCH.postH, ARCH.postW },
-			color = C.standGreyDark,
-			material = "Plastic",
-			studs = true,
-		})
-		-- The caps sit on the lintel's ends, which rest on the post tops.
-		noQuery(build(m, origin, {
-			name = "ArchCap",
-			pos = { x, postTop + ARCH.lintelH + ARCH.capH / 2, z },
-			size = { ARCH.capW, ARCH.capH, ARCH.capW },
-			color = accent,
-			material = "Plastic",
-			studs = true,
-			canCollide = false,
-			attributes = { Accent = true },
-		}))
-	end
-
-	noQuery(build(m, origin, {
-		name = "ArchLintel",
-		pos = { 0, lintelY, z },
-		size = { ARCH.lintelW, ARCH.lintelH, ARCH.lintelD },
-		color = C.standGrey,
-		material = "Plastic",
-		studs = true,
-		canCollide = false,
-	}))
-	noQuery(build(m, origin, {
-		name = "ArchStripe",
-		pos = { 0, postTop - 0.1, z },
-		size = { ARCH.lintelW + 0.2, 0.4, ARCH.lintelD + 0.1 },
-		color = accent,
-		material = "SmoothPlastic",
-		canCollide = false,
-		attributes = { Accent = true },
-	}))
-
-	-- On the lintel's outward (-Z) face, reading to anyone walking in.
-	local sign = build(m, origin, {
-		name = "ArchSign",
-		pos = { 0, lintelY, z - ARCH.lintelD / 2 - 0.1 },
-		size = { ARCH.signW, ARCH.signH, 0.25 },
-		color = ARCH_SIGN_FILL,
-		material = "SmoothPlastic",
-		canCollide = false,
-	})
-	noQuery(sign)
-	local label = Kit.surfaceText(sign, Enum.NormalId.Front, "", C.labelText)
-	label.Name = "OwnerName"
-
-	m.Parent = parent
-end
 
 -- ── Base upgrades (Config/BaseUpgrades) ──────────────────────────────────────
 
@@ -3306,50 +3265,6 @@ function Plots.setLevel(plot: Instance?, level: number?, claimed: boolean)
 	model:SetAttribute("BaseLevel", n)
 end
 
---- THE FRONT FENCE — the side railings' fence carried across the pad's front edge (on
---- request), in two runs from each front corner in to the entrance arch, so the base
---- is fenced all round with the arch as its one way in. Same line as the side
---- railings' first post (`z`), so the corners meet flush; each run skips its corner
---- post (buildSideRailings already stands one there) and its arch end, where the
---- rails run into the arch post, which does that post's job.
-local function buildFrontFence(parent: Instance, origin: CFrame)
-	local pad = Plots.PAD
-	local folder = Instance.new("Folder")
-	folder.Name = "FrontFence"
-
-	local railX = pad.width / 2 - RAIL_POST_W / 2
-	local z = pad.minZ + 0.5 + RAIL_POST_W / 2
-	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4
-	for _, side in { -1, 1 } do
-		local x0, x1 = side * ARCH.x, side * railX
-		local span = math.abs(x1 - x0)
-		for _, railY in { RAIL_H, RAIL_H * 0.5 } do
-			build(folder, origin, {
-				name = "Rail",
-				pos = { (x0 + x1) / 2, pad.topY + railY, z },
-				size = { span, RAIL_BAR_T, RAIL_BAR_T },
-				color = C.railGrey,
-				material = "Plastic",
-				studs = true,
-				canCollide = false,
-			})
-		end
-		local posts = math.max(2, math.floor(span / RAIL_POST_SPACING) + 1)
-		for i = 1, posts - 2 do
-			build(folder, origin, {
-				name = "RailPost",
-				pos = { x0 + (x1 - x0) * (i / (posts - 1)), pad.topY + postH / 2, z },
-				size = { RAIL_POST_W, postH, RAIL_POST_W },
-				color = C.railPost,
-				material = "Plastic",
-				studs = true,
-			})
-		end
-	end
-
-	folder.Parent = parent
-end
-
 --- THE HAZARD LINE — yellow and black studded bricks laid flat across the pad where the
 --- open floor starts (Shared/Placement.AREA.minZ), on request: everything behind it is
 --- where nukes go, everything in front (the washer, the treadmill, the locker, the
@@ -3411,7 +3326,7 @@ local function buildPlot(parent: Instance, index: number)
 	-- header on why: a pad's footprint stopped being axis-aligned in world space the
 	-- moment the ring stopped using only 90-degree facings). `rect` is a LOCAL
 	-- rectangle with an asymmetric entrance extension, not a world-space one.
-	local rect: Hub.Rect = { minX = -HALF_W, maxX = HALF_W, minZ = pad.minZ, maxZ = pad.maxZ }
+	local rect: Hub.Rect = { minX = -HALF_W, maxX = HALF_W, minZ = pad.deckMinZ, maxZ = pad.maxZ }
 	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseFloor, light = C.baseFloor, origin = origin }
 
 	-- The slab underneath carries PlotIndex, because that is the world contract this
@@ -3428,7 +3343,7 @@ local function buildPlot(parent: Instance, index: number)
 	local cap = Hub.TILE_CAP
 	build(m, origin, {
 		name = "PadFloor",
-		pos = { 0, pad.topY - cap / 2, PAD_CENTER_Z },
+		pos = { 0, pad.topY - cap / 2, DECK_CENTER_Z },
 		size = { rect.maxX - rect.minX, cap, rect.maxZ - rect.minZ },
 		color = C.baseFloor,
 		material = "Plastic",
@@ -3442,8 +3357,8 @@ local function buildPlot(parent: Instance, index: number)
 	for _, side in { -1, 1 } do
 		build(m, origin, {
 			name = "Trim",
-			pos = { side * (pad.width / 2 - 0.5), pad.topY + 0.1, PAD_CENTER_Z },
-			size = { 1, 0.5, pad.depth },
+			pos = { side * (pad.width / 2 - 0.5), pad.topY + 0.1, DECK_CENTER_Z },
+			size = { 1, 0.5, pad.maxZ - pad.deckMinZ },
 			color = accent,
 			material = "SmoothPlastic",
 			canCollide = false,
@@ -3459,21 +3374,20 @@ local function buildPlot(parent: Instance, index: number)
 	buildBackFence(m, origin)
 	capFencePosts(m:FindFirstChild("SideRailings"), accent)
 	capFencePosts(m:FindFirstChild("BackFence"), accent)
-	buildFrontFence(m, origin)
-	capFencePosts(m:FindFirstChild("FrontFence"), accent)
 	buildNamePlate(m, origin)
 
-	-- No claim board any more: exhibit income is auto-deposited into the owner's
-	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
-	-- collect. Whose plot this is reads from the avatar plate floating over the pad
-	-- and, at eye level, from the entrance arch's sign.
-	buildEntranceArch(m, origin, accent)
+	-- No claim board and no entrance arch any more (the arch removed on request): whose
+	-- plot this is reads from the avatar plate floating over the pad.
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.
 	-- Fully invisible: there is no physical checkpoint pad any more, just the spawn
 	-- point itself at the same spot the pad used to mark.
-	local spawn = build(m, origin, {
+	-- The front strip (spawn, washer, bottle, treadmill) is built through `ground`, the
+	-- same frame dropped to the grey path's height; the locker stands behind the hazard
+	-- line, on the deck, so it keeps `origin`.
+	local ground = origin * CFrame.new(0, -STRIP_DROP, 0)
+	local spawn = build(m, ground, {
 		name = "PlotSpawn",
 		class = "SpawnLocation",
 		pos = { 0, pad.topY + 0.5, -24 },
@@ -3487,10 +3401,10 @@ local function buildPlot(parent: Instance, index: number)
 	spawn.Enabled = false
 	spawn.Neutral = true
 
-	buildCleansingStation(m, origin, accent)
+	buildCleansingStation(m, ground, accent)
 	buildQuarantineLocker(m, origin, index)
-	buildFluidBottle(m, origin)
-	buildTreadmill(m, origin, accent)
+	buildFluidBottle(m, ground)
+	buildTreadmill(m, ground, accent)
 
 	-- The open floor's extension strips and the sign that sells them. All built; the
 	-- ones this plot's owner has not bought are hidden at runtime (Plots.setLevel).

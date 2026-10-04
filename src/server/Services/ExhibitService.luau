@@ -148,12 +148,6 @@ local function renderName(index: number, owner: Player?)
 	if oldGui and oldGui:IsA("BillboardGui") then
 		oldGui.Enabled = false
 	end
-	-- The entrance arch's sign (build/Plots.buildEntranceArch): the same name in the
-	-- same casing, at eye level. An empty base's sign is left blank, not "UNCLAIMED".
-	local archName = plot:FindFirstChild("OwnerName", true)
-	if archName and archName:IsA("TextLabel") then
-		archName.Text = if owner and owner.DisplayName ~= "" then `{owner.DisplayName}'s Base` else ""
-	end
 end
 
 --- Repaint one plot's accent pieces — the side Trim, the nameplate frame, the
