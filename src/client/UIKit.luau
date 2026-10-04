@@ -73,6 +73,26 @@ UIKit.C = {
 	outline = Color3.new(0, 0, 0),
 }
 
+-- ── House style ──────────────────────────────────────────────────────────────────
+-- What most panels already wear (Daily, Gear, Masteries, Gifts, Potions, the station
+-- panels...): Gotham Black in white with a black outline on slate. Each of those still
+-- copies these hexes into its own table; new and migrated GUIs read them from here, so
+-- the same meaning gets the same colour everywhere. UIKit.C above is the older olive
+-- HUD palette and UIKit.Font below the older three-weight scale.
+UIKit.House = {
+	font = Enum.Font.GothamBlack,
+	panel = Color3.fromHex("1B1F23"),
+	card = Color3.fromHex("22272C"),
+	ink = Color3.fromHex("1A1A1A"), -- outlines and edges (Kit.C.hazardBlack)
+	white = Color3.new(1, 1, 1),
+	dim = Color3.fromHex("9AA3AD"), -- secondary text
+	close = Color3.fromHex("E5484D"), -- every panel's "X"
+	buy = Color3.fromHex("3FB35A"), -- buy / claim / equip buttons
+	buyHover = Color3.fromHex("52C96C"),
+	cash = Color3.fromHex("7CF25A"), -- money amounts (the HUD's cash readout)
+	robux = Color3.fromHex("7B3FE4"),
+}
+
 -- ── Type scale ───────────────────────────────────────────────────────────────────
 -- ONE FAMILY IN THREE WEIGHTS, which is the formal-typography move and the opposite
 -- of what this used to be. The old pair was LuckiestGuy (a heavy all-caps poster
