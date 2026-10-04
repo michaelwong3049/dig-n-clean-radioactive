@@ -13,10 +13,17 @@
 	(0..MAX_LEVEL) is the only saved state; the cap is always derived from it
 	(`capFor`), never stored on its own.
 
-	PRICES ARE ONE UPGRADE A STAGE, Stage 2 to Stage 9. Each sits at roughly a third to
-	a half of that stage's aura tier (Config/Gear), anchored on the two floors they
-	replace: floor 2 was 8.7M for 12 stands at Stage 5 and floor 3 2.2B for 12 more at
-	Stage 9. Fitted by the pacing sim (Config/Gear's header).
+	PRICES ARE ONE UPGRADE A STAGE, Stage 2 to Stage 9: level L is part of Stage L+1's
+	bill, the way floor 2 was Stage 5's and floor 3 Stage 9's. Fitted by the pacing sim
+	(Config/Gear's header; same simulator, gear prices untouched) so every stage takes as
+	long as it did with 12 stands and two floors: each level's price bisected against
+	that stage's old median, then smoothed into a rising curve (the raw fit zigzagged,
+	since in most stages the upgrade is a small slice of the bill and barely moves the
+	time). Result: 27.9 h to reach Stage 12 against 27.5 h before, every stage within
+	~5% except Stage 11 (+4%, 515 vs 495 min: no upgrade left to buy there, and a full
+	base holds 26 nukes where the floors held 36). The first three are near-free on
+	purpose: fewer nukes at the start made Stages 1-3 slower, and cheap early upgrades
+	win that back.
 ]]
 
 local BaseUpgrades = {}
@@ -31,14 +38,14 @@ BaseUpgrades.DEPTH_PER_LEVEL = 4
 
 --- Cash price of each upgrade, by the level it buys.
 BaseUpgrades.PRICES = {
-	[1] = 15000,
-	[2] = 150000,
-	[3] = 900000,
-	[4] = 3500000,
-	[5] = 30000000,
-	[6] = 150000000,
-	[7] = 600000000,
-	[8] = 2500000000,
+	[1] = 500,
+	[2] = 6000,
+	[3] = 9000,
+	[4] = 9000000,
+	[5] = 10000000,
+	[6] = 15000000,
+	[7] = 25000000,
+	[8] = 1900000000,
 }
 
 --- Every nuke a fully upgraded base can hold. Loops that scan "all placed nukes" use it.
