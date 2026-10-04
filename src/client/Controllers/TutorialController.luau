@@ -158,6 +158,13 @@ local CHEVRON_ARM = 2.6
 local CHEVRON_THICK = 1
 local CHEVRON_ANGLE = math.rad(45)
 local CHEVRON_PARK = CFrame.new(0, -5000, 0) -- where unused arrows wait, out of the outline
+-- ON REQUEST: the arrows run at the height of your body, not on the ground. They float
+-- this far over the floor under them (about the middle of a character's torso), so the
+-- first ones come straight out of you.
+local CHEVRON_BODY_HEIGHT = 3
+-- Off the floor, a flat chevron is seen almost edge-on by a camera behind you, so each
+-- one is pitched tip-up this far to face back toward it.
+local CHEVRON_TILT = math.rad(35)
 local RING_SIZE = 9
 local MARKER_HEIGHT = 8 -- over the target's floor
 local GUIDE_FOLDER = "TutorialGuide"
@@ -1275,8 +1282,8 @@ local function stepGuide(dt: number)
 		p = snapFloor(p)
 		-- Fade in over the first two studs of ribbon and out over the last arrow gap.
 		local fade = math.clamp(math.min((d - start) / 2, (total - CHEVRON_END_PAD - d) / CHEVRON_GAP * 3), 0, 1)
-		local lifted = p + Vector3.new(0, RIBBON_LIFT + 0.05, 0)
-		local base = CFrame.lookAt(lifted, lifted + dir)
+		local lifted = p + Vector3.new(0, CHEVRON_BODY_HEIGHT, 0)
+		local base = CFrame.lookAt(lifted, lifted + dir) * CFrame.Angles(CHEVRON_TILT, 0, 0)
 		table.insert(parts, arms[1])
 		table.insert(cframes, base * tip * CFrame.new(-sa * back, 0, ca * back) * CFrame.Angles(0, -CHEVRON_ANGLE, 0))
 		table.insert(parts, arms[2])
