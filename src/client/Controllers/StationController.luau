@@ -109,6 +109,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local GearProducts = require(Shared.Config.GearProducts)
+local Camps = require(Shared.Config.Camps) -- a locked card's zone number
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial)
 
@@ -300,12 +301,14 @@ local STUDDED = {
 	cardOwned = Color3.fromHex("B08560"),
 	cardBuy = Color3.fromHex("48D63A"),
 	cardDear = Color3.fromHex("6F7C92"),
+	cardLocked = Color3.fromHex("3D4452"), -- sold in another zone (entry.lockedZone)
 	header = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
 	cash = Color3.fromHex("7CFF4F"),
 	-- Buttons are white under a UIGradient, so one gradient per state is the fill.
 	lime = ColorSequence.new(Color3.fromHex("D9F51C"), Color3.fromHex("33D23F")),
 	equipped = ColorSequence.new(Color3.fromHex("43474F"), Color3.fromHex("33363C")),
 	dear = ColorSequence.new(Color3.fromHex("9AA3B0"), Color3.fromHex("7C8594")),
+	locked = ColorSequence.new(Color3.fromHex("5A6272"), Color3.fromHex("454C5A")),
 	robux = ColorSequence.new(Color3.fromHex("A866FF"), Color3.fromHex("7A2FEA")),
 	equippedText = Color3.fromHex("D2D6DC"),
 	chip = Color3.fromHex("000000"),
@@ -1762,6 +1765,17 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 		buy.Text = "EQUIP"
 		buy.TextColor3 = FIELD.text
 		fill.Color = STUDDED.lime
+	elseif entry.lockedZone then
+		-- Sold in another zone (ShopService lists the whole ladder). The button names
+		-- where: a later zone unlocks it, an earlier one is just where it is sold.
+		local zone = entry.lockedZone :: number
+		local here = (Camps.get((state.offer and state.offer.camp) or "base") or { id = 1 }).id
+		card.BackgroundColor3 = STUDDED.cardLocked
+		flag.Text = "LOCKED"
+		flag.TextColor3 = STUDDED.equippedText
+		buy.Text = if zone > here then `UNLOCKED IN ZONE {zone}` else `SOLD IN ZONE {zone}`
+		buy.TextColor3 = STUDDED.equippedText
+		fill.Color = STUDDED.locked
 	elseif dear then
 		card.BackgroundColor3 = STUDDED.cardDear
 		flag.Text = `NEED {money(entry.price - cash)}`
@@ -1775,6 +1789,9 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 		buy.TextColor3 = FIELD.text
 		fill.Color = STUDDED.lime
 	end
+	-- A locked rung's item is shown dimmed, a hint of what is waiting further on.
+	(card.CardArt.CardModel :: ViewportFrame).ImageColor3 = if entry.lockedZone then Color3.fromRGB(80, 84, 96) else Color3.new(1, 1, 1)
+
 	-- current, owned and buyable are exhaustive over every tier: `current` is checked
 	-- first and `owned` second, so the equipped tier takes the ISSUED branch even
 	-- though it is also owned, and `buyable` is by construction `not owned` — the
