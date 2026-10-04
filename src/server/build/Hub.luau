@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 34 -- one grey floor fills the middle of the camp
+local BUILDER_VERSION = 36 -- compact shop square, bases pulled in (2026-10-04)
 
 local C = Kit.C
 local build = Kit.build
@@ -233,7 +233,8 @@ Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 ---
 --- Hand-placed, like SHOP_ZONE: move it by hand with Plots.CENTERS.
 local GATE_RECTS = {
-	{ minX = -69, maxX = 75, minZ = -78, maxZ = 78 },
+	-- 2026-10-04: follows the bases in (fronts x -71, z +/-72).
+	{ minX = -69, maxX = 75, minZ = -70, maxZ = 70 },
 }
 
 --- Each base's front strip (the washer / treadmill area in front of its raised deck),
@@ -272,7 +273,9 @@ end
 --- centred on the Trader, and made north-south symmetric; 73 still leaves half a tile.
 --- 2026-10-03: the whole square moved 12 west (three tiles), away from Stage 1, on
 --- request -- with Shops.luau's STALLS/OUTFITTER/PLAZA_MID and Hub.CAMP_ORIGIN.
-local SHOP_ZONE = { minX = -49, maxX = 61, minZ = -51, maxZ = 51 }
+--- 2026-10-04: shrunk to the compact booths (Shops BOOTHS) and the Trader in the SE corner,
+--- on request ("everything is smaller ... more compact and closer").
+local SHOP_ZONE = { minX = -25, maxX = 39, minZ = -42, maxZ = 42 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
@@ -982,9 +985,10 @@ local function buildSpawns(hub: Model)
 	-- two rows (Shops.luau's STALLS + OUTFITTER) run east-west either side of it, and
 	-- since 2026-09-27 BaseCamp's four-sided Trader kiosk stands ON this point. So the
 	-- anchor marks the centre of a RING: `RingRadius` tells ExposureService.baseCampCFrame
-	-- to land you at one of `RingPoints` spots that far out, facing the kiosk. 16 lands
-	-- just outside the Trader's ground square (half 11), clear of the kiosk, and well
-	-- short of both shop rows (their footprints start ~24 out).
+	-- to land you at one of `RingPoints` spots that far out, facing the middle. Since
+	-- 2026-10-04 the group chest stands on this point (its ring reaches ~9) and the Trader
+	-- moved to the SE corner; 13 clears the chest ring and stays short of the booth rows
+	-- (fronts at z +/-14, the four points sit in the aisles).
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
@@ -994,7 +998,7 @@ local function buildSpawns(hub: Model)
 		material = "SmoothPlastic",
 		transparency = 1,
 		canCollide = false,
-		attributes = { RingRadius = 16, RingPoints = 4 },
+		attributes = { RingRadius = 13, RingPoints = 4 },
 	})
 
 	spawns.Parent = hub
