@@ -229,15 +229,15 @@ Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 --- Centred on its pad (Plots.CENTERS), 16 wide. Hand-placed, like SHOP_ZONE: move them
 --- by hand with Plots.CENTERS.
 local GATE_RECTS = {
-	{ minX = 31, maxX = 47, minZ = -78, maxZ = -70 }, -- Plot1 (x 38): south edge, east pad
-	{ minX = -45, maxX = -29, minZ = -78, maxZ = -70 }, -- Plot2 (x -38): south edge, west pad
-	-- Plots 3 and 4 (z -/+38): one path each out to and under their fronts at x = -87,
+	{ minX = 31, maxX = 47, minZ = -86, maxZ = -70 }, -- Plot1 (x 38): south edge, east pad
+	{ minX = -45, maxX = -29, minZ = -86, maxZ = -70 }, -- Plot2 (x -38): south edge, west pad
+	-- Plots 3 and 4 (z -/+38): one path each out to and under their fronts at x = -71,
 	-- 32 wide (twice the others), grass between the two. On request: a single filled
 	-- square came first and was "too much", two 16-wide strips before that too thin.
-	{ minX = -97, maxX = -49, minZ = -54, maxZ = -22 },
-	{ minX = -97, maxX = -49, minZ = 22, maxZ = 54 },
-	{ minX = -45, maxX = -29, minZ = 70, maxZ = 78 }, -- Plot5 (x -38): north edge, west pad
-	{ minX = 31, maxX = 47, minZ = 70, maxZ = 78 }, -- Plot6 (x 38): north edge, east pad
+	{ minX = -81, maxX = -49, minZ = -54, maxZ = -22 },
+	{ minX = -81, maxX = -49, minZ = 22, maxZ = 54 },
+	{ minX = -45, maxX = -29, minZ = 70, maxZ = 86 }, -- Plot5 (x -38): north edge, west pad
+	{ minX = 31, maxX = 47, minZ = 70, maxZ = 86 }, -- Plot6 (x 38): north edge, east pad
 	-- The rectangle itself continued 16 west (four tiles, away from Stage 1), on request,
 	-- full height, toward the west pair -- not the paths. Paint only: the apron's tiles
 	-- take it from groundPairAt; PLAZA (and the slab, and the pad ring derived from it)
