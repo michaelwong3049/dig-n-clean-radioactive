@@ -72,7 +72,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local GearProducts = require(Shared.Config.GearProducts)
-local Camps = require(Shared.Config.Camps) -- the hose sign's "reach <camp> first"
+local Camps = require(Shared.Config.Camps) -- the hose sign's "reach <camp> first"; the shop's locked zones
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial) -- the luck button is shut during the walkthrough
 
@@ -109,12 +109,16 @@ export type CatalogEntry = {
 	buyable: boolean, -- not owned, purchasable on its own at its own price
 	equippable: boolean, -- owned but not current: yours, and you can switch to it
 	affordable: boolean, -- buyable AND you have the cash for THIS tier's price
+	-- Sold at another camp and not owned: shown, never buyable here. The zone (Config/
+	-- Camps id: Base Camp 1, Toxic Twilight 2, Magma Hollow 3) that sells it.
+	lockedZone: number?,
 }
 
 export type Offer = {
 	track: string,
 	maxed: boolean, -- you own every tier of this track; nothing left to buy
 	tiers: { CatalogEntry },
+	camp: string, -- Config/Camps key of the stall this offer is for
 }
 
 local function isTrack(track: string?): boolean
@@ -336,8 +340,8 @@ end
 --- tiers 10-15 and Base Camp 1-9, and a player who bought a Twilight tier and then
 --- swapped down to an old one at Base Camp could otherwise only swap back by walking
 --- to Twilight. So an owned rung shows up at every stall of its track as an EQUIP card;
---- an unowned one shows up only at the stall that sells it, which is also why `buyable`
---- (= not owned) needs no separate "sold here" test.
+--- an unowned one sold at another camp is listed too, LOCKED (`lockedZone`, never `buyable`)
+--- so the whole ladder is on show at every stall (2026-10-04, on request).
 ---
 --- Worst-first needs no sorting: Config/Gear already lists each track in ascending
 --- tier order, and `Gear.tier(track, n)` indexes that list directly. If a track is
@@ -351,11 +355,14 @@ local function catalogFor(data: any, track: string, camp: string): { CatalogEntr
 	for tier = 1, Gear.maxTier(track) do
 		local def = Gear.tier(track, tier)
 		local owned = ownsTier(data, track, tier)
-		if not owned and Gear.campOf(track, tier) ~= camp then
-			continue
-		end
+		-- EVERY TIER IS LISTED NOW (2026-10-04, on request: "show all items but says
+		-- unlocked in zone 2 or 3"). One sold at another camp, and not owned, is shown
+		-- locked with that camp's zone; `buy` still refuses it here.
+		local sellsAt = Gear.campOf(track, tier)
+		local locked = not owned and sellsAt ~= camp
+		local zone = Camps.get(sellsAt)
 		local current = tier == equipped
-		local buyable = not owned
+		local buyable = not owned and not locked
 		table.insert(entries, {
 			tier = tier,
 			name = def.name,
@@ -371,6 +378,7 @@ local function catalogFor(data: any, track: string, camp: string): { CatalogEntr
 			-- dead greyed chrome.
 			equippable = owned and not current,
 			affordable = buyable and data.cash >= def.price,
+			lockedZone = if locked then (if zone then zone.id else 0) else nil,
 		})
 	end
 
@@ -412,6 +420,7 @@ function ShopService.offerFor(data: any, track: string, camp: string?): Offer?
 		track = track,
 		maxed = maxed,
 		tiers = tiers,
+		camp = camp or "base", -- the stall's camp, so a locked card can say "unlocked in zone N"
 	}
 end
 
