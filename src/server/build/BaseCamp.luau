@@ -67,7 +67,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 24
+local BUILDER_VERSION = 25
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -202,10 +202,10 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 	trader.Name = "Trader"
 
 	-- The plaza surface sits 0.9 below the camp datum here, plus the raised plaza
-	-- floor's lift (Hub.PLAZA_LIFT -- the kiosk stands on the shop square, which is part
-	-- of it); every part builds up from this one local-Y so nothing floats over the
-	-- tiles or sinks into them.
-	local G = -0.9 + Hub.PLAZA_LIFT
+	-- floor's lift (Hub.SHOP_FLOOR_LIFT -- the kiosk stands on the raised shop square);
+	-- every part builds up from this one local-Y so nothing floats over the tiles or
+	-- sinks into them.
+	local G = -0.9 + Hub.SHOP_FLOOR_LIFT
 
 	-- A dark grey studded deck, just proud of the plaza tiles — the stall is studded
 	-- throughout, like the plaza shops.
@@ -512,7 +512,7 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 	local trader = Instance.new("Model")
 	trader.Name = "Trader"
 
-	local G = -0.9 + Hub.PLAZA_LIFT
+	local G = -0.9 + Hub.SHOP_FLOOR_LIFT
 	local DECK_TOP = G + 0.6
 	local POST, POST_D = 0.95, 6.5
 	local POST_H = 10.4
