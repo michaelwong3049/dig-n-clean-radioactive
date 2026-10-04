@@ -122,6 +122,9 @@
 	                the Take prompt. Empty in the saved place.
 	    EntranceArch  decor; its ArchSign's SurfaceGui label `OwnerName` is written
 	                by ExhibitService.renderName.
+	    NamePlate   invisible anchor; BaseMarkerController hangs the owner's floating
+	                plate off it, reading the model's OwnerUserId / OwnerName /
+	                OwnerRate attributes (ExhibitService).
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
@@ -1071,7 +1074,7 @@ end
 
 --- Repaint every accent piece on one plot to `color` — the two side `Trim` strips,
 --- the cleansing-station `Lamp` (and its `PointLight`), the `CLEANSING STATION` /
---- `WASH PAD` sign subtitles, the avatar plate's `Ring` (buildNamePlate), and the
+--- `WASH PAD` sign subtitles, and the
 --- gallery's pieces: the arch caps and stripe, every plinth band, every fence-post cap
 --- and the empty-slot bracket Frames.
 ---
@@ -1080,7 +1083,7 @@ end
 --- default rather than a separate `clearAccent()`, same reasoning as setHoseTier above.
 ---
 --- TAG-DRIVEN, NOT NAME-DRIVEN. buildPlot stamps `Accent` on the parts and
---- accentBillboard/buildNamePlate stamp it on their labels and stroke, so this is the
+--- accentBillboard stamps it on its labels and stroke, so this is the
 --- same "geometry is build-time, skin is runtime" split setHoseTier uses: a service
 --- that needs to recolour plot geometry asks this module rather than learning part
 --- names. The lamp's `PointLight` has no attribute of its own — it is matched by its
@@ -2874,21 +2877,13 @@ local function buildBackFence(parent: Instance, origin: CFrame)
 	folder:SetAttribute("BackAxis", origin:VectorToWorldSpace(Vector3.zAxis))
 end
 
--- The avatar-plate marker: a circular headshot over a caption, the exact "who is
--- this" language BaseMarkerController's client-only "YOUR BASE" beacon already
--- uses for the owner's own view. This is the SAME visual built server-side instead,
--- so every player in the plaza reads it, not just the owner — replacing the old
--- flat NameSign placard as the one thing that marks whose plot this is.
-local NAMEPLATE_FACE_FILL = Color3.fromHex("11150F") -- shows for the beat before the thumbnail loads
-local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
+-- The avatar-plate anchor: an invisible point high over the CENTRE of the pad. The
+-- plate itself (circular headshot, owner's name, $/s) is drawn client-side by
+-- client/Controllers/BaseMarkerController.luau off this part, so it can scale with
+-- each player's screen; ExhibitService stamps the owner and rate on the plot model
+-- as attributes for it to read.
+local function buildNamePlate(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
-
-	-- High over the CENTRE of the pad, not tucked against the back edge — the same
-	-- "floats over the whole base" placement BaseMarkerController's own beacon uses
-	-- (Vector3.new(0, 38, 0) off the Pad), so this one reads the same way from
-	-- anywhere in the plaza instead of only from in front of the plot. An invisible,
-	-- uncollidable anchor — nothing to mount a physical sign to any more, this is
-	-- purely something to hang the BillboardGui from.
 	local anchor = build(parent, origin, {
 		name = "NamePlate",
 		pos = { 0, pad.topY + 38, PAD_CENTER_Z },
@@ -2900,62 +2895,7 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	})
 	-- Where it floats. Saved so a world built with storeys (which lifted it) can be put back.
 	anchor:SetAttribute("BaseCFrame", anchor.CFrame)
-
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "Plate"
-	gui.Size = UDim2.fromOffset(128, 156)
-	gui.AlwaysOnTop = true
-	-- Readable from way out across the plaza (on request) — walked from 600 down to
-	-- 70, then 100, and now back out to 400 so a base's owner shows from the far
-	-- side of the ring. `MaxDistance` is CAMERA-to-adornee and the plate sits 38
-	-- studs up. ExhibitService.renderName stamps the same value on every repaint,
-	-- so a live place picks it up without a Plots rebuild — keep the two in step.
-	gui.MaxDistance = 400
-	-- Every plot sits next to a PointLight or two; LightInfluence defaults to 1 and
-	-- washes the plate back toward white up close, the same bug Kit.surfaceText and
-	-- BaseMarkerController both already document and fix.
-	gui.LightInfluence = 0
-	gui.Parent = anchor
-
-	local face = Instance.new("ImageLabel")
-	face.Name = "Face"
-	face.AnchorPoint = Vector2.new(0.5, 0)
-	face.Position = UDim2.fromScale(0.5, 0)
-	face.Size = UDim2.fromOffset(80, 80)
-	face.BackgroundColor3 = NAMEPLATE_FACE_FILL
-	face.BackgroundTransparency = 0
-	face.Image = ""
-	face.Parent = gui
-
-	local round = Instance.new("UICorner")
-	round.CornerRadius = UDim.new(0.5, 0)
-	round.Parent = face
-
-	-- Tagged `Accent` so Plots.setPlotAccent's UIStroke pass keeps the ring matching
-	-- the plot's Trim colour, exactly like it already does for the old SignFrame bars.
-	local ring = Instance.new("UIStroke")
-	ring.Name = "Ring"
-	ring.Thickness = 2.5
-	ring.Color = Color3.fromHex(accent)
-	ring.Transparency = 0.1
-	ring.Parent = face
-	ring:SetAttribute("Accent", true)
-
-	local caption = Instance.new("TextLabel")
-	caption.Name = "Caption"
-	caption.AnchorPoint = Vector2.new(0.5, 0)
-	caption.Position = UDim2.new(0.5, 0, 0, 88)
-	caption.Size = UDim2.new(1, 0, 0, 24)
-	caption.BackgroundTransparency = 1
-	caption.Font = Kit.FONT
-	caption.TextSize = 18
-	caption.TextColor3 = Color3.fromHex(C.labelText)
-	caption.TextStrokeTransparency = 1
-	caption.Text = "UNCLAIMED"
-	caption.Parent = gui
-	Kit.textOutline(caption, 2)
-
-	return gui
+	return anchor
 end
 
 --- An accent cap on top of every fence post, so the plot colour runs round the whole
@@ -3512,18 +3452,15 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- No solid back wall any more, on request — just the fence (buildBackFence, the
 	-- same rail/post language buildSideRailings already runs down the long edges,
-	-- closing the back edge instead of a wall) and a floating avatar+name plate high
-	-- over the pad's centre (buildNamePlate) that reads like BaseMarkerController's
-	-- own "YOUR BASE" beacon — a circular headshot with the owner's name below it —
-	-- except built server-side so it's visible to every player in the plaza, not
-	-- just the owner.
+	-- closing the back edge instead of a wall) and the anchor for the floating avatar
+	-- plate high over the pad's centre (buildNamePlate; the plate is client-drawn).
 	buildSideRailings(m, origin)
 	buildBackFence(m, origin)
 	capFencePosts(m:FindFirstChild("SideRailings"), accent)
 	capFencePosts(m:FindFirstChild("BackFence"), accent)
 	buildFrontFence(m, origin)
 	capFencePosts(m:FindFirstChild("FrontFence"), accent)
-	buildNamePlate(m, origin, accent)
+	buildNamePlate(m, origin)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
 	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and

@@ -35,7 +35,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
-local Net = require(Shared.Net) -- assign(): tell the owning client its plot index for the "YOUR BASE" beacon
+local Net = require(Shared.Net) -- assign(): tell the owning client its plot index (PlotState)
 local Bag = require(Shared.Bag)
 local Tuning = require(Shared.Config.Tuning)
 local BaseUpgrades = require(Shared.Config.BaseUpgrades)
@@ -124,32 +124,29 @@ local function plotModel(index: number): Model?
 	return row:FindFirstChild(`Plot{index}`) :: Model?
 end
 
--- How far away the plate stays drawn (camera-to-plate, studs). Mirrors
--- build/Plots.buildNamePlate's own value; stamped here too so an already-built
--- place picks a change up on the next claim without a Plots rebuild.
-local NAMEPLATE_REACH = 400
-
---- Repaint one plot's avatar plate (build/Plots.buildNamePlate) with the owner's
---- headshot and display name AS THEY CAPITALISED it (no `string.upper` — a name
---- like "MattM" stays "MattM"). `owner == nil` clears it back to a blank face and
---- the literal "UNCLAIMED", the same placeholder a freshly built plot wears.
+--- Tell every client whose plot this is. The floating avatar plate itself is drawn
+--- client-side (client/Controllers/BaseMarkerController.luau) so it can scale with
+--- each player's screen and bob; the server only stamps the plot with the owner's
+--- id and display name (in the player's own casing) as attributes, and the cash
+--- rate (`OwnerRate`, from pushIncome). `owner == nil` clears them and the plate
+--- goes away.
 local function renderName(index: number, owner: Player?)
 	local plot = plotModel(index)
 	if plot == nil then
 		return
 	end
+	plot:SetAttribute("OwnerUserId", if owner then owner.UserId else 0)
+	plot:SetAttribute("OwnerName", if owner then owner.DisplayName else "")
+	if owner == nil then
+		plot:SetAttribute("OwnerRate", 0)
+	end
+	-- A place built before the plate moved client-side still carries the old
+	-- server-drawn BillboardGui on the NamePlate anchor; keep it switched off so
+	-- it never doubles up under the client's.
 	local plate = plot:FindFirstChild("NamePlate", true)
-	local gui = plate and plate:FindFirstChildWhichIsA("BillboardGui")
-	local face = gui and gui:FindFirstChild("Face")
-	local caption = gui and gui:FindFirstChild("Caption")
-	if gui and gui:IsA("BillboardGui") then
-		gui.MaxDistance = NAMEPLATE_REACH
-	end
-	if face and face:IsA("ImageLabel") then
-		face.Image = if owner then `rbxthumb://type=AvatarHeadShot&id={owner.UserId}&w=150&h=150` else ""
-	end
-	if caption and caption:IsA("TextLabel") then
-		caption.Text = if owner and owner.DisplayName ~= "" then owner.DisplayName else "UNCLAIMED"
+	local oldGui = plate and plate:FindFirstChild("Plate")
+	if oldGui and oldGui:IsA("BillboardGui") then
+		oldGui.Enabled = false
 	end
 	-- The entrance arch's sign (build/Plots.buildEntranceArch): the same name in the
 	-- same casing, at eye level. An empty base's sign is left blank, not "UNCLAIMED".
@@ -944,8 +941,8 @@ function ExhibitService.setPlotColor(player: Player, hex: string?): (boolean, st
 	local index = plotOf[player]
 	if index ~= nil then
 		renderAccent(index, data)
-		-- BaseMarkerController reads Trim.Color when it builds the "YOUR BASE" beacon;
-		-- PlotState is the signal that (re)builds it, so re-fire it so the ring follows.
+		-- Re-fire PlotState so the plot-keyed client controllers repaint off the new
+		-- accent (BaseMarkerController's plate follows Trim.Color on its own).
 		Net.get("PlotState"):FireClient(player, index)
 	end
 
@@ -982,9 +979,9 @@ local function assign(player: Player)
 				renderAll(index, data)
 			end
 
-			-- Tell the owning client which plot is theirs, so BaseMarkerController can
-			-- float the "YOUR BASE" beacon over it. Fired unconditionally (the beacon
-			-- needs only the index, not `data`); assign() runs from DataService.onLoaded,
+			-- Tell the owning client which plot is theirs, for the client controllers
+			-- that key off it (placement, own-station prompts, signs). Fired
+			-- unconditionally (they need only the index, not `data`); assign() runs from DataService.onLoaded,
 			-- well after the client's controllers have connected — the same "once on
 			-- load" timing CashState and IndexState already rely on.
 			Net.get("PlotState"):FireClient(player, index)
@@ -1107,6 +1104,14 @@ end
 local lastIncome: { [Player]: number } = {}
 
 local function pushIncome(player: Player, rate: number)
+	-- The same number, for everyone: the plate over the owner's base prints it.
+	-- Compared against the plot's own attribute rather than lastIncome, so a plot
+	-- claimed after the first push still gets it.
+	local index = plotOf[player]
+	local plot = index and plotModel(index)
+	if plot and plot:GetAttribute("OwnerRate") ~= rate then
+		plot:SetAttribute("OwnerRate", rate)
+	end
 	local last = lastIncome[player]
 	if last ~= nil and math.abs(last - rate) < 1e-6 then
 		return
@@ -1826,6 +1831,14 @@ function ExhibitService.init()
 end
 
 function ExhibitService.start()
+	-- Every plot starts unclaimed: blank owner attributes, and the old server-drawn
+	-- plate (still in a place built before the plate went client-side) switched off.
+	for index = 1, PLOT_COUNT do
+		if plotOwner[index] == nil then
+			renderName(index, nil)
+		end
+	end
+
 	-- The Settings GUI's base-colour picker. The client sends a bare hex string ("" to
 	-- reset); setPlotColor validates the format, persists it and repaints. We echo the
 	-- SERVER-CONFIRMED value straight back so the picker snaps to what actually stuck
