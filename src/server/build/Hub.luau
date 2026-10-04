@@ -238,11 +238,11 @@ local GATE_RECTS = {
 	{ minX = -105, maxX = -49, minZ = 22, maxZ = 54 },
 	{ minX = -49, maxX = -33, minZ = 70, maxZ = 82 }, -- Plot5 (x -42): north edge, west pad
 	{ minX = 27, maxX = 43, minZ = 70, maxZ = 82 }, -- Plot6 (x 34): north edge, east pad
-	-- The rectangle itself continued 16 south (four tiles), on request, so the floor runs
-	-- full width out to and under the south pair's fronts instead of just their two paths.
-	-- Paint only: the apron's tiles take it from groundPairAt; PLAZA (and the slab, and
-	-- the pad ring derived from it) stays put. The green strip still wins at x >= 77.
-	{ minX = -49, maxX = 100, minZ = -86, maxZ = -70 },
+	-- The rectangle itself continued 16 west (four tiles, away from Stage 1), on request,
+	-- full height, toward the west pair -- not the paths. Paint only: the apron's tiles
+	-- take it from groundPairAt; PLAZA (and the slab, and the pad ring derived from it)
+	-- stays put.
+	{ minX = -65, maxX = -49, minZ = -70, maxZ = 70 },
 }
 
 --- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
