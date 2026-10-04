@@ -49,18 +49,19 @@ local GLOW_SIZE = 60
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 
--- THE LEFT-EDGE GRID (Shop, Index, Nukes, Gear, Warp, Gifts), on request: a navy fill lit
--- from the top, a light rim inside a thin dark outline, the picture big and poking up over
--- the top edge by Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
+-- THE LEFT-EDGE GRID (Shop, Index, Nukes, Gear, Warp, Gifts), on request: a see-through
+-- near-black fill lit faintly from the top inside a thin black outline (the grey rim and
+-- the navy went, on request), the picture just poking up over the top edge by
+-- Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
 -- (Settings, Daily, placed by spec.position) keep the dark glow-orb look.
 local GRID_SIZE = Dock.SIDE_GRID_TILE
 local GRID_CORNER = 11
-local GRID_TOP = Color3.fromRGB(58, 74, 116)
-local GRID_FOOT = Color3.fromRGB(24, 30, 54)
-local GRID_OUTLINE = Color3.fromRGB(12, 14, 26)
+local GRID_TOP = Color3.fromRGB(34, 36, 42)
+local GRID_FOOT = Color3.fromRGB(6, 7, 10)
+local GRID_FILL_TRANSPARENCY = 0.35
+local GRID_OUTLINE = Color3.new(0, 0, 0)
 local GRID_OUTLINE_THICKNESS = 2
-local GRID_RIM = Color3.fromRGB(176, 192, 224)
-local GRID_RIM_THICKNESS = 3
+local GRID_OUTLINE_TRANSPARENCY = 0.25
 local GRID_ICON = 52
 -- The picture's centre, up from the tile's: its top then clears the edge by the poke.
 local GRID_ICON_RISE = GRID_ICON / 2 + Dock.SIDE_GRID_POKE - GRID_SIZE / 2
@@ -146,34 +147,16 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	edge.Transparency = EDGE_TRANSPARENCY
 	if grid then
-		-- The thin dark outline is the button's own stroke; the light rim is a second
-		-- stroke on a frame inset by its thickness, so it draws just inside the outline.
 		edge.Color = GRID_OUTLINE
 		edge.Thickness = GRID_OUTLINE_THICKNESS
-		edge.Transparency = 0
+		edge.Transparency = GRID_OUTLINE_TRANSPARENCY
 		-- The fill is white so the gradient's colours are the colours drawn.
 		button.BackgroundColor3 = Color3.new(1, 1, 1)
-		button.BackgroundTransparency = 0
+		button.BackgroundTransparency = GRID_FILL_TRANSPARENCY
 		local fill = Instance.new("UIGradient")
 		fill.Rotation = 90
 		fill.Color = ColorSequence.new(GRID_TOP, GRID_FOOT)
 		fill.Parent = button
-		local rim = Instance.new("Frame")
-		rim.Name = "Rim"
-		rim.AnchorPoint = Vector2.new(0.5, 0.5)
-		rim.Position = UDim2.fromScale(0.5, 0.5)
-		rim.Size = UDim2.new(1, -2 * GRID_RIM_THICKNESS, 1, -2 * GRID_RIM_THICKNESS)
-		rim.BackgroundTransparency = 1
-		rim.ZIndex = 5
-		rim.Parent = button
-		local rimCorner = Instance.new("UICorner")
-		rimCorner.CornerRadius = UDim.new(0, GRID_CORNER - GRID_RIM_THICKNESS)
-		rimCorner.Parent = rim
-		local rimStroke = Instance.new("UIStroke")
-		rimStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		rimStroke.Color = GRID_RIM
-		rimStroke.Thickness = GRID_RIM_THICKNESS
-		rimStroke.Parent = rim
 	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
@@ -270,7 +253,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		local target = if pressed then PRESS_SCALE elseif hovered then HOVER_SCALE else 1
 		TweenService:Create(scale, TWEEN, { Scale = target }):Play()
 		TweenService:Create(edge, TWEEN, {
-			Transparency = if grid then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
+			Transparency = if grid then GRID_OUTLINE_TRANSPARENCY elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
 		}):Play()
 		-- The grid tiles have no glow.
 		if glow then
