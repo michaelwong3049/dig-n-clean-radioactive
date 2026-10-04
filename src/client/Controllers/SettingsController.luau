@@ -851,10 +851,10 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 110 -- with the other full panels (Index, Shop, Nukes): over the vitals and the tutorial banner
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button: a gear tile hard in the top-RIGHT corner, up in the topbar band on
-	-- request (Dock.cornerButtonCentre 1; Daily rewards sits left of it). The same
-	-- glow-orb tile as the right-edge column (HudTile), kept in HudTile's own gui, which
-	-- ignores the topbar inset. The column keeps below it on short screens
+	-- The button: a small gear tile in the top-RIGHT corner row, up in the topbar band
+	-- just left of Roblox's player list, on request (Dock.cornerButtonCentre 1; Daily
+	-- rewards sits left of it). HudTile's glow-orb tile, kept in HudTile's own gui, which
+	-- ignores the topbar inset. The grid keeps below it on short screens
 	-- (Dock.CORNER_BUTTON_BOTTOM).
 	local canvas = UIKit.canvas(gui)
 
@@ -862,7 +862,7 @@ local function build(): ScreenGui
 		name = "SettingsButton",
 		caption = "Settings",
 		slot = 1,
-		position = UIKit.Dock.cornerButtonCentre(1),
+		corner = 1,
 		color = Color3.fromHex("9FB4C8"),
 		light = Color3.fromHex("DCE6F0"),
 		image = Artwork.IMAGE.settingsGear,

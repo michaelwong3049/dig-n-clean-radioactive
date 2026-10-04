@@ -67,10 +67,12 @@ Artwork.IMAGE = {
 	portal = "rbxassetid://75514448109874", -- Warp: stone ring round a blue-violet vortex
 	detector = "rbxassetid://110438827801253", -- Gear: metal detector, red coil
 	giftBox = "rbxassetid://107608600195476", -- Gifts: gold gift box, red ribbon and bow
-	gift = "rbxassetid://131150228950941", -- Daily rewards: pink gift box, gold bow (daily_gift.svg)
-	-- The Settings button (SettingsController), top-right corner: a steel cog with a
-	-- dark steel hub (no green, on request). tools/hud-icons/settings_gear.svg.
-	settingsGear = "rbxassetid://77565241934943",
+	gift = "rbxassetid://131150228950941", -- Free Gifts fallback + Daily panel: pink gift box, gold bow (daily_gift.svg)
+	-- The top-right corner row, same AI pipeline as the grid (2026-10-03, on request):
+	-- the Daily tile's red-topped "31" calendar and the Settings button's glossy blue cog.
+	-- tools/hud-icons/ai/daily_calendar.png, settings_gear.png.
+	calendar = "rbxassetid://125293311526646",
+	settingsGear = "rbxassetid://86077006685520",
 	-- The Masteries bar (MasteriesController), above Shop: a gold star medal on a red and
 	-- blue ribbon. tools/hud-icons/mastery_medal.svg.
 	medal = "rbxassetid://139869106879830",

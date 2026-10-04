@@ -674,8 +674,6 @@ function Dock.sideLift(): number
 	return UIKit.touchCorner().Y
 end
 
--- The corner buttons' square (Settings, Daily, Potions): HudTile builds them at this size.
-Dock.SIDE_TILE_SIZE = 58
 -- THE BUTTON GRID on the middle of the LEFT edge, on request (2026-10-03, after a
 -- reference of a 2x3 grid of dark tiles with big 3D pictures and the name across the
 -- foot): Shop | Index, Nukes | Gear, Warp | Free Gifts, slots 1-6 left to right, top to
@@ -704,21 +702,30 @@ Dock.SIDE_GRID_DROP = 28
 Dock.SIDE_SOLO_SHIFT = 14
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
--- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Settings hard in the
--- corner, Daily rewards to its left. Same tiles as the column (HudTile), placed by
--- Dock.cornerButtonCentre and measured from the SCREEN top (their guis ignore the
--- topbar inset), so they sit level with Roblox's own topbar buttons.
-Dock.CORNER_TOP = 6
+-- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Settings, Daily rewards to
+-- its left, Potions left of that. Measured from the SCREEN top (their guis ignore the
+-- topbar inset). WAY SMALLER, on request (2026-10-03): about the size of Roblox's own
+-- 44px topbar buttons and level with them (theirs run 12-56 screen px).
+Dock.CORNER_TILE_SIZE = 40
+Dock.CORNER_TOP = 14
 Dock.CORNER_SIDE = 12
-Dock.CORNER_GAP = 12
+Dock.CORNER_GAP = 8
+-- NEXT TO ROBLOX'S PLAYER LIST, on request: the leaderboard hangs in the top-right
+-- corner from y 4, 320 screen px wide plus a 4px margin (measured with this game's
+-- leaderstats), and Roblox draws it over everything, so on a keyboard screen the row
+-- starts just left of it. In SCREEN px, not design px: CoreGui doesn't scale with the
+-- canvas. On a phone or tablet the list starts collapsed, so the row goes in the corner.
+Dock.PLAYERLIST_CLEAR = 324
 -- The corner row's bottom edge, from the screen top.
-Dock.CORNER_BUTTON_BOTTOM = Dock.CORNER_TOP + Dock.SIDE_TILE_SIZE
+Dock.CORNER_BUTTON_BOTTOM = Dock.CORNER_TOP + Dock.CORNER_TILE_SIZE
 
---- The centre of corner button `index` (1 = Settings in the corner, 2 = Daily left of
---- it), on a canvas that ignores the topbar inset.
+--- The centre of corner button `index` (1 = Settings, 2 = Daily left of it, 3 = Potions),
+--- on a canvas that ignores the topbar inset. Depends on the scale (the player list's
+--- clearance is in screen px), so re-read it from UIKit.onScaleChanged.
 function Dock.cornerButtonCentre(index: number): UDim2
-	local half = Dock.SIDE_TILE_SIZE / 2
-	local fromRight = Dock.CORNER_SIDE + half + (index - 1) * (Dock.SIDE_TILE_SIZE + Dock.CORNER_GAP)
+	local half = Dock.CORNER_TILE_SIZE / 2
+	local side = if UIKit.isTouch() then Dock.CORNER_SIDE else Dock.PLAYERLIST_CLEAR / UIKit.scale() + Dock.CORNER_GAP
+	local fromRight = side + half + (index - 1) * (Dock.CORNER_TILE_SIZE + Dock.CORNER_GAP)
 	return UDim2.new(1, -fromRight, 0, Dock.CORNER_TOP + half)
 end
 

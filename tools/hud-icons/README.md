@@ -7,9 +7,10 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | --- | --- | --- |
 | `ai/*.png` (6) | the left-edge button grid: Shop basket, Index cards, Nukes bomb, Gear detector, Warp portal, Gifts box. AI-made PNGs, no SVG source; cut out of a white background | `chest`, `cards`, `nuke`, `detector`, `portal`, `giftBox` |
 | `index_cards.svg`, `shop_chest.svg`, `nukes_bomb.svg`, `warp_portal.svg`, `gear_detector.svg` | the grid's old flat pictures, replaced by `ai/` | no longer used |
-| `daily_gift.svg` | Daily rewards tile (`DailyRewardsController`) | `gift` |
+| `ai/daily_calendar.png`, `ai/settings_gear.png` | the top-right corner row: Daily rewards calendar, Settings cog. AI-made PNGs cut out of a white background | `calendar`, `settingsGear` |
+| `daily_gift.svg` | the Daily rewards panel and the Free Gifts fallback picture | `gift` |
 | `mastery_medal.svg` | the Masteries bar above Shop (`MasteriesController`) | `medal` |
-| `settings_gear.svg` | the Settings button in the top-right corner (`SettingsController`) | `settingsGear` |
+| `settings_gear.svg` | the Settings button's old flat cog, replaced by `ai/settings_gear.png` | no longer used |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
 | `trefoil_tile.svg` | the faint trefoils drifting across the Shop and Index bars (white, tinted black in `HudTile`) | `trefoilTile` (128px) |
 | `speed_shoe.svg` | the SPEED row's sneaker (`SpeedController`) | `speedShoe` |

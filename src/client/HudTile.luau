@@ -30,22 +30,22 @@ local Artwork = require(script.Parent.HudArtwork)
 
 local HudTile = {}
 
-local SIZE = Dock.SIDE_TILE_SIZE
+local SIZE = Dock.CORNER_TILE_SIZE
 local FILL = Color3.fromRGB(14, 16, 20)
 local FILL_TRANSPARENCY = 0.12
-local CORNER = 9
+local CORNER = 8
 local EDGE_THICKNESS = 1.5
 local EDGE_TRANSPARENCY = 0.55
 local EDGE_TRANSPARENCY_HOVER = 0.15
 
 -- The picture's square box, centred in the tile. No caption under it, on request, so
 -- the drawn symbol (which runs to the edge of its square) fills most of the tile.
-local ICON_SIZE = 48
+local ICON_SIZE = 34
 
 -- The glow picture's diameter and how see-through it is. Its alpha falls to nothing
 -- at the rim, so it can be a little wider than the tile's top band without an edge.
 -- At 0.3 it reads about as strong as the old disc stack did; hover brightens it.
-local GLOW_SIZE = 60
+local GLOW_SIZE = 42
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 
@@ -90,9 +90,13 @@ export type Spec = {
 	iconDrop: number?,
 	-- Optional: a caller that wires its own click (IndexController) leaves it out.
 	onActivated: (() -> ())?,
-	-- Optional: a fixed spot (the button's centre) instead of a slot in the column —
-	-- the Settings gear in the top-right corner. `slot` is then unused.
+	-- Optional: a fixed spot (the button's centre) instead of a slot in the column.
+	-- `slot` is then unused.
 	position: UDim2?,
+	-- Optional: a place in the top-right corner row instead (Dock.cornerButtonCentre:
+	-- 1 = Settings, 2 = Daily, 3 = Potions), re-placed when the scale changes. `slot`
+	-- is then unused.
+	corner: number?,
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
 	-- Optional: no box at all, on request — just the picture, big, with the caption
@@ -130,7 +134,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local canvas = UIKit.canvas(gui)
 
 	local bare = spec.bare == true
-	local grid = not bare and spec.position == nil
+	local grid = not bare and spec.position == nil and spec.corner == nil
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
 		size = if grid then UDim2.fromOffset(GRID_SIZE, GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
@@ -233,7 +237,14 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 			zIndex = 8,
 		}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
 	else
-		button.Position = spec.position :: UDim2
+		local corner = spec.corner
+		if corner then
+			UIKit.onScaleChanged(function()
+				button.Position = Dock.cornerButtonCentre(corner)
+			end)
+		else
+			button.Position = spec.position :: UDim2
+		end
 
 		-- The glow and the picture, both on the tile's centre.
 		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
