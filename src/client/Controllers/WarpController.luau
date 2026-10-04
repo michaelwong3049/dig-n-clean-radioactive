@@ -187,7 +187,7 @@ local function buildButton(parent: Frame, spec: Spec, x: number): Entry
 		size = UDim2.new(1, -(OVERLAP + 12), 1, 0),
 		position = UDim2.fromOffset(OVERLAP + 4, 0),
 		text = spec.text,
-		font = Enum.Font.FredokaOne,
+		font = UIKit.House.font,
 		textSize = NAME_SIZE,
 		color = Color3.new(1, 1, 1),
 		xAlign = Enum.TextXAlignment.Center,

@@ -39,7 +39,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local BaseMarker = {}
 
 local PLATE_NAME = "BasePlate"
-local FONT = Enum.Font.FredokaOne
+local FONT = Enum.Font.GothamBlack -- UIKit.House.font
 local NAME_COLOR = Color3.fromHex("7CF24A") -- bright cash green, like the HUD's money
 local RATE_COLOR = Color3.fromHex("FFF6D6") -- warm cream so the number reads apart from the name
 local OUTLINE = Color3.fromHex("14161A")
