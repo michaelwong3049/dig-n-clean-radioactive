@@ -31,9 +31,8 @@ local Sfx = require(script.Parent.Parent.Sfx)
 
 local MasteriesController = {}
 
--- The button: third row of the left column, over Shop (row 2) and Index (row 1) — no
--- box, on request, just the medal with its name under it.
-local BAR_ROW = 3
+-- The button: on top of the left-edge button grid (Shop, Index, Nukes, Gear, Warp,
+-- Gifts) -- no box, on request, just the medal with its name under it.
 local BAR_COLOR = Color3.fromRGB(255, 196, 46)
 local BAR_LIGHT = Color3.fromRGB(255, 236, 170)
 -- "Masteries" is twice "Shop"; at the bars' 28 it dwarfs the medal; a little smaller still, on request.
@@ -560,7 +559,6 @@ function MasteriesController.start()
 		light = BAR_LIGHT,
 		image = Artwork.IMAGE.medal,
 		onActivated = MasteriesController.toggle,
-		leftRow = BAR_ROW,
 		captionSize = CAPTION_SIZE,
 		bare = true,
 	})
