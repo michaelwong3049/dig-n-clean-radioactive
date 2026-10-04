@@ -2,7 +2,7 @@
 --[[
 	CampWarpController.luau — the Warp tile, and the camp list it opens.
 
-	THE TILE is bottom left of the right-edge 2x3 grid, under Nukes, built by HudTile
+	THE TILE is bottom left of the left-edge 2x3 grid, under Nukes, built by HudTile
 	like the other five, with a portal swirl on it.
 	A red "!" sits on its corner from the moment a camp is reached on foot (CampState's
 	`unlocked`) until the panel is next opened, so a new warp does not go unnoticed.
@@ -42,7 +42,7 @@ local HudTile = require(script.Parent.Parent.HudTile)
 
 local CampWarp = {}
 
--- THE WARP TILE: bottom left of the right-edge 2x3 grid (HudTile), the portal swirl.
+-- THE WARP TILE: bottom left of the left-edge 2x3 grid (HudTile), the portal swirl.
 local TILE_SLOT = 5
 local TILE_COLOR = Color3.fromRGB(60, 195, 255)
 local TILE_LIGHT = Color3.fromRGB(183, 236, 255)

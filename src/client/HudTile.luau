@@ -1,7 +1,7 @@
 --[[
-	HudTile — one HUD tile: the 2x3 button grid on the middle right (Shop, Index, Nukes, Gear,
+	HudTile — one HUD tile: the 2x3 button grid on the middle left (Shop, Index, Nukes, Gear,
 	Warp, Gifts) in the dark "Grid" look, and the top-right corner buttons (Settings, Daily) in
-	the dark "glow orb" look. Masteries builds a bare picture on the left edge (spec.leftRow).
+	the dark "glow orb" look. Masteries builds a bare picture on the right edge (spec.bare).
 
 	The grid tile, on request (2026-10-03, from a reference picture): a dark navy rounded
 	square with a light rim, a big picture that pokes up over its top edge, and the name in
@@ -49,7 +49,7 @@ local GLOW_SIZE = 60
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 
--- THE RIGHT-EDGE GRID (Shop, Index, Nukes, Gear, Warp, Gifts), on request: a navy fill lit
+-- THE LEFT-EDGE GRID (Shop, Index, Nukes, Gear, Warp, Gifts), on request: a navy fill lit
 -- from the top, a light rim inside a thin dark outline, the picture big and poking up over
 -- the top edge by Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
 -- (Settings, Daily, placed by spec.position) keep the dark glow-orb look.
@@ -77,7 +77,7 @@ export type Spec = {
 	name: string,
 	-- The name under the picture (grid tiles and bare rows; a corner button shows none).
 	caption: string,
-	-- Where in the right-edge grid: 1-6, left to right, top to bottom.
+	-- Where in the left-edge grid: 1-6, left to right, top to bottom.
 	slot: number,
 	-- The glow and edge colour, and the lighter caption tint.
 	color: Color3,
@@ -92,13 +92,11 @@ export type Spec = {
 	-- Optional: a fixed spot (the button's centre) instead of a slot in the column —
 	-- the Settings gear in the top-right corner. `slot` is then unused.
 	position: UDim2?,
-	-- Optional: put it on the LEFT edge instead, centred on the grid's middle line (Masteries).
-	-- With `bare`, the only kind left there. `slot` is then unused.
-	leftRow: number?,
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
-	-- Optional, with leftRow: no box at all, on request — just the picture, big, with the
-	-- caption centred under it (Masteries' medal).
+	-- Optional: no box at all, on request — just the picture, big, with the caption
+	-- centred under it, alone on the RIGHT edge on the grid's middle line (Masteries'
+	-- medal). `slot` is then unused.
 	bare: boolean?,
 	-- Optional, with bare: extra design px up from the left edge's middle line.
 	lift: number?,
@@ -110,7 +108,7 @@ local BARE_GLOW = 112
 -- Negative: the medal art has clear space under its disc, and the name sits right under it.
 local BARE_CAPTION_GAP = -11
 -- Just wider than "Masteries" at 20.
-local BARE_W = 100
+local BARE_W = Dock.SIDE_SOLO_WIDTH
 local BARE_TEXT_SIZE = 28
 local BARE_TEXT_STROKE = 3
 local BARE_TEXT_DROP = Vector2.new(2, 3)
@@ -130,7 +128,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
-	local bare = spec.leftRow ~= nil
+	local bare = spec.bare == true
 	local grid = not bare and spec.position == nil
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
@@ -182,8 +180,8 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 
 	local glow, icon
 	if bare then
-		-- No box, on request: the picture with its name under it, its left edge on the
-		-- left margin and its centre on the grid's middle line, so both sides of the screen
+		-- No box, on request: the picture with its name under it, its right edge on the
+		-- right margin and its centre on the grid's middle line, so both sides of the screen
 		-- share one centre line -- re-run on resize, as the grid is.
 		local captionSize = spec.captionSize or BARE_TEXT_SIZE
 		local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
@@ -191,7 +189,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		local function place()
 			local canvasHeight = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
 			local middle = Dock.sideColumnTop(canvasHeight) + Dock.SIDE_GRID_HEIGHT / 2
-			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BARE_W / 2, 0.5, middle - (spec.lift or 0))
+			button.Position = UDim2.new(1, -(Dock.ROW_SIDE_MARGIN + BARE_W / 2), 0.5, middle - (spec.lift or 0))
 		end
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()

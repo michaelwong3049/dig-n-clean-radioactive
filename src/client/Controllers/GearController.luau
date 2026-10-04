@@ -1,6 +1,6 @@
 --[[
 	GearController.lua — the Gear tile, and the loadout panel it opens. The tile sits
-	middle right of the right-edge 2x3 grid, beside Nukes, built by HudTile like the
+	middle right of the left-edge 2x3 grid, beside Nukes, built by HudTile like the
 	other five.
 
 	THE PANEL IS EVERY TIER YOU OWN, ON EVERY TRACK, and a button to switch to it from
@@ -35,7 +35,7 @@ local GearArt = require(script.Parent.Parent.GearArt)
 
 local GearPanel = {}
 
--- THE GEAR TILE: middle right of the right-edge 2x3 grid (HudTile), the metal detector.
+-- THE GEAR TILE: middle right of the left-edge 2x3 grid (HudTile), the metal detector.
 local TILE_SLOT = 4
 local TILE_COLOR = Color3.fromRGB(255, 128, 48)
 local TILE_LIGHT = Color3.fromRGB(255, 208, 170)

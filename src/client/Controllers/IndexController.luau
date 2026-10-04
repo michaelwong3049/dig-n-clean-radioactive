@@ -63,7 +63,7 @@ local HudTile = require(script.Parent.Parent.HudTile)
 
 local Index = {}
 
--- THE INDEX TILE: top right of the right-edge 2x3 grid, beside Shop, built by HudTile
+-- THE INDEX TILE: top right of the left-edge 2x3 grid, beside Shop, built by HudTile
 -- in the grid's shared dark look with the fanned rarity cards. The grid's top is level with the top of the cash/meter column
 -- on the left, or the whole grid is centred on a screen too short for that line
 -- (Dock.sideColumnTop). Its own ScreenGui (IgnoreGuiInset = true), so those offsets

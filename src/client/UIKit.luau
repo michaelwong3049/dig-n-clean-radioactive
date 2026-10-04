@@ -676,18 +676,21 @@ end
 
 -- The corner buttons' square (Settings, Daily, Potions): HudTile builds them at this size.
 Dock.SIDE_TILE_SIZE = 58
--- THE BUTTON GRID on the middle of the right edge, on request (2026-10-03, after a
+-- THE BUTTON GRID on the middle of the LEFT edge, on request (2026-10-03, after a
 -- reference of a 2x3 grid of dark tiles with big 3D pictures and the name across the
 -- foot): Shop | Index, Nukes | Gear, Warp | Free Gifts, slots 1-6 left to right, top to
--- bottom (HudTile builds them). It was one column of 58px Gear/Nukes/Warp squares, with
--- Shop and Index as bars on the left. The haul widget measures its clearance against
--- the grid's width (HAULPANEL_RIGHT).
+-- bottom (HudTile builds them). It was one column of 58px Gear/Nukes/Warp squares on the
+-- right, with Shop and Index as bars on the left; Masteries swapped over to the right edge,
+-- alone (SIDE_SOLO_WIDTH).
 Dock.SIDE_GRID_TILE = 76
 Dock.SIDE_GRID_COLUMNS = 2
 Dock.SIDE_GRID_ROWS = 3
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
 Dock.SIDE_TILE_GAP = 12
+-- Masteries' bare medal, alone on the middle of the RIGHT edge (HudTile): its width,
+-- which the haul widget keeps clear of (HAULPANEL_RIGHT).
+Dock.SIDE_SOLO_WIDTH = 100
 -- How far a tile's picture pokes up over its top edge (HudTile), kept clear of the corner row.
 Dock.SIDE_GRID_POKE = 12
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
@@ -722,15 +725,15 @@ function Dock.sideColumnTop(height: number): number
 end
 
 --- The CENTRE of grid tile `slot` (1-6, left to right, top to bottom), as a position on
---- a canvas `height` design px tall: offset in from the right edge, and down from the
+--- a canvas `height` design px tall: offset in from the LEFT edge, and down from the
 --- vertical centre. Centred so a tile's hover UIScale grows it evenly on every side.
 function Dock.sideTileCentre(slot: number, height: number): UDim2
 	local column = (slot - 1) % Dock.SIDE_GRID_COLUMNS
 	local row = (slot - 1) // Dock.SIDE_GRID_COLUMNS
 	local step = Dock.SIDE_GRID_TILE + Dock.SIDE_TILE_GAP
-	local fromRight = Dock.ROW_SIDE_MARGIN + (Dock.SIDE_GRID_COLUMNS - 1 - column) * step + Dock.SIDE_GRID_TILE / 2
+	local fromLeft = Dock.ROW_SIDE_MARGIN + column * step + Dock.SIDE_GRID_TILE / 2
 	local down = Dock.sideColumnTop(height) + row * step + Dock.SIDE_GRID_TILE / 2
-	return UDim2.new(1, -fromRight, 0.5, down)
+	return UDim2.new(0, fromLeft, 0.5, down)
 end
 
 --- Where the tile grid ends: its bottom row's bottom edge, in design px from the canvas
@@ -777,7 +780,7 @@ Dock.HAULPANEL_CENTRE_GAP = 100
 -- to overlap the surfacing item; further in it tucks behind the meter (DisplayOrder 100
 -- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
 -- width, not a different anchor.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_GRID_WIDTH + Dock.GAP
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_SOLO_WIDTH + Dock.GAP
 
 -- AND NEVER TALLER THAN THE SCREEN HAS ROOM FOR. On a landscape phone (~625-650 design
 -- px tall) HAULPANEL_BOTTOM + 474 ran the widget's top off the screen, under the

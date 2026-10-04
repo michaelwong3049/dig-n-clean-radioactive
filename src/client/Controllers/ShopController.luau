@@ -1,6 +1,6 @@
 --[[
 	ShopController.lua — the Shop tile, and the panel it opens. The tile is the
-	top-left square of the right-edge 2x3 grid, built by HudTile like the other five.
+	top-left square of the left-edge 2x3 grid, built by HudTile like the other five.
 
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
 	walking up to a stall on the plaza (StationController). One scrolling body, five
@@ -47,7 +47,7 @@ local ItemArt = require(script.Parent.Parent.ItemArt)
 
 local Shop = {}
 
--- THE SHOP TILE: top left of the right-edge 2x3 grid (HudTile), the treasure chest.
+-- THE SHOP TILE: top left of the left-edge 2x3 grid (HudTile), the treasure chest.
 local TILE_SLOT = 1
 local TILE_COLOR = Color3.fromRGB(86, 212, 71)
 local TILE_LIGHT = Color3.fromRGB(185, 245, 168)

@@ -1,6 +1,6 @@
 --[[
 	NukesController.lua — the Nukes tile, and the panel it opens. The tile is
-	middle left of the right-edge 2x3 grid, beside Gear, built by HudTile like the others.
+	middle left of the left-edge 2x3 grid, beside Gear, built by HudTile like the others.
 
 	THE PANEL SLIDES IN FROM THE RIGHT EDGE and docks a small gap short of it, over the
 	tile column (on request, after a reference picture): a tall near-black tray under a
@@ -42,7 +42,7 @@ local ItemArt = require(script.Parent.Parent.ItemArt)
 
 local Nukes = {}
 
--- THE NUKES TILE: middle left of the right-edge 2x3 grid (HudTile), the green nuke.
+-- THE NUKES TILE: middle left of the left-edge 2x3 grid (HudTile), the green nuke.
 local TILE_SLOT = 3
 local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
