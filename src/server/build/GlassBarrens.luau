@@ -39,22 +39,24 @@ local GlassBarrens = {}
 
 local SEED = 9900
 
-local SPIRES = 9
-local SPIRE_GLINTS = 4
-local SHARD_CLUSTERS = 8
-local POOLS = 2
-local POOL_LIGHTS = 2
-local FULGURITES = 4
-local RIPPLE_PATCHES = 2
+-- MINIMAL-DECOR PASS (2026-10-03, on request): one landmark kept (glass spires), every
+-- other count cut to a handful and the ground scatter to x0.3. Old values inline.
+local SPIRES = 4 -- was 9
+local SPIRE_GLINTS = 2 -- was 4
+local SHARD_CLUSTERS = 2 -- was 8
+local POOLS = 1 -- was 2
+local POOL_LIGHTS = 1 -- was 2
+local FULGURITES = 1 -- was 4
+local RIPPLE_PATCHES = 1 -- was 2
 --- Added on request ("add more things in glass barrens"), off their own seed so nothing
 --- placed before them moves: glass sheets and test-site posts (boulders tried and cut: they read as out of place).
-local GLASS_SHEETS = 7
-local INSTRUMENT_POSTS = 5
+local GLASS_SHEETS = 2 -- was 7
+local INSTRUMENT_POSTS = 1 -- was 5
 
 local CELL = 13
-local BEAD_CHANCE = 0.02
-local GRIT_CHANCE = 0.04
-local CRUST_CHANCE = 0.015
+local BEAD_CHANCE = 0.006 -- was 0.02
+local GRIT_CHANCE = 0.012 -- was 0.04
+local CRUST_CHANCE = 0.0045 -- was 0.015
 
 --- Deeper than the glass is in life: on this pale ice-cyan floor the lighter greens
 --- shot live as barely-there ghosts.

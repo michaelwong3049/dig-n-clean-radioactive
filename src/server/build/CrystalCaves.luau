@@ -31,18 +31,20 @@ local CrystalCaves = {}
 
 local SEED = 10200
 
-local ARCHES = 5
-local ARCH_LIGHTS = 3
-local CLUSTERS = 9
-local CLUSTER_LIGHTS = 3
-local GEODES = 4
-local SEEP_POOLS = 2
+-- MINIMAL-DECOR PASS (2026-10-03, on request): one landmark kept (rock arches), every
+-- other count cut to a handful and the ground scatter to x0.3. Old values inline.
+local ARCHES = 3 -- was 5
+local ARCH_LIGHTS = 2 -- was 3
+local CLUSTERS = 3 -- was 9
+local CLUSTER_LIGHTS = 2 -- was 3
+local GEODES = 1 -- was 4
+local SEEP_POOLS = 1 -- was 2
 local POOL_MOTES = 1
 
 local CELL = 13
-local GRIT_CHANCE = 0.06
-local STREAK_CHANCE = 0.015
-local SHARD_CHANCE = 0.05
+local GRIT_CHANCE = 0.018 -- was 0.06
+local STREAK_CHANCE = 0.0045 -- was 0.015
+local SHARD_CHANCE = 0.015 -- was 0.05
 
 local BASALT = { K.hex("2B302C"), K.hex("363C37"), K.hex("22271F") }
 local CRYSTAL = { K.hex("7CFF3A"), K.hex("4FE87A"), K.hex("3FE0B0"), K.hex("A6FF4F") }

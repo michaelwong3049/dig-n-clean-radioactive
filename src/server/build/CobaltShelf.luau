@@ -31,19 +31,21 @@ local CobaltShelf = {}
 
 local SEED = 8800
 
-local LEDGES = 7
-local CLUSTERS = 6
+-- MINIMAL-DECOR PASS (2026-10-03, on request): one landmark kept (ledges), every
+-- other count cut to a handful and the ground scatter to x0.3. Old values inline.
+local LEDGES = 3 -- was 7
+local CLUSTERS = 2 -- was 6
 --- How many of the clusters get the landmark scale.
-local BIG_CLUSTERS = 3
-local PUDDLES = 7
-local PUDDLE_LIGHTS = 4
+local BIG_CLUSTERS = 1 -- was 3
+local PUDDLES = 2 -- was 7
+local PUDDLE_LIGHTS = 2 -- was 4
 local PUDDLE_MIST = 1
 
 local CELL = 13
-local GRAVEL_CHANCE = 0.06
-local ORE_CHANCE = 0.04
-local CRUST_CHANCE = 0.015
-local SHARD_CHANCE = 0.03
+local GRAVEL_CHANCE = 0.018 -- was 0.06
+local ORE_CHANCE = 0.012 -- was 0.04
+local CRUST_CHANCE = 0.0045 -- was 0.015
+local SHARD_CHANCE = 0.009 -- was 0.03
 
 local COBALT = { K.hex("1F3FBF"), K.hex("2B4FD8"), K.hex("16308F"), K.hex("3A5FE8") }
 local ROCK = { K.hex("4A5C78"), K.hex("36465E"), K.hex("566A88") }

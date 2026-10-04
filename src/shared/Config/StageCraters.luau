@@ -121,7 +121,9 @@ StageCraters.DEFS = {
 		seed = 6001,
 		vents = 5,
 	},
-	-- The small ones. Placed by hand, not dealt: spread down the whole walk (west edge to
+	-- The small ones -- TWO since the minimal-decor pass (2026-10-03, on request; was
+	-- eight: Pock2/3/4/6/7/8 removed, the far-west and far-east ones kept).
+	-- Placed by hand, not dealt: spread down the whole walk (west edge to
 	-- the camp gate) and across both halves of the corridor, clear of the big crater's
 	-- flank, clear of the Stage 5 seam and the Toxic Twilight gate, and never two
 	-- the same size or shape. Spec pins the clearances.
@@ -142,59 +144,9 @@ StageCraters.DEFS = {
 		segments = 12,
 		seed = 6101,
 	},
-	{
-		name = "Pock2",
-		stageId = 6,
-		center = at(1590, 50),
-		radius = 5,
-		aspect = 1.1,
-		yaw = 140,
-		height = 1.4,
-		wobble = { { 2, 0.05, 10 }, { 3, 0.09, 120 } },
-		lift = { { 2, 0.18, 200 }, { 3, 0.2, 60 } },
-		slump = nil,
-		floorFrac = 0.6,
-		outerFrac = 1.42,
-		digFloor = false,
-		segments = 12,
-		seed = 6102,
-	},
-	{
-		name = "Pock3",
-		stageId = 6,
-		center = at(1622, -51), -- was (1630, -54): nudged west and in with the map-shrink pass, off the wall and the big crater
-		radius = 10,
-		aspect = 1.2,
-		yaw = 10,
-		height = 2.6,
-		wobble = { { 2, 0.05, 250 }, { 3, 0.07, 20 }, { 5, 0.03, 140 } },
-		lift = { { 2, 0.15, 90 }, { 3, 0.12, 300 } },
-		slump = { bearing = 40, width = 60, depth = 0.5 },
-		floorFrac = 0.62,
-		outerFrac = 1.4,
-		digFloor = false,
-		segments = 16,
-		seed = 6103,
-		vents = 1,
-	},
-	{
-		name = "Pock4",
-		stageId = 6,
-		center = at(1750, -33),
-		radius = 11.5,
-		aspect = 1.3,
-		yaw = 115,
-		height = 3,
-		wobble = { { 2, 0.04, 70 }, { 3, 0.08, 310 }, { 4, 0.04, 180 } },
-		lift = { { 2, 0.14, 260 }, { 3, 0.12, 40 } },
-		slump = { bearing = 300, width = 55, depth = 0.45 },
-		floorFrac = 0.62,
-		outerFrac = 1.4,
-		digFloor = false,
-		segments = 18,
-		seed = 6104,
-		vents = 1,
-	},
+
+
+
 	{
 		name = "Pock5",
 		stageId = 6,
@@ -212,57 +164,9 @@ StageCraters.DEFS = {
 		segments = 14,
 		seed = 6105,
 	},
-	{
-		name = "Pock6",
-		stageId = 6,
-		center = at(1814, -54),
-		radius = 6,
-		aspect = 1.12,
-		yaw = 160,
-		height = 1.6,
-		wobble = { { 2, 0.05, 300 }, { 3, 0.08, 45 } },
-		lift = { { 2, 0.2, 75 }, { 3, 0.15, 210 } },
-		slump = nil,
-		floorFrac = 0.6,
-		outerFrac = 1.42,
-		digFloor = false,
-		segments = 12,
-		seed = 6106,
-	},
-	{
-		name = "Pock7",
-		stageId = 6,
-		center = at(1801, 13),
-		radius = 7,
-		aspect = 1.2,
-		yaw = 80,
-		height = 1.9,
-		wobble = { { 2, 0.05, 130 }, { 3, 0.08, 270 } },
-		lift = { { 2, 0.18, 330 }, { 3, 0.14, 100 } },
-		slump = nil,
-		floorFrac = 0.6,
-		outerFrac = 1.42,
-		digFloor = false,
-		segments = 12,
-		seed = 6107,
-	},
-	{
-		name = "Pock8",
-		stageId = 6,
-		center = at(1740, 57), -- z 60 -> 57 (map-shrink pass, wall clearance)
-		radius = 5.5,
-		aspect = 1.1,
-		yaw = 5,
-		height = 1.5,
-		wobble = { { 2, 0.06, 220 }, { 3, 0.07, 15 } },
-		lift = { { 2, 0.16, 280 }, { 3, 0.18, 150 } },
-		slump = nil,
-		floorFrac = 0.6,
-		outerFrac = 1.42,
-		digFloor = false,
-		segments = 12,
-		seed = 6108,
-	},
+
+
+
 } :: { Crater }
 
 for _, def in StageCraters.DEFS do

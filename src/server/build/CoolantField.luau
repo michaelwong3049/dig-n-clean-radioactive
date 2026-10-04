@@ -80,7 +80,10 @@ local SEED = 8600
 
 -- ── The skeleton ───────────────────────────────────────────────────────────────
 -- Plate-local studs, x along the field's length and z across it (290 x 170 -> x +-145,
--- z +-85).
+-- z +-85). AUTHORED AT THAT SIZE AND SCALED to the stage's real decor footprint in
+-- build() (AUTHORED_X / AUTHORED_Z), so the network follows the plate when it shrinks
+-- -- the 124-wide map-shrink pass had the old spurs ending past the walls.
+local AUTHORED_X, AUTHORED_Z = 290, 170
 
 --- The trunk, west to east. It BENDS a few degrees at each vertex, because a drain
 --- follows the grade it was cut into and a ruler-straight 270-stud line reads as a
@@ -112,22 +115,19 @@ local SOUTH: { { number } } = {
 --- `crosses` is the one that does not end in an outfall: it runs over the walk lane
 --- under the culvert and JOINS the collector at one of its vertices (16, -44). One
 --- crossing, not four -- a crossing is a landmark when there is one of them.
+-- MINIMAL-DECOR PASS (2026-10-03, on request: "channels trimmed"): only the crossing
+-- is left -- the trunk, the collector and the one spur that joins them under the
+-- culvert. The seven outfall spurs (to -118,70 / -46,22 / 60,71 / 110,22 / -100,-72 /
+-- -24,-22 / 54,-73) are in git history.
 local SPURS: { { from: string, leg: number, t: number, to: { number }, crosses: boolean? } } = {
-	{ from = "trunk", leg = 1, t = 0.45, to = { -118, 70 } },
-	{ from = "trunk", leg = 2, t = 0.45, to = { -46, 22 } },
 	{ from = "trunk", leg = 3, t = 0.2, to = { 16, -44 }, crosses = true },
-	{ from = "trunk", leg = 3, t = 0.7, to = { 60, 71 } },
-	{ from = "trunk", leg = 4, t = 0.4, to = { 110, 22 } },
-	{ from = "south", leg = 1, t = 0.55, to = { -100, -72 } },
-	{ from = "south", leg = 2, t = 0.4, to = { -24, -22 } },
-	{ from = "south", leg = 3, t = 0.6, to = { 54, -73 } },
 }
 
 --- Failures mid-run, as (leg, t) on the AUTHORED polyline. Deliberately not near the
 --- ends: a run that fails in the middle of its length reads as failure.
-local TRUNK_BREAKS: { { leg: number, t: number } } = {
-	{ leg = 2, t = 0.8 },
-}
+-- Emptied in the minimal-decor pass (2026-10-03): was { leg = 2, t = 0.8 }, the one
+-- mid-run failure and its spill.
+local TRUNK_BREAKS: { { leg: number, t: number } } = {}
 local SOUTH_BREAKS: { { leg: number, t: number } } = {}
 
 --- Half-width of the open walk lane down z = 0 (build/BiomeKit's LANE_HALF).
@@ -213,10 +213,10 @@ local RAMP_RUN = 3
 --- The field-wide rings, as a size ladder (full length of a ring's rim oval), dealt
 --- best-candidate so they spread evenly instead of clumping where a grid cell happened
 --- to win its roll.
+-- 1/2/3 -> 1/1/0 in the minimal-decor pass (2026-10-03).
 local CRUST_LADDER: { { n: number, a: { number } } } = {
 	{ n = 1, a = { 10, 13 } },
-	{ n = 2, a = { 7, 10 } },
-	{ n = 3, a = { 4, 7 } },
+	{ n = 1, a = { 7, 10 } },
 }
 local CRUST_CANDIDATES = 24
 
@@ -1136,6 +1136,8 @@ end
 function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 	local palette = paletteFor(stageId)
 	local cx, cz = Stages.decorCenter(stageId)
+	local dMinX, dMinZ, dMaxX, dMaxZ = Stages.decorBounds(stageId)
+	local sx, sz = (dMaxX - dMinX) / AUTHORED_X, (dMaxZ - dMinZ) / AUTHORED_Z
 
 	local folder = Instance.new("Folder")
 	folder.Name = "CoolantField"
@@ -1143,7 +1145,7 @@ function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 	crustFolder.Name = "Crust"
 
 	local function toWorld(p: { number }): Vector3
-		return Vector3.new(cx + p[1], 0, cz + p[2])
+		return Vector3.new(cx + p[1] * sx, 0, cz + p[2] * sz)
 	end
 	local function lift(list: { { number } }): { Vector3 }
 		local out = {}

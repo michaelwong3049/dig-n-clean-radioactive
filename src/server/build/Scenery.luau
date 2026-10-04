@@ -99,7 +99,6 @@ local FieldLitter = require(script.Parent.FieldLitter)
 local WasteDump = require(script.Parent.WasteDump)
 local WiltingMeadow = require(script.Parent.WiltingMeadow)
 local CoolantField = require(script.Parent.CoolantField)
-local QuarantineCordon = require(script.Parent.QuarantineCordon)
 local CinderField = require(script.Parent.CinderField)
 local CobaltShelf = require(script.Parent.CobaltShelf)
 local GlassBarrens = require(script.Parent.GlassBarrens)
@@ -109,7 +108,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 58
+local BUILDER_VERSION = 60
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -750,7 +749,12 @@ type StageTheme = {
 	trees: number?,
 }
 local THEME: { [number]: StageTheme } = {
-	[1] = { props = 9, deadProps = 14, pools = 8, kind = "trees", scatter = true },
+	-- MINIMAL-DECOR PASS (2026-10-03, on request: "remove most of the decorations in
+	-- each stage"). Every count below was cut to a handful; the big pieces kept were
+	-- the user's picks -- S1 creek/tree/log/picnic, S2 a few dead trees and one
+	-- carcass, S3 the crane and truck, S4 fewer pools and trees (cordon gone).
+	-- Was: S1 9/14, S2 9 trees 2/16/7 bones, S3 1/4/2 bones 14 drums, S4 12 pools 4 trees.
+	[1] = { props = 6, deadProps = 4, pools = 8, kind = "trees", scatter = true },
 	-- Stage 2's bone counts. Two carcasses is the whole point of the number: one either
 	-- side of the lane (scatterBones alternates), so the field always has one in view
 	-- and never a pile. The loose clusters are the dense one -- 16 of them at 3-6 bones
@@ -758,7 +762,7 @@ local THEME: { [number]: StageTheme } = {
 	-- littered" without ever being what you are looking at. Skulls stay rare: they are
 	-- the detail that lands hardest, and lose all of it the moment there are enough of
 	-- them to be scenery.
-	[2] = { props = 9, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
+	[2] = { props = 4, pools = 10, kind = "trees", scatter = true, skeletons = 1, bones = 4, skulls = 2 },
 	-- Stage 3 gets the SAME three bone passes, denser, plus the drums, the ground
 	-- litter and -- the redesign -- a WASTE DUMP (build/WasteDump): a crane, a tipper
 	-- truck, drum yards and burial trenches. Its sirens are still on the shelf
@@ -776,7 +780,7 @@ local THEME: { [number]: StageTheme } = {
 	-- between them. This is the one prop out here tall enough and saturated enough to
 	-- navigate by, which is worth more than cover: enough of them to steer by, never
 	-- so many that the ground stops reading as empty.
-	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 1, bones = 4, skulls = 2, barrels = 14 },
+	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 0, bones = 2, skulls = 1, barrels = 4 },
 	-- The rest of THIS pass (`props`/`pools`/`kind = "barriers"`) is still on the
 	-- shelf -- `scatter` only turns on the sign rank below. FIVE signs, spread over
 	-- the entrance's 142-stud width (2 * hz, hz = 170/2 - 14): one roughly every 28
@@ -792,7 +796,7 @@ local THEME: { [number]: StageTheme } = {
 	-- FOUR DEAD TREES, and the number is the whole design of them -- see
 	-- scatterStage4Trees for why four and not nine. Strays standing out of a field whose
 	-- landmarks are its puddles, not a tree line like Stage 2's.
-	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 0, trees = 4 },
+	[4] = { props = 18, pools = 5, kind = "barriers", scatter = true, signs = 0, trees = 2 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
@@ -2359,8 +2363,8 @@ end
 --- numbers from that shared sequence would reshuffle every bush/crack/dead-snag placed
 --- after it in buildStageScenery, and none of those need to move for this to ship.
 local STAGE1_GROUND_DETAIL_CELL = 18
-local STAGE1_GROUND_DETAIL_ROCK_CHANCE = 0.16
-local STAGE1_GROUND_DETAIL_GRASS_CHANCE = 0.1 -- was 0.28; thinned on request
+local STAGE1_GROUND_DETAIL_ROCK_CHANCE = 0.05 -- was 0.16; minimal-decor pass (2026-10-03)
+local STAGE1_GROUND_DETAIL_GRASS_CHANCE = 0.04 -- was 0.28, then 0.1; thinned on request
 local function scatterStage1GroundDetail(folder: Instance, origin: CFrame, hx: number, hz: number, seed: number)
 	local rng = Random.new(seed)
 	local westEdge = -hx
@@ -3494,31 +3498,12 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
 			-- AFTER the signs, always: both passes run off the one stage rng, so putting
 			-- the puddles first would move every sign in the entrance rank.
-			local lakeX, lakeZ, lakeR = scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
+			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
 			-- LAST for the same reason the puddles come second -- adding the trees was not
 			-- allowed to move a sign or a pool that was already placed.
 			scatterStage4Trees(folder, origin, theme.trees or 0, rng, hx, hz)
-			-- A broken hazard-tape cordon round the lake, on request (build/QuarantineCordon).
-			-- Off its own seed, after everything else, so it moved no sign, pool or tree;
-			-- it steps round the tree trunks it finds already standing.
-			local trunks: { Vector3 } = {}
-			for _, d in folder:GetDescendants() do
-				if d:IsA("BasePart") and d.Name == "Trunk" then
-					table.insert(trunks, d.Position)
-				end
-			end
-			QuarantineCordon.build(
-				folder,
-				dcx + lakeX,
-				dcz + lakeZ,
-				lakeR * 1.25 + 4,
-				Stages.SURFACE_Y + GROUND_SKIM,
-				{ minX = dcx - hx, maxX = dcx + hx, minZ = dcz - hz, maxZ = dcz + hz },
-				16,
-				trunks,
-				8500,
-				flatTrefoil
-			)
+			-- The broken hazard-tape cordon round the lake (build/QuarantineCordon) came out
+			-- in the minimal-decor pass (2026-10-03); the module stays for a revival.
 		elseif id == 5 then
 			-- Reactor Grounds' only pass: the coolant drainage network and the crust it
 			-- dried into (build/CoolantField). Off its own two seeds, not this stage rng --

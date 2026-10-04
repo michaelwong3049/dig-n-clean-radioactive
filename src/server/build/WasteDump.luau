@@ -64,8 +64,10 @@ export type Drums = {
 	chime: number,
 }
 
-local YARDS = 3
-local TRENCHES = 3
+-- 3 / 3 -> 0 / 0 in the minimal-decor pass (2026-10-03): the dump is the crane and
+-- the truck now, on request. yard()/trench() stay for a revival.
+local YARDS = 0
+local TRENCHES = 0
 --- Share of a pallet's four slots that hold a drum, and the chance a pallet row gets a
 --- drum laid across its tops.
 local SLOT_FILLED = 0.8
@@ -82,10 +84,11 @@ local MESH_PITCH = 1.5
 --- sixteen pieces over the whole field once the set pieces' own ground was skipped,
 --- which read as swept rather than dumped on.
 local CELL = 16
-local CRUSHED_CHANCE = 0.02
-local LID_CHANCE = 0.015
-local TYRE_CHANCE = 0.01
-local SLUDGE_CHANCE = 0.012
+-- All x0.3 in the minimal-decor pass (2026-10-03).
+local CRUSHED_CHANCE = 0.006
+local LID_CHANCE = 0.0045
+local TYRE_CHANCE = 0.003
+local SLUDGE_CHANCE = 0.0036
 
 --- Tyre-track gauge (centre to centre) and one rut's width.
 local RUT_GAUGE = 4
@@ -721,7 +724,9 @@ function WasteDump.build(parent: Instance, stageId: number, groundY: number, dru
 	-- or the one drum that tells the story hangs in a carcass (shot live).
 	local cx, cz = 0, 0
 	for _ = 1, 60 do
-		cx, cz = rng:NextNumber(f.maxX - 60, f.maxX - 28), craneSide * rng:NextNumber(46, 62)
+		-- Off the field's own edge (was a flat 46-62, which the 124-wide stages put
+		-- against the wall).
+		cx, cz = rng:NextNumber(f.maxX - 60, f.maxX - 28), craneSide * rng:NextNumber(f.maxZ - 23, f.maxZ - 7)
 		if clearOf(taken, cx, cz, 9) and clearOf(taken, cx + boomDir.X * 23, cz + boomDir.Z * 23, 6) then
 			break
 		end

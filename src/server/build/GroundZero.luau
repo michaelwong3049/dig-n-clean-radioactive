@@ -32,27 +32,29 @@ local GroundZero = {}
 
 local SEED = 12400
 
-local LAVA_POOLS = 3
-local POOL_LIGHTS = 3
-local POOL_SMOKE = 2
-local POOL_SPARKS = 2
-local FLOWS = 2
-local COOLED_ROCKS = 6
+-- MINIMAL-DECOR PASS (2026-10-03, on request): one landmark kept (the hypocentre), every
+-- other count cut to a handful and the ground scatter to x0.3. Old values inline.
+local LAVA_POOLS = 1 -- was 3
+local POOL_LIGHTS = 1 -- was 3
+local POOL_SMOKE = 1 -- was 2
+local POOL_SPARKS = 1 -- was 2
+local FLOWS = 1 -- was 2
+local COOLED_ROCKS = 2 -- was 6
 --- Added on request ("add more things in ground zero"), off their own seed so nothing
 --- placed before them moves: wreck piles, burnt poles and charred drums.
-local WRECKS = 6
-local POLES = 6
-local DRUM_GROUPS = 5
+local WRECKS = 2 -- was 6
+local POLES = 2 -- was 6
+local DRUM_GROUPS = 1 -- was 5
 
 --- The hypocentre's scorched disc and how many blast-shadow streaks come out of it.
 local SCORCH_RADIUS = 14
-local STREAKS = 20
+local STREAKS = 8 -- was 20
 
 local CELL = 13
-local SCORCH_CHANCE = 0.02
-local ASH_CHANCE = 0.01
-local BEAD_CHANCE = 0.015
-local CRACK_CHANCE = 0.03
+local SCORCH_CHANCE = 0.006 -- was 0.02
+local ASH_CHANCE = 0.003 -- was 0.01
+local BEAD_CHANCE = 0.0045 -- was 0.015
+local CRACK_CHANCE = 0.009 -- was 0.03
 
 local CRUST = { K.hex("2A1A14"), K.hex("1A1614"), K.hex("3A2A22") }
 local SCORCH = K.hex("1C1210")
