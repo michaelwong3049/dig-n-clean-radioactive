@@ -561,10 +561,10 @@ function DailyRewardsController.start()
 		name = "DailyButton",
 		caption = "Daily",
 		slot = 1,
-		position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX),
+		corner = CORNER_INDEX,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
-		image = Artwork.IMAGE.gift,
+		image = Artwork.IMAGE.calendar,
 		onActivated = DailyRewardsController.toggle,
 	})
 	local mark

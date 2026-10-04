@@ -54,7 +54,7 @@ local BUTTON_W = 120
 local PANEL_W = 560
 local PANEL_H = PAD * 2 + HEADER_H + #Potions.ORDER * ROW_H + (#Potions.ORDER - 1) * ROW_GAP
 local PANEL_LIFT = 20
-local CHIP = 50
+local CHIP = 38 -- one corner tile wide (Dock.CORNER_TILE_SIZE), so the chips step along the row
 local WARN_SECONDS = 30
 
 local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -409,7 +409,7 @@ local function buildChip(canvas: Frame, id: string): Chip
 	pill.Name = "Pill"
 	pill.AnchorPoint = Vector2.new(0.5, 0)
 	pill.Position = UDim2.new(0.5, 0, 1, -6)
-	pill.Size = UDim2.fromOffset(CHIP + 4, 18)
+	pill.Size = UDim2.fromOffset(CHIP + 8, 18)
 	pill.BackgroundColor3 = colour:Lerp(Color3.new(0, 0, 0), 0.35)
 	pill.BorderSizePixel = 0
 	pill.ZIndex = 6
@@ -447,7 +447,7 @@ local function paintChips()
 		if chip then
 			shown[entry.id] = true
 			chip.frame.Visible = true
-			chip.frame.Position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX + index) + UDim2.fromOffset(0, -6)
+			chip.frame.Position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX + index) + UDim2.fromOffset(0, -4)
 			chip.time.Text = clock(entry.left)
 			local warn = entry.left <= WARN_SECONDS
 			chip.pill.BackgroundColor3 = if warn
@@ -623,7 +623,7 @@ function PotionController.start()
 		name = "PotionsButton",
 		caption = "Potions",
 		slot = 1,
-		position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX),
+		corner = CORNER_INDEX,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Potions.TILE_IMAGE,
