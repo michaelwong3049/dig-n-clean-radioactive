@@ -260,19 +260,21 @@ Plots.PAD = {
 ---
 --- A pad's FRONT edge is its local Z = PAD_MIN_Z (-43), so the origin sits 43 studs
 --- behind the front:
----   north/south pairs: fronts at z = +/-76 (the plaza edge is +/-70, the shop kerb
----       +/-51, so ~25 studs of walkway), x -42 and 34 -- pulled west of the shops'
+---   north/south pairs: fronts at z = +/-72 (the plaza edge is +/-70, the shop kerb
+---       +/-51, so ~21 studs of walkway), x -38 and 38 -- pulled west of the shops'
 ---       centre so the leaderboards and the group chest keep the strip by the east wall.
----   west pair: fronts at x = -95, z +/-38 -- a 10-stud gap between the two. Pushed
+---   west pair: fronts at x = -87, z +/-38 -- a 10-stud gap between the two. Pushed
 ---       back from -51 on request ("make the top longer, so the side bases aren't looking
 ---       at the top bases"): the north/south pads reach x = -75, so a front 20 studs past
 ---       that keeps the west pair out of their view. Gate paths (Hub.GATE_RECTS) run the
 ---       walk from the plaza's west edge (-49) out to them.
 --- World.verify() checks that no pad overlaps the plaza, a stage, or another pad.
 local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
-local NS_FRONT_Z = 76
-local WEST_FRONT_X = -95
-local NS_X = { -42, 34 }
+-- 2026-10-03, on request: the west pair 8 closer to the middle (-95 -> -87); the
+-- north/south four 4 toward the stage (x +4) and 4 toward the middle (fronts 76 -> 72).
+local NS_FRONT_Z = 72
+local WEST_FRONT_X = -87
+local NS_X = { -38, 38 }
 local WEST_Z = 38
 
 local PLAZA = Hub.PLAZA
