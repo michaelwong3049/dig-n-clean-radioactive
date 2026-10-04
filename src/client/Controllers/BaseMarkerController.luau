@@ -1,32 +1,35 @@
 --!strict
 --[[
-	BaseMarkerController.luau — the "YOUR BASE" beacon.
+	BaseMarkerController.luau — the floating avatar plate over every claimed base.
 
-	The six plots are near-identical from across the plaza — one charcoal board each,
-	told apart only by an accent Trim strip and a back-wall name sign. After a warp or
-	a respawn it is not obvious which one is yours. This floats a small marker high
-	above the centre of your OWN plot: a circular headshot of your avatar and the
-	words YOUR BASE.
+	One plate per plot, high over the pad's centre: a circular headshot "orb" that
+	bobs gently, the owner's display name in their own casing (no upper-casing — a
+	name like "MattM" stays "MattM"), and what that base earns per second under it.
 
-	LOCAL ONLY. Each client builds one beacon, over its own plot, and never sees
-	anyone else's — the server tells only the owning client its plot index (Net
-	PlotState, fired once from ExhibitService.assign). Whose plot is whose for
-	everyone else is already carried by the Trim colour and the back-wall sign.
+	DRAWN HERE, NOT ON THE SERVER. It used to be two markers stacked in the same spot
+	— a server-built plate everyone saw plus a client-only "YOUR BASE" beacon over
+	your own plot. A server-built BillboardGui is a fixed number of pixels on every
+	screen (huge on a phone, tiny on a 4K monitor), so the plate is now built per
+	client on UIKit.billboardCanvas and scales with the rest of the HUD. The server
+	only stamps each Plot model with attributes (ExhibitService.renderName /
+	pushIncome):
 
-	HIDDEN INSIDE A STAGE. It is a safe-zone wayfinding aid, not a HUD element — once
-	you step into a field there is nothing to navigate to and the sky-high AlwaysOnTop
-	marker would just hang in view over the hazard. Toggled off `ExposureState.stageId`
-	(nil = safe zone), the exact signal WarpController uses to hide its HOME/SHOPS bar.
+	    OwnerUserId  number, 0 when unclaimed (no plate)
+	    OwnerName    the owner's DisplayName
+	    OwnerRate    their stands' cash per second
 
-	A WORLD-SPACE BillboardGui PARENTED TO THE PAD, not a ScreenGui — same choice
-	NameTagController makes for the overhead name. It rides the plot slab, so a
-	respawn never touches it and a Studio `Plots` rebuild takes it away cleanly with
-	the slab it hung on (the next PlotState on rejoin builds a fresh one).
+	The orb's ring follows the plot's accent, read straight off its Trim part, so a
+	base colour change in Settings repaints it live.
+
+	HIDDEN INSIDE A STAGE. It is a safe-zone wayfinding aid — once you step into a
+	field the AlwaysOnTop plates would just hang over the hazard. Toggled off
+	`ExposureState.stageId` (nil = safe zone), the signal WarpController uses too.
 ]]
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
@@ -35,46 +38,42 @@ local UIKit = require(script.Parent.Parent.UIKit)
 
 local BaseMarker = {}
 
-local MARKER_NAME = "BaseMarker"
--- Bumped up from the original muted grey (B7C0B8) on request — the beacon needs to
--- actually stand out while you're looking for your own base, not just read as a
--- calm marker. Still gets the game-wide outline (UIKit.label's default) for crisp
--- edges on top of the brighter fill.
-local TEXT_COLOR = Color3.fromHex("EAF0E4")
-local FACE_FILL = Color3.fromHex("11150F") -- shows for the beat before the thumbnail loads
-local ACCENT_FALLBACK = Color3.fromHex("B7C0B8") -- if the plot has no Trim to read a colour off
+local PLATE_NAME = "BasePlate"
+local FONT = Enum.Font.FredokaOne
+local NAME_COLOR = Color3.fromHex("7CF24A") -- bright cash green, like the HUD's money
+local RATE_COLOR = Color3.fromHex("FFF6D6") -- warm cream so the number reads apart from the name
+local OUTLINE = Color3.fromHex("14161A")
+local FACE_FILL = Color3.fromHex("1E2A22") -- shows for the beat before the thumbnail loads
+local ACCENT_FALLBACK = Color3.fromHex("7CF24A") -- if the plot has no Trim to read a colour off
 
-local marker: BillboardGui? = nil
--- Set from ExposureState every tick. The beacon shows only in the safe zone.
+-- How far away a plate stays drawn (camera-to-plate, studs). Your own reads from
+-- anywhere on the plaza; other players' from about the far side of the ring.
+local OWN_REACH = 600
+local OTHER_REACH = 400
+
+-- Design-pixel footprint; UIKit.billboardCanvas multiplies it by the HUD scale.
+local CANVAS = Vector2.new(200, 160)
+local ORB = 84 -- outer diameter, outline included
+local BOB = 4 -- design px the orb floats up and down
+local BOB_SECONDS = 1.6
+
+local plates: { [Instance]: BillboardGui } = {}
 local inStage = false
 
--- How high over the pad it floats. (It used to climb with each storey a base bought;
--- a base is one open floor now.)
-local BASE_HEIGHT = 38
-
-local function clear()
-	if marker then
-		marker:Destroy()
-		marker = nil
+--- "$35/s" up to "$1.2T/s" — the same ladder the hotbar card prints.
+local function formatRate(perSecond: number): string
+	if perSecond >= 1_000_000_000_000 then
+		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)
+	elseif perSecond >= 1_000_000_000 then
+		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
+	elseif perSecond >= 1_000_000 then
+		return string.format("$%.1fM/s", perSecond / 1_000_000)
+	elseif perSecond >= 1000 then
+		return string.format("$%.1fK/s", perSecond / 1000)
 	end
+	return string.format("$%d/s", math.floor(perSecond))
 end
 
-local function heightOver(_plot: Instance): number
-	return BASE_HEIGHT
-end
-
---- Beacon is visible only outside a stage. Re-applied both on every ExposureState
---- tick and right after a (re)build, so a beacon that gets rebuilt while you are in
---- a field comes back already hidden.
-local function applyVisibility()
-	if marker then
-		marker.Enabled = not inStage
-	end
-end
-
---- The plot's own accent, read straight off its Trim part so the beacon's ring
---- matches the strip you already navigate by. Falls back to the muted grey if a
---- place saved before Trim existed is loaded.
 local function accentOf(plot: Instance): Color3
 	local trim = plot:FindFirstChild("Trim")
 	if trim and trim:IsA("BasePart") then
@@ -83,89 +82,200 @@ local function accentOf(plot: Instance): Color3
 	return ACCENT_FALLBACK
 end
 
-local function build(plot: Instance, pad: BasePart, accent: Color3)
-	local player = Players.LocalPlayer
-
-	local gui = Instance.new("BillboardGui")
-	gui.Name = MARKER_NAME
-	-- Well above the 16-stud back wall, so it floats free of the plot's own geometry
-	-- and reads as a beacon rather than a sign bolted to something.
-	gui.StudsOffsetWorldSpace = Vector3.new(0, heightOver(plot), 0)
-	gui.MaxDistance = 600 -- plaza-wide; it fades out once you are deep in a field
-	gui.AlwaysOnTop = true -- a beacon: visible even with another plot between you and it
-	-- LightInfluence = 0, NOT 1 — every base sits next to a PointLight or two, and the
-	-- default washes a muted marker back toward white the moment you walk up to it.
-	-- The same bug Kit.surfaceText and NameTagController already document.
-	gui.LightInfluence = 0
-	-- 144x172 design pixels (up from 128x156, to fit the bigger face+caption below
-	-- without clipping), scaled with the rest of the HUD (UIKit.billboardCanvas).
-	local canvas = UIKit.billboardCanvas(gui, Vector2.new(144, 172))
-
-	local face = Instance.new("ImageLabel")
-	face.Name = "Face"
-	face.AnchorPoint = Vector2.new(0.5, 0)
-	face.Position = UDim2.fromScale(0.5, 0)
-	-- Up from 80x80 on request, so the beacon carries more weight from a distance.
-	face.Size = UDim2.fromOffset(92, 92)
-	face.BackgroundColor3 = FACE_FILL
-	face.BackgroundTransparency = 0
-	face.Image = `rbxthumb://type=AvatarHeadShot&id={player.UserId}&w=150&h=150`
-	face.Parent = canvas
-
+local function circle(parent: Instance, name: string, size: number, color: Color3, z: number): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.Size = UDim2.fromOffset(size, size)
+	frame.BackgroundColor3 = color
+	frame.BorderSizePixel = 0
+	frame.ZIndex = z
+	frame.Parent = parent
 	local round = Instance.new("UICorner")
 	round.CornerRadius = UDim.new(0.5, 0)
-	round.Parent = face
-
-	local ring = Instance.new("UIStroke")
-	ring.Thickness = 3.2 -- up from 2.5, to match the bigger face
-	ring.Color = accent
-	ring.Transparency = 0.1
-	ring.Parent = face
-
-	UIKit.label(canvas, {
-		name = "Caption",
-		anchorPoint = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, 100), -- clears the taller 92px face
-		size = UDim2.new(1, 0, 0, 26),
-		font = Enum.Font.GothamMedium,
-		textSize = 17, -- up from 15
-		color = TEXT_COLOR,
-		xAlign = Enum.TextXAlignment.Center,
-		text = "YOUR BASE",
-	})
-
-	gui.Parent = pad
-	marker = gui
-	applyVisibility()
+	round.Parent = frame
+	return frame
 end
 
---- `index` nil means "no plot this session" (all six taken); otherwise it is the
---- physical plot this client owns.
-local function onPlot(index: number?)
-	clear()
-	if index == nil then
-		return
+local function text(parent: Instance, name: string, y: number, height: number, maxSize: number, color: Color3, stroke: number): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.AnchorPoint = Vector2.new(0.5, 0)
+	label.Position = UDim2.new(0.5, 0, 0, y)
+	label.Size = UDim2.new(1, -8, 0, height)
+	label.BackgroundTransparency = 1
+	label.Font = FONT
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 1
+	-- Scaled down to fit, so a long display name shrinks instead of clipping.
+	label.TextScaled = true
+	label.ZIndex = 5
+	label.Parent = parent
+	local cap = Instance.new("UITextSizeConstraint")
+	cap.MaxTextSize = maxSize
+	cap.MinTextSize = 12
+	cap.Parent = label
+	local outline = Instance.new("UIStroke")
+	outline.Color = OUTLINE
+	outline.Thickness = stroke
+	outline.LineJoinMode = Enum.LineJoinMode.Round
+	outline.Parent = label
+	return label
+end
+
+local function refreshVisibility(plot: Instance, gui: BillboardGui)
+	local owner = plot:GetAttribute("OwnerUserId")
+	gui.Enabled = not inStage and type(owner) == "number" and owner ~= 0
+end
+
+local function build(plot: Instance, anchor: BasePart): BillboardGui
+	local gui = Instance.new("BillboardGui")
+	gui.Name = PLATE_NAME
+	gui.AlwaysOnTop = true -- visible even with another base between you and it
+	-- LightInfluence 0: every base sits next to a PointLight or two, and the default
+	-- washes the plate toward white the moment you walk up to it.
+	gui.LightInfluence = 0
+	gui.MaxDistance = OTHER_REACH
+	gui.Adornee = anchor
+	local canvas = UIKit.billboardCanvas(gui, CANVAS)
+
+	-- THE ORB: a dark outline disc, the accent ring, then the headshot on a soft
+	-- gradient — layered frames so the ring reads as a chunky cartoon bezel.
+	local holder = Instance.new("Frame")
+	holder.Name = "Orb"
+	holder.AnchorPoint = Vector2.new(0.5, 0)
+	holder.Position = UDim2.new(0.5, 0, 0, BOB)
+	holder.Size = UDim2.fromOffset(ORB, ORB)
+	holder.BackgroundTransparency = 1
+	holder.Parent = canvas
+
+	circle(holder, "Outline", ORB, OUTLINE, 1)
+	local ring = circle(holder, "Ring", ORB - 6, accentOf(plot), 2)
+	local shine = Instance.new("UIGradient")
+	shine.Rotation = 90
+	shine.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(150, 150, 150))
+	shine.Parent = ring
+	local well = circle(holder, "Well", ORB - 18, OUTLINE, 3)
+	local face = Instance.new("ImageLabel")
+	face.Name = "Face"
+	face.AnchorPoint = Vector2.new(0.5, 0.5)
+	face.Position = UDim2.fromScale(0.5, 0.5)
+	face.Size = UDim2.new(1, -4, 1, -4)
+	face.BackgroundColor3 = FACE_FILL
+	face.BorderSizePixel = 0
+	face.ZIndex = 4
+	face.Parent = well
+	local faceRound = Instance.new("UICorner")
+	faceRound.CornerRadius = UDim.new(0.5, 0)
+	faceRound.Parent = face
+	local backdrop = Instance.new("UIGradient")
+	backdrop.Rotation = 90
+	backdrop.Color = ColorSequence.new(Color3.fromRGB(90, 120, 100), Color3.fromRGB(30, 42, 34))
+	backdrop.Parent = face
+
+	-- Floating: the orb drifts up and down on a slow sine; the text stays put.
+	TweenService:Create(
+		holder,
+		TweenInfo.new(BOB_SECONDS, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Position = UDim2.fromScale(0.5, 0) }
+	):Play()
+
+	local name = text(canvas, "OwnerName", ORB + BOB + 4, 32, 28, NAME_COLOR, 3)
+	local rate = text(canvas, "Rate", ORB + BOB + 36, 24, 21, RATE_COLOR, 2.5)
+
+	local function paint()
+		local userId = plot:GetAttribute("OwnerUserId")
+		local display = plot:GetAttribute("OwnerName")
+		local perSecond = plot:GetAttribute("OwnerRate")
+		local id = if type(userId) == "number" then userId else 0
+		face.Image = if id ~= 0 then `rbxthumb://type=AvatarHeadShot&id={id}&w=150&h=150` else ""
+		name.Text = if type(display) == "string" then display else ""
+		rate.Text = formatRate(if type(perSecond) == "number" then perSecond else 0)
+		ring.BackgroundColor3 = accentOf(plot)
+		gui.MaxDistance = if id == Players.LocalPlayer.UserId then OWN_REACH else OTHER_REACH
+		refreshVisibility(plot, gui)
+	end
+	plot:GetAttributeChangedSignal("OwnerUserId"):Connect(paint)
+	plot:GetAttributeChangedSignal("OwnerName"):Connect(paint)
+	plot:GetAttributeChangedSignal("OwnerRate"):Connect(paint)
+
+	local trim = plot:FindFirstChild("Trim")
+	if trim and trim:IsA("BasePart") then
+		trim:GetPropertyChangedSignal("Color"):Connect(function()
+			ring.BackgroundColor3 = trim.Color
+		end)
 	end
 
-	local plots = Workspace:WaitForChild("Plots", 10)
-	local plot = plots and plots:WaitForChild(`Plot{index}`, 10)
-	local pad = plot and plot:WaitForChild("Pad", 10)
-	if not (plot and pad and pad:IsA("BasePart")) then
-		warn(`[basemarker] plot {index} has no Pad to hang the beacon on`)
+	paint()
+	-- Kept in PlayerGui with an Adornee rather than parented to the anchor, so the
+	-- anchor (server-owned, streamable) never carries client instances.
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	return gui
+end
+
+--- Hang a plate on `anchor`, and take it down again if the anchor leaves (streamed
+--- out, or a Studio Plots rebuild); watchPlot's ChildAdded puts a fresh one up when
+--- an anchor comes back.
+local function hang(plot: Instance, anchor: BasePart)
+	if plates[plot] then
 		return
 	end
+	local gui = build(plot, anchor)
+	plates[plot] = gui
+	local conn: RBXScriptConnection
+	conn = anchor.AncestryChanged:Connect(function()
+		if anchor:IsDescendantOf(plot) then
+			return
+		end
+		conn:Disconnect()
+		gui:Destroy()
+		if plates[plot] == gui then
+			plates[plot] = nil
+		end
+	end)
+end
 
-	build(plot :: Instance, pad :: BasePart, accentOf(plot :: Instance))
+local function watchPlot(plot: Instance)
+	if not plot.Name:match("^Plot%d+$") then
+		return
+	end
+	local function consider(child: Instance)
+		if child.Name == "NamePlate" and child:IsA("BasePart") then
+			hang(plot, child)
+		end
+	end
+	plot.ChildAdded:Connect(consider)
+	local anchor = plot:FindFirstChild("NamePlate")
+	if anchor then
+		consider(anchor)
+	end
 end
 
 function BaseMarker.start()
-	Net.get("PlotState").OnClientEvent:Connect(onPlot)
+	task.spawn(function()
+		local folder = Workspace:WaitForChild("Plots", 30)
+		if folder == nil then
+			warn("[basemarker] no Plots folder to hang plates on")
+			return
+		end
+		for _, plot in folder:GetChildren() do
+			watchPlot(plot)
+		end
+		folder.ChildAdded:Connect(watchPlot)
+	end)
 
 	-- ExposureState ticks ~10Hz; stageId is nil in the safe zone and the field id
-	-- once you cross in. Same read WarpController does to slide its bar away.
+	-- once you cross in.
 	Net.get("ExposureState").OnClientEvent:Connect(function(state)
-		inStage = state.stageId ~= nil
-		applyVisibility()
+		local now = state.stageId ~= nil
+		if now == inStage then
+			return
+		end
+		inStage = now
+		for plot, gui in plates do
+			refreshVisibility(plot, gui)
+		end
 	end)
 end
 

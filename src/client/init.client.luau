@@ -58,7 +58,7 @@ local ORDER = {
 	"StandCardController", -- the trophy-ribbon card over each displayed nuke; reads the StandCard attributes ExhibitService writes
 	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
 	"PurchaseHintController", -- the "You can afford a new <gear>" lines under the warp bar; reads CashState + GearList
-	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
+	"BaseMarkerController", -- floating avatar + name + $/s plate over every claimed base
 	"BaseUpgradeController", -- the "Upgrade Base" popup the base's upgrade sign opens: price, BUY / CANCEL; reads BaseUpgrade
 	"PlacementController", -- the see-through ghost that puts a held nuke down anywhere on your own base's open floor; sends PlaceNuke
 	"GiftController", -- the "Gift nuke" prompt over other players and the ACCEPT / DECLINE gift card; reads Gift

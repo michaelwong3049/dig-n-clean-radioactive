@@ -234,7 +234,7 @@ local REMOTES: { [string]: string } = {
 	CampState = "RemoteEvent", -- server -> client, { reached, available, unlocked? }; client -> server, (nothing)
 
 	-- Which physical plot this player was assigned this session, so the client can
-	-- mark it (client BaseMarkerController's "YOUR BASE" avatar beacon). Server ->
+	-- find its own base (placement, own-station prompts, signs). Server ->
 	-- client, fired once from ExhibitService.assign after the profile loads; the
 	-- payload is the bare integer index, never a position. Plot assignment is
 	-- per-session and never changes once made, so there is nothing to persist and
