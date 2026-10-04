@@ -221,7 +221,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 104 -- front strip in the deck colour
+local BUILDER_VERSION = 105 -- a little light in each base (BaseGlow)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -3991,6 +3991,43 @@ local function edgeLight(parent: Instance, cf: CFrame)
 	p.Parent = parent
 end
 
+--- THE BASE GLOW — a little light inside each base, on request (2026-10-04). The old
+--- per-plot ring (buildBaseLights, ~20 EdgeLights at brightness 1.4) was taken out for
+--- making the floors too bright (#595), so this is deliberately small: eight warm,
+--- dim, shadowless points, no fixtures. Six hang over the two aisles of the ground
+--- gallery (a 2 x 3 grid between the stand columns), two over the front strip by the
+--- washer and the treadmill. Low enough to sit under floor 2's deck.
+local BASE_GLOW = { range = 16, brightness = 0.55, color = "FFE9C8", height = 8 }
+local BASE_GLOW_SPOTS = {
+	{ -10, 37 }, { 10, 37 },
+	{ -10, 19 }, { 10, 19 },
+	{ -10, 1 }, { 10, 1 },
+	{ -16, -32 }, { 16, -32 },
+}
+local function buildBaseGlow(parent: Instance, origin: CFrame)
+	local folder = Instance.new("Folder")
+	folder.Name = "BaseGlow"
+	for _, spot in BASE_GLOW_SPOTS do
+		local p = Instance.new("Part")
+		p.Name = "GlowLight"
+		p.Size = Vector3.new(0.2, 0.2, 0.2)
+		p.CFrame = origin * CFrame.new(spot[1], Plots.PAD.topY + BASE_GLOW.height, spot[2])
+		p.Anchored = true
+		p.Transparency = 1
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		local l = Instance.new("PointLight")
+		l.Color = Color3.fromHex(BASE_GLOW.color)
+		l.Range = BASE_GLOW.range
+		l.Brightness = BASE_GLOW.brightness
+		l.Shadows = false
+		l.Parent = p
+		p.Parent = folder
+	end
+	folder.Parent = parent
+end
 
 --- Where ExhibitService parks the floors a plot's owner has not bought. Out of
 --- Workspace entirely (not just transparent), so a hidden floor costs the clients
@@ -4281,6 +4318,8 @@ local function buildPlot(parent: Instance, index: number)
 	buildQuarantineLocker(m, origin, index)
 	buildFluidBottle(m, ground)
 	buildTreadmill(m, ground, accent)
+
+	buildBaseGlow(m, origin)
 
 	-- Every floor above, and the sign that sells each one. All built; the ones this
 	-- plot's owner has not bought are hidden at runtime (Plots.setFloors).
