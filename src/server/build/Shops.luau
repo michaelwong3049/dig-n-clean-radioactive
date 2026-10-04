@@ -203,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 65
+local BUILDER_VERSION = 66
 
 local C = Kit.C
 local build = Kit.build
@@ -702,8 +702,9 @@ end
 --- instead of a plain wood kiosk.
 ---
 --- Shared by the plaza stalls and the Outfitter — the same four-post frame at
---- whatever `width` the caller's canopy spans.
-local function buildStorefrontPosts(parent: Instance, origin: CFrame, width: number)
+--- whatever `width` the caller's canopy spans. `color` defaults to C.shopWood; the Base
+--- Camp booths pass black.
+local function buildStorefrontPosts(parent: Instance, origin: CFrame, width: number, color: string?)
 	local POST_SIZE = 1.5
 	local postDX = width / 2 - POST_SIZE / 2
 	for _, dx in { -postDX, postDX } do
@@ -714,7 +715,7 @@ local function buildStorefrontPosts(parent: Instance, origin: CFrame, width: num
 				name = "Post",
 				pos = { dx, postHeight / 2, dz },
 				size = { POST_SIZE, postHeight, POST_SIZE },
-				color = C.shopWood,
+				color = color or C.shopWood,
 				material = "Plastic",
 				shape = "Block",
 				studs = true,
@@ -939,6 +940,34 @@ local function buildPlateRoof(parent: Instance, origin: CFrame, accent: string, 
 		})
 	end
 
+	buildCanopyLight(parent, origin, width, ROOF_CENTER_Y, ROOF_CENTER_Z, ROOF_DEPTH, ROOF_TILT)
+end
+
+--- THE BASE CAMP BOOTHS' PLAIN ROOF (2026-10-04, on request: "simplify shop designs, remove
+--- decorations"). One studded slab in the shop's colour where buildPlateRoof lays checkered
+--- plates, seam straps, rivets and two hazard fascias. Same footprint and height, so the
+--- slant top and sign above it sit where they did; the support beams match the posts.
+local function buildPlainRoof(parent: Instance, origin: CFrame, accent: string, width: number, beamColor: string)
+	local half = ROOF_DEPTH / 2
+	build(parent, origin, {
+		name = "RoofPlate",
+		pos = { 0, ROOF_CENTER_Y, ROOF_CENTER_Z },
+		size = { width, 0.45, ROOF_DEPTH },
+		color = accent,
+		material = "Plastic",
+		studs = true,
+	})
+	for _, z in { ROOF_CENTER_Z - half + 0.35, ROOF_CENTER_Z + half - 0.35 } do
+		build(parent, origin, {
+			name = "CanopySupport",
+			pos = { 0, ROOF_CENTER_Y - 0.38, z },
+			size = { width, 0.4, 0.5 },
+			color = beamColor,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
 	buildCanopyLight(parent, origin, width, ROOF_CENTER_Y, ROOF_CENTER_Z, ROOF_DEPTH, ROOF_TILT)
 end
 
@@ -1927,8 +1956,8 @@ end
 
 --- BASE CAMP'S SHOPS ARE BOOTHS NOW, NOT RACKED STALLS (2026-10-04, on request: "remove
 --- the extended displays in main camp only, and only access to the shop gui"). Each one is
---- a plaza stall cut down to its stand: the same StallFloor, studded posts, steel-plate
---- roof and sign in the shop's colour, its trade props (ShopThemes), and the Stand and
+--- a plaza stall cut down to its stand: the same StallFloor, black studded posts, a plain
+--- roof (buildPlainRoof) and sign in the shop's colour, no trade props, and the Stand and
 --- StandBack desks either side of a full-width spine, whose E opens the shop panel. No
 --- tier rack, no Aura mannequins, no RackZone. The site camps (CampSite) keep their full
 --- racked stalls -- STALLS above is still their template.
@@ -1966,7 +1995,9 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 		studs = true,
 		canCollide = false,
 	})
-	buildStorefrontPosts(m, origin, width)
+	-- Black legs, plain roof, no trade props or floor markers (2026-10-04, on request:
+	-- "simplify shop designs, remove decorations, make the legs of each stand black").
+	buildStorefrontPosts(m, origin, width, C.hazardBlack)
 	buildSpine(m, origin, -width / 2 + 0.1, width / 2 - 0.1)
 
 	-- The stand, front and back, exactly a plaza stall's: see buildStall.
@@ -1986,13 +2017,8 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 		})
 	end
 
-	buildPlateRoof(m, origin, spec.color, width)
+	buildPlainRoof(m, origin, spec.color, width, C.hazardBlack)
 	buildRoofTop(m, origin, width, spec.color, spec.label)
-	ShopThemes.dressStall(m, origin, spec.track, width, 0)
-
-	for _, z in { 3.4, mirrorZ(3.4) } do
-		buildFloorMarker(m, origin, 0, z, STAND_WIDTH + 3, 5, spec.color)
-	end
 
 	m.Parent = parent
 	return m
