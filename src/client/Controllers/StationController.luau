@@ -308,7 +308,7 @@ local STUDDED = {
 	panel = Color3.fromHex("E4E9F2"),
 	panelEdge = Color3.fromHex("B9BFC8"),
 	header = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
-	cash = Color3.fromHex("7CFF4F"),
+	cash = UIKit.House.cash,
 	-- Buttons are white under a UIGradient, so one gradient per state is the fill.
 	lime = ColorSequence.new(Color3.fromHex("D9F51C"), Color3.fromHex("33D23F")),
 	equipped = ColorSequence.new(Color3.fromHex("43474F"), Color3.fromHex("33363C")),

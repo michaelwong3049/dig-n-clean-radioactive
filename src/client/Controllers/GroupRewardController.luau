@@ -43,10 +43,10 @@ local PANEL = {
 	ink = Color3.fromHex("1A1A1A"),
 	white = Color3.new(1, 1, 1),
 	gold = Color3.fromRGB(255, 200, 51),
-	cash = Color3.fromRGB(120, 230, 120),
+	cash = UIKit.House.cash,
 	speed = Color3.fromRGB(110, 190, 255),
 	luck = Color3.fromRGB(110, 220, 120),
-	claim = Color3.fromRGB(62, 190, 90),
+	claim = UIKit.House.buy,
 	font = Enum.Font.GothamBlack,
 }
 
