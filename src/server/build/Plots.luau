@@ -15,24 +15,27 @@
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	TWO BASES TO A SIDE, SQUARED ROUND THE SHOPS — the requested layout (2026-10-03,
-	from the user's sketch: "more square like ... more closer and compact"):
+	THREE BASES TO A SIDE, NORTH AND SOUTH OF THE SHOPS (2026-10-04, on request: "3 bases
+	on one side, 3 bases on the other"):
 
-	                  ┌───────────────────┐
-	                  │ [P5]    [P6]      │        (north wing)
-	     ┌────────────┘                   │
-	     │ [P4]                           │
-	     │              ( SHOPS )          ===> STAGE 1   (east, open)
-	     │ [P3]                           │
-	     └────────────┐                   │
-	                  │ [P2]    [P1]      │        (south wing)
-	                  └───────────────────┘
+	     ┌──────────────────────────────────────┐
+	     │ [P4]      [P5]      [P6]             │        (north row)
+	     │                  ( SHOPS )           ===> STAGE 1   (east, open)
+	     │ [P3]      [P2]      [P1]             │        (south row)
+	     └──────────────────────────────────────┘
 
-	Two pads on each of the plaza's north, south and west edges, every one facing the
-	shops, a ~20-stud walkway between the shop paving and each pad's front. The east side
-	is open onto Stage 1. The perimeter wall (Scenery.buildBaseWalls) follows the stepped
-	outline in Plots.CAMP: a "back" block holding the west pair and two wider wings
-	holding the north and south pairs.
+	Each row faces the shops across a grey walkway; the east side is open onto Stage 1.
+	The perimeter wall (Scenery.buildBaseWalls) is the plain rectangle in Plots.CAMP. The
+	shops stayed put, so the rows run further west than the shop square does.
+
+	EVERY BASE'S CLEANSING STATION SITS AT THE STAGE END of its front strip (on request,
+	same day). A south pad is the north one turned 180 degrees, which put its station at
+	the far (west) end, so south pads build their front strip mirrored (`stripFlip` in
+	buildPlot): the station, bottle and locker on the -X side, the treadmill on the +X.
+
+	IT WAS TWO TO A SIDE BEFORE THIS (2026-10-03 to -04): two pads each on the north,
+	south and west edges, the wall a stepped outline (a back block for the west pair, two
+	wider wings).
 
 	IT WAS A SEMICIRCLE BEFORE THIS (six pads on a circle of radius 165 round a ring
 	centre, each yawed to face it, a round perimeter wall at radius 274). Facings are
@@ -221,7 +224,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 109 -- front strip 8 deeper, deck pushed back (2026-10-04)
+local BUILDER_VERSION = 110 -- three bases a side, stage-end cleansing stations (2026-10-04)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -339,8 +342,8 @@ local function buildFrontPath(parent: Instance, origin: CFrame)
 	return part
 end
 
---- THE SQUARE. Six pads, two on each of the plaza's north, south and west edges, each
---- facing the shops. Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are cut to
+--- THE ROWS. Six pads, three on each of the plaza's north and south edges, each facing
+--- the shops. Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are cut to
 --- these numbers -- move those with these).
 ---
 --- `facing` is a yaw in degrees. A pad is built with its back fence at +Z and its
@@ -349,14 +352,10 @@ end
 ---
 --- A pad's FRONT edge is its local Z = PAD_MIN_Z (-51), so the origin sits 51 studs
 --- behind the front:
----   north/south pairs: fronts at z = +/-80 (the plaza edge is +/-70, the shop kerb
----       +/-51, so ~29 studs of walkway), x -38 and 38 -- pulled west of the shops'
----       centre so the leaderboards and the group chest keep the strip by the east wall.
----   west pair: fronts at x = -71, z +/-38 -- a 10-stud gap between the two. Pushed
----       back from -51 on request ("make the top longer, so the side bases aren't looking
----       at the top bases"): the north/south pads reach x = -75, so a front 20 studs past
----       that keeps the west pair out of their view. Gate paths (Hub.GATE_RECTS) run the
----       walk from the plaza's west edge (-49) out to them.
+---   fronts at z = +/-72, centres x -104, -28 and 48, 76 apart (a 19-stud gap between
+---   neighbours). The east pad stops at x 76.5, so the leaderboards and the group
+---   chest keep the strip by the east wall; the third pad of each row went WEST (the
+---   shops stayed put, on request), where the old west pair's back block used to be.
 --- World.verify() checks that no pad overlaps the plaza, a stage, or another pad.
 local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
 -- 2026-10-03, on request: the west pair pulled in twice (-95 -> -87 -> -71); the
@@ -366,10 +365,9 @@ local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
 -- nudge, with the shop square shrunk to booths): every pad 10 toward Stage 1 (NS x +10,
 -- west fronts -71 -> -59 incl. 2 of grid snap) and the N/S fronts in from 80 to 72.
 -- Then (same day, on request) the west pair 12 back from the stage again: -59 -> -71.
+-- 2026-10-04, on request: three to a side -- the west pair gone, a third pad at x -104.
 local NS_FRONT_Z = 72
-local WEST_FRONT_X = -71
-local NS_X = { -28, 48 }
-local WEST_Z = 38
+local NS_X = { -104, -28, 48 }
 
 local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
@@ -388,25 +386,23 @@ local DECK_CENTER_Z = (DECK_MIN_Z + Plots.PAD.maxZ) / 2
 local DECK_HALF_D = (Plots.PAD.maxZ - DECK_MIN_Z) / 2
 
 local NS_Z = NS_FRONT_Z + PAD_FRONT_REACH
-local WEST_X = WEST_FRONT_X - PAD_FRONT_REACH
 
 --- Numbered round from the south-east, clockwise seen from above with the field on the
---- right: 1-2 south, 3-4 west, 5-6 north (the diagram in this file's header).
+--- right: 1-3 south (east to west), 4-6 north (west to east) -- the diagram in this
+--- file's header.
 Plots.CENTERS = {
+	{ x = NS_X[3], z = -NS_Z, facing = 180 },
 	{ x = NS_X[2], z = -NS_Z, facing = 180 },
 	{ x = NS_X[1], z = -NS_Z, facing = 180 },
-	{ x = WEST_X, z = -WEST_Z, facing = -90 },
-	{ x = WEST_X, z = WEST_Z, facing = -90 },
 	{ x = NS_X[1], z = NS_Z, facing = 0 },
 	{ x = NS_X[2], z = NS_Z, facing = 0 },
+	{ x = NS_X[3], z = NS_Z, facing = 0 },
 }
 
 --- THE CAMP OUTLINE -- the inner faces of the perimeter wall (Scenery.buildBaseWalls),
 --- derived from the pads so a base (plus BACK_SPARE behind it) clears the wall by
---- WALL_CLEARANCE. Stepped, from the user's sketch:
----
----   the back block   x backX..eastX, |z| <= backHalfZ   -- holds the west pair
----   the two wings    x wingX..eastX, |z| <= wingZ       -- hold the north/south pairs
+--- WALL_CLEARANCE. One rectangle, x westX..eastX, |z| <= halfZ (it was stepped -- a back
+--- block for the old west pair plus two wings -- until the rows went three to a side).
 ---
 --- eastX is the east wall's inner face, the shoulders either side of Stage 1's mouth
 --- (Scenery builds that wall on x = PLAZA.maxX, 8 thick). Everything that has to agree
@@ -419,26 +415,23 @@ local WALL_CLEARANCE = 10
 local BACK_SPARE = 24
 local BACK_REACH = Plots.PAD.maxZ + BACK_SPARE -- origin to the wall's reference line
 Plots.CAMP = {
-	westFrontX = WEST_FRONT_X, -- the west pair's fronts (Scenery keeps the walk to them bare)
+	-- The west row's outer edge: the grey floor (Hub.GATE_RECTS) runs out to here, and
+	-- Scenery keeps the walk between the rows bare of foliage this far.
+	pavedMinX = NS_X[1] - HALF_W,
 	eastX = PLAZA.maxX - 4,
-	backX = WEST_X - BACK_REACH - WALL_CLEARANCE,
-	backHalfZ = WEST_Z + CAMP_HALF_W + WALL_CLEARANCE,
-	wingX = math.min(NS_X[1], NS_X[2]) - CAMP_HALF_W - WALL_CLEARANCE,
-	wingZ = NS_Z + BACK_REACH + WALL_CLEARANCE,
+	westX = NS_X[1] - CAMP_HALF_W - WALL_CLEARANCE,
+	halfZ = NS_Z + BACK_REACH + WALL_CLEARANCE,
 }
 
---- The camp's floor as three axis rectangles -- the back block and the two wings, the
---- wings starting where the block stops so none overlap -- each grown by `grow` studs
---- on every walled side (the east side stays at PLAZA.maxX, Stage 1's edge). A positive
---- `grow` reaches under the wall, which is what the apron wants (see APRON_GROW).
+--- The camp's floor as axis rectangles (one, now the outline is a plain rectangle),
+--- grown by `grow` studs on every walled side (the east side stays at PLAZA.maxX, Stage
+--- 1's edge). A positive `grow` reaches under the wall, which is what the apron wants
+--- (see APRON_GROW).
 function Plots.campRects(grow: number?): { Hub.Rect }
 	local g = grow or 0
 	local c = Plots.CAMP
-	local block = c.backHalfZ + g
 	return {
-		{ minX = c.backX - g, maxX = PLAZA.maxX, minZ = -block, maxZ = block },
-		{ minX = c.wingX - g, maxX = PLAZA.maxX, minZ = block, maxZ = c.wingZ + g },
-		{ minX = c.wingX - g, maxX = PLAZA.maxX, minZ = -c.wingZ - g, maxZ = -block },
+		{ minX = c.westX - g, maxX = PLAZA.maxX, minZ = -c.halfZ - g, maxZ = c.halfZ + g },
 	}
 end
 
@@ -3063,15 +3056,24 @@ end
 --- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
 --- setTreadmillTier calls it on every repaint. A sign built to an older UPGRADE_SIGN
 --- (its board a different size, or stood at a different offset) is taken down and put up again to the current one.
---- How far the installed rung's `Look` reaches off the belt's centre line on its +X
---- side (the sign's side), measured once per look and kept as its `SideX` attribute:
---- setTreadmillTier asks on every repaint and the look only changes on a swap.
+--- Which side of the belt the sign stands on: +1 (+X, the default) or -1, set by
+--- buildTreadmill on a pad whose strip is mirrored (buildPlot's `stripFlip`), so the sign
+--- always stands toward the middle of the pad rather than into the fence.
+local function signSide(treadmill: Instance): number
+	return if treadmill:GetAttribute("SignSide") == -1 then -1 else 1
+end
+
+--- How far the installed rung's `Look` reaches off the belt's centre line on the sign's
+--- side, measured once per look and kept as its `SideX` attribute (`SideXNeg` for the
+--- -X side): setTreadmillTier asks on every repaint and the look only changes on a swap.
 local function treadmillSideX(treadmill: Instance, belt: BasePart): number
 	local look = treadmill:FindFirstChild("Look")
 	if look == nil then
 		return UPGRADE_SIGN.fallbackSide
 	end
-	local cached = look:GetAttribute("SideX")
+	local dir = signSide(treadmill)
+	local key = if dir < 0 then "SideXNeg" else "SideX"
+	local cached = look:GetAttribute(key)
 	if type(cached) == "number" then
 		return cached
 	end
@@ -3083,14 +3085,14 @@ local function treadmillSideX(treadmill: Instance, belt: BasePart): number
 				for _, sy in { 1, -1 } do
 					for _, sz in { 1, -1 } do
 						local corner = d.CFrame * Vector3.new(h.X * sx, h.Y * sy, h.Z * sz)
-						side = math.max(side, belt.CFrame:PointToObjectSpace(corner).X)
+						side = math.max(side, dir * belt.CFrame:PointToObjectSpace(corner).X)
 					end
 				end
 			end
 		end
 	end
 	side = math.ceil(side * 10) / 10
-	look:SetAttribute("SideX", side)
+	look:SetAttribute(key, side)
 	return side
 end
 
@@ -3100,7 +3102,7 @@ local function ensureUpgradeSign(treadmill: Instance)
 		return
 	end
 	local u = UPGRADE_SIGN
-	local x = treadmillSideX(treadmill, belt) + u.gap + u.boardW / 2
+	local x = signSide(treadmill) * (treadmillSideX(treadmill, belt) + u.gap + u.boardW / 2)
 	local existing = treadmill:FindFirstChild("UpgradeSign")
 	if existing then
 		local board = existing:FindFirstChild("Board")
@@ -3225,10 +3227,11 @@ end
 --- Everything visible is the `Look` model, which Plots.setTreadmillTier swaps per rung.
 --- Tier 1 is fitted here, so an unclaimed plot in the saved place already shows the
 --- basic treadmill.
-local function buildTreadmill(parent: Instance, origin: CFrame, _accent: string)
+local function buildTreadmill(parent: Instance, origin: CFrame, _accent: string, signDir: number)
 	local m = Instance.new("Model")
 	m.Name = "Treadmill"
 	m:SetAttribute("ImportedLook", true)
+	m:SetAttribute("SignSide", signDir) -- which side of the belt the upgrade sign takes (ensureUpgradeSign)
 	m:SetAttribute("BeltZ", TREADMILL.cz) -- where it was built (placeTreadmill)
 	local t = TREADMILL
 	local B = Plots.PAD.topY + t.beltTop
@@ -4300,6 +4303,17 @@ local function buildPlaceLine(parent: Instance, origin: CFrame)
 	folder.Parent = parent
 end
 
+--- Where the cleansing station's tub stands, plot-local before STRIP_INSET (the +8 shift
+--- and the `cx, cz` in buildCleansingStation): the centre a mirrored strip turns it about.
+local STATION_CENTER = { x = 26, z = -32 }
+
+--- A frame that turns whatever is built through it 180 degrees about plot-local
+--- (x0, z0) and sets it down at (-x0, z0): the same machine on the opposite fence, still
+--- backed onto it (buildPlot's `stripFlip`).
+local function flipAbout(x0: number, z0: number): CFrame
+	return CFrame.new(-x0, 0, z0) * CFrame.Angles(0, math.pi, 0) * CFrame.new(-x0, 0, -z0)
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -4432,10 +4446,26 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- The +X machines and the -X treadmill moved in with the fences (STRIP_INSET).
 	local plusIn = CFrame.new(-STRIP_INSET, 0, 0)
-	buildCleansingStation(m, ground * plusIn, accent)
-	buildQuarantineLocker(m, origin * plusIn, index)
-	buildFluidBottle(m, ground * plusIn)
-	buildTreadmill(m, ground * CFrame.new(STRIP_INSET, 0, 0), accent)
+	local treadmillAt = CFrame.new(STRIP_INSET, 0, 0)
+	-- THE CLEANSING STATION GOES AT THE STAGE END (on request, 2026-10-04). Written on the
+	-- +X side, which is east on a north pad but west on a south one (turned 180), so a
+	-- pad whose +X points away from the stage swaps the strip: the station, bottle and
+	-- locker each turned 180 about their own centre onto the -X fence (still backed
+	-- onto it, still facing the aisle), the treadmill slid across to +X (not turned: its
+	-- runner faces out of the base either way).
+	local stripFlip = math.cos(math.rad(center.facing)) < 0
+	local stationAt, lockerAt, bottleAt = plusIn, plusIn, plusIn
+	if stripFlip then
+		stationAt = flipAbout(STATION_CENTER.x - STRIP_INSET, STATION_CENTER.z) * plusIn
+		lockerAt = flipAbout(LOCKER.x - STRIP_INSET, LOCKER.z) * plusIn
+		bottleAt = flipAbout(BOTTLE.x - STRIP_INSET, BOTTLE.z) * plusIn
+		treadmillAt = CFrame.new(-2 * TREADMILL.cx - STRIP_INSET, 0, 0)
+	end
+	buildCleansingStation(m, ground * stationAt, accent)
+	buildQuarantineLocker(m, origin * lockerAt, index)
+	buildFluidBottle(m, ground * bottleAt)
+	-- The treadmill's upgrade sign stands on the side toward the middle of the pad.
+	buildTreadmill(m, ground * treadmillAt, accent, if stripFlip then -1 else 1)
 
 	buildBaseGlow(m, origin)
 
@@ -4487,15 +4517,14 @@ local function buildApron(row: Model)
 	end
 
 	-- The camp's rim: edge lights 4 studs inside the perimeter wall, along the outline
-	-- from the south wing's outer wall round the back to the north wing's. The east
-	-- walls are left dark: the leaderboards and the group chest stand against them.
+	-- from the south wall round the back to the north one. The east walls are left
+	-- dark: the leaderboards and the group chest stand against them.
 	local rim = Instance.new("Folder")
 	rim.Name = "RimLights"
 	local c = Plots.CAMP
 	local inset = 4
-	local ex, wx, bx = c.eastX - inset, c.wingX + inset, c.backX + inset
-	local wz, bz = c.wingZ - inset, c.backHalfZ - inset
-	local path = { { ex, -wz }, { wx, -wz }, { wx, -bz }, { bx, -bz }, { bx, bz }, { wx, bz }, { wx, wz }, { ex, wz } }
+	local ex, wx, hz = c.eastX - inset, c.westX + inset, c.halfZ - inset
+	local path = { { ex, -hz }, { wx, -hz }, { wx, hz }, { ex, hz } }
 	for i = 1, #path - 1 do
 		local ax, az = path[i][1], path[i][2]
 		local dx, dz = path[i + 1][1] - ax, path[i + 1][2] - az

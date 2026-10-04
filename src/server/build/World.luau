@@ -194,7 +194,7 @@ function World.verify(): (boolean, { string })
 		end
 
 		-- The camp landmass: the plaza, plus the camp's own floor rectangles round the
-		-- pads (Plots.campRects -- the back block and the two wings). Every stage in this
+		-- pads (Plots.campRects -- one rectangle round both rows). Every stage in this
 		-- codebase chains reachability off the plaza rectangle alone (Stage 1's west edge
 		-- is exactly Hub.PLAZA.maxX), so these only keep the description honest.
 		local p = Hub.PLAZA
