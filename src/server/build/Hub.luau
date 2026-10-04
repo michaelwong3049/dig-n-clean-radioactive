@@ -245,6 +245,15 @@ local GATE_RECTS = {
 	{ minX = -65, maxX = -49, minZ = -70, maxZ = 70 },
 }
 
+--- Each base's front strip (the washer / treadmill area in front of its raised deck),
+--- paved as the same grey path. Plots owns the pads, and Hub cannot require Plots (Plots
+--- requires Hub), so Plots hands the rectangles over at load (Plots.frontStripRect),
+--- already snapped to this grid. Replaced, never appended, so a reload cannot double them.
+local padFronts: { { minX: number, maxX: number, minZ: number, maxZ: number } } = {}
+function Hub.setPadFronts(rects: { { minX: number, maxX: number, minZ: number, maxZ: number } })
+	padFronts = rects
+end
+
 --- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
 --- studs west from Stage 1's edge (x = PLAZA.maxX), at any z. It keeps the cream plaza
 --- back from the field, so the walk out of camp still crosses grass before the yellow
@@ -311,6 +320,11 @@ local function insideFloor(x: number, z: number): boolean
 		return true
 	end
 	for _, r in GATE_RECTS do
+		if x >= r.minX and x <= r.maxX and z >= r.minZ and z <= r.maxZ then
+			return true
+		end
+	end
+	for _, r in padFronts do
 		if x >= r.minX and x <= r.maxX and z >= r.minZ and z <= r.maxZ then
 			return true
 		end
