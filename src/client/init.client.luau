@@ -59,9 +59,10 @@ local ORDER = {
 	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
 	"PurchaseHintController", -- the "You can afford a new <gear>" lines under the warp bar; reads CashState + GearList
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
-	"FloorPurchaseController", -- the "Purchase floor" popup a floor sign's E opens: price, BUY / CANCEL; reads FloorPurchase
+	"BaseUpgradeController", -- the "Upgrade Base" popup the base's upgrade sign opens: price, BUY / CANCEL; reads BaseUpgrade
+	"PlacementController", -- the see-through ghost that puts a held nuke down anywhere on your own base's open floor; sends PlaceNuke
 	"GiftController", -- the "Gift nuke" prompt over other players and the ACCEPT / DECLINE gift card; reads Gift
-	"FloorSignController", -- hides a base's "Build Floor N" prompt from anyone but its owner; reads PlotState
+	"UpgradeSignController", -- hides a base's "Upgrade Base" prompt from anyone but its owner; reads PlotState
 	"OwnStationPromptController", -- hides a base's Wash prompt from anyone but its owner; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear): GENERAL / GRAPHICS / AUDIO tabs; PlotColor, HideAura, SfxMuted + the Prefs rows (client/Prefs)
 	"FastModeController", -- FAST MODE (Settings > Graphics): hides the nukes on other players' bases; reads the fastMode pref

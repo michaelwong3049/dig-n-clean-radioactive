@@ -645,6 +645,10 @@ local function equipItem(character: Model, item: any?): boolean
 	local held = model :: Model
 	held.Name = HELD_ITEM_NAME
 	held:SetAttribute("Uid", item.uid)
+	-- What the client's placement ghost builds (PlacementController): the catalogue
+	-- item and its roll. A crate has no ItemId, so it never gets a ghost.
+	held:SetAttribute("ItemId", if item.crateId then nil else item.itemId)
+	held:SetAttribute("Modifier", item.modifier)
 	-- StreamingEnabled: arrive whole, so the client never sees a held model with no
 	-- parts yet (CrateController hangs its Open prompt on the first one it finds).
 	held.ModelStreamingMode = Enum.ModelStreamingMode.Atomic

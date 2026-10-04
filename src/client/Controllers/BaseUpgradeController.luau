@@ -1,13 +1,13 @@
 --[[
-	FloorPurchaseController.luau — the "Purchase floor" popup. Holding E on your own
-	base's floor sign opens it (ExhibitService sends FloorPurchase { kind = "offer" });
-	it used to buy on the spot, with a refusal written onto the sign for a moment.
+	BaseUpgradeController.luau — the "Upgrade Base" popup. Tapping E on your own base's
+	Upgrade Base sign opens it (ExhibitService sends BaseUpgrade { kind = "offer" }).
+	It was the floor purchase popup before bases became one open floor.
 
-	The dark slab in AwayEarningsController's voice: "FLOOR 2" over what it adds, the
-	cash row's green bundle beside the price, what you have (or how much you are short,
-	in red), then BUY and CANCEL. BUY sends FloorPurchase("buy", plot, floor); the
-	server range-checks it and buyFloor does every other check, and its answer
-	({ kind = "result" }) either closes the card with "FLOOR 2 BUILT!" or prints the
+	The dark slab in AwayEarningsController's voice: "UPGRADE BASE" over what it adds,
+	the cash row's green bundle beside the price, what you have (or how much you are
+	short, in red), then BUY and CANCEL. BUY sends BaseUpgrade("buy", plot, level); the
+	server range-checks it and buyUpgrade does every other check, and its answer
+	({ kind = "result" }) either closes the card with "BASE UPGRADED!" or prints the
 	reason in red under the buttons. Walking away from the sign closes it.
 ]]
 
@@ -23,7 +23,7 @@ local Net = require(Shared.Net)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 
-local FloorPurchaseController = {}
+local BaseUpgradeController = {}
 
 local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
@@ -230,7 +230,7 @@ local function open(offer: any)
 	local player = Players.LocalPlayer
 
 	local gui = Instance.new("ScreenGui")
-	gui.Name = "FloorPurchaseHud"
+	gui.Name = "BaseUpgradeHud"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 96
@@ -281,7 +281,7 @@ local function open(offer: any)
 		name = "Title",
 		size = UDim2.new(1, 0, 0, 50),
 		position = UDim2.fromOffset(0, L.titleY),
-		text = `FLOOR {offer.floor}`,
+		text = "UPGRADE BASE",
 		textSize = L.titleSize,
 		stroke = 3.5,
 		zIndex = 12,
@@ -290,7 +290,7 @@ local function open(offer: any)
 		name = "Adds",
 		size = UDim2.new(1, 0, 0, 24),
 		position = UDim2.fromOffset(0, L.subY),
-		text = `+{offer.stands} display stands for your nukes`,
+		text = `+{offer.nukes} nukes ({offer.cap} total) and a bigger base`,
 		textSize = L.subSize,
 		zIndex = 12,
 	})
@@ -388,7 +388,7 @@ local function open(offer: any)
 		c.busy = true
 		status.Text = ""
 		refresh()
-		remote:FireServer("buy", offer.plot, offer.floor)
+		remote:FireServer("buy", offer.plot, offer.level)
 	end)
 	cancel.Activated:Connect(close)
 	closeButton.Activated:Connect(close)
@@ -418,7 +418,7 @@ end
 
 local function onResult(message: any)
 	local c = card
-	if c == nil or c.closing or message.floor ~= c.offer.floor then
+	if c == nil or c.closing or message.level ~= c.offer.level then
 		return
 	end
 	c.busy = false
@@ -427,27 +427,27 @@ local function onResult(message: any)
 	end
 	if message.ok then
 		c.busy = true -- nothing more to press
-		c.title.Text = `FLOOR {c.offer.floor} BUILT!`
+		c.title.Text = "BASE UPGRADED!"
 		c.title.TextColor3 = STYLE.money
 		c.status.Text = ""
 		refresh()
 		task.delay(1.2, close)
 		return
 	end
-	-- buyFloor's reasons are lower-case clauses ("you need $X more"); capitalise.
-	local reason = if type(message.message) == "string" then message.message else "couldn't build that floor"
+	-- buyUpgrade's reasons are lower-case clauses ("you need $X more"); capitalise.
+	local reason = if type(message.message) == "string" then message.message else "couldn't upgrade your base"
 	c.status.Text = reason:sub(1, 1):upper() .. reason:sub(2)
 	refresh()
 	task.spawn(shake, c.group)
 end
 
-function FloorPurchaseController.start()
-	remote = Net.get("FloorPurchase")
+function BaseUpgradeController.start()
+	remote = Net.get("BaseUpgrade")
 	remote.OnClientEvent:Connect(function(message: any)
 		if type(message) ~= "table" then
 			return
 		end
-		if message.kind == "offer" and type(message.floor) == "number" and type(message.price) == "number" then
+		if message.kind == "offer" and type(message.level) == "number" and type(message.price) == "number" then
 			if card and not card.closing then
 				return
 			end
@@ -467,4 +467,4 @@ function FloorPurchaseController.start()
 	end)
 end
 
-return FloorPurchaseController
+return BaseUpgradeController

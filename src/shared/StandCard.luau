@@ -8,7 +8,7 @@
 	Legendary up, the card pops when a nuke goes up, the crating lock counts down --
 	and on the server every one of those frames would be a property write replicated
 	to every player. So the server writes a handful of attributes on the stand's
-	`Display{slot}` part, once per change, and each client does the drawing. Same split
+	placed nuke's anchor part, once per change, and each client does the drawing. Same split
 	ItemFx makes for the nuke effects themselves.
 
 	THE TAG IS ADDED AT RUNTIME, by the server, the first time it writes a stand. The

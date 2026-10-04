@@ -35,7 +35,6 @@ local Items = require(Config.Items)
 local Weight = require(Config.Weight)
 local Payload = require(Config.Payload)
 local Treadmill = require(Config.Treadmill)
-local Floors = require(Config.Floors)
 local BaseUpgrades = require(Config.BaseUpgrades)
 local Placement = require(script.Parent.Parent.Placement)
 local LuckBoost = require(Config.LuckBoost)
@@ -1259,42 +1258,6 @@ function Spec.run(): boolean
 		StatResolver.effectiveWalkSpeed(stats, 0, false) - stats.walkSpeed * (1 + Gear.tier("Aura", 3).speedBonus)
 	) < 1e-9)
 
-	-- ── §8 BASE FLOORS ────────────────────────────────────────────────────
-	--
-	-- A base is the ground floor plus up to two bought storeys (Config/Floors). Slot
-	-- numbers run on across floors: the ground is 1..12, and each storey adds 12 more.
-
-	check("§8 a base tops out at three floors", Floors.MAX == 3)
-	check("§8 the ground floor has 12 free stands", Floors.GROUND_SLOTS == 12 and Floors.slotsFor(1) == 12)
-	check("§8 each floor bought adds 12 stands", Floors.slotsFor(2) == 24 and Floors.slotsFor(3) == 36)
-	check("§8 the exhibit ceiling is every stand on every floor", Tuning.EXHIBIT_MAX_SLOTS == Floors.slotsFor(Floors.MAX))
-	check("§8 a nonsense floor count clamps to a real one", Floors.slotsFor(0) == 12 and Floors.slotsFor(99) == 36 and Floors.clamp(0 / 0) == 1)
-	do
-		local ok = true
-		for slot = 1, Floors.MAX_SLOTS do
-			local floor, i = Floors.floorOf(slot)
-			if floor == nil or i == nil or Floors.firstSlot(floor) + i - 1 ~= slot then
-				ok = false
-			end
-			-- unlocked by buying `floor`, and not by anything less
-			if floor ~= nil and (slot > Floors.slotsFor(floor) or (floor > 1 and slot <= Floors.slotsFor(floor - 1))) then
-				ok = false
-			end
-		end
-		check("§8 every slot sits on exactly one floor, numbered on from the one below", ok and Floors.floorOf(Floors.MAX_SLOTS + 1) == nil)
-	end
-	do
-		local rising = true
-		for floor = 2, Floors.MAX do
-			local price = Floors.PRICES[floor]
-			if price == nil or price <= 0 or (floor > 2 and price <= (Floors.PRICES[floor - 1] :: number)) then
-				rising = false
-			end
-		end
-		check("§8 every floor above the ground has a price, each dearer than the last", rising and Floors.PRICES[1] == nil)
-		check("§8 a full base has nothing left to buy", Floors.nextPrice(Floors.MAX) == nil and Floors.nextPrice(1) == Floors.PRICES[2])
-	end
-
 	-- ── §8 OPEN-FLOOR BASES ───────────────────────────────────────────────
 	--
 	-- A base is one open floor (Config/BaseUpgrades, Shared/Placement): START nukes,
@@ -1302,6 +1265,7 @@ function Spec.run(): boolean
 
 	check("§8 a base starts with 10 nukes", BaseUpgrades.capFor(0) == 10 and BaseUpgrades.START == 10)
 	check("§8 each upgrade adds 2 nukes, 8 upgrades to 26", BaseUpgrades.capFor(1) == 12 and BaseUpgrades.MAX_NUKES == 26 and BaseUpgrades.capFor(BaseUpgrades.MAX_LEVEL) == 26)
+	check("§8 the exhibit ceiling is a fully upgraded base", Tuning.EXHIBIT_MAX_SLOTS == BaseUpgrades.MAX_NUKES)
 	check("§8 a nonsense level clamps to a real one", BaseUpgrades.capFor(-3) == 10 and BaseUpgrades.capFor(99) == 26 and BaseUpgrades.clamp(0 / 0) == 0)
 	do
 		local rising = true
