@@ -376,12 +376,9 @@ local toastToken = 0
 local dismissed = false
 local lastKey: string? = nil
 
---- THE GEAR INTRO (Gear.OVERVIEW): which stall's intro is up, or nil. It comes up by
---- itself the first time you open each stall (the server's `gearIntro`) and from the
---- header's "?" after that. `introShown` is per session, so a first visit's intro does
---- not come back on the next tick before the server has heard it was seen.
+--- THE GEAR INTRO (Gear.OVERVIEW): which stall's intro is up, or nil. Only the
+--- header's "?" opens it: a stall opens straight onto its cards, on request.
 local introTrack: string? = nil
-local introShown: { [string]: boolean } = {}
 
 --- THE RACK CARD: which rack hook's E opened this panel, or nil for the storefront.
 ---
@@ -2276,22 +2273,10 @@ local function render()
 
 		local count = if tiers then #tiers else 0
 
-		-- The gear intro: up by itself on a stall's first visit (not during the new
-		-- player tutorial, which pins this panel to a buy), reported seen as it shows.
+		-- The gear intro: only the "?" opens it (no first-visit popup).
 		local overview = Gear.OVERVIEW[track]
 		if introTrack ~= nil and introTrack ~= track then
 			introTrack = nil
-		end
-		if
-			overview
-			and count > 0
-			and state.gearIntro == true
-			and not introShown[track]
-			and not Tutorial.isActive(Players.LocalPlayer)
-		then
-			introShown[track] = true
-			introTrack = track
-			actionRemote:FireServer({ action = "tutorialSeen", id = Gear.introId(track) })
 		end
 		ui.introButton.Visible = overview ~= nil and count > 0
 		-- Measured in design px: TextBounds is screen px, under the canvas and fit scales.
