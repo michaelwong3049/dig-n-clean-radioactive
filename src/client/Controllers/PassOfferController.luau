@@ -42,18 +42,18 @@ local CARDS: { Look } = {
 }
 
 -- Design px.
-local CARD_W = 180
-local CARD_H = 58
-local RADIUS = 12
+local CARD_W = 148
+local CARD_H = 44
+local RADIUS = 10
 local EDGE = 3
-local ICON = 66
-local ICON_OUT = Vector2.new(14, 18) -- how far the picture pokes past the left and top edges
-local TITLE_SIZE = 23
-local PRICE_SIZE = 17
-local PRICE_H = 22
-local STEP = CARD_H + PRICE_H / 2 + 24 -- card top to the next card's top
-local STUD = 17 -- stud grid pitch
-local STUD_D = 9
+local ICON = 54
+local ICON_OUT = Vector2.new(12, 14) -- how far the picture pokes past the left and top edges
+local TITLE_SIZE = 19
+local PRICE_SIZE = 15
+local PRICE_H = 18
+local STEP = CARD_H + PRICE_H / 2 + 10 -- card top to the next card's top
+local STUD = 14 -- stud grid pitch
+local STUD_D = 7
 -- The luck clover badge's box above the hotbar (LuckBoostController: 80 clover + 34
 -- pill), which the stack stays clear of even while the badge is hidden.
 local LUCK_CLEAR = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP + 114 + Dock.GAP
