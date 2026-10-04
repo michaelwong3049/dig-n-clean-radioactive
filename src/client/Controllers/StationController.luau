@@ -117,6 +117,7 @@ local Tutorial = require(Shared.Config.Tutorial)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
 local GearArt = require(script.Parent.Parent.GearArt)
+local Studded = require(script.Parent.Parent.Studded) -- the studded look's shared tiles
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
 local MergePanel = require(script.Parent.Parent.MergePanel)
@@ -291,8 +292,8 @@ local STALL_ACCENT: { [string]: Color3 } = {
 --- grey = in your hands, tan = owned (EQUIP), green = you can buy it, slate = not yet
 --- affordable. The studs and the header's stripes are two uploaded tiles (art/ui).
 local STUDDED = {
-	studs = "rbxassetid://89675992974575", -- art/ui/stud-tile.png
-	stripes = "rbxassetid://120310774406938", -- art/ui/stripe-tile.png
+	studs = Studded.STUDS,
+	stripes = Studded.STRIPES,
 	studTile = 26,
 	cardEdge = Color3.fromHex("B9BFC8"),
 	cardCurrent = Color3.fromHex("C5CBD3"),
