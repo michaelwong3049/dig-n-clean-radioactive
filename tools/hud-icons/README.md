@@ -5,12 +5,9 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 
 | File | Used by | `Artwork.IMAGE` key |
 | --- | --- | --- |
-| `index_cards.svg` | Index tile | `cards` |
-| `shop_chest.svg` | Shop tile | `chest` |
-| `nukes_bomb.svg` | Nukes tile | `nuke` |
-| `warp_portal.svg` | Warp tile | `portal` |
+| `ai/*.png` (6) | the left-edge button grid: Shop basket, Index cards, Nukes bomb, Gear detector, Warp portal, Gifts box. AI-made PNGs, no SVG source; cut out of a white background | `chest`, `cards`, `nuke`, `detector`, `portal`, `giftBox` |
+| `index_cards.svg`, `shop_chest.svg`, `nukes_bomb.svg`, `warp_portal.svg`, `gear_detector.svg` | the grid's old flat pictures, replaced by `ai/` | no longer used |
 | `daily_gift.svg` | Daily rewards tile (`DailyRewardsController`) | `gift` |
-| `gear_detector.svg` | Gear tile | `detector` |
 | `mastery_medal.svg` | the Masteries bar above Shop (`MasteriesController`) | `medal` |
 | `settings_gear.svg` | the Settings button in the top-right corner (`SettingsController`) | `settingsGear` |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
