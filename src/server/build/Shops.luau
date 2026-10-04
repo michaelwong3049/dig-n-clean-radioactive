@@ -1973,10 +1973,10 @@ local function buildNameBoard(parent: Instance, frame: CFrame, text: string)
 	label.Position = UDim2.fromScale(0.05, 0.14)
 end
 
---- What a booth's name board says: "Magnet Shop" -> MAGNETS, "Trader" -> TRADER.
+--- What a booth's name board says: "Magnet Shop" -> Magnets, "Trader" -> Trader.
 local function boardText(label: string): string
 	local name = label:match("^(.-) [Ss]hop$")
-	return string.upper(if name then name .. "s" else label)
+	return if name then name .. "s" else label
 end
 
 --- One booth. `isShop` false (the Trader) leaves the desks without a ViewShop prompt or a
