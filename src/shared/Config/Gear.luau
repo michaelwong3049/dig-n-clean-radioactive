@@ -94,6 +94,12 @@
 	rounded to 2 significant figures. Halving early time needs prices near a quarter,
 	because stand income compounds. Medians: 10/10.5/14.5/24/41/74.5/124.5/241.5/281.5/
 	331/495 min, ~27.5 h (early 1.0 h, mid 8.0 h, late 18.5 h). The Bent Coil stays $15.
+
+	OPEN-FLOOR BASES (balance/base-upgrade-prices). Floors and stands became Config/
+	BaseUpgrades (10 nukes, +2 per level, 26 max). The sim now buys Upgrade Base level L
+	as part of Stage L+1's bill; gear prices are untouched and only the eight upgrade
+	prices were fitted, stage by stage, back to the medians above, then smoothed into a
+	rising curve. ~27.9 h; Stage 11 runs 515 min (no upgrade left, fewer nukes late).
 ]]
 
 export type GearTier = {
