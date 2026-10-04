@@ -1043,6 +1043,12 @@ local function buildFoliage(parent: Instance, L: Layout)
 			if dx * dx + dz * dz > limit * limit or x < L.clipX + BUSH_WALL_CLEARANCE then
 				continue
 			end
+			-- Nor past the east clip line: the round plaza's grid reaches over it, and the
+			-- bushes that landed there stood in the next stage's first stretch (Stage 5 off
+			-- Twilight, Stage 9 off Magma), a camp shrub on a field that isn't the camp.
+			if L.exitX and x > L.exitX - BUSH_WALL_CLEARANCE then
+				continue
+			end
 			-- Off the paving and its edge, off the deck, and out of the corridor mouth.
 			if paved(L, x, z) or paved(L, x + 6, z) or paved(L, x - 6, z) or paved(L, x, z + 6) or paved(L, x, z - 6) then
 				continue

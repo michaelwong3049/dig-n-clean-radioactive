@@ -160,8 +160,8 @@ end
 -- prop big enough to block a sightline -- pushed at least this far off it. Smaller
 -- than the bush clearance on purpose: a rib cage standing just off the path is the
 -- point, and you should be walking past one, not hunting for it at the field's edge.
--- (The dead trees themselves are no longer kept off this lane -- scatterFieldTrees
--- covers the whole field now -- but a carcass laid across the walk-through route
+-- (The dead trees themselves are nowhere near this lane -- they stand in one corner
+-- grove now, scatterCornerTrees -- but a carcass laid across the walk-through route
 -- still reads as a mistake, so its own clearance stays.)
 local SKELETON_CENTRE_CLEARANCE = 20
 
@@ -686,8 +686,8 @@ end
 ---            as it runs east, a half-dead tree at the middle, a mossy fallen log, an
 ---            abandoned picnic, a live and a dead sunflower patch, and wildflowers
 ---            that wilt with the ground. Its counts live in its own module.
----   Stage 2 -- big dead trees across the whole field (scatterFieldTrees), then the
----            remains scattered over the whole field (scatterBones): `skeletons` whole
+---   Stage 2 -- big dead trees in one near-left corner grove (scatterCornerTrees),
+---            then the remains scattered over the whole field (scatterBones): `skeletons` whole
 ---            carcasses as landmarks, `bones` handfuls of loose bone underfoot and
 ---            `skulls` human skulls.
 ---   Stage 3 -- the same three bone counts, denser (scatterBones), and then
@@ -752,7 +752,10 @@ local THEME: { [number]: StageTheme } = {
 	-- the user's picks -- S1 creek/tree/log/picnic, S2 a few dead trees and one
 	-- carcass, S3 the crane and truck, S4 fewer pools and trees (cordon gone).
 	-- Was: S1 9/14, S2 9 trees 2/16/7 bones, S3 1/4/2 bones 14 drums, S4 12 pools 4 trees.
-	[1] = { props = 6, deadProps = 4, pools = 8, kind = "trees", scatter = true },
+	-- 2026-10-04, on request ("remove a bush... and some deadbush"): one more of the
+	-- six bush candidates dropped (scatterBushes' removeFarthest 3 -> 4, so the two
+	-- that stay keep their exact spots) and the dead snags 4 -> 2.
+	[1] = { props = 6, deadProps = 2, pools = 8, kind = "trees", scatter = true },
 	-- Stage 2's bone counts. Two carcasses is the whole point of the number: one either
 	-- side of the lane (scatterBones alternates), so the field always has one in view
 	-- and never a pile. The loose clusters are the dense one -- 16 of them at 3-6 bones
@@ -2064,80 +2067,22 @@ end
 ---   * are deterministic off the stage rng (a rebuild reproduces the field),
 ---   * leave barrels, ooze pools and every un-reworked `prop()` kind on the shelf.
 
---- Stage 2 -- big dead trees over the WHOLE field, biased toward the two long edges
---- rather than spread flat: the depth splits into three equal-width bands (north edge,
---- middle, south edge) and BAND_WEIGHTS hands the edge bands more of the count than
---- the middle gets, so it still reads as a tree LINE with a few strays further in,
---- not a lawn. Whichever band comes up short on the rounding is picked by shuffled
---- tie-break, not always the same one, so a rebuild doesn't always favour north.
---- Within a band, trees sit in even cells across the width, each jittered up to half
---- a cell in both axes, so a band never clumps or grids. Every candidate point is also
---- checked against MIN_GAP from every tree already placed, in any band -- the per-cell
---- jitter alone can still land two trees close enough that their canopies overlap
---- (especially across a band boundary), and the trees are big enough that reads as a
---- bug, not a cluster.
-local function scatterFieldTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
-	local BAND_WEIGHTS = { 2, 1, 2 } -- north edge, middle, south edge
-	local MIN_GAP = 32 -- studs between trunks -- a same-band gap this size reads fine,
-	-- but it's also what a cross-band pair needs: two adjacent cells' jitter can still
-	-- land a north-band and a middle-band tree ~25 studs apart, close enough to read as
-	-- one clump straddling the boundary. 32 forces both cases apart.
-	local MAX_ATTEMPTS_PER_TREE = 50
-
-	local bandCount, remainder = {}, {}
-	local totalWeight = BAND_WEIGHTS[1] + BAND_WEIGHTS[2] + BAND_WEIGHTS[3]
-	local assigned = 0
-	for i, w in BAND_WEIGHTS do
-		local raw = count * w / totalWeight
-		bandCount[i] = math.floor(raw)
-		remainder[i] = raw - bandCount[i]
-		assigned += bandCount[i]
-	end
-
-	local tieOrder = { 1, 2, 3 }
-	for i = 3, 2, -1 do
-		local j = rng:NextInteger(1, i)
-		tieOrder[i], tieOrder[j] = tieOrder[j], tieOrder[i]
-	end
-	for _ = 1, count - assigned do
-		local bestI, bestFrac = tieOrder[1], -1
-		for _, i in tieOrder do
-			if remainder[i] > bestFrac then
-				bestI, bestFrac = i, remainder[i]
-			end
-		end
-		bandCount[bestI] += 1
-		remainder[bestI] = -1
-	end
-
-	local bandH = 2 * hz / 3
-	local placed = {}
-	local function tooClose(x: number, z: number): boolean
-		for _, p in placed do
-			if (x - p[1]) ^ 2 + (z - p[2]) ^ 2 < MIN_GAP ^ 2 then
-				return true
-			end
-		end
-		return false
-	end
-
-	for band = 1, 3 do
-		local n = bandCount[band]
-		if n > 0 then
-			local zLo = -hz + (band - 1) * bandH
-			local cell = 2 * hx / n
-			for i = 0, n - 1 do
-				local x, z
-				local attempts = 0
-				repeat
-					x = math.clamp(-hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell, -hx, hx)
-					z = math.clamp(zLo + (0.5 + rng:NextNumber(-0.5, 0.5)) * bandH, -hz, hz)
-					attempts += 1
-				until not tooClose(x, z) or attempts >= MAX_ATTEMPTS_PER_TREE
-				table.insert(placed, { x, z })
-				deadTree(folder, origin, x, z, rng)
-			end
-		end
+--- Stage 2 -- on request (2026-10-04, "put all the trees in the top left corner,
+--- spaced out"): the dead trees stand as one loose grove in the field's NEAR-LEFT
+--- corner -- the Stage 1 seam end (-X), on the -Z wall, left of the walk in from camp
+--- -- instead of lining both long edges (the old scatterFieldTrees, in git history).
+--- Staggered offsets off that corner rather than a grid, every pair 38+ studs apart
+--- so the canopies never touch, each nudged a few studs by the stage rng so the grove
+--- doesn't read as planted rows. More trees than offsets just stop at the list's end.
+--- (Constants live inside the function: this file sits at Luau's 200-local cap.)
+local function scatterCornerTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local CORNER_GROVE = { { 4, 4 }, { 48, 2 }, { 20, 38 }, { 66, 34 }, { 4, 72 }, { 50, 70 } }
+	local CORNER_GROVE_JITTER = 3
+	for i = 1, math.min(count, #CORNER_GROVE) do
+		local o = CORNER_GROVE[i]
+		local x = -hx + o[1] + rng:NextNumber(-CORNER_GROVE_JITTER, CORNER_GROVE_JITTER)
+		local z = -hz + o[2] + rng:NextNumber(-CORNER_GROVE_JITTER, CORNER_GROVE_JITTER)
+		deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
 	end
 end
 
@@ -2164,7 +2109,7 @@ end
 --- full depth instead of crowding one mid-field strip. Everything else -- the grids,
 --- the clearance, the alternation -- is shared.
 ---
---- Deterministic off the stage rng. On Stage 2 it is consumed AFTER scatterFieldTrees
+--- Deterministic off the stage rng. On Stage 2 it is consumed AFTER scatterCornerTrees
 --- so the trees keep the exact placement they already had; on Stage 3 it is the only
 --- pass there is. Same discipline as Stage 1's three passes.
 ---
@@ -2721,7 +2666,7 @@ end
 --- between the furthest sign and the nearest trunk.
 local STAGE4_TREE_ENTRANCE_KEEPOUT = 30
 
---- Studs between Stage 4 trunks. Wider than scatterFieldTrees' 32 for its stand of
+--- Studs between Stage 4 trunks. Wider than the old Stage 2 line's 32 for its stand of
 --- nine, and the count is the reason: on a field carrying FOUR trees a pair that reads
 --- as one clump costs a quarter of everything standing out there, where on Stage 2 it
 --- costs a ninth and the rest of the line covers for it.
@@ -2750,7 +2695,7 @@ local STAGE4_TREE_WITHER = 0.85
 --- to), and four snags over the whole field are strays on the horizon, not a stand you
 --- walk through. Raise this count and the field turns back into Stage 2.
 ---
---- NO CENTRE LANE, the same call scatterFieldTrees makes: a trunk is something you
+--- NO CENTRE LANE, the same call Stage 2's old tree line made: a trunk is something you
 --- walk around, not a carcass laid across the route, and every piece of a deadTree is
 --- CanCollide false anyway.
 ---
@@ -3450,7 +3395,7 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- pass read `theme.pools` for nothing until they call scatterOozePools too.)
 	if theme.scatter then
 		if id == 1 then
-			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
+			scatterBushes(folder, origin, theme.props, 4, rng, hx, hz)
 			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
 			scatterStage1GroundDetail(folder, origin, hx, hz, 9214)
 			-- The wilting meadow itself (build/WiltingMeadow): the creek drying up as it
@@ -3460,7 +3405,7 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- -- and off its own seed, so it moves none of them.
 			WiltingMeadow.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		elseif id == 2 then
-			scatterFieldTrees(folder, origin, theme.props, rng, hx, hz)
+			scatterCornerTrees(folder, origin, theme.props, rng, hx, hz)
 			-- hz - 30 keeps a carcass off the outer wall band, same margin as before.
 			scatterBones(folder, origin, rng, hx, hz, hz - 30, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
 		elseif id == 3 then
