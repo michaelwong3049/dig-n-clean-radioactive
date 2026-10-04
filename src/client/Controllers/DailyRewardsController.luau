@@ -46,10 +46,10 @@ local PANEL = {
 	white = Color3.new(1, 1, 1),
 	gold = Color3.fromRGB(255, 200, 51),
 	green = Color3.fromRGB(88, 214, 104),
-	cash = Color3.fromRGB(120, 230, 120),
+	cash = UIKit.House.cash,
 	luck = Color3.fromRGB(110, 220, 120),
 	boost = Color3.fromRGB(255, 214, 92),
-	claim = Color3.fromRGB(62, 190, 90),
+	claim = UIKit.House.buy,
 	font = Enum.Font.GothamBlack,
 }
 
