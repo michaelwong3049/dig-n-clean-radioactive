@@ -43,12 +43,13 @@ local TOP = 25
 local MAX_SCORE = 2 ^ 53 -- OrderedDataStore takes integers; keep them exact
 
 -- ── Board placement ──────────────────────────────────────────────────────────
--- Scenery.BaseWalls.ShoulderWallPos: plaza face at x = 96, runs z = 89..225, floor
--- (Plots.Apron tiles) top at y = -1.5. Boards face west, Cash on the left as you
--- face the wall (lower z), Speed on the right.
+-- Scenery.BaseWalls.ShoulderWallPos: plaza face at x = 96, runs from the Stage 1
+-- corridor wall (z = 85) outward, floor (Plots.Apron tiles) top at y = -1.5. Boards
+-- face west, Cash on the left as you face the wall (lower z), Speed on the right.
+-- 2026-10-04: 8 studs toward the Stage 1 entrance (was 112 / 131), on request.
 local WALL_X_FALLBACK = 96
 local FLOOR_Y_FALLBACK = -1.5
-local BOARD_Z = { 112, 131 }
+local BOARD_Z = { 104, 123 }
 local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
 local BOARD_H = 22.5 -- keep W:H at 2:3 so the canvas stays 800 x 1200
 local BOARD_LIFT = 1.5 -- gap between floor and the board's bottom edge
