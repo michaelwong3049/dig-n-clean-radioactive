@@ -97,16 +97,16 @@
 	    │   ═══════ cross band ═══════         │
 	    │  [locker]       ║                    │
 	    └──────── hazard line, deck edge ──────┘
-	       WASHER [bottle]          TREADMILL     ← black path, ground level, open
+	       WASHER [bottle]          TREADMILL     ← deck-coloured strip, ground level, open
 	                  entry (spawn)
 
 	THE GALLERY PASS (on request, picked from three live previews) dressed that grid
 	up: the stands stand on waist-high plinths with an accent band, an empty one shows
 	accent corner brackets and a full one a line in its item's rarity colour
 	(Plots.setStandState); walkways (buildGalleryLanes) run in from the hazard line.
-	They were cream; black now (2026-10-04, on request), like the front strip
-	(buildFrontPath). The entrance arch and the front fence are gone (on request): the
-	raised deck stops at the hazard line. Every fence post wears an accent cap.
+	They were cream; black now (2026-10-04, on request). The front strip in front of the
+	deck wears the deck's own colour (buildFrontPath). The entrance arch and the front
+	fence are gone (on request): the raised deck stops at the hazard line. Every fence post wears an accent cap.
 	A claimed plot whose owner never picked a colour wears Plots.DEFAULT_ACCENTS.
 
 	THE STANDS CAME BACK (2026-10-04, on request). For a day the base was one open floor
@@ -221,7 +221,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 103 -- stands and floors back, black paths inside each base
+local BUILDER_VERSION = 104 -- front strip in the deck colour
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -311,10 +311,10 @@ local function borderPiece(parent: Instance, origin: CFrame, x: number, z: numbe
 	return part
 end
 
---- THE FRONT PATH, on request (2026-10-04: "make the paths in the base black"): one flat
---- studded plate in the walkways' black (Kit.C.baseLane) over the front strip, the whole
---- width of the pad from its front edge to the deck, where the washer, the bottle and the
---- treadmill stand. The apron still paves the strip grey underneath (Hub.setPadFronts);
+--- THE FRONT PATH: one flat plate over the front strip, the whole width of the pad from
+--- its front edge to the deck, where the washer, the bottle and the treadmill stand. In
+--- the deck's own colour and finish (PadFloor), on request (2026-10-04: "same color as
+--- the one the stands are on"); it was the walkways' black for a moment before that. The apron still paves the strip grey underneath (Hub.setPadFronts);
 --- this lies a hair above it and a hair under the border, so neither z-fights.
 local FRONT_PATH_TOP = Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.03
 local function buildFrontPath(parent: Instance, origin: CFrame)
@@ -322,9 +322,8 @@ local function buildFrontPath(parent: Instance, origin: CFrame)
 		name = "FrontPath",
 		pos = { 0, FRONT_PATH_TOP - Hub.TILE_CAP / 2, (PAD_MIN_Z + DECK_MIN_Z) / 2 },
 		size = { Plots.PAD.width, Hub.TILE_CAP, DECK_MIN_Z - PAD_MIN_Z },
-		color = C.baseLane,
+		color = C.baseFloor,
 		material = "Plastic",
-		studs = true,
 		canCollide = false,
 	})
 	part.CanQuery = false
@@ -4209,7 +4208,7 @@ local function buildPlot(parent: Instance, index: number)
 
 	buildPlaceLine(m, origin)
 	-- The walkways laid over it (the Gallery pass), from just behind the hazard line,
-	-- and the black path over the front strip in front of the deck.
+	-- and the deck-coloured plate over the front strip in front of the deck.
 	buildGalleryLanes(m, origin, nil, HAZARD_Z, laneStairs(1))
 	buildFrontPath(m, origin)
 

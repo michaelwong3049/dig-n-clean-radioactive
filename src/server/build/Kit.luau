@@ -180,9 +180,8 @@ Kit.C = {
 	-- smooth no-stud plate (glinted in the sun), then charcoal studs.
 	-- `baseTileDark`/`Light` stay above for anything that still wants the old pair.
 	baseFloor = "A7ABB0",
-	-- The paths inside a base: the gallery walkways laid over the deck
-	-- (Plots.buildGalleryLanes) and the front strip the washer and treadmill stand on
-	-- (Plots.buildFrontPath). Cream with a sand kerb until 2026-10-04, then black on
+	-- The gallery walkways laid over a base's deck (Plots.buildGalleryLanes).
+	-- Cream with a sand kerb until 2026-10-04, then black on
 	-- request, with a mid-grey kerb so each lane's edge still reads on the grey deck.
 	baseLane = "1F2226",
 	baseLaneKerb = "3A3F45",
