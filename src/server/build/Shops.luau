@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 61
+local BUILDER_VERSION = 62
 
 local C = Kit.C
 local build = Kit.build
@@ -258,7 +258,6 @@ local PLAZA_MID = { x = 5.5, z = 0 } -- 12 west of 17.5 with the shop square (20
 local STALLS = {
 	{ track = "Detector", at = { 33.35, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 }, hideTiers = { 1 } },
 	{ track = "Magnet", at = { -22.35, 30 }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
-	{ track = "Cleaner", at = { 33.35, -30 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────

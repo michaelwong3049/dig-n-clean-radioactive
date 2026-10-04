@@ -48,6 +48,7 @@ local ORDER = {
 	"CrustController", -- crust on a washed item: eases the server's erode level every frame, tumbles shed pieces off; watches ItemCrust-tagged parts
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedController
 	"TreadmillSignController", -- the upgrade sign beside each treadmill: "Level 1 > Level 2", red cash + purple Robux buttons; fires TreadmillBuy
+	"HoseSignController", -- the hose upgrade sign beside each wash bay's reel (the hose shops are gone): next hose, red cash + purple Robux; fires HoseBuy
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
 	"MergeReactorController", -- the Merge Reactor's show: nukes into the hoppers, the core charging, the result on the lift; reads the reactor's Merge* attributes
 	"ReforgeStationController", -- the Reforge Station's strike: hammer, sparks, the forge flaring; reads the forge's Reforge* attributes

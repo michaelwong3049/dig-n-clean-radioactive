@@ -67,10 +67,12 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local GearProducts = require(Shared.Config.GearProducts)
+local Camps = require(Shared.Config.Camps) -- the hose sign's "reach <camp> first"
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial) -- the luck button is shut during the walkthrough
 
@@ -837,8 +839,68 @@ local function wireUpgrade(part: Instance)
 	end)
 end
 
+-- ── The hose sign ─────────────────────────────────────────────────────
+--
+-- THE HOSE SHOPS ARE GONE (2026-10-04, on request): every Cleaner rung is bought off the
+-- upgrade sign beside your own wash bay's reel (build/Plots.setHoseSign), whose red cash
+-- button fires Net.HoseBuy. No payload -- the rung is always the one above the best hose
+-- you own, and its camp must have been reached (ExhibitService.hoseOffer), both
+-- re-derived here. Answered on the hotbar Notice, like the treadmill's sign.
+local HOSE_SIGN_REACH = 30
+local HOSE_BUY_COOLDOWN = 0.4
+local lastHoseBuy: { [Player]: number } = {}
+local noticeRemote: RemoteEvent
+
+local function hoseSignBoard(index: number): BasePart?
+	local row = Workspace:FindFirstChild("Plots")
+	local plot = row and row:FindFirstChild(`Plot{index}`)
+	local station = plot and plot:FindFirstChild("CleansingStation", true)
+	local sign = station and station:FindFirstChild("HoseSign")
+	local board = sign and sign:FindFirstChild("Board")
+	return if board and board:IsA("BasePart") then board else nil
+end
+
+local function onHoseBuy(player: Player)
+	local now = os.clock()
+	if now - (lastHoseBuy[player] or 0) < HOSE_BUY_COOLDOWN then
+		return
+	end
+	lastHoseBuy[player] = now
+
+	local data = DataService.data(player)
+	local index = ExhibitService.plotOf(player)
+	local board = if index then hoseSignBoard(index) else nil
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if data == nil or board == nil or root == nil or not root:IsA("BasePart") then
+		return
+	end
+	if (root.Position - board.Position).Magnitude > HOSE_SIGN_REACH then
+		noticeRemote:FireClient(player, "WALK UP TO YOUR HOSE SIGN")
+		return
+	end
+
+	local offer = ExhibitService.hoseOffer(data)
+	if offer.next == nil then
+		noticeRemote:FireClient(player, "YOUR HOSE IS MAXED")
+		return
+	end
+	if offer.lockedCamp then
+		local camp = Camps.get(offer.lockedCamp)
+		noticeRemote:FireClient(player, `REACH {string.upper(if camp then camp.name else offer.lockedCamp)} FIRST`)
+		return
+	end
+
+	local ok, message = ShopService.buyTier(player, "Cleaner", offer.next)
+	noticeRemote:FireClient(player, string.upper(message))
+	if ok then
+		print(`[shop] {player.Name}: {message} (hose sign)`)
+	end
+end
+
 function ShopService.init()
 	resultRemote = Net.get("StationResult")
+	noticeRemote = Net.get("Notice")
 end
 
 function ShopService.start()
@@ -857,6 +919,11 @@ function ShopService.start()
 		wireUpgrade(part)
 	end
 	CollectionService:GetInstanceAddedSignal(UPGRADE_TAG):Connect(wireUpgrade)
+
+	Net.get("HoseBuy").OnServerEvent:Connect(onHoseBuy)
+	Players.PlayerRemoving:Connect(function(player)
+		lastHoseBuy[player] = nil
+	end)
 end
 
 return ShopService
