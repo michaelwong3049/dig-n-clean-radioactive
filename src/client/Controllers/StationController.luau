@@ -289,19 +289,24 @@ local STALL_ACCENT: { [string]: Color3 } = {
 --- THE STUDDED-CARD SHOP (2026-10-04, on request, after a reference the user sent: a
 --- purple striped title bar, a big red X, and three chunky studded cards across, each a
 --- solid colour with the item standing on it, a dark stat strip and a lime button).
---- Cards are coloured by where you stand with that rung, so the row reads at a glance:
---- grey = in your hands, tan = owned (EQUIP), green = you can buy it, slate = not yet
---- affordable. The studs and the header's stripes are two uploaded tiles (art/ui).
+--- Each card is the GEAR'S OWN COLOUR, brightened (GearArt.tint; on request, 2026-10-04:
+--- "make the background relevant to the color and aesthetic of the gear"), so a gold
+--- detector stands on gold and a violet hose on violet. Where you stand with the rung
+--- is the button's job: dark EQUIPPED, lime EQUIP or price, grey NEED $x. Only a rung
+--- sold in another zone keeps a state colour, dark slate. The studs and the header's
+--- stripes are two uploaded tiles (art/ui).
 local STUDDED = {
 	studs = Studded.STUDS,
 	stripes = Studded.STRIPES,
 	studTile = 26,
 	cardEdge = Color3.fromHex("B9BFC8"),
-	cardCurrent = Color3.fromHex("C5CBD3"),
-	cardOwned = Color3.fromHex("B08560"),
-	cardBuy = Color3.fromHex("48D63A"),
-	cardDear = Color3.fromHex("6F7C92"),
+	cardPlain = Color3.fromHex("48D63A"), -- a track with no tint (GearArt.tint is nil)
 	cardLocked = Color3.fromHex("3D4452"), -- sold in another zone (entry.lockedZone)
+	-- The panel the cards sit on: a light cool grey, not the field kit's near-black
+	-- (on request, 2026-10-04: "make the backgrounds brighter"), so the bright cards
+	-- read as a row on a lit shelf rather than as holes in a dark box.
+	panel = Color3.fromHex("E4E9F2"),
+	panelEdge = Color3.fromHex("B9BFC8"),
 	header = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
 	cash = Color3.fromHex("7CFF4F"),
 	-- Buttons are white under a UIGradient, so one gradient per state is the fill.
@@ -745,7 +750,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT),
 		position = UDim2.new(0, (order - 1) * CAROUSEL_STEP + CARD_WIDTH / 2, 0.5, 0),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		color = STUDDED.cardBuy,
+		color = STUDDED.cardPlain,
 		transparency = 0,
 		strokeColor = STUDDED.cardEdge,
 		strokeThickness = 4,
@@ -1748,20 +1753,19 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 
 	nameLabel.TextColor3 = FIELD.text
 
-	-- THE CARD'S COLOUR IS ITS STATE (see STUDDED): grey in hand, tan owned, green for
-	-- sale, slate not yet affordable. The button is white under its state's gradient.
+	-- THE CARD IS THE GEAR'S COLOUR (see STUDDED); the button carries the state, white
+	-- under its state's gradient.
 	local fill = buy:FindFirstChild("Fill") :: UIGradient
+	card.BackgroundColor3 = GearArt.tint(track, entry.tier) or STUDDED.cardPlain
 	cardStroke.Color = STUDDED.cardEdge
 	buy.BackgroundColor3 = Color3.new(1, 1, 1)
 	buy.BackgroundTransparency = 0
 	flag.Text = ""
 	if entry.current then
-		card.BackgroundColor3 = STUDDED.cardCurrent
 		buy.Text = if track == "Aura" then "WEARING" else "EQUIPPED"
 		buy.TextColor3 = STUDDED.equippedText
 		fill.Color = STUDDED.equipped
 	elseif entry.owned then
-		card.BackgroundColor3 = STUDDED.cardOwned
 		buy.Text = "EQUIP"
 		buy.TextColor3 = FIELD.text
 		fill.Color = STUDDED.lime
@@ -1777,14 +1781,12 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 		buy.TextColor3 = STUDDED.equippedText
 		fill.Color = STUDDED.locked
 	elseif dear then
-		card.BackgroundColor3 = STUDDED.cardDear
 		flag.Text = `NEED {money(entry.price - cash)}`
 		flag.TextColor3 = FIELD.short
 		buy.Text = money(entry.price)
 		buy.TextColor3 = FIELD.text
 		fill.Color = STUDDED.dear
 	else
-		card.BackgroundColor3 = STUDDED.cardBuy
 		buy.Text = money(entry.price)
 		buy.TextColor3 = FIELD.text
 		fill.Color = STUDDED.lime
@@ -2267,7 +2269,8 @@ local function render()
 		local accent = STALL_ACCENT[track] or FIELD.amber
 		local cash = state.cash or 0
 
-		ui.panelStroke.Color = FIELD.edge
+		ui.panel.BackgroundColor3 = STUDDED.panel
+		ui.panelStroke.Color = STUDDED.panelEdge
 		ui.shopAccent.BackgroundColor3 = accent
 		ui.shopTitle.Text = track
 

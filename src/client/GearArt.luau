@@ -2,8 +2,8 @@
 	GearArt — a live 3D picture of one gear tier in a ViewportFrame.
 
 	Lifted out of StationController when the Gear panel needed the same picture: the
-	shop card's art well and the Gear panel's rows both draw the real model, from the
-	same hero angle per track, framed to fill its box. A LIVE RENDER, NOT AN UPLOADED
+	shop card's art well and the Gear panel's rows both draw the real model, from one
+	shared hero angle, framed to fill its box. A LIVE RENDER, NOT AN UPLOADED
 	PICTURE: every tier's model is already on the client (Assets/Tools for Detector and
 	Magnet, Shared/ToolModels for the hose, AuraLook for the aura), so it cannot drift
 	from the rack or the hand when a model is re-imported.
@@ -20,25 +20,51 @@ local Shared = ReplicatedStorage.Shared
 local AuraLook = require(Shared.AuraLook)
 local MagnetHang = require(Shared.MagnetHang)
 local ToolModels = require(Shared.ToolModels)
+local ToolTiers = require(Shared.Config.ToolTiers)
 
 local GearArtFx = require(script.Parent.GearArtFx)
 
 local GearArt = {}
 
--- A STILL HERO SHOT per track. Each is a direction to look FROM and an `up`, both in the
--- model's own frame (its pivot put at the origin). The detector STANDS the way it is
--- carried, by request — it used to be laid along the well, which read as fallen over —
--- seen side-on from a little above so both its display box and its coil read; the
--- magnet and the hose are three-quarter views from a little above. Every tier is
--- framed to fill its box, so tier is carried by the model itself, not by its size.
-type ArtView = { from: Vector3, up: Vector3 }
+-- ONE HERO SHOT FOR EVERY TRACK (2026-10-04, on request: "a better and consistent
+-- angle"). Each track used to be seen from its own direction — the detector side-on and
+-- standing, the hose flat along the well, the magnet from above — so a row of cards read
+-- as three different photographers, and the long thin tools filled a sliver of the
+-- landscape well. Now every model is first turned into one shared DISPLAY POSE (`pose`,
+-- applied about the model's pivot) and then shot from the same `from`: a three-quarter
+-- view from the front-right, a little above. The pose lays each tool's long side on the
+-- same rising diagonal (muzzle up-right for the hose, poles up and leaning right for the
+-- magnet), the classic item-icon angle, so it fills the well and every card in the row
+-- matches. The detector alone stands upright (see its row). `from` and `up` are in the
+-- posed model's frame (its pivot at the origin).
+type ArtView = { from: Vector3, up: Vector3, pose: CFrame }
+local HERO_FROM = Vector3.new(0.5, 0.45, 1)
 local ART_VIEW: { [string]: ArtView } = {
-	Detector = { from = Vector3.new(1, 0.25, 0.4), up = Vector3.yAxis },
-	Magnet = { from = Vector3.new(1, 0.6, 0.35), up = Vector3.yAxis },
-	Cleaner = { from = Vector3.new(1, 0.55, -0.35), up = Vector3.yAxis },
-	-- Nearly head on and a little above, so the flat ring reads as a ring and the
-	-- tilted pair cross in front of the nucleus the way they do round a chest.
-	Aura = { from = Vector3.new(0.25, 0.4, 1), up = Vector3.yAxis },
+	-- Stands along Y with its display box on +X, coil at the bottom the way it is
+	-- carried, seen nearly side-on from a little above (the user's pick of six mock-ups,
+	-- "F"): the box to camera, and the coil lying flat on the ground under it. Leaning
+	-- it onto the diagonal like the others read as fallen over.
+	Detector = {
+		from = Vector3.new(0, 0.25, 1),
+		up = Vector3.yAxis,
+		pose = CFrame.Angles(0, math.rad(-90), 0),
+	},
+	-- Lies flat with its arms along Z: stood up so the U opens upward, poles leaning right.
+	Magnet = {
+		from = HERO_FROM,
+		up = Vector3.yAxis,
+		pose = CFrame.Angles(0, 0, math.rad(-30)) * CFrame.Angles(math.rad(-90), 0, 0),
+	},
+	-- Barrel along Z, grip down: side to camera, muzzle raised 25deg to the right.
+	Cleaner = {
+		from = HERO_FROM,
+		up = Vector3.yAxis,
+		pose = CFrame.Angles(0, 0, math.rad(25)) * CFrame.Angles(0, math.rad(-90), 0),
+	},
+	-- Worn, not held, and AuraController circles this camera itself: nearly head on and
+	-- a little above, so the flat ring reads as a ring and the tilted pair cross in front
+	-- of the nucleus the way they do round a chest.
+	Aura = { from = Vector3.new(0.25, 0.4, 1), up = Vector3.yAxis, pose = CFrame.identity },
 }
 -- Narrow, so a long detector does not bulge at the near end the way a wide lens makes
 -- it; the camera just stands further back.
@@ -167,8 +193,9 @@ function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspe
 			extra:Destroy()
 		end
 	end
-	-- The views are written in the model's own frame, so its pivot goes to the origin.
-	model:PivotTo(CFrame.identity)
+	-- The views are written in the posed model's frame, so its pivot goes to the origin,
+	-- turned into the track's display pose.
+	model:PivotTo(view.pose)
 	model.Parent = viewport
 	frameArt(viewport.CurrentCamera :: Camera, model, view, aspect)
 	if effects then
@@ -176,10 +203,56 @@ function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspe
 	end
 end
 
+-- How vivid a colour reads: saturation times brightness. A white, grey or near-black
+-- body scores low and hands the tint to the tier's glow.
+local function vividness(color: Color3): number
+	local _, s, v = color:ToHSV()
+	return s * v
+end
+local DULL = 0.2
+-- The card shade every tint is pushed to: bright, and never so saturated or so pale
+-- that the white Gotham Black on it stops reading.
+local TINT_VALUE = 0.9
+local TINT_SATURATION = NumberRange.new(0.3, 0.68)
+local GREY = 0.12
+local STEEL = Color3.fromHex("A9B8CC")
+
+--- A bright card colour in the gear's own colour, for the shop card behind its model
+--- (2026-10-04, on request: "make the background relevant to the color and aesthetic of
+--- the gear"). Read off ToolTiers rather than the model, because the imported tiers are
+--- textured and their parts' Color is plain white: each row's `body` is the dominant
+--- colour of that rung's model (its `glow` when the body is white, cream or black —
+--- The Oracle, Void Magnet). The aura is its own rings' colour.
+function GearArt.tint(track: string, tier: number): Color3?
+	local base: Color3
+	if track == "Aura" then
+		base = AuraLook.get(tier).color
+	elseif (ToolTiers :: any)[track] ~= nil then
+		local look = ToolTiers.get(track, tier)
+		base = look.body
+		if vividness(base) < DULL then
+			for _, other in { look.glow, look.accent } do
+				if other and vividness(other) > vividness(base) then
+					base = other
+				end
+			end
+		end
+	else
+		return nil
+	end
+	local h, s = base:ToHSV()
+	-- Grey to the bone (Scrap Sweeper): a pale steel, where pushing a hue that is not
+	-- there up to the floor saturation would paint it a muddy yellow.
+	if s < GREY then
+		return STEEL
+	end
+	return Color3.fromHSV(h, math.clamp(s * 0.9, TINT_SATURATION.Min, TINT_SATURATION.Max), TINT_VALUE)
+end
+
 --- Put magnet tier `tier` in `viewport` HUNG the way the hand and the rack hold it
 --- (Shared/MagnetHang: poles down, face to camera), seen nearly head on from a hair
 --- above. For the haul shaft, where the magnet hangs over the nuke on its cable.
-local HUNG_VIEW: ArtView = { from = Vector3.new(0.3, 0.2, 1), up = Vector3.yAxis }
+local HUNG_VIEW: ArtView = { from = Vector3.new(0.3, 0.2, 1), up = Vector3.yAxis, pose = CFrame.identity }
 function GearArt.showHung(viewport: ViewportFrame, tier: number, aspect: number)
 	for _, child in viewport:GetChildren() do
 		if child:IsA("Model") then
