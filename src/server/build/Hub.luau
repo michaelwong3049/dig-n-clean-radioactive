@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 40 -- grey floor out to the third base of each row (2026-10-04)
+local BUILDER_VERSION = 41 -- grey floor 4 nearer Stage 1, black end borders (2026-10-04)
 
 local C = Kit.C
 local build = Kit.build
@@ -156,7 +156,10 @@ Hub.BORDER_COLOR = "54595D"
 --- plaza's +/-70 rectangle. The plaza octagon once reached z = +/-98 along this line, so a
 --- z-limited strip would let a cream notch poke out past the line's ends, beside the
 --- corridor walls.
-local GREEN_STRIP_DEPTH = 23
+---
+--- 2026-10-04: 23 -> 19, so the grey camp floor reaches one tile (4 studs) nearer the
+--- stages, on request; its east edge is now x = 79.
+local GREEN_STRIP_DEPTH = 19
 
 -- ── Layout ────────────────────────────────────────────────────────────────────
 -- Everything here is world space. The plaza's walking surface is at Y = 0, and
@@ -238,7 +241,8 @@ Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 local GATE_RECTS = {
 	-- 2026-10-04: follows the bases in (fronts x -71, z +/-72). Then (same day) out to
 	-- the west row's outer edge (x -132.5) when the rows went three to a side.
-	{ minX = -133, maxX = 75, minZ = -70, maxZ = 70 },
+	-- Later the same day, one tile nearer the stages (maxX 75 -> 79) with GREEN_STRIP_DEPTH.
+	{ minX = -133, maxX = 79, minZ = -70, maxZ = 70 },
 }
 
 --- Each base's front strip (the washer / treadmill area in front of its raised deck),
@@ -925,6 +929,31 @@ local function buildShopKerb(parent: Instance)
 	end
 end
 
+--- THE GREY FLOOR'S END BORDERS, on request (2026-10-04: "add thin black borders for
+--- the ends of the grey rectangle"): a 1-stud black line along the inside of each short
+--- end of GATE_RECTS' rectangle -- the east end at the grass before Stage 1 and the west
+--- end at the back pair of bases. The long north/south sides are already edged by the
+--- bases' own borders. Flat paint a hair above the grey path, like the bases'
+--- BaseBorder: not collidable, not queried.
+local END_BORDER_W = 1
+local function buildFloorEndBorders(parent: Instance)
+	local r = GATE_RECTS[1]
+	local top = Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.05
+	for _, x in { r.minX + END_BORDER_W / 2, r.maxX - END_BORDER_W / 2 } do
+		local part = build(parent, CFrame.new(0, 0, 0), {
+			name = "FloorEndBorder",
+			pos = { x, top - CAP / 2, (r.minZ + r.maxZ) / 2 },
+			size = { END_BORDER_W, CAP, r.maxZ - r.minZ },
+			color = C.hazardBlack,
+			material = "Plastic",
+			canCollide = false,
+		})
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+	end
+end
+
 local function buildPlaza(hub: Model)
 	local p = Hub.PLAZA
 
@@ -952,6 +981,7 @@ local function buildPlaza(hub: Model)
 	})
 	buildShopKerb(tiles)
 	tiles.Parent = hub
+	buildFloorEndBorders(hub)
 
 	-- NO RIM ON ANY SIDE ANY MORE. Three cream strips used to run along the north,
 	-- south and west edges, there for one reason: so the plaza edge read as an edge
