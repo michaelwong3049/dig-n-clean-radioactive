@@ -217,7 +217,7 @@ end
 
 --- The middle everything else here faces: the plaza midpoint, Hub's central-spine
 --- centreline, the camp datum and the blackout-respawn anchor, all this one point.
-local PLAZA_MID = { x = 17.5, z = 0 }
+local PLAZA_MID = { x = 5.5, z = 0 } -- 12 west of 17.5 with the shop square (2026-10-03)
 
 --- Each plaza stall's world (x, z), same shape as `OUTFITTER.at` — freely
 --- placeable, no shared ring or bearing forcing them together. By default
@@ -256,9 +256,9 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- its side under the rail. Magnet and Cleaner are untouched by that migration and
 --- still need a real `pitch` to compose with their own art's `HoldCFrame`.
 local STALLS = {
-	{ track = "Detector", at = { 45.35, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 }, hideTiers = { 1 } },
-	{ track = "Magnet", at = { -10.35, 30 }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
-	{ track = "Cleaner", at = { 45.35, -30 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
+	{ track = "Detector", at = { 33.35, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 }, hideTiers = { 1 } },
+	{ track = "Magnet", at = { -22.35, 30 }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
+	{ track = "Cleaner", at = { 33.35, -30 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -539,7 +539,7 @@ end
 --- on 2026-09-27 at the user's ask: Magnet now faces the Detector across the north row.
 --- `faceYaw = 0` faces it square north like its row-mates, not diagonally at PLAZA_MID.
 local OUTFITTER = {
-	at = { -10.35, -30 },
+	at = { -22.35, -30 },
 	faceYaw = 0,
 	pitch = 13,
 	counters = {
