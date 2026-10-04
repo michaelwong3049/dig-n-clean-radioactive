@@ -1,11 +1,10 @@
 --!strict
 --[[
-	NameTagController.luau — the world-space player name tag, in the studded look.
+	NameTagController.luau — the quiet world-space player name tag.
 
-	Roblox's default Humanoid name display is not exposed as a styling surface. Hide
-	that display locally and give every client its own: the name on a purple striped
-	plate (2026-10-04, the shop panel's studded style; see client/Studded). Each client
-	builds tags for every character, so names remain
+	Roblox's default Humanoid name display is bright white and is not exposed as a
+	styling surface. Hide that display locally and give every client a small, muted
+	version instead. Each client builds tags for every character, so names remain
 	visible to everyone without replicating UI instances from the server.
 
 	THE STAR BADGE sits over the name: "★ 4.2", the average star rating of
@@ -15,7 +14,7 @@
 	Its own billboard, reaching further than the name, so you can pick a target from
 	across a field. Hidden while the bag holds no nukes.
 
-	THE HP BAR sits between the two: a lime bar in a dark studded track (red when low)
+	THE HP BAR sits between the two: a chunky outlined red pill of that player's health
 	with "72 / 100" printed across it (the Health / MaxHealth attributes ExposureService
 	publishes on the Player). Other players only -- your own health is already on the
 	vitals HUD.
@@ -25,19 +24,21 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local Studded = require(script.Parent.Parent.Studded)
 
 local NameTags = {}
 
 local TAG_NAME = "QuietNameTag"
+local TAG_COLOR = Color3.fromHex("B7C0B8")
 local BADGE_NAME = "BagStarBadge"
+local BADGE_COLOR = Color3.fromHex("FFD34D")
 local BAR_NAME = "HealthBar"
--- THE STUDDED LOOK (2026-10-04, on request: "do the name tag in the same studded style"
--- as the shop panel). The name sits on a purple striped plate like the shop's title
--- bar, the stars on a gold studded chip, and health is a lime bar in a dark studded
--- track that turns red when low. All three are inked. See client/Studded.
-local BAR_TRACK = Color3.fromHex("2B2F36")
-local BAR_LOW = 0.3 -- at or under this share of max health the fill turns red
+-- The vitals HUD's health red and track (HudController STYLE), so the bar reads as
+-- the same health everywhere.
+local BAR_FILL = Color3.fromHex("FF4D5E")
+local BAR_TRACK = Color3.fromHex("3B3340")
+local BAR_INK = Color3.fromHex("1A1A1A")
+-- The lighter band across the top of the fill: the cartoon shine on the pill.
+local BAR_SHINE = Color3.fromHex("FF8A96")
 local BAR_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- ONE ANCHOR, STACKED IN PIXELS. The three billboards are pixel-sized, so spacing
@@ -46,9 +47,9 @@ local BAR_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirectio
 -- sit on the same anchor and lift themselves with SizeOffset instead -- measured in
 -- their own size, so the stack holds its gaps at any range.
 local TAG_ANCHOR = Vector3.new(0, 2.9, 0)
-local TAG_SIZE = Vector2.new(220, 30)
-local BAR_SIZE = Vector2.new(124, 24)
-local BADGE_SIZE = Vector2.new(200, 28)
+local TAG_SIZE = Vector2.new(180, 26)
+local BAR_SIZE = Vector2.new(116, 24)
+local BADGE_SIZE = Vector2.new(200, 26)
 -- Centre-to-centre lifts over the name, in pixels.
 local BAR_LIFT = TAG_SIZE.Y / 2 + BAR_SIZE.Y / 2
 local BADGE_LIFT = BAR_LIFT + BAR_SIZE.Y / 2 + BADGE_SIZE.Y / 2
@@ -60,31 +61,6 @@ local function removeTag(character: Model)
 			existing:Destroy()
 		end
 	end
-end
-
---- A studded plate centred in `canvas` that grows to fit its one line of text: the
---- plate's colour (a Studded gradient), its tile overlay, and the inked label.
-local function plate(canvas: Instance, colors: ColorSequence, tile: string, tileSize: number, tileFade: number, textSize: number): TextLabel
-	local frame = Instance.new("Frame")
-	frame.Name = "Plate"
-	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	frame.Position = UDim2.fromScale(0.5, 0.5)
-	frame.Size = UDim2.new(0, 0, 1, -6)
-	frame.AutomaticSize = Enum.AutomaticSize.X
-	frame.BorderSizePixel = 0
-	frame.Parent = canvas
-	Studded.fill(frame, colors)
-	Studded.edge(frame, 8, 2.5)
-	Studded.tile(frame, tile, tileSize, tileFade, 8)
-
-	local label = Studded.text(frame, "Text", textSize, 2)
-	label.Size = UDim2.fromScale(0, 1)
-	label.AutomaticSize = Enum.AutomaticSize.X
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, 9)
-	pad.PaddingRight = UDim.new(0, 9)
-	pad.Parent = label
-	return label
 end
 
 --- The star badge over the name, kept current off the player's BagStars/BagNukes.
@@ -100,8 +76,17 @@ local function addBadge(player: Player, character: Model, head: BasePart)
 	gui.Parent = character
 	local canvas = UIKit.billboardCanvas(gui, BADGE_SIZE)
 
-	local label = plate(canvas, Studded.GOLD, Studded.STUDS, 14, 0.3, 15)
-	label.Name = "Stars"
+	local label = UIKit.label(canvas, {
+		name = "Stars",
+		size = UDim2.fromScale(1, 1),
+		font = Enum.Font.GothamBold,
+		textSize = 17,
+		color = BADGE_COLOR,
+		xAlign = Enum.TextXAlignment.Center,
+		-- Plain text, no shadow copy: UIKit's shadow is a sibling that never hears a
+		-- Text change (the same reason the hotbar's names turn it off).
+		shadow = false,
+	})
 
 	local function refresh()
 		local stars = player:GetAttribute("BagStars")
@@ -148,24 +133,45 @@ local function addBar(player: Player, character: Model, head: BasePart)
 	track.BackgroundColor3 = BAR_TRACK
 	track.BorderSizePixel = 0
 	track.Parent = canvas
-	Studded.edge(track, 8, 2.5)
-	Studded.tile(track, Studded.STUDS, 12, 0.45, 8)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = track
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = BAR_INK
+	stroke.Thickness = 3
+	stroke.Parent = track
 
 	-- ClipsDescendants clips to the square box, not the UICorner, so the fill rounds
 	-- its own ends instead of relying on the track to trim them.
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = BAR_FILL
 	fill.BorderSizePixel = 0
-	fill.ZIndex = 2
 	fill.Parent = track
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, 8)
-	fillCorner.Parent = fill
-	local fillColor = Studded.fill(fill, Studded.LIME)
+	corner:Clone().Parent = fill
 
-	local readout = Studded.text(track, "Readout", 12, 1.5)
-	readout.Size = UDim2.fromScale(1, 1)
+	local shine = Instance.new("Frame")
+	shine.Name = "Shine"
+	shine.AnchorPoint = Vector2.new(0.5, 0)
+	shine.Position = UDim2.new(0.5, 0, 0, 2)
+	shine.Size = UDim2.new(1, -8, 0.25, 0)
+	shine.BackgroundColor3 = BAR_SHINE
+	shine.BorderSizePixel = 0
+	shine.Parent = fill
+	corner:Clone().Parent = shine
+
+	local readout = UIKit.label(track, {
+		name = "Readout",
+		size = UDim2.fromScale(1, 1),
+		font = UIKit.Font.hero,
+		textSize = 12,
+		color = Color3.new(1, 1, 1),
+		xAlign = Enum.TextXAlignment.Center,
+		zIndex = 2,
+		-- Same reason as the star badge's: the shadow copy never hears a Text change.
+		shadow = false,
+	})
 
 	local function refresh()
 		local health = player:GetAttribute("Health")
@@ -179,7 +185,6 @@ local function addBar(player: Player, character: Model, head: BasePart)
 		-- Hidden at 0 rather than squashed: a rounded frame narrower than its own
 		-- height turns into a red dot stuck at the left end.
 		fill.Visible = frac > 0
-		fillColor.Color = if frac <= BAR_LOW then Studded.RED else Studded.LIME
 		TweenService:Create(fill, BAR_TWEEN, { Size = UDim2.fromScale(frac, 1) }):Play()
 		readout.Text = `{math.max(math.ceil(health), 0)} / {math.ceil(maxHealth)}`
 	end
@@ -220,16 +225,22 @@ local function addTag(player: Player, character: Model)
 	-- scene" -- so a muted grey name tag standing near either one washes back toward
 	-- white the moment a player walks up to their own base. That is the exact bug
 	-- Kit.surfaceText's own header already documents and works around; 0 makes the
-	-- tag read as its own colours regardless of what is lit nearby.
+	-- tag read as constant, muted text regardless of what is lit nearby.
 	gui.LightInfluence = 0
 	gui.Parent = character
-	-- 220x30 design pixels, scaled with the rest of the HUD (UIKit.billboardCanvas) so a
+	-- 180x26 design pixels, scaled with the rest of the HUD (UIKit.billboardCanvas) so a
 	-- name keeps its size relative to everything else on a big screen.
 	local canvas = UIKit.billboardCanvas(gui, TAG_SIZE)
 
-	local name = plate(canvas, Studded.PURPLE, Studded.STRIPES, 32, 0, 16)
-	name.Name = "PlayerName"
-	name.Text = player.DisplayName
+	UIKit.label(canvas, {
+		name = "PlayerName",
+		size = UDim2.fromScale(1, 1),
+		font = Enum.Font.GothamMedium,
+		textSize = 14,
+		color = TAG_COLOR,
+		xAlign = Enum.TextXAlignment.Center,
+		text = player.DisplayName,
+	})
 
 	addBadge(player, character, head :: BasePart)
 	if player ~= Players.LocalPlayer then
