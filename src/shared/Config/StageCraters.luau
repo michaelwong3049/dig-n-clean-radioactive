@@ -71,9 +71,20 @@ local StageCraters = {}
 --- The crater layout was authored in world X with Stage 6 centred at x = 1697. `at`
 --- keeps those numbers readable and shifts them by however far Stage 6 has moved since
 --- (FOUR STAGES PER ZONE moved it east past Toxic Twilight, 2026-10-03).
+---
+--- It was also authored against Stage 6's old 314 x 154 footprint. The map-shrink pass
+--- (2026-10-03) made the stage 283 x 124, so `at` scales each offset from the stage's
+--- middle by how much that axis shrank, and every crater's `radius` shrinks by the
+--- area's square root (rim heights are left alone) -- the layout keeps its shape and
+--- its share of the plate, and follows any later footprint change the same way.
 local AUTHORED_STAGE6_X = 1697
+local AUTHORED_SIZE = { 314, 154 }
+local STAGE6 = Stages.get(6)
+local SCALE_X = STAGE6.size[1] / AUTHORED_SIZE[1]
+local SCALE_Z = STAGE6.size[2] / AUTHORED_SIZE[2]
+local RADIUS_SCALE = math.sqrt(SCALE_X * SCALE_Z)
 local function at(x: number, z: number): { number }
-	return { x - AUTHORED_STAGE6_X + Stages.get(6).center[1], z }
+	return { (x - AUTHORED_STAGE6_X) * SCALE_X + STAGE6.center[1], z * SCALE_Z }
 end
 
 --- How far inside the floor's edge (in rho) a signal must sit on a `digFloor` crater. On
@@ -87,7 +98,7 @@ StageCraters.DIG_FLOOR_MARGIN = 0.1
 StageCraters.DIG_OUTER_MARGIN = 0.04
 
 StageCraters.DEFS = {
-	-- THE crater. Stage 6's middle is (1697, 0); this sits 17 west and 10 north of it, so
+	-- THE crater. Stage 6's middle is (1697, 0); this sits 17 west and 7 north of it (as authored; `at` scales both), so
 	-- it reads as the stage's centrepiece without being dead centre. The entrance path
 	-- (z = 0, from the Stage 5 seam) runs into its west flank, and the slump faces that
 	-- way: coming in from Stage 5, the low stretch of rim is the first thing you see, and
@@ -95,7 +106,7 @@ StageCraters.DEFS = {
 	{
 		name = "GreatCrater",
 		stageId = 6,
-		center = at(1680, 10),
+		center = at(1680, 7), -- z 10 -> 7 with the map-shrink pass, to stay 8 studs off the north wall
 		radius = 38,
 		aspect = 1.24,
 		yaw = 22,
@@ -151,7 +162,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock3",
 		stageId = 6,
-		center = at(1630, -54),
+		center = at(1622, -51), -- was (1630, -54): nudged west and in with the map-shrink pass, off the wall and the big crater
 		radius = 10,
 		aspect = 1.2,
 		yaw = 10,
@@ -238,7 +249,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock8",
 		stageId = 6,
-		center = at(1740, 60),
+		center = at(1740, 57), -- z 60 -> 57 (map-shrink pass, wall clearance)
 		radius = 5.5,
 		aspect = 1.1,
 		yaw = 5,
@@ -253,6 +264,10 @@ StageCraters.DEFS = {
 		seed = 6108,
 	},
 } :: { Crater }
+
+for _, def in StageCraters.DEFS do
+	def.radius *= RADIUS_SCALE
+end
 
 local byStage: { [number]: { Crater } } = {}
 for _, def in StageCraters.DEFS do

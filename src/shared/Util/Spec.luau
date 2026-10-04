@@ -2460,14 +2460,15 @@ function Spec.run(): boolean
 	--
 	-- The old per-rarity `loot` weight tables are gone: the dig roll walks a stage's
 	-- stocked items weighted by 1/odds (Config/Items), and one scalar per stage --
-	-- Stages.rarityTilt -- shapes the rarity curve on top. SIGNALS_PER_STAGE (28) times
+	-- Stages.rarityTilt -- shapes the rarity curve on top. SIGNALS_PER_STAGE (20) times
 	-- the Rare+ share is the count of jackpots buried in the starter field, and that
 	-- product is the number this pins: raise the density on its own, or nudge the tilt,
 	-- and the field quietly starts holding more jackpots -- invisible in play until the
 	-- economy is already ruined. FLOOR 1.7 -> 1.0 WITH THE FEWER-SIGNALS PASS (N 75 ->
 	-- 40, on request): the count is ~1.2 now. FLOOR 1.0 -> 0.7 WITH THE SECOND ONE (N 40
 	-- -> 28, on request 2026-10-03): ~0.74 now, per-dig odds untouched again -- the
-	-- user wants rares harder, so the floor moves, not the tilt. The ceiling is the half that guards the
+	-- user wants rares harder, so the floor moves, not the tilt. FLOOR 0.7 -> 0.5 WITH
+	-- THE MAP-SHRINK PASS (N 28 -> 20 scaled with area x0.72, 2026-10-03): ~0.53 now. The ceiling is the half that guards the
 	-- economy and it is unchanged. Band was ~1.9 at the solved Stage 1 tilt (see
 	-- Config/Stages' header); a fourth footprint shrink that drops N below ~69 needs the
 	-- tilt to move with it to hold this.
@@ -2487,8 +2488,8 @@ function Spec.run(): boolean
 
 	local rarePlus = Tuning.SIGNALS_PER_STAGE * shareAtOrAbove(1, 4) -- Rare and up
 	check(
-		string.format("§7 the starter field holds %.2f Rare-or-better signals at a tier-1 detector (want 0.7-3.0)", rarePlus),
-		rarePlus >= 0.7 and rarePlus <= 3.0
+		string.format("§7 the starter field holds %.2f Rare-or-better signals at a tier-1 detector (want 0.5-3.0)", rarePlus),
+		rarePlus >= 0.5 and rarePlus <= 3.0
 	)
 
 	-- ...and the flip side: the rest have to be junk, or "more items" just means "more
