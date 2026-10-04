@@ -79,12 +79,11 @@ local TEMPLATE = {
 	crates = {},
 
 	exhibit = {
-		-- How many Upgrade Base purchases this base has (Config/BaseUpgrades): 0 is the
-		-- starting open floor. How many nukes it may hold is always derived from it
-		-- (BaseUpgrades.capFor), never stored.
-		level = 0,
-		-- Every nuke on display: the item's own fields plus its plot-local spot (`x`,
-		-- `z`) and the circle it needs (`r`) -- Shared/Placement.
+		-- How many floors this base has been built up to (Config/Floors): 1 is the free
+		-- ground floor, each one bought on top adds stands. `slots` is always derived
+		-- from it (Floors.slotsFor) -- ExhibitService re-derives it on every load.
+		floors = 1,
+		slots = 12, -- the ground floor's stands; see `floors`
 		pedestals = {},
 		bankedCash = 0, -- sub-dollar income remainder; ExhibitService sweeps whole dollars straight into `cash`
 		bankedAt = 0, -- os.time() of the last accrual, for the offline-earnings catch-up

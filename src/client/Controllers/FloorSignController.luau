@@ -1,19 +1,23 @@
 --!strict
 --[[
-	UpgradeSignController.luau — hides the "Upgrade Base" prompt on a base that is
-	not your own.
+	FloorSignController.luau — hides the "Build Floor N" prompt on a base that
+	is not your own.
 
-	THE SERVER ALREADY REFUSES THIS (ExhibitService: "that isn't your base"), and by
-	design every other world prompt is left open to everyone and lets the service
-	refuse cleanly. The Upgrade Base sign is the exception: "Press E — Upgrade Base —
-	$X" in full view on someone else's base reads as a live offer, not a decoration,
-	so this hides it from anyone it is not for. LOCAL ONLY — the server's prompt, and
-	its own refusal, are both untouched.
+	THE SERVER ALREADY REFUSES THIS (ExhibitService.buyFloor: "that isn't your
+	base"), and by design every other world prompt is left open to everyone and
+	lets the service refuse cleanly (see ExhibitService.renderStand's note on
+	why a stand's prompt does not gate by ownership either). A floor sign is
+	the one exception: "Press E — Build Floor N — $X" sitting in full view on
+	someone else's base reads as a live offer, not a decoration, so this hides
+	it from anyone it is not for. LOCAL ONLY — the server's prompt, and its own
+	refusal, are both untouched; this just stops the ones that were always
+	going to fail from ever showing.
 
-	UPGRADE_TAG matches build/Kit.BASE_UPGRADE_TAG's value ("UpgradeBase"), repeated
-	rather than required: Services and controllers never depend on build/.
+	FLOOR_TAG matches build/Kit.FLOOR_TAG's value ("BuyFloor"), repeated rather
+	than required — same call ExhibitService makes: Services (and now this
+	controller) never depend on build/.
 
-	Each board carries PlotIndex (build/Plots.buildUpgradeSign). Our OWN plot index
+	Each board carries PlotIndex (build/Plots.buildFloorSign). Our OWN plot index
 	comes from RespawnLocation (assign points it at the plot's PlotSpawn, which
 	carries PlotIndex), with Net PlotState as well. PlotState alone left the
 	owner's own prompt disabled, so no popup ever opened: it is fired once on
@@ -27,9 +31,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Net)
 
-local UpgradeSignController = {}
+local FloorSignController = {}
 
-local UPGRADE_TAG = "UpgradeBase"
+local FLOOR_TAG = "BuyFloor"
 
 local myPlot: number? = nil
 local boards: { [Instance]: ProximityPrompt } = {}
@@ -66,14 +70,14 @@ local function fromSpawn()
 	end
 end
 
-function UpgradeSignController.start()
-	for _, board in CollectionService:GetTagged(UPGRADE_TAG) do
+function FloorSignController.start()
+	for _, board in CollectionService:GetTagged(FLOOR_TAG) do
 		onBoard(board)
 	end
-	CollectionService:GetInstanceAddedSignal(UPGRADE_TAG):Connect(onBoard)
+	CollectionService:GetInstanceAddedSignal(FLOOR_TAG):Connect(onBoard)
 	Net.get("PlotState").OnClientEvent:Connect(onPlot)
 	fromSpawn()
 	Players.LocalPlayer:GetPropertyChangedSignal("RespawnLocation"):Connect(fromSpawn)
 end
 
-return UpgradeSignController
+return FloorSignController
