@@ -695,6 +695,11 @@ function World.verify(): (boolean, { string })
 			end
 		end
 	end
+	-- CLEANER IS SOLD AT EVERY BASE, NOT AT A STALL (2026-10-04): the hose upgrade sign is
+	-- put up at runtime beside each plot's wash-bay reel (Plots.setHoseSign, from
+	-- ExhibitService), so the built world holds no seller for it. Its seller is the
+	-- plot's cleansing station, which the hose count above already insists on.
+	sells.Cleaner = deconCount > 0
 	for _, track in Gear.TRACKS do
 		check(sells[track] == true, `no shop sells "{track}" — it has prices in Gear.luau and nowhere to spend them`)
 	end
