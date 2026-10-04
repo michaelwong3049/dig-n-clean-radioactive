@@ -698,8 +698,7 @@ Gear.STAT_META = {
 }
 
 --- WHAT EACH TRACK IS FOR, in a line a new player can act on. The shop panel shows it
---- over the carousel the first time you open each stall (DeconService's `gearIntro`,
---- remembered in `tutorialsSeen` as "shop" .. track) and again from the header's "?".
+--- over the carousel from the header's "?" (never by itself: stalls open straight in).
 --- `name` is what the stall calls it, which for Cleaner is the hose. The stat lines
 --- under it are each stat's own STAT_META `tip`, so there is one copy of those.
 Gear.OVERVIEW = {
@@ -720,11 +719,6 @@ Gear.OVERVIEW = {
 		body = "Protects you from radiation.",
 	},
 }
-
---- The `tutorialsSeen` id for a track's shop intro.
-function Gear.introId(track: string): string
-	return `shop{track}`
-end
 
 --- Every column of `track` that is neither sold nor deliberately retired is a bug, and
 --- Spec calls this to say so. `name`, `price` and `blurb` are the card's chrome rather
