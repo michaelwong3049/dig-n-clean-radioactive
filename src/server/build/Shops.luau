@@ -203,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 67
+local BUILDER_VERSION = 68
 
 local C = Kit.C
 local build = Kit.build
@@ -1958,7 +1958,8 @@ end
 --- the extended displays in main camp only, and only access to the shop gui"). Each one is
 --- a plaza stall cut down to its stand: the same StallFloor, black studded posts, a plain
 --- roof (buildPlainRoof) and sign in the shop's colour, no trade props, and the Stand and
---- StandBack desks either side of a full-width spine, whose E opens the shop panel. No
+--- StandBack desks back to back (no spine), whose E opens the shop panel, each with a
+--- glowing step pad in front (buildStepPad). No
 --- tier rack, no Aura mannequins, no RackZone. The site camps (CampSite) keep their full
 --- racked stalls -- STALLS above is still their template.
 ---
@@ -1988,6 +1989,41 @@ local TRADER_BOOTH = { track = "Trader", at = { PLAZA_MID.x + BOOTH_DX, -BOOTH_R
 -- The sell panel opens on this radius round the booth's centre: past both stands and the ends.
 local TRADER_RADIUS = 16
 
+--- The booth's step pad: a studded plate in `color` on the plaza just in front of the
+--- stand (inside STAND_PROMPT_REACH of the desk), with a thin Neon rim in the same colour.
+--- Its outer edge is BOOTH_PAD_FRONT, which assertNoShopOverlap reads.
+local BOOTH_PAD_DEPTH = 4
+local BOOTH_PAD_FRONT = SHOPFRONT_Z + 1.25 + 0.4 + BOOTH_PAD_DEPTH
+local function buildStepPad(parent: Instance, frame: CFrame, color: string)
+	local w, d = STAND_WIDTH, BOOTH_PAD_DEPTH
+	local cz = BOOTH_PAD_FRONT - d / 2
+	build(parent, frame, {
+		name = "StepPad",
+		pos = { 0, 0.1, cz },
+		size = { w, 0.2, d },
+		color = color,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	local rim = 0.3
+	for _, bar in {
+		{ 0, cz - d / 2, w + rim, rim },
+		{ 0, cz + d / 2, w + rim, rim },
+		{ -w / 2, cz, rim, d },
+		{ w / 2, cz, rim, d },
+	} do
+		glowOutline(build(parent, frame, {
+			name = "StepPadRim",
+			pos = { bar[1], 0.13, bar[2] },
+			size = { bar[3], 0.26, bar[4] },
+			color = color,
+			material = "SmoothPlastic",
+			canCollide = false,
+		}))
+	end
+end
+
 --- One booth. `isShop` false (the Trader) leaves the desks without a ViewShop prompt or a
 --- shop station: the Trader sells on its own radius (buildTraderBooth).
 local function buildBooth(parent: Instance, spec: { track: string, at: { number }, faceYaw: number, color: string, label: string }, isShop: boolean?)
@@ -2009,7 +2045,7 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 	-- Black legs, plain roof, no trade props or floor markers (2026-10-04, on request:
 	-- "simplify shop designs, remove decorations, make the legs of each stand black").
 	buildStorefrontPosts(m, origin, width, C.hazardBlack)
-	buildSpine(m, origin, -width / 2 + 0.1, width / 2 - 0.1)
+	-- No spine between the two stands (2026-10-04, on request: "remove the wall in between").
 
 	-- The stand, front and back, exactly a plaza stall's: see buildStall.
 	for _, side in { { name = "Stand", frame = origin }, { name = "StandBack", frame = backFrame(origin, 0) } } do
@@ -2030,6 +2066,12 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 
 	buildPlainRoof(m, origin, spec.color, width, C.hazardBlack)
 	buildRoofTop(m, origin, width, spec.color, spec.label)
+
+	-- A studded pad in the shop's colour in front of each stand, rimmed in glowing Neon,
+	-- so you can see where to stand to buy (2026-10-04, on request).
+	for _, frame in { origin, backFrame(origin, 0) } do
+		buildStepPad(m, frame, spec.color)
+	end
 
 	if not shop then
 		-- One invisible trader station in the middle, as the kiosk had (World.verify
@@ -2091,18 +2133,17 @@ local function assertNoShopOverlap()
 	local rects: { { name: string, rect: Kit.OrientedRect } } = {}
 
 	for _, spec in BOOTHS do
-		-- +5.9 is the front floor marker's outer edge (centre 3.4, depth 5) and -13.9
-		-- the back one's (mirrored about ISLAND_Z) — the two extremes of everything
-		-- buildBooth lays down, open on both sides.
+		-- The step pads' outer edges, front and back (mirrored about ISLAND_Z), are the two
+		-- extremes of everything buildBooth lays down; +0.15 for the rim.
 		table.insert(rects, {
 			name = `{spec.track} booth`,
-			rect = shopFootprint(spec.at[1], spec.at[2], BOOTH_WIDTH, mirrorZ(5.9), 5.9, spec.faceYaw),
+			rect = shopFootprint(spec.at[1], spec.at[2], BOOTH_WIDTH, mirrorZ(BOOTH_PAD_FRONT + 0.15), BOOTH_PAD_FRONT + 0.15, spec.faceYaw),
 		})
 	end
 
 	table.insert(rects, {
 		name = "Trader booth",
-		rect = shopFootprint(TRADER_BOOTH.at[1], TRADER_BOOTH.at[2], BOOTH_WIDTH, mirrorZ(5.9), 5.9, TRADER_BOOTH.faceYaw),
+		rect = shopFootprint(TRADER_BOOTH.at[1], TRADER_BOOTH.at[2], BOOTH_WIDTH, mirrorZ(BOOTH_PAD_FRONT + 0.15), BOOTH_PAD_FRONT + 0.15, TRADER_BOOTH.faceYaw),
 	})
 
 	for i = 1, #rects do
