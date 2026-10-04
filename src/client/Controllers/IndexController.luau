@@ -72,9 +72,6 @@ local Index = {}
 local TILE_SLOT = 2
 local TILE_COLOR = Color3.fromRGB(164, 107, 255)
 local TILE_LIGHT = Color3.fromRGB(212, 182, 255)
--- The fanned cards pivot from the bottom, so the drawing is top-heavy; this drops it
--- onto the glow's centre.
-local TILE_ICON_DROP = 3
 
 -- ── Panel geometry (design px, UIKit.canvas) ────────────────────────
 -- "Viewport minus a margin, but never bigger than" like StationController's panel, so
@@ -480,7 +477,6 @@ local function buildButton(): ScreenGui
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Artwork.IMAGE.cards,
-		iconDrop = TILE_ICON_DROP,
 	})
 	-- NEW entries waiting to be looked at: a red count on the tile's corner.
 	local badge, badgeText = HudTile.badge(button, COL.newTag, COL.black)

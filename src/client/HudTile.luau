@@ -54,17 +54,17 @@ local GLOW_TRANSPARENCY_HOVER = 0.12
 -- the top edge by Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
 -- (Settings, Daily, placed by spec.position) keep the dark glow-orb look.
 local GRID_SIZE = Dock.SIDE_GRID_TILE
-local GRID_CORNER = 14
+local GRID_CORNER = 12
 local GRID_TOP = Color3.fromRGB(58, 74, 116)
 local GRID_FOOT = Color3.fromRGB(24, 30, 54)
 local GRID_OUTLINE = Color3.fromRGB(12, 14, 26)
 local GRID_OUTLINE_THICKNESS = 2
 local GRID_RIM = Color3.fromRGB(176, 192, 224)
 local GRID_RIM_THICKNESS = 3
-local GRID_ICON = 66
+local GRID_ICON = 62
 -- The picture's centre, up from the tile's: its top then clears the edge by the poke.
 local GRID_ICON_RISE = GRID_ICON / 2 + Dock.SIDE_GRID_POKE - GRID_SIZE / 2
-local GRID_TEXT_SIZE = 19
+local GRID_TEXT_SIZE = 17
 local GRID_TEXT_STROKE = 3
 local GRID_TEXT_DROP = Vector2.new(1, 2)
 

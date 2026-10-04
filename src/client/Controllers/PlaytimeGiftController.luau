@@ -651,7 +651,7 @@ function PlaytimeGiftController.start()
 		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
-		image = PlaytimeGifts.ICONS.clock,
+		image = Artwork.IMAGE.giftBox,
 		onActivated = PlaytimeGiftController.toggle,
 	})
 	badge, badgeMark = HudTile.badge(button, PANEL.close, PANEL.ink)
