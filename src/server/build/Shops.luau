@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 69
+local BUILDER_VERSION = 70
 
 local C = Kit.C
 local build = Kit.build
@@ -1949,6 +1949,36 @@ local function buildStepPad(parent: Instance, frame: CFrame, color: string)
 	end
 end
 
+--- THE BOOTH NAME BOARD (2026-10-04, on request: a plank sign with the shop's name hung
+--- on the front and back of every booth, "make the plate black, and the font of the text
+--- gotham black"). A studded black board across the roof's outer edge, its bottom below
+--- the roof line like a fascia, the name painted on its outward face in white GothamBlack.
+--- Built in the side's own frame, so the outward face is the part's Back (+z).
+local NAME_BOARD_WIDTH = 16
+local NAME_BOARD_HEIGHT = 3
+local NAME_BOARD_DEPTH = 0.5
+local function buildNameBoard(parent: Instance, frame: CFrame, text: string)
+	local board = build(parent, frame, {
+		name = "NameBoard",
+		pos = { 0, ROOF_CENTER_Y - 0.2, ROOF_CENTER_Z + ROOF_DEPTH / 2 + NAME_BOARD_DEPTH / 2 },
+		size = { NAME_BOARD_WIDTH, NAME_BOARD_HEIGHT, NAME_BOARD_DEPTH },
+		color = C.hazardBlack,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	local label = Kit.surfaceText(board, Enum.NormalId.Back, text, "FFFFFF")
+	label.Font = Enum.Font.GothamBlack
+	label.Size = UDim2.fromScale(0.9, 0.72)
+	label.Position = UDim2.fromScale(0.05, 0.14)
+end
+
+--- What a booth's name board says: "Magnet Shop" -> MAGNETS, "Trader" -> TRADER.
+local function boardText(label: string): string
+	local name = label:match("^(.-) [Ss]hop$")
+	return string.upper(if name then name .. "s" else label)
+end
+
 --- One booth. `isShop` false (the Trader) leaves the desks without a ViewShop prompt or a
 --- shop station: the Trader sells on its own radius (buildTraderBooth).
 local function buildBooth(parent: Instance, spec: { track: string, at: { number }, faceYaw: number, color: string, label: string }, isShop: boolean?)
@@ -1996,6 +2026,7 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 	-- so you can see where to stand to buy (2026-10-04, on request).
 	for _, frame in { origin, backFrame(origin, 0) } do
 		buildStepPad(m, frame, spec.color)
+		buildNameBoard(m, frame, boardText(spec.label))
 	end
 
 	if not shop then
