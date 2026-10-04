@@ -68,12 +68,20 @@ local PANEL = {
 	font = Enum.Font.GothamBlack,
 }
 
-local PAD = 20
-local HEADER_H = 60
-local FOOTER_H = 56
-local CARD_W = 200
-local CARD_H = 170
-local CARD_GAP = 12
+local PAD = 16
+local HEADER_H = 54
+local FOOTER_H = 50
+local CARD_W = 184
+local CARD_H = 136
+local CARD_GAP = 10
+-- Inside a card: the picture on top, the timer pill on the bottom, and the gift's lines
+-- centred in the strip between them (so a one-line gift has no hole under it).
+local ICON = 46
+local ICON_Y = 4
+local PILL_H = 30
+local PILL_INSET = 6
+local LINE_ROWS = 3
+local LINE_H = 16
 local COLS = 4
 local ROWS = 3
 local PANEL_W = PAD * 2 + CARD_W * COLS + CARD_GAP * (COLS - 1)
@@ -228,6 +236,8 @@ local function linesFor(gift: any): { { text: string, color: Color3 } }
 	if #boosts > 0 then
 		table.insert(out, { text = `2x {table.concat(boosts, " + 2x ")}`, color = PANEL.boost })
 	end
+	-- Potions and crates share a line, so the biggest gift still fits in three.
+	local items = {}
 	local potionTotal, lastId = 0, nil
 	local kinds = 0
 	for _, potion in gift.potions do
@@ -236,13 +246,18 @@ local function linesFor(gift: any): { { text: string, color: Color3 } }
 		lastId = potion.id
 	end
 	if potionTotal > 0 then
-		local text = if kinds == 1 and lastId and Potions.has(lastId)
-			then `{Potions.get(lastId).short} Potion x{potionTotal}`
-			else `{potionTotal} Potions`
-		table.insert(out, { text = text, color = PANEL.potion })
+		table.insert(
+			items,
+			if kinds == 1 and lastId and Potions.has(lastId)
+				then `{Potions.get(lastId).short} Potion x{potionTotal}`
+				else `{potionTotal} Potions`
+		)
 	end
 	if gift.crates > 0 then
-		table.insert(out, { text = `{gift.crates} Crate{if gift.crates == 1 then "" else "s"}`, color = PANEL.crate })
+		table.insert(items, `{gift.crates} Crate{if gift.crates == 1 then "" else "s"}`)
+	end
+	if #items > 0 then
+		table.insert(out, { text = table.concat(items, " + "), color = if potionTotal > 0 then PANEL.potion else PANEL.crate })
 	end
 	return out
 end
@@ -293,21 +308,40 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	icon.Image = Artwork.IMAGE.gift
 	icon.ScaleType = Enum.ScaleType.Fit
 	icon.AnchorPoint = Vector2.new(0.5, 0)
-	icon.Position = UDim2.new(0.5, 0, 0, 6)
-	icon.Size = UDim2.fromOffset(52, 52)
+	icon.Position = UDim2.new(0.5, 0, 0, ICON_Y)
+	icon.Size = UDim2.fromOffset(ICON, ICON)
 	icon.ZIndex = 12
 	icon.Parent = button
 
+	local textTop = ICON_Y + ICON
+	local textBox = Instance.new("Frame")
+	textBox.Name = "Lines"
+	textBox.BackgroundTransparency = 1
+	textBox.Position = UDim2.fromOffset(6, textTop)
+	textBox.Size = UDim2.new(1, -12, 0, CARD_H - PILL_INSET - PILL_H - textTop)
+	textBox.ZIndex = 12
+	textBox.Parent = button
+	local list = Instance.new("UIListLayout")
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.VerticalAlignment = Enum.VerticalAlignment.Center
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.Parent = textBox
+
 	local lines = {}
-	for row = 1, 4 do
-		lines[row] = inked(button, {
+	for row = 1, LINE_ROWS do
+		local label = inked(textBox, {
 			Name = `Line{row}`,
 			Text = "",
-			TextSize = 14,
-			Size = UDim2.new(1, -12, 0, 15),
-			Position = UDim2.fromOffset(6, 60 + (row - 1) * 15),
+			TextSize = 15,
+			TextScaled = true,
+			LayoutOrder = row,
+			Size = UDim2.new(1, 0, 0, LINE_H),
 			ZIndex = 12,
 		})
+		local cap = Instance.new("UITextSizeConstraint")
+		cap.MaxTextSize = 15
+		cap.Parent = label
+		lines[row] = label
 	end
 
 	local pill = Instance.new("TextButton")
@@ -315,8 +349,8 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	pill.AutoButtonColor = false
 	pill.Text = ""
 	pill.AnchorPoint = Vector2.new(0.5, 1)
-	pill.Position = UDim2.new(0.5, 0, 1, -8)
-	pill.Size = UDim2.new(1, -16, 0, 34)
+	pill.Position = UDim2.new(0.5, 0, 1, -PILL_INSET)
+	pill.Size = UDim2.new(1, -2 * PILL_INSET, 0, PILL_H)
 	pill.BackgroundColor3 = PANEL.track
 	pill.BorderSizePixel = 0
 	pill.ClipsDescendants = true
@@ -336,7 +370,7 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	local pillLabel = inked(pill, {
 		Name = "Time",
 		Text = "",
-		TextSize = 22,
+		TextSize = 20,
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = 13,
 	})
@@ -379,6 +413,7 @@ local function paintGifts()
 			for row, label in card.lines do
 				local line = lines[row]
 				label.Text = if line then line.text else ""
+				label.Visible = line ~= nil
 				label.TextColor3 = if line then line.color else PANEL.white
 			end
 		end
@@ -444,7 +479,7 @@ local function paintTimes()
 				if card.bob then
 					card.bob:Cancel()
 					card.bob = nil
-					card.icon.Position = UDim2.new(0.5, 0, 0, 6)
+					card.icon.Position = UDim2.new(0.5, 0, 0, ICON_Y)
 				end
 			end
 			local total = gift.minutes * 60
@@ -452,7 +487,7 @@ local function paintTimes()
 			card.fill.Visible = not ready and not done
 			card.pill.BackgroundColor3 = if done then PANEL.pillDone elseif ready then PANEL.claim else PANEL.track
 			card.pillLabel.Text = if done then "CLAIMED" elseif ready then "CLAIM" else clock(gift.minutes * 60 - now)
-			card.pillLabel.TextSize = if done or ready then 20 else 22
+			card.pillLabel.TextSize = if done or ready then 18 else 20
 			for _, label in card.lines do
 				label.TextTransparency = if done then 0.5 else 0
 			end
@@ -525,9 +560,9 @@ local function buildPanel(): ScreenGui
 	inked(panel, {
 		Name = "Title",
 		Text = "Free Gifts",
-		TextSize = 38,
+		TextSize = 34,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Size = UDim2.fromOffset(400, 46),
+		Size = UDim2.fromOffset(400, 40),
 		Position = UDim2.fromOffset(PAD, PAD - 6),
 		ZIndex = 11,
 	})
@@ -538,7 +573,7 @@ local function buildPanel(): ScreenGui
 		TextColor3 = PANEL.dim,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Size = UDim2.new(1, -PAD * 2 - 50, 0, 18),
-		Position = UDim2.fromOffset(PAD + 2, PAD + 38),
+		Position = UDim2.fromOffset(PAD + 2, PAD + 33),
 		ZIndex = 11,
 	})
 
@@ -547,7 +582,7 @@ local function buildPanel(): ScreenGui
 	close.AutoButtonColor = false
 	close.AnchorPoint = Vector2.new(1, 0)
 	close.Position = UDim2.new(1, -PAD, 0, PAD - 4)
-	close.Size = UDim2.fromOffset(40, 40)
+	close.Size = UDim2.fromOffset(36, 36)
 	close.BackgroundColor3 = PANEL.close
 	close.Font = PANEL.font
 	close.TextSize = 24
@@ -573,7 +608,7 @@ local function buildPanel(): ScreenGui
 	inked(panel, {
 		Name = "Footer",
 		Text = "Leaving Resets Gifts!",
-		TextSize = 24,
+		TextSize = 22,
 		TextColor3 = PANEL.gold,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AnchorPoint = Vector2.new(0, 1),
@@ -587,10 +622,10 @@ local function buildPanel(): ScreenGui
 	all.AutoButtonColor = false
 	all.AnchorPoint = Vector2.new(1, 1)
 	all.Position = UDim2.new(1, -PAD, 1, -PAD + 6)
-	all.Size = UDim2.fromOffset(240, 42)
+	all.Size = UDim2.fromOffset(220, 38)
 	all.BackgroundColor3 = PANEL.cardDone
 	all.Font = PANEL.font
-	all.TextSize = 22
+	all.TextSize = 20
 	all.TextColor3 = PANEL.white
 	all.Text = "CLAIM ALL"
 	all.ZIndex = 11
