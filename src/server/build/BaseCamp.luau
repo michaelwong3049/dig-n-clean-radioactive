@@ -67,7 +67,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 27
+local BUILDER_VERSION = 28
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -138,7 +138,7 @@ end
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
-local function buildShell(camp: Model, origin: CFrame)
+local function buildShell(camp: Model, _origin: CFrame)
 	-- NO FLOOR PAD. There used to be a 64x46 slab of cream Pavement here whose top
 	-- face landed on exactly Y = 0 — the same plane as the plaza it sits inside. That
 	-- was invisible while the plaza was cream too: two coplanar faces in the same
