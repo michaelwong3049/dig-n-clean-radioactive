@@ -106,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 61
+local BUILDER_VERSION = 62
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4099,7 +4099,8 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 			if not Plots.inCamp(x, z, -BASE_FOLIAGE_EDGE_MARGIN) then
 				continue
 			end
-			if x > plaza.minX - clear and z > plaza.minZ - clear and z < plaza.maxZ + clear then
+			-- (From the west pair's fronts, not the plaza's own west edge: the walk out to them.)
+			if x > math.min(plaza.minX, camp.westFrontX) - clear and z > plaza.minZ - clear and z < plaza.maxZ + clear then
 				continue
 			end
 			-- The strip by the east walls, past the north/south pads: the leaderboards and
