@@ -200,7 +200,7 @@ local GREEN_STRIP_DEPTH = 23
 -- moving the grid's phase or flipping the checker's parity -- cellCentre and tileRect
 -- both count tiles from minX, and build/CampSite's floors snap to the same grid.
 Hub.PLAZA = { minX = -49, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
-Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
+Hub.CAMP_ORIGIN = CFrame.new(5.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
 --- THE PLAZA FLOOR IS THE PLAZA RECTANGLE. It was an octagon centred on the old plot
 --- ring (and a circle before that); with the bases squared round it, the straight edges
@@ -270,7 +270,9 @@ end
 --- cluster's east end onto the green strip at x = 75. maxX 65 leaves two cream tiles
 --- before that strip. 2026-09-27: shifted 8 east (2 tiles) with the shops when they were
 --- centred on the Trader, and made north-south symmetric; 73 still leaves half a tile.
-local SHOP_ZONE = { minX = -37, maxX = 73, minZ = -51, maxZ = 51 }
+--- 2026-10-03: the whole square moved 12 west (three tiles), away from Stage 1, on
+--- request -- with Shops.luau's STALLS/OUTFITTER/PLAZA_MID and Hub.CAMP_ORIGIN.
+local SHOP_ZONE = { minX = -49, maxX = 61, minZ = -51, maxZ = 51 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
@@ -971,7 +973,7 @@ local function buildSpawns(hub: Model)
 	local spawns = Instance.new("Folder")
 	spawns.Name = "Spawns"
 
-	-- (17.5, 0) — the plaza midpoint (Shops.luau's PLAZA_MID). The shop cluster's
+	-- (5.5, 0) — the plaza midpoint (Shops.luau's PLAZA_MID). The shop cluster's
 	-- two rows (Shops.luau's STALLS + OUTFITTER) run east-west either side of it, and
 	-- since 2026-09-27 BaseCamp's four-sided Trader kiosk stands ON this point. So the
 	-- anchor marks the centre of a RING: `RingRadius` tells ExposureService.baseCampCFrame
