@@ -694,7 +694,7 @@ Dock.SIDE_TILE_GAP = 9
 -- 88 tall = HudTile BARE_ICON 78 + BARE_CAPTION_GAP -11 + its caption 17 + 4.
 Dock.SIDE_SOLO_WIDTH = 100
 Dock.SIDE_SOLO_HEIGHT = 88
-Dock.SIDE_SOLO_GAP = 22
+Dock.SIDE_SOLO_GAP = 36
 -- How far a tile's picture pokes up over its top edge (HudTile): "barely sticking out", on request.
 Dock.SIDE_GRID_POKE = 4
 -- How far below the canvas's middle the grid's middle sits, on request ("lower them a little").
