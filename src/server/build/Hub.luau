@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 38 -- rectangular shop square, 12 wider each side (2026-10-04)
+local BUILDER_VERSION = 39 -- darker shop pavers + kerb (2026-10-04)
 
 local C = Kit.C
 local build = Kit.build
@@ -134,14 +134,17 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 --- Every pair is dark = 0.877 x light (Kit's twoTone ratio), so the whole cells lay as
 --- merged slabs on the shared StudChecker material instead of a part per tile. All three
 --- then went ~14% darker again on request.
+--- 2026-10-04: the shop square's pavers and kerb went darker again, on request; the
+--- pavers now sit below the path, so the square reads as a darker floor.
 local PATH_DARK = "74797D"
 local PATH_LIGHT = "848A8F"
-local PAVER_DARK = "83868A"
-local PAVER_LIGHT = "95999D"
-local KERB_DARK = "54595D"
-local KERB_LIGHT = "60656A"
---- The darker grey the bases' 2-stud border is laid in (Plots, buildPadBorder).
-Hub.BORDER_COLOR = KERB_DARK
+local PAVER_DARK = "606569" -- was 83868A
+local PAVER_LIGHT = "6E7378" -- was 95999D
+local KERB_DARK = "44484C" -- was 54595D
+local KERB_LIGHT = "4E5257" -- was 60656A
+--- The darker grey the bases' 2-stud border is laid in (Plots, buildPadBorder). The
+--- shop kerb's old dark tone; it stayed put when the kerb went darker.
+Hub.BORDER_COLOR = "54595D"
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
 --- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's snapped
