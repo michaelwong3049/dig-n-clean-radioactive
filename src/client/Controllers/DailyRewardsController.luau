@@ -30,8 +30,8 @@ local RobuxButton = require(script.Parent.Parent.RobuxButton)
 
 local DailyRewardsController = {}
 
--- The top-right corner row, on request: Settings in the corner (1), Daily left of it.
-local CORNER_INDEX = 2
+-- The top-right corner row, on request: Daily first (1), beside Roblox's player list.
+local CORNER_INDEX = 1
 local TILE_COLOR = Color3.fromRGB(240, 80, 127)
 local TILE_LIGHT = Color3.fromRGB(255, 190, 210)
 
