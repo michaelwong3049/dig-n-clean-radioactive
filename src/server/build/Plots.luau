@@ -221,7 +221,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 108 -- pads 57 wide, stands evenly spaced (2026-10-04)
+local BUILDER_VERSION = 109 -- front strip 8 deeper, deck pushed back (2026-10-04)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -266,7 +266,12 @@ Plots.LOCKER_SLOTS = Tuning.LOCKER_SLOTS
 -- their own; the avatar plate floats over PAD_CENTER_Z instead, high above the
 -- whole pad rather than tucked against either edge. Keeping explicit bounds
 -- avoids pretending an asymmetric pad is centred on the plot origin.
-local PAD_MIN_Z = -43
+-- 2026-10-04, on request ("push the length of the base more to the back so there's more
+-- space with treadmill and cleaning station"): -43 -> -51. The fronts stay on the same
+-- world line (the origin sits PAD_FRONT_REACH behind them), so the deck, the stands and
+-- the back fence all moved 8 back, into BACK_SPARE; the front strip is 8 deeper, and its
+-- machines moved 4 forward (STRIP_FORWARD) to split the room before and behind them.
+local PAD_MIN_Z = -51
 local PAD_MAX_Z = 56
 --- THE DECK STOPS AT THE HAZARD LINE (2026-10-03, on request). Everything in front of
 --- it — the washer, the bottle, the treadmill, the spawn — stands on the plaza's grey
@@ -342,7 +347,7 @@ end
 --- spawn/front at -Z, so 0 faces south (a north pad), 180 faces north (a south pad) and
 --- -90 faces east (a west pad).
 ---
---- A pad's FRONT edge is its local Z = PAD_MIN_Z (-43), so the origin sits 43 studs
+--- A pad's FRONT edge is its local Z = PAD_MIN_Z (-51), so the origin sits 51 studs
 --- behind the front:
 ---   north/south pairs: fronts at z = +/-80 (the plaza edge is +/-70, the shop kerb
 ---       +/-51, so ~29 studs of walkway), x -38 and 38 -- pulled west of the shops'
@@ -375,6 +380,8 @@ local CAMP_HALF_W = 33
 --- moved in with the side fences when the pad narrowed: they are written for a 66-wide
 --- pad and built through frames shifted by this toward the middle.
 local STRIP_INSET = CAMP_HALF_W - HALF_W
+--- How far toward the front the strip's machines and spawn are built (see PAD_MIN_Z).
+local STRIP_FORWARD = 4
 local HALF_D = Plots.PAD.depth / 2
 local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 local DECK_CENTER_Z = (DECK_MIN_Z + Plots.PAD.maxZ) / 2
@@ -408,7 +415,8 @@ Plots.CENTERS = {
 local WALL_CLEARANCE = 10
 -- The camp's walls stand where they stood for the open-floor bases (whose back fence
 -- could slide 32 studs out), kept when the stands and floors came back.
-local BACK_SPARE = 32
+-- 32 -> 24 when the pads grew 8 deeper at the front (PAD_MIN_Z), so the walls stay put.
+local BACK_SPARE = 24
 local BACK_REACH = Plots.PAD.maxZ + BACK_SPARE -- origin to the wall's reference line
 Plots.CAMP = {
 	westFrontX = WEST_FRONT_X, -- the west pair's fronts (Scenery keeps the walk to them bare)
@@ -4399,7 +4407,9 @@ local function buildPlot(parent: Instance, index: number)
 	-- The front strip (spawn, washer, bottle, treadmill) is built through `ground`, the
 	-- same frame dropped to the grey path's height; the locker stands behind the hazard
 	-- line, on the deck, so it keeps `origin`.
-	local ground = origin * CFrame.new(0, -STRIP_DROP, 0)
+	-- STRIP_FORWARD: the strip's machines and spawn are written for the old -43 front and
+	-- built 4 further out, the middle of the 8 the strip gained.
+	local ground = origin * CFrame.new(0, -STRIP_DROP, -STRIP_FORWARD)
 	local spawn = build(m, ground, {
 		name = "PlotSpawn",
 		class = "SpawnLocation",
