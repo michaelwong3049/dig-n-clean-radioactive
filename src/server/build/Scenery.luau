@@ -69,18 +69,16 @@
 
 	THE CAMP HAD NO WALL OF ITS OWN UNTIL `buildBaseWalls`, ON REQUEST -- the same
 	void-fall risk `buildBoundaryWalls` exists to close for the stage chain was
-	sitting open on the camp side the whole time, just less obviously: Plots.luau's
-	circular apron around the base plots (radius Plots.RING_OUTER) is not a neat
-	semicircle tucked inside the corridor's own width, it bulges out to roughly
-	+-227 in Z right at the x = Hub.PLAZA.maxX seam, well past the corridor's own
-	+-120. Confirmed live via raycast, not assumed: a player standing on real apron
+	sitting open on the camp side the whole time, just less obviously: the camp's
+	floor round the base plots (Plots.CAMP) reaches well past the corridor's own
+	width in Z right at the x = Hub.PLAZA.maxX seam. Confirmed live via raycast, not assumed: a player standing on real apron
 	ground at (100, 200) could walk two steps east into the stage chain's own
 	airspace and find nothing under them -- Stage 1's plate does not reach that far
 	off-centre, and the corridor's own wall only guards its OWN z line, not the open
-	shoulder beside it. `buildBaseWalls` closes it with one curved wall following
-	the apron's true circular edge plus two short straight pieces bridging each
-	shoulder down to where the corridor wall already starts -- see that function's
-	own comment for why it is three pieces and not one.
+	shoulder beside it. `buildBaseWalls` closes it with straight walls round the
+	camp's stepped outline (Plots.CAMP -- it was one curved wall round a circular
+	apron until the square base layout), down to where the corridor wall already
+	starts on each side of Stage 1's mouth.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -108,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 60
+local BUILDER_VERSION = 61
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4045,9 +4043,9 @@ end
 --- disc the camp's pads sit on -- not hugging just the perimeter wall (on request,
 --- "apply them randomly around the main base plate, not just the edge") but also never
 --- reaching the middle (on request, "do NOT make them touch the middle base plate with
---- shops/paths"): BASE_FOLIAGE_MIN_RADIUS cuts out an inner disc around Plots.RING_CENTER
---- big enough to clear the plaza and the walk-in lane every pad's own entrance opens
---- onto, so growth only appears from roughly each pad's own radius outward to the wall.
+--- shops/paths"): BASE_FOLIAGE_CLEAR.plaza keeps it that far off the plaza
+--- rectangle, which clears the walkway every pad's own entrance opens onto, so growth
+--- only appears round and behind the pads, out to the wall.
 --- Dark bushes (BASE_FOLIAGE_GREEN/_DARK, deliberately darker than both BUSH_GREEN and
 --- the apron floor's own C.grass, on request) as the rare accent, small grass tufts far
 --- more often, and little ROCK_GREY rock clusters as a third, similarly rare accent --
@@ -4058,7 +4056,7 @@ end
 --- still covering the ground evenly, and staying seeded keeps a rebuild from reshuffling
 --- it.
 ---
---- SKIPS EXACTLY WHAT THE APRON'S OWN FLOOR SKIPS -- outside the ring, inside the plaza,
+--- SKIPS EXACTLY WHAT THE APRON'S OWN FLOOR SKIPS -- outside the camp, near the plaza,
 --- inside a pad's footprint -- reusing Plots' own `Plots.padRects` (a pad's real, rotated
 --- footprint, PAD clearance grown outward) rather than re-deriving that shape a second
 --- time and risking the two edges drifting apart the way this file's own header warns
@@ -4066,7 +4064,10 @@ end
 local BASE_FOLIAGE_CELL = 24 -- stud pitch of the jitter grid -- see scatterBushes for the same idiom at a different scale. Widened (was 18) on request, "too much"
 local BASE_FOLIAGE_JITTER = 0.4 -- fraction of a cell a point may drift off its centre
 local BASE_FOLIAGE_EDGE_MARGIN = 6 -- keep clear of the perimeter wall's own inner face
-local BASE_FOLIAGE_MIN_RADIUS = Plots.RING_RADIUS - 40 -- keep clear of the plaza/paths in the middle -- see comment above
+-- Bare margins: `plaza` off the plaza rectangle (the middle -- see comment above), `eastStrip`
+-- in from the east walls (the leaderboards and the group chest). One table: this file sits
+-- at Luau's 200-local ceiling.
+local BASE_FOLIAGE_CLEAR = { plaza = 10, eastStrip = 34 }
 local BASE_FOLIAGE_PAD_CLEARANCE = 6 -- extra clearance past each pad's real footprint
 local BASE_FOLIAGE_BUSH_CHANCE = 0.08 -- was 0.14, thinned on request, "too much"
 local BASE_FOLIAGE_GRASS_CHANCE = 0.3 -- was 0.46, rolled after a spot misses the bush chance
@@ -4075,16 +4076,17 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 	local folder = Instance.new("Folder")
 	folder.Name = "BaseFoliage"
 
-	local cx, cz = Plots.RING_CENTER.x, Plots.RING_CENTER.z
-	local maxRadius = Plots.RING_OUTER - BASE_FOLIAGE_EDGE_MARGIN
 	-- Negative inset GROWS the pad rect outward -- see Plots.padRects' own comment.
 	local padRects = Plots.padRects(-BASE_FOLIAGE_PAD_CLEARANCE)
 	local rng = Random.new(seed)
 
-	-- Same clip the wall arc and the apron floor itself already use: nothing is built
-	-- east of the plaza mouth, so the grid's own bounding box stops there too.
-	local minX, maxX = cx - maxRadius, math.min(cx + maxRadius, Hub.PLAZA.maxX)
-	local minZ, maxZ = cz - maxRadius, cz + maxRadius
+	-- The camp's own bounding box, shrunk off the wall; nothing is built east of the
+	-- plaza mouth, so it stops there too.
+	local camp = Plots.CAMP
+	local minX, maxX = camp.backX + BASE_FOLIAGE_EDGE_MARGIN, Hub.PLAZA.maxX
+	local minZ, maxZ = -camp.wingZ + BASE_FOLIAGE_EDGE_MARGIN, camp.wingZ - BASE_FOLIAGE_EDGE_MARGIN
+	local plaza = Hub.PLAZA
+	local clear = BASE_FOLIAGE_CLEAR.plaza
 	local cols = math.max(0, math.floor((maxX - minX) / BASE_FOLIAGE_CELL))
 	local rows = math.max(0, math.floor((maxZ - minZ) / BASE_FOLIAGE_CELL))
 	local groundOrigin = CFrame.new(0, Stages.SURFACE_Y, 0)
@@ -4094,12 +4096,15 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 			local x = minX + (ix + 0.5 + rng:NextNumber(-BASE_FOLIAGE_JITTER, BASE_FOLIAGE_JITTER)) * BASE_FOLIAGE_CELL
 			local z = minZ + (iz + 0.5 + rng:NextNumber(-BASE_FOLIAGE_JITTER, BASE_FOLIAGE_JITTER)) * BASE_FOLIAGE_CELL
 
-			local dx, dz = x - cx, z - cz
-			local dist2 = dx * dx + dz * dz
-			if dist2 > maxRadius * maxRadius or dist2 < BASE_FOLIAGE_MIN_RADIUS * BASE_FOLIAGE_MIN_RADIUS then
+			if not Plots.inCamp(x, z, -BASE_FOLIAGE_EDGE_MARGIN) then
 				continue
 			end
-			if x > Hub.PLAZA.minX and x < Hub.PLAZA.maxX and z > Hub.PLAZA.minZ and z < Hub.PLAZA.maxZ then
+			if x > plaza.minX - clear and z > plaza.minZ - clear and z < plaza.maxZ + clear then
+				continue
+			end
+			-- The strip by the east walls, past the north/south pads: the leaderboards and
+			-- the group chest stand there.
+			if x > camp.eastX - BASE_FOLIAGE_CLEAR.eastStrip then
 				continue
 			end
 			local onPad = false
@@ -4229,13 +4234,20 @@ end
 --- segments are unrotated and expose the field on their +-Z face (hence
 --- Front/BackSurface); these are unrotated too but expose it on their +-X face
 --- instead, so they take Left/RightSurface.
-local function buildShoulderWall(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, faceProperty: string, height: number, salt: number)
+---
+--- `alongX` turns the same wall the other way for the camp's straight walls: it then
+--- runs along X at z = `atX`, from `minZ` to `maxZ` read as X, unrotated, and
+--- `faceProperty` is Front/BackSurface like buildWall's.
+local function buildShoulderWall(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, faceProperty: string, height: number, salt: number, alongX: boolean?)
 	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
 	local rows = math.ceil(height / WALL_TILE)
 	-- Built in a frame yawed 90 degrees (local X along the wall, local Z its X thickness
 	-- axis), so this wall's world Left/Right faces are its local Front/Back.
-	local localFace = SIDE_TO_LOCAL_FACE[faceProperty]
+	local localFace = if alongX then faceProperty else SIDE_TO_LOCAL_FACE[faceProperty]
 	local function frameAt(z: number): CFrame
+		if alongX then
+			return CFrame.new(z, 0, atX)
+		end
 		return CFrame.new(atX, 0, z) * CFrame.Angles(0, math.rad(90), 0)
 	end
 	-- Column index off world Z, so the grass drips run on continuously along the
@@ -4301,12 +4313,16 @@ end
 --- at a fixed X, for the two shoulder pieces, exactly as `buildShoulderWall` is
 --- `buildWall` swapped. Flat (dark, light) rather than a per-column resolver: a
 --- shoulder is a few studs of one stage's edge, not a colour transition.
-local function buildShoulderCap(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, dark: string, light: string, height: number, faceSign: number)
+local function buildShoulderCap(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, dark: string, light: string, height: number, faceSign: number, alongX: boolean?)
 	local capY = Stages.SURFACE_Y + height + WALL_CAP_THICKNESS / 2 - 0.1
 	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
 	-- Yawed 90 degrees, so local Z (the crown's depth axis) is world +X and faceSign
 	-- carries over unchanged. The whole crown is grass, so every column overhangs.
+	-- `alongX`: unrotated along X at z = atX, as buildShoulderWall.
 	local function frameAt(s: number): CFrame
+		if alongX then
+			return CFrame.new(s, 0, atX)
+		end
 		return CFrame.new(atX, 0, s) * CFrame.Angles(0, math.rad(90), 0)
 	end
 	local reach = faceSign * GRASS_OVERHANG
@@ -4418,49 +4434,41 @@ end
 
 --- The base camp's own perimeter -- see this file's header for WHY (there was no
 --- wall here at all, and there is a real, raycast-confirmed void-fall gap in the
---- shoulders flanking the corridor's own wall). THREE PIECES, each closing one
---- part of the true footprint's actual edge:
+--- shoulders flanking the corridor's own wall). STRAIGHT WALLS ROUND THE STEPPED
+--- OUTLINE in Plots.CAMP (the square base layout, from the user's sketch -- it was one
+--- curved wall round a circular apron before):
 ---
----   1. a curved wall following Plots.RING_OUTER's own circle, for every bearing
----      the apron is actually built at -- i.e. everywhere EXCEPT the slice
----      buildApron's own `x <= Hub.PLAZA.maxX` clip already cuts away. There is no
----      ground on the far side of that clip for a wall to guard, so the arc stops
----      exactly where the clip does, not a bearing further.
----   2 & 3. two short straight "shoulder" pieces at x = Hub.PLAZA.maxX, one per
----      side, bridging the arc's own clip-line endpoint down to wherever
----      `buildBoundaryWalls`'s corridor wall already starts on that same side.
+---              wing outer
+---            ┌────────────────────────┐
+---  block side│ wing west              │ east (shoulder)
+---   ┌────────┘                        └── corridor wall (buildBoundaryWalls)
+---   │ back                               Stage 1's mouth
+---   └────────┐                        ┌── corridor wall
+---            │                        │
+---            └────────────────────────┘
 ---
---- GET ANY ONE OF THE THREE PIECES' OWN JUNCTION COORDINATES WRONG AND IT IS NOT A
---- GRAPHICAL GLITCH, IT IS A HOLE. All three are computed from the same live
---- inputs (Plots.RING_CENTER/RING_OUTER, Hub.PLAZA.maxX, Stages.bounds) rather
---- than measured once and hardcoded, for the same reason `buildBoundaryWalls`
---- reads its own bounds instead of assuming them.
+--- Every wall's INNER face sits on the outline and it grows outward into void, like
+--- the corridor walls. Each corner square belongs to exactly one wall (noted per piece
+--- below), so no two walls overlap there and no exposed faces z-fight. The east pieces
+--- keep their old names (ShoulderWallNeg/Pos): they still bridge the wing down to where
+--- buildBoundaryWalls' corridor wall starts, a 1-stud overlap on the corridor side.
 ---
---- THE ARC DELIBERATELY SKIPS THE STUD-FACE TREATMENT'S USUAL PRECISION. Every
---- straight wall segment in this file picks ONE fixed local face for its studs
---- because it never rotates; the arc's columns each carry a different world-space
---- yaw, and Roblox resolves a local face (`FrontSurface`) the same way regardless
---- of that yaw, so one fixed face works for the whole curve too -- confirmed live,
---- not just assumed from the geometry. What the arc does NOT attempt is
---- phase-locking that texture's stud grid across columns the way a flat tiled
---- surface would; at this radius the seam between columns is not worth the
---- bookkeeping for a peripheral wall almost nobody stands next to.
+--- GET A JUNCTION WRONG AND IT IS NOT A GRAPHICAL GLITCH, IT IS A HOLE. Every piece is
+--- computed from the same live inputs (Plots.CAMP, Stages.bounds) rather than measured.
 ---
---- TWO LAYERS NOW, EACH THE SAME THREE PIECES -- see OUTER_WALL_HEIGHT. `CampWallLayer`
---- is everything that differs between them; buildBaseWalls at the bottom lists both.
+--- TWO LAYERS, EACH THE SAME PIECES -- see OUTER_WALL_HEIGHT. `CampWallLayer` is
+--- everything that differs between them; buildBaseWalls at the bottom lists both.
 type CampWallLayer = {
 	name: string, -- the folder this layer builds into
-	radius: number, -- the arc's centreline radius about Plots.RING_CENTER
-	clipX: number, -- the shoulders' centreline X, where the arc stops
+	offset: number, -- how far outside the camp outline this layer's inner face sits
 	height: number,
 	corridorPad: number, -- how far past the corridor wall's centreline the shoulders run
 	seed: number,
 }
 
 local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
-	local cx, cz = Plots.RING_CENTER.x, Plots.RING_CENTER.z
-	local wallRadius = layer.radius
-	local clipX = layer.clipX
+	local camp = Plots.CAMP
+	local o, t = layer.offset, WALL_THICKNESS
 	local height = layer.height
 
 	local stageMinZ, stageMaxZ = math.huge, -math.huge
@@ -4468,138 +4476,78 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 		local _, az, _, bz = Stages.bounds(id)
 		stageMinZ, stageMaxZ = math.min(stageMinZ, az), math.max(stageMaxZ, bz)
 	end
-	local corridorMinZ = stageMinZ - WALL_THICKNESS / 2 - layer.corridorPad
-	local corridorMaxZ = stageMaxZ + WALL_THICKNESS / 2 + layer.corridorPad
+	local corridorMinZ = stageMinZ - t / 2 - layer.corridorPad
+	local corridorMaxZ = stageMaxZ + t / 2 + layer.corridorPad
+	local OVERLAP = 1 -- into the corridor wall, not an exact touch (see PLAZA_SKIP_MARGIN in Plots)
 
-	-- Where the wall's own circle (radius wallRadius, not RING_OUTER -- the wall
-	-- sits just outside the apron's real edge, same convention buildWall's own
-	-- minZ-thickness/2 / maxZ+thickness/2 already uses) crosses x = clipX. Using
-	-- Plots' own bearing convention (x = cx + r*sin, z = cz + r*cos): the +Z-side
-	-- crossing is bearing `crossing`, the -Z-side crossing is bearing
-	-- `180 - crossing`, and the arc that stays on the buildable side of the clip
-	-- (x <= clipX) is the LONG way round between them, through bearing 270 (the
-	-- far side of the circle from the stage chain), not the short way through 90.
-	local halfSpanZ = math.sqrt(wallRadius ^ 2 - (clipX - cx) ^ 2)
-	local crossing = math.deg(math.asin((clipX - cx) / wallRadius))
-	local startBearing = 180 - crossing
-	local endBearing = 360 + crossing
+	-- This layer's inner faces.
+	local eastF = camp.eastX + o
+	local wingZF = camp.wingZ + o
+	local wingXF = camp.wingX - o
+	local blockZF = camp.backHalfZ + o
+	local backF = camp.backX - o
 
-	-- THE ARC. Columns sized to roughly WALL_TILE studs of CHORD, not of angle --
-	-- the two are only equal in the small-angle limit, and this radius is large
-	-- enough that the difference does not matter, but the chord is the one that
-	-- actually controls how faceted the curve looks.
-	local totalDeg = endBearing - startBearing
-	local stepDeg = math.deg(WALL_TILE / wallRadius)
-	local cols = math.max(1, math.ceil(totalDeg / stepDeg))
-	local rows = math.ceil(height / WALL_TILE)
-	local baseY = Stages.SURFACE_Y
-
-	-- Crown cap: the apron colour carried up and over, same as the stage walls now get
-	-- (buildWallCap). capY / the ±0.1 bite and the two-radial-cell checker match it.
-	local capY = baseY + height + WALL_CAP_THICKNESS / 2 - 0.1
+	-- Crown: the apron colour carried up and over, same as the stage walls (buildWallCap).
 	local capDark, capLight = campCapPair()
+	local spots: { Vector2 } = {}
 
-	local arcSpots: { Vector2 } = {}
-	for ix = 0, cols - 1 do
-		local a0 = startBearing + ix * (totalDeg / cols)
-		local a1 = startBearing + (ix + 1) * (totalDeg / cols)
-		local aMid = math.rad((a0 + a1) / 2)
-		local halfStepRad = math.rad(a1 - a0) / 2
-		local chord = 2 * wallRadius * math.sin(halfStepRad)
-		-- The part's centre is the TRUE CHORD MIDPOINT connecting the circle points
-		-- at a0 and a1 -- which sits at radius wallRadius*cos(halfStepRad), a hair
-		-- inside the circle itself, not ON it. Centring on the circle (radius
-		-- wallRadius outright) would still get the chord LENGTH and YAW exactly
-		-- right, but every column's own corner would land slightly outside the
-		-- true circle point shared with its neighbour -- consecutive columns would
-		-- no longer share an exact corner, just a near one. At this step size the
-		-- miss is a fraction of a stud, but "a fraction of a stud" is still not
-		-- zero, and zero is free here: this is the one line that makes it exact.
-		local rMid = wallRadius * math.cos(halfStepRad)
-		local px = cx + rMid * math.sin(aMid)
-		local pz = cz + rMid * math.cos(aMid)
-		local origin = CFrame.new(px, 0, pz) * CFrame.Angles(0, aMid, 0)
-		if ix % CROWN_BUSH_EVERY == 2 then
-			table.insert(arcSpots, Vector2.new(px, pz))
+	-- One straight piece. Along Z: `at` is its centreline X, s0..s1 world Z. Along X:
+	-- `at` is its centreline Z, s0..s1 world X. `face` is the side facing the camp.
+	local function piece(name: string, alongX: boolean, at: number, s0: number, s1: number, face: string)
+		buildShoulderWall(folder, name, at, s0, s1, face, height, layer.seed, alongX)
+		buildShoulderCap(folder, name .. "Cap", at, s0, s1, capDark, capLight, height, FACE_SIGN[face], alongX)
+		local step = CROWN_BUSH_EVERY * WALL_TILE
+		local s = s0 + 2.5 * WALL_TILE
+		while s < s1 - WALL_TILE do
+			table.insert(spots, if alongX then Vector2.new(s, at) else Vector2.new(at, s))
+			s += step
 		end
-
-		-- Each column carries its own yaw, so its slabs merge up the column but never
-		-- along the arc.
-		local function columnFrame(): CFrame
-			return origin
-		end
-		local skipped = Kit.materialWall(folder, {
-			name = "ArcWall",
-			frameAt = columnFrame,
-			face = "FrontSurface",
-			columns = { { -chord / 2, chord / 2, ix } },
-			baseY = Stages.SURFACE_Y,
-			footRows = WALL_FOOT_ROWS,
-			rows = rows,
-			tile = WALL_TILE,
-			thick = WALL_THICKNESS,
-			overhang = GRASS_OVERHANG,
-			pairAt = function(_, iy: number)
-				return cliffPair(ix, iy, rows, layer.seed)
-			end,
-		})
-		if #skipped > 0 then
-			local slabs = newSlabRun(folder, "ArcWall", "FrontSurface", columnFrame)
-			slabs.add(-chord / 2, chord / 2, wallColumn(folder, "ArcWall", origin, chord, "FrontSurface", rows, height, ix, function(iy)
-				return cliffPair(ix, iy, rows, layer.seed)
-			end))
-			slabs.finish()
-		end
-
-		thinDrips(folder, origin, chord, FACE_SIGN.FrontSurface, grassBottomY(ix, rows, layer.seed), layer.seed * 100003 + ix, 1)
-
-		-- The crown over this column, on the checker material (or its two plain cells):
-		-- the inner (face-side) cell reaches out over the turf lip; local -Z is inward.
-		crown.strip(folder, "ArcWallCap", columnFrame, { { -chord / 2, chord / 2, ix } }, capY, -GRASS_OVERHANG, function()
-			return capDark, capLight
-		end)
 	end
 
-	-- THE TWO SHOULDERS. -halfSpanZ/+halfSpanZ are the arc's own clip-line
-	-- endpoints; corridorMinZ/corridorMaxZ are where buildBoundaryWalls' corridor
-	-- wall already starts. A 1-stud overlap on the corridor side (not an exact
-	-- touch) is deliberate -- see Plots.luau's own PLAZA_SKIP_MARGIN comment for
-	-- why an exact-touching seam between two independently-computed edges is the
-	-- one that grows a gap first the next time either number moves.
-	local OVERLAP = 1
-	buildShoulderWall(folder, "ShoulderWallNeg", clipX, -halfSpanZ, corridorMinZ + OVERLAP, "LeftSurface", height, layer.seed)
-	buildShoulderWall(folder, "ShoulderWallPos", clipX, corridorMaxZ - OVERLAP, halfSpanZ, "LeftSurface", height, layer.seed)
-	buildShoulderCap(folder, "ShoulderWallNegCap", clipX, -halfSpanZ, corridorMinZ + OVERLAP, capDark, capLight, height, FACE_SIGN.LeftSurface)
-	buildShoulderCap(folder, "ShoulderWallPosCap", clipX, corridorMaxZ - OVERLAP, halfSpanZ, capDark, capLight, height, FACE_SIGN.LeftSurface)
+	for _, side in { -1, 1 } do
+		local tag = if side < 0 then "Neg" else "Pos"
+		-- Interior is toward z = 0: a north piece faces -Z (Front), a south one +Z (Back).
+		local inward = if side < 0 then "BackSurface" else "FrontSurface"
+		-- East: the wing's outer corner square is this piece's (it runs to wingZF + t).
+		if side < 0 then
+			piece("ShoulderWallNeg", false, eastF + t / 2, -wingZF - t, corridorMinZ + OVERLAP, "LeftSurface")
+		else
+			piece("ShoulderWallPos", false, eastF + t / 2, corridorMaxZ - OVERLAP, wingZF + t, "LeftSurface")
+		end
+		-- Wing outer: owns its west corner square (from wingXF - t), stops at the east piece.
+		piece(`WingOuter{tag}`, true, side * (wingZF + t / 2), wingXF - t, eastF, inward)
+		-- Wing west: owns the inner (concave) corner square where it meets the block side.
+		local z0, z1 = blockZF, wingZF
+		piece(`WingWest{tag}`, false, wingXF - t / 2, if side < 0 then -z1 else z0, if side < 0 then -z0 else z1, "RightSurface")
+		-- Block side: owns the back corner square (from backF - t), stops at the wing west.
+		piece(`BlockSide{tag}`, true, side * (blockZF + t / 2), backF - t, wingXF - t, inward)
+	end
+	-- The back wall, between the two block sides' corner squares.
+	piece("BackWall", false, backF - t / 2, -blockZF, blockZF, "RightSurface")
 
-	-- Turf on the cliff top: a bush every few columns round the arc (the inner layer's
-	-- carried on along Stage 1's stretch by buildBoundaryWalls). Seeded, so rebuilds do
-	-- not reshuffle.
-	crownBushes(folder, "CrownBushes", arcSpots, layer.seed, crownTopY(height))
+	-- Turf on the cliff top: a bush every few columns along every piece. Seeded, so
+	-- rebuilds do not reshuffle.
+	crownBushes(folder, "CrownBushes", spots, layer.seed, crownTopY(height))
 end
 
---- Both camp-wall layers. The inner one is the original ring: its inner face on the
---- apron's edge (RING_OUTER), its shoulders on Stage 1's west edge, stopping on the
---- corridor wall's centreline. The outer one is the same three pieces grown one
---- wall-thickness outward all round -- its inner face on the inner ring's outer face,
---- its shoulders flush against the inner shoulders' east face, stopping on the corridor
---- wall's OUTER face -- and OUTER_WALL_HEIGHT tall, so it rises behind the inner wall as
---- a stepped cliff. It ends at the Stage 1 corner, where the corridor wall carries on at
---- the inner height.
+--- Both camp-wall layers. The inner one stands on the camp outline, its shoulders on
+--- Stage 1's west edge, stopping on the corridor wall's centreline. The outer one is
+--- the same pieces grown one wall-thickness outward all round -- its inner face on the
+--- inner layer's outer face, stopping on the corridor wall's OUTER face -- and
+--- OUTER_WALL_HEIGHT tall, so it rises behind the inner wall as a stepped cliff. It ends
+--- at the Stage 1 corner, where the corridor wall carries on at the inner height.
 local function buildBaseWalls(parent: Instance)
 	local layers: { CampWallLayer } = {
 		{
 			name = "BaseWalls",
-			radius = Plots.RING_OUTER + WALL_THICKNESS / 2,
-			clipX = Hub.PLAZA.maxX,
+			offset = 0,
 			height = WALL_HEIGHT,
 			corridorPad = 0,
 			seed = 7,
 		},
 		{
 			name = "OuterBaseWalls",
-			radius = Plots.RING_OUTER + WALL_THICKNESS * 1.5,
-			clipX = Hub.PLAZA.maxX + WALL_THICKNESS,
+			offset = WALL_THICKNESS,
 			height = OUTER_WALL_HEIGHT,
 			corridorPad = WALL_THICKNESS / 2,
 			seed = 13,

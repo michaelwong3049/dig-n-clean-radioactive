@@ -4,12 +4,13 @@
 
 	    require(game.ServerScriptService.Server.build.HealPads).rebuild()
 
-	ONE BEHIND EACH ROW OF SHOPS, in the aisle between the pair (on request): south of
-	the Outfitter (Aura) and the Hose Shop, north of the Magnet and Detector shops. Both
-	sit on the plaza's centre line (x = 17.5, the Trader's x), just past the rows' back
-	edges (the stall footprints reach |z| = 44.1, measured in Studio), so they mirror
-	about the Trader the same way the four shops do (see build/Shops' header). Move the
-	shops, move these.
+	ONE EACH SIDE OF STAGE 1'S MOUTH, on the green strip between the shop rows and the
+	field (2026-10-03, with the square base layout). They used to sit behind the two shop
+	rows on the plaza's centre line (x = 17.5, |z| = 68), but the north and south bases'
+	fronts are at |z| = 76 now, so that aisle is a walkway. Here they mirror about the
+	Trader's line (z = 0), clear of the shop rows (they end at x = 61), the walk-out lane
+	between them, and the corridor walls (|z| >= 62 past x = 100). Players coming back from
+	the field walk straight past them.
 
 	A PAD IS A SHOWER ANYONE CAN USE, PLUS HEALING. The red core hex carries
 	`Shower = true` (Kit.build tags it, ExposureService's shower cache finds it), and
@@ -28,8 +29,8 @@
 	to a regular hexagon of circumradius R exactly. Pointy along local Z, so the heart's
 	tip and top sit on two corners.
 
-	THE HEART'S TOP POINTS AWAY FROM THE PLAZA MIDDLE, so a player walking out from the
-	shops sees it upright. Each pad's origin is yawed so its local +Z is that direction.
+	THE HEART'S TOP POINTS AT THE FIELD (+X), so a player walking out from the shops sees
+	it upright. Each pad's origin is yawed so its local +Z is that direction.
 
 	NO LIGHTS: base camp already had too many (Shops' glowOutline note).
 ]]
@@ -44,13 +45,16 @@ local HealPads = {}
 HealPads.MODEL_NAME = "HealPads"
 
 local BUILDER_SOURCE = "src/server/build/HealPads.luau"
-local BUILDER_VERSION = 5
+local BUILDER_VERSION = 7
 
-local PAD_X = 17.5
-local PAD_Z = 68 -- either side: stall backs end at 44.1, the teeth's tips at 68 - 11.5 (pushed back on request)
+-- x 85: the badge reaches ~12 studs to a tooth tip, so it stays a couple of studs clear
+-- of the Stage 1 hazard line (x = 100). Laid at lawn height (the green strip starts at
+-- x = 75); the teeth that reach the raised cream still stand proud of it.
+local PAD_X = 85
+local PAD_Z = 46 -- either side: the tooth tips stay ~4 studs inside the corridor's +/-62
 local PADS = {
-	{ name = "HealPadSouth", z = -PAD_Z }, -- behind the Outfitter (Aura) + Hose Shop
-	{ name = "HealPadNorth", z = PAD_Z }, -- behind the Magnet + Detector shops
+	{ name = "HealPadSouth", z = -PAD_Z }, -- by the Outfitter (Aura) + Hose Shop row
+	{ name = "HealPadNorth", z = PAD_Z }, -- by the Magnet + Detector row
 }
 
 local C = {
@@ -176,9 +180,8 @@ end
 local function buildPad(parent: Instance, name: string, z: number)
 	local pad = Instance.new("Model")
 	pad.Name = name
-	-- Local +Z points away from the plaza middle: the heart's top.
-	local yaw = if z < 0 then 180 else 0
-	local origin = CFrame.new(PAD_X, Hub.PLAZA.topY + Hub.PLAZA_LIFT, z) * Kit.ang(0, yaw, 0)
+	-- Local +Z points at the field: the heart's top. On the lawn, so no plaza lift.
+	local origin = CFrame.new(PAD_X, Hub.PLAZA.topY, z) * Kit.ang(0, 90, 0)
 
 	local y = 0.3
 	-- The gear: an outlined tooth off each corner, under the navy hex.

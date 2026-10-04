@@ -43,7 +43,7 @@ local TOP = 25
 local MAX_SCORE = 2 ^ 53 -- OrderedDataStore takes integers; keep them exact
 
 -- ── Board placement ──────────────────────────────────────────────────────────
--- Scenery.BaseWalls.ShoulderWallPos: plaza face at x = 96, runs z = 89..236, floor
+-- Scenery.BaseWalls.ShoulderWallPos: plaza face at x = 96, runs z = 89..225, floor
 -- (Plots.Apron tiles) top at y = -1.5. Boards face west, Cash on the left as you
 -- face the wall (lower z), Speed on the right.
 local WALL_X_FALLBACK = 96

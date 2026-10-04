@@ -33,7 +33,7 @@ BaseUpgrades.PER_LEVEL = 2
 BaseUpgrades.MAX_LEVEL = 8
 
 --- Studs the back fence moves out per upgrade. 8 x 4 = 32 at the top level; the plot
---- ring's outer wall (build/Plots.RING_OUTER) is sized to clear that.
+--- camp's outer wall (build/Plots.CAMP) is sized to clear that.
 BaseUpgrades.DEPTH_PER_LEVEL = 4
 
 --- Cash price of each upgrade, by the level it buys.
