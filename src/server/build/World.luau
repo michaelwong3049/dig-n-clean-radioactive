@@ -195,29 +195,17 @@ function World.verify(): (boolean, { string })
 			return xOverlap and zOverlap
 		end
 
-		-- The camp landmass: the plaza, plus one bounding square over the
-		-- semicircular pad ring (Plots.RING_CENTER/RING_OUTER). (`p` above is
-		-- scoped to the per-stage loop; this block runs after it.)
-		--
-		-- ONE SQUARE, NOT A TRACED CURVE. Every stage in this codebase chains
-		-- reachability off the plaza rectangle alone -- Stages.DEFS is one
-		-- straight chain starting at Stage 1, whose west edge is exactly
-		-- Hub.PLAZA.maxX -- so the ring's own landmass has never actually been
-		-- load-bearing for a stage's reachability, only for keeping this
-		-- description honest. A single generous square still does that job:
-		-- this check only ever produces a boolean "touches", never a rendered
-		-- shape, so over-covering the ring's true circular footprint is
-		-- harmless.
+		-- The camp landmass: the plaza, plus the camp's own floor rectangles round the
+		-- pads (Plots.campRects -- the back block and the two wings). Every stage in this
+		-- codebase chains reachability off the plaza rectangle alone (Stage 1's west edge
+		-- is exactly Hub.PLAZA.maxX), so these only keep the description honest.
 		local p = Hub.PLAZA
 		local reached: { { number } } = {
 			{ p.minX, p.minZ, p.maxX, p.maxZ },
-			{
-				Plots.RING_CENTER.x - Plots.RING_OUTER,
-				Plots.RING_CENTER.z - Plots.RING_OUTER,
-				Plots.RING_CENTER.x,
-				Plots.RING_CENTER.z + Plots.RING_OUTER,
-			},
 		}
+		for _, r in Plots.campRects() do
+			table.insert(reached, { r.minX, r.minZ, r.maxX, r.maxZ })
+		end
 
 		-- Every SITE camp's disc is walkable land too, as its bounding box trimmed to
 		-- its clip lines. It is not reached from nothing -- it has to touch reached land
@@ -283,10 +271,9 @@ function World.verify(): (boolean, { string })
 		end
 	end
 
-	-- ── Plot pads: on the ring, not in it ────────────────────────────────
-	-- Six pads on the semicircular ring can absolutely land on the plaza, on a
-	-- stage, or on each other, and every one of those is invisible until someone
-	-- walks into a wall.
+	-- ── Plot pads: round the plaza, not on it ────────────────────────────
+	-- Six hand-placed pads can absolutely land on the plaza, on a stage, or on each
+	-- other, and every one of those is invisible until someone walks into a wall.
 	--
 	-- ORIENTED, NOT AXIS-ALIGNED. The old rectangular ring only ever used
 	-- facings that were multiples of 90, so an axis-aligned bounding box (this

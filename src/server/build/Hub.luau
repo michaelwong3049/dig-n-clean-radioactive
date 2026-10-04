@@ -11,14 +11,11 @@
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
-	THE PLOTS RING IT AS A SEMICIRCLE. Six pads on the exterior of a circle pulled
-	toward Stage 1 (not centred on the plaza's own midpoint any more — see
-	Plots.luau's own comment on RING_CENTER for why), each rotated to face the
-	shop cluster at the centre. The eastern half is open — the plaza connects
-	straight through to Stage 1 there, same as always — so the ring only occupies
-	the western 180 degrees; you still walk out of the courtyard directly into
-	the sludge. See Plots.luau for the actual circle math
-	(Plots.RING_CENTER/RING_RADIUS/RING_ANGLES).
+	THE PLOTS SQUARE IT IN, TWO TO A SIDE. Two pads on the plaza's north edge, two on
+	its south edge and two on its west edge, each facing the shops (2026-10-03, from the
+	user's sketch -- it was a semicircle round a ring centre before). The east side is
+	open: the plaza connects straight through to Stage 1 there, same as always, so you
+	still walk out of the courtyard directly into the sludge. See Plots.CENTERS.
 
 	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
 	running out to a plot spine and to the field. Per the requested layout (plots —
@@ -43,9 +40,9 @@
 	the grid; `tileRect` and `groundSlab` are exported so the plot ring and the six
 	player bases can lay the same board. The plaza and its apron wear it in zones
 	resolved by one function, `Hub.groundPairAt`: grass on the apron and along the
-	Camp -> Stage 1 border (GREEN_STRIP_DEPTH), an OCTAGONAL cream plaza centred on the
-	plot ring (PLAZA_OCT_*, its diagonals laid true by split tiles) with a cream path out
-	to each pad as part of the same floor (GATE_RECTS / GATE_DIAGONALS), and warm tan pavers
+	Camp -> Stage 1 border (GREEN_STRIP_DEPTH), a cream plaza over the whole PLAZA
+	rectangle with a cream path out to each pad as part of the same floor (GATE_RECTS),
+	and warm tan pavers
 	edged with a darker kerb under the shop cluster (SHOP_ZONE); the bases wear it
 	as a flat wooden deck a step above — one pattern, one grid, staying in register
 	across the apron's own edges because the grid belongs to the plaza rather than to
@@ -59,7 +56,8 @@
 	cartoon pass put the grass back around the plots and paved only the plaza, in
 	light colours (PR #166); the paving was then made round (a staircase at every edge),
 	then an octagon, centred on the plots, with a gate path out to each pad and warm
-	pavers under the shops. The
+	pavers under the shops, and then -- with the square base layout -- the plain plaza
+	rectangle again, its straight sides matching the pads round it. The
 	grass is Stage 1's own tinted green, so Stage 1's west edge
 	(Scenery.buildStageCheckerboard) meets it with no seam at the x = 100 line.
 
@@ -86,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 28
+local BUILDER_VERSION = 29
 
 local C = Kit.C
 local build = Kit.build
@@ -110,11 +108,11 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 --- (3D3F42/404246, ~5% apart) with a black/grey patch under the shops, and from any
 --- height it read as a car park. It is now:
 ---
----   GRASS  -- the apron around and between the plots, the lawn outside the plaza octagon,
+---   GRASS  -- the apron around and between the plots, the lawn outside the plaza floor,
 ---             and the Camp -> Stage 1 border strip. This IS PLAZA_DARK/PLAZA_LIGHT (the
 ---             Stage-1-tinted green), so the ground meets Stage 1's own west edge with no
 ---             seam at all.
----   PATH   -- the plaza octagon (PLAZA_OCT_*) and the gate paths out to each pad: a warm
+---   PATH   -- the plaza rectangle and the gate paths out to each pad: a warm
 ---             cream, ~6% apart so the checker reads.
 ---   PAVERS -- the shop cluster (SHOP_ZONE): warm tan pavers, edged by a one-tile darker
 ---             KERB so the square reads as paved rather than painted. Pale cool stone
@@ -140,7 +138,7 @@ local KERB_LIGHT = "A6835B"
 ---
 --- FULL HEIGHT, NOT +/-85 ANY MORE. The strip used to stop at Stage 1's own half-width
 --- (the length of the Camp -> Stage 1 hazard line), which only ever mattered inside the
---- plaza's +/-70 rectangle. The plaza octagon reaches z = +/-98 along this line, so a
+--- plaza's +/-70 rectangle. The plaza octagon once reached z = +/-98 along this line, so a
 --- z-limited strip would let a cream notch poke out past the line's ends, beside the
 --- corridor walls.
 local GREEN_STRIP_DEPTH = 23
@@ -186,52 +184,17 @@ local GREEN_STRIP_DEPTH = 23
 -- now starting at the plaza's own tile colours (Scenery.luau's
 -- buildStage1Checkerboard). Both cues (colour AND height) were pointing the same
 -- direction anyway; this just stops fighting the other one.
-Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
+--
+-- minX -65 -> -49 FOR THE SQUARE BASE LAYOUT (2026-10-03): the two west pads stand
+-- against this edge now, and 16 studs (four tiles, an even count) pulls them in without
+-- moving the grid's phase or flipping the checker's parity -- cellCentre and tileRect
+-- both count tiles from minX, and build/CampSite's floors snap to the same grid.
+Hub.PLAZA = { minX = -49, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
---- THE PLOT RING'S CENTRE AND BEARINGS ARE DEFINED HERE, not in Plots.luau, because the
---- floor below draws on both (the plaza octagon and its gate paths) and Hub cannot require
---- Plots -- Plots requires Hub. Plots re-exports them unchanged (`Plots.RING_CENTER`, its
---- local RING_ANGLES) and keeps the notes on why they are these numbers.
----
---- SHOP_CLUSTER_EAST_REACH / FIELD_CLEARANCE are historical: they placed the centre off an
---- old eastmost stall and are left as they were so the ring stays put -- see Plots.luau.
-local SHOP_CLUSTER_EAST_REACH = 53
-local FIELD_CLEARANCE = 15
-Hub.RING_CENTER = {
-	x = Hub.PLAZA.maxX - SHOP_CLUSTER_EAST_REACH - FIELD_CLEARANCE,
-	z = (Hub.PLAZA.minZ + Hub.PLAZA.maxZ) / 2,
-}
-Hub.PLOT_BEARINGS = { 185, 219, 253, 287, 321, 355 }
-
---- THE PLAZA IS AN OCTAGON, centred on the plot ring so the pads stand around it at an
---- even distance. It has been a rectangle (a rug in a round room: near-touching the west
---- pads, a lawn away from the rest), then a circle, r 112 and then 98 -- but a circle on a
---- 4-stud grid is a ragged staircase all the way round. An octagon's four axis sides fall
---- straight on tile lines, and its four diagonals are laid true by splitting every cell
---- they cross into two flat triangles (`Hub.groundSplitAt`, `buildSplitTile`).
----
---- CENTRED ON (33, 0), NOT RING_CENTER's (32, 0): the nearest cell centre (cell centres
---- sit at PLAZA.minX + 2 + 4k in x, PLAZA.minZ + 2 + 4k in z). Only from a cell centre do
---- the axis sides land on tile lines AND the diagonals run exactly corner to corner
---- through the cells they cross. A stud off the ring's true centre does not show.
----
---- HALF (the axis apothem) is 4k + 2 so 33 +/- HALF is a tile line -- the west side IS the
---- plaza rectangle's own west edge, x = -65. DIAG (|dx| + |dz| on a diagonal) is a
---- multiple of 4, so the diagonal passes through cell corners. 98 / 140 is the smallest
---- near-regular pair (98 * sqrt 2 = 138.6) that still rings the shop square with a tile
---- of cream: its south-west corner, 136 out on the diagonal, is the one that binds. The
---- east end needs no diagonals: the north and south sides run to dx = 42 (x = 75), exactly
---- where the green strip starts, so that strip's edge closes the shape.
----
---- FLOOR ONLY. Hub.PLAZA stays the rectangle for the slab, World.verify()'s stage-overlap
---- check and everything else that reads it; the octagon only decides which tiles are
---- cream. It reaches past that rectangle north and south onto apron tiles, which is fine:
---- the apron lays its tiles through the same resolver.
-local PLAZA_OCT_X = 33
-local PLAZA_OCT_Z = 0
-local PLAZA_OCT_HALF = 98
-local PLAZA_OCT_DIAG = 140
+--- THE PLAZA FLOOR IS THE PLAZA RECTANGLE. It was an octagon centred on the old plot
+--- ring (and a circle before that); with the bases squared round it, the straight edges
+--- of the rectangle itself line up with the pads, and every edge sits on a tile line.
 
 --- THE PLAZA FLOOR STANDS PROUD OF THE LAWN, on request -- the user liked the old raised
 --- gate strips' look and asked for the middle floor to match it. Every floor tile (cream,
@@ -241,41 +204,24 @@ local PLAZA_OCT_DIAG = 140
 --- it, so nothing sinks into the raised floor.
 Hub.PLAZA_LIFT = 0.15
 
---- THE GATE PATHS ARE PART OF THIS FLOOR, on request. They were separate strips laid
---- along each pad's own bearing, a hair below the plaza so the two would not z-fight where
---- a strip started inside the octagon -- and that step showed. Now each path runs square
---- off the octagon side that faces its pad, straight out to the pad's front and on under
---- it, so it meets the plaza with no seam: same tiles, same checker, same height. Running
---- square is what keeps every edge on the grid -- the north, south and west paths' edges
---- sit on tile lines, the two diagonal paths' on 45-degree lines through tile corners,
---- laid true by the same split cells as the octagon's own diagonals (floorCover).
+--- THE GATE PATHS ARE PART OF THIS FLOOR, on request: same tiles, same checker, same
+--- height as the plaza. Each runs square off the plaza edge that faces its pad, straight
+--- out to the pad's front and on under it (the pad's slab hides the end), so it meets the
+--- plaza with no seam. Every edge sits on a tile line (x = -49 + 4k, z = -70 + 4k).
 ---
---- Each is centred on its pad's front (RING_CENTER + 122 along the pad's bearing),
---- snapped to that grid -- within ~2 studs -- and runs on under the pad, whose slab hides
---- the end, far enough to meet the pad's front across its whole width. 16 wide (the
---- diagonal pair ~17, the nearest width their corner lines allow). Hand-placed, like
---- SHOP_ZONE: move them by hand with Plots.RING_RADIUS / PLOT_BEARINGS.
+--- Centred on its pad (Plots.CENTERS), 16 wide. Hand-placed, like SHOP_ZONE: move them
+--- by hand with Plots.CENTERS.
 local GATE_RECTS = {
-	{ minX = 15, maxX = 31, minZ = -130, maxZ = -98 }, -- Plot1 (bearing 185): due south off the south side
-	{ minX = 15, maxX = 31, minZ = 98, maxZ = 130 }, -- Plot6 (355): due north off the north side
-	{ minX = -97, maxX = -65, minZ = -42, maxZ = -26 }, -- Plot3 (253): due west off the west side
-	{ minX = -97, maxX = -65, minZ = 26, maxZ = 42 }, -- Plot4 (287): due west
-}
-
---- The two diagonal paths, in 45-degree coordinates: `across` = x + zSign * z runs across
---- the path, `along` = x - zSign * z runs along it (more negative is further out).
----
---- THE ACROSS EDGES ARE 1 MOD 8, not merely 1 mod 4 like every corner line. With the
---- along lines at 5 mod 8 (the octagon's diagonal at -107, the end at -155), that puts
---- every place a side meets an end exactly on a tile corner. Meeting at a cell centre
---- instead would leave a cell three quarters floor, which two triangles cannot lay.
-local GATE_DIAGONALS = {
-	{ zSign = -1, across = { 41, 65 }, along = { -155, -107 } }, -- Plot2 (219): south-west, off the SW diagonal
-	{ zSign = 1, across = { 41, 65 }, along = { -155, -107 } }, -- Plot5 (321): north-west, off the NW diagonal
+	{ minX = 27, maxX = 43, minZ = -82, maxZ = -70 }, -- Plot1 (x 34): south edge, east pad
+	{ minX = -49, maxX = -33, minZ = -82, maxZ = -70 }, -- Plot2 (x -42): south edge, west pad
+	{ minX = -61, maxX = -49, minZ = -46, maxZ = -30 }, -- Plot3 (z -38): west edge
+	{ minX = -61, maxX = -49, minZ = 30, maxZ = 46 }, -- Plot4 (z 38): west edge
+	{ minX = -49, maxX = -33, minZ = 70, maxZ = 82 }, -- Plot5 (x -42): north edge, west pad
+	{ minX = 27, maxX = 43, minZ = 70, maxZ = 82 }, -- Plot6 (x 34): north edge, east pad
 }
 
 --- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
---- studs west from Stage 1's edge (x = PLAZA.maxX), at any z. It keeps the plaza octagon
+--- studs west from Stage 1's edge (x = PLAZA.maxX), at any z. It keeps the cream plaza
 --- back from the field, so the walk out of camp still crosses grass before the yellow
 --- hazard line Scenery.buildStageBorderLines draws on that seam.
 ---
@@ -295,7 +241,7 @@ end
 ---
 --- Moved 20 east (exactly 5 tiles, so the kerb lands on the same grid phase) with the
 --- whole cluster, to centre it in the plaza's visible cream: the plaza's own
---- centre (RING_CENTER.x = 32) is out of reach, since centring there would run the
+--- centre (x = 32, the old ring centre) is out of reach, since centring there would run the
 --- cluster's east end onto the green strip at x = 75. maxX 65 leaves two cream tiles
 --- before that strip. 2026-09-27: shifted 8 east (2 tiles) with the shops when they were
 --- centred on the Trader, and made north-south symmetric; 73 still leaves half a tile.
@@ -303,7 +249,7 @@ local SHOP_ZONE = { minX = -37, maxX = 73, minZ = -51, maxZ = 51 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
---- octagon, for plaza and apron tiles alike.
+--- floor, for plaza and apron tiles alike.
 function Hub.inShopFloor(x: number, z: number): boolean
 	return x >= SHOP_ZONE.minX and x <= SHOP_ZONE.maxX and z >= SHOP_ZONE.minZ and z <= SHOP_ZONE.maxZ
 end
@@ -330,21 +276,15 @@ end
 -- Exported for build/CampSite, whose floors lie on this same grid and snap the same way.
 Hub.cellCentre = cellCentre
 
---- Is the point (x, z) on the plaza floor -- the octagon, or one of its gate paths? A pure
---- shape test with no grid in it; floorCover turns it into whole and split cells.
+--- Is the point (x, z) on the plaza floor -- the plaza rectangle, or one of its gate
+--- paths? A pure shape test with no grid in it; floorCover turns it into cells.
 local function insideFloor(x: number, z: number): boolean
-	local ax, az = math.abs(x - PLAZA_OCT_X), math.abs(z - PLAZA_OCT_Z)
-	if ax <= PLAZA_OCT_HALF and az <= PLAZA_OCT_HALF and ax + az <= PLAZA_OCT_DIAG then
+	local p = Hub.PLAZA
+	if x >= p.minX and x <= p.maxX and z >= p.minZ and z <= p.maxZ then
 		return true
 	end
 	for _, r in GATE_RECTS do
 		if x >= r.minX and x <= r.maxX and z >= r.minZ and z <= r.maxZ then
-			return true
-		end
-	end
-	for _, d in GATE_DIAGONALS do
-		local across, along = x + d.zSign * z, x - d.zSign * z
-		if across >= d.across[1] and across <= d.across[2] and along >= d.along[1] and along <= d.along[2] then
 			return true
 		end
 	end
@@ -380,7 +320,7 @@ function Hub.coverOf(inside: (number, number) -> boolean, cx: number, cz: number
 		return "split", -1, 1
 	end
 	-- Three quarters floor, or cut both ways: two triangles cannot lay it, and the shapes
-	-- above are placed so no such cell occurs (see GATE_DIAGONALS). Round to the majority.
+	-- above are placed so no such cell occurs (none does on the plaza). Round to the majority.
 	local n = (if up then 1 else 0) + (if right then 1 else 0) + (if down then 1 else 0) + (if left then 1 else 0)
 	return if n > 2 then "full" else "none", 0, 0
 end
@@ -390,7 +330,7 @@ local function floorCover(cx: number, cz: number): (string, number, number)
 end
 
 --- The (dark, light) pair for the base-floor tile centred at (x, z): grass in the
---- Camp -> Stage 1 strip; on the plaza floor (the octagon and its gate paths --
+--- Camp -> Stage 1 strip; on the plaza floor (the rectangle and its gate paths --
 --- insideFloor), kerb-edged pavers under the shops and cream everywhere else; grass
 --- everywhere else, including the cells a floor edge cuts in half -- a builder asks
 --- groundSplitAt about those first. See PATH_DARK's comment for the palette.
@@ -431,12 +371,12 @@ export type GroundSplit = {
 	sz: number,
 }
 
---- For a cell a 45-degree floor edge -- an octagon diagonal, or a diagonal gate path's
---- side -- cuts in half, corner to corner: the two halves' pairs and which way the cut
+--- For a cell a 45-degree floor edge cuts in half (none on the plaza since it went square;
+--- the shape test still allows them) -- corner to corner: the two halves' pairs and which way the cut
 --- faces (see GroundSplit). nil for every whole cell. Resolved from the same snapped cell
 --- centre as groundPairAt, so the plaza and the apron -- which both lay the cells along
 --- the plaza rectangle's edge -- split a doubled cell identically. The shop square sits
---- well inside the octagon, so a floor half is always cream and a lawn half always grass.
+--- well inside the floor, so a floor half is always cream and a lawn half always grass.
 function Hub.groundSplitAt(x: number, z: number): GroundSplit?
 	local cx, cz = cellCentre(x, z)
 	if inGreenStrip(cx) then
@@ -478,7 +418,7 @@ end
 -- full-thickness blocks. Two reasons: the plaza's exposed side stays one clean dark
 -- face instead of a many-toothed checkered stripe, and the slab is what everything
 -- actually stands on. The slab's top is recessed by exactly CAP, so the walking
--- surface is still PLAZA.topY on the lawn. The plaza octagon's tiles stand
+-- surface is still PLAZA.topY on the lawn. The plaza floor's tiles stand
 -- Hub.PLAZA_LIFT above it (see that constant), and everything on the plaza stands on that.
 --
 -- THE BASE FLOOR'S ZONES ARE PAINT, NOT GEOMETRY -- see PATH_DARK, Hub.groundPairAt and

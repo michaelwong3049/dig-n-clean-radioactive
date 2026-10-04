@@ -46,7 +46,7 @@
 	         `-..................-'
 
 	THE WALL IS ITS OWN CODE, NOT Scenery's, deliberately. Base Camp's perimeter
-	(Scenery.buildCampWallLayer) is written against Plots.RING_CENTER and the camp-green
+	(Scenery.buildCampWallLayer) is written against Plots.CAMP's outline and the camp-green
 	palette, and rewiring it to take both as arguments would put Base Camp's walls at
 	risk for a camp that only needs the same technique: columns sized to a 4-stud chord,
 	studded on the face you can see, turf carried up over the crown. Same look, separate
