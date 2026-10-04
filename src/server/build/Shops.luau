@@ -203,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 66
+local BUILDER_VERSION = 67
 
 local C = Kit.C
 local build = Kit.build
@@ -1976,13 +1976,24 @@ local BOOTHS = {
 	{ track = "Aura", at = { PLAZA_MID.x - BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = C.shopOutfitter, label = "Aura Shop" },
 }
 
---- Where BaseCamp stands its four-sided Trader kiosk: the SE corner, on the south row's
---- island centre line. Read by BaseCamp.buildShell.
+--- Where Base Camp's Trader booth stands: the SE corner, on the south row's island centre
+--- line (Shops.buildTraderBooth).
 Shops.TRADER_AT = { x = PLAZA_MID.x + BOOTH_DX, z = -BOOTH_ROW_Z + ISLAND_Z }
 
-local function buildBooth(parent: Instance, spec: { track: string, at: { number }, faceYaw: number, color: string, label: string })
+--- THE TRADER IS A BOOTH TOO (2026-10-04, on request: "make the trader look like the other
+--- stalls (only in base camp)"). Same frame as the three shops, in cash green so it does not
+--- read as the yellow Aura booth beside it. Toxic Twilight keeps the four-sided hazmat kiosk
+--- (BaseCamp.buildHubTrader).
+local TRADER_BOOTH = { track = "Trader", at = { PLAZA_MID.x + BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = "5BA85A", label = "Trader" }
+-- The sell panel opens on this radius round the booth's centre: past both stands and the ends.
+local TRADER_RADIUS = 16
+
+--- One booth. `isShop` false (the Trader) leaves the desks without a ViewShop prompt or a
+--- shop station: the Trader sells on its own radius (buildTraderBooth).
+local function buildBooth(parent: Instance, spec: { track: string, at: { number }, faceYaw: number, color: string, label: string }, isShop: boolean?)
+	local shop = isShop ~= false
 	local m = Instance.new("Model")
-	m.Name = `{spec.track}Shop`
+	m.Name = if shop then `{spec.track}Shop` else spec.track
 	local origin = facingOrigin(spec.at[1], spec.at[2], spec.faceYaw)
 	local width = BOOTH_WIDTH
 
@@ -2008,10 +2019,10 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 			width = STAND_WIDTH,
 			depth = 2.5,
 			z = SHOPFRONT_Z,
-			stationKind = "shop",
-			stationId = spec.track,
-			radius = STAND_RADIUS,
-			promptText = spec.label,
+			stationKind = if shop then "shop" else nil,
+			stationId = if shop then spec.track else nil,
+			radius = if shop then STAND_RADIUS else nil,
+			promptText = if shop then spec.label else nil,
 			material = "Plastic",
 			studded = true,
 		})
@@ -2020,8 +2031,30 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 	buildPlainRoof(m, origin, spec.color, width, C.hazardBlack)
 	buildRoofTop(m, origin, width, spec.color, spec.label)
 
+	if not shop then
+		-- One invisible trader station in the middle, as the kiosk had (World.verify
+		-- counts exactly one per camp).
+		local station = build(m, origin, {
+			name = "TraderStation",
+			pos = { 0, 1.5, ISLAND_Z },
+			size = { 1, 1, 1 },
+			color = C.steel,
+			material = "SmoothPlastic",
+			transparency = 1,
+			canCollide = false,
+			attributes = { StationKind = "trader", Radius = TRADER_RADIUS },
+		})
+		station.CanQuery = false
+		station.CanTouch = false
+	end
+
 	m.Parent = parent
 	return m
+end
+
+--- Base Camp's Trader booth, built into `parent` by BaseCamp.buildShell.
+function Shops.buildTraderBooth(parent: Instance): Model
+	return buildBooth(parent, TRADER_BOOTH, false)
 end
 
 --- A shop's footprint on the plaza, as an oriented rectangle. `backZ`/`frontZ` are
@@ -2067,10 +2100,9 @@ local function assertNoShopOverlap()
 		})
 	end
 
-	-- The Trader's yellow ground square (BaseCamp's HUB_TRADER_OUTLINE_HALF, 11).
 	table.insert(rects, {
-		name = "Trader",
-		rect = { cx = Shops.TRADER_AT.x, cz = Shops.TRADER_AT.z, halfWidth = 11, halfDepth = 11, yawDeg = 0 },
+		name = "Trader booth",
+		rect = shopFootprint(TRADER_BOOTH.at[1], TRADER_BOOTH.at[2], BOOTH_WIDTH, mirrorZ(5.9), 5.9, TRADER_BOOTH.faceYaw),
 	})
 
 	for i = 1, #rects do
