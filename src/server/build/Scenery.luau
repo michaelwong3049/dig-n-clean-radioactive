@@ -106,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 62
+local BUILDER_VERSION = 63
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4028,8 +4028,8 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 	-- The camp's own bounding box, shrunk off the wall; nothing is built east of the
 	-- plaza mouth, so it stops there too.
 	local camp = Plots.CAMP
-	local minX, maxX = camp.backX + BASE_FOLIAGE_EDGE_MARGIN, Hub.PLAZA.maxX
-	local minZ, maxZ = -camp.wingZ + BASE_FOLIAGE_EDGE_MARGIN, camp.wingZ - BASE_FOLIAGE_EDGE_MARGIN
+	local minX, maxX = camp.westX + BASE_FOLIAGE_EDGE_MARGIN, Hub.PLAZA.maxX
+	local minZ, maxZ = -camp.halfZ + BASE_FOLIAGE_EDGE_MARGIN, camp.halfZ - BASE_FOLIAGE_EDGE_MARGIN
 	local plaza = Hub.PLAZA
 	local clear = BASE_FOLIAGE_CLEAR.plaza
 	local cols = math.max(0, math.floor((maxX - minX) / BASE_FOLIAGE_CELL))
@@ -4044,8 +4044,8 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 			if not Plots.inCamp(x, z, -BASE_FOLIAGE_EDGE_MARGIN) then
 				continue
 			end
-			-- (From the west pair's fronts, not the plaza's own west edge: the walk out to them.)
-			if x > math.min(plaza.minX, camp.westFrontX) - clear and z > plaza.minZ - clear and z < plaza.maxZ + clear then
+			-- (From the west row's outer edge, not the plaza's own: the grey walk between the rows.)
+			if x > math.min(plaza.minX, camp.pavedMinX) - clear and z > plaza.minZ - clear and z < plaza.maxZ + clear then
 				continue
 			end
 			-- The strip by the east walls, past the north/south pads: the leaderboards and
@@ -4380,18 +4380,19 @@ end
 
 --- The base camp's own perimeter -- see this file's header for WHY (there was no
 --- wall here at all, and there is a real, raycast-confirmed void-fall gap in the
---- shoulders flanking the corridor's own wall). STRAIGHT WALLS ROUND THE STEPPED
---- OUTLINE in Plots.CAMP (the square base layout, from the user's sketch -- it was one
---- curved wall round a circular apron before):
+--- shoulders flanking the corridor's own wall). STRAIGHT WALLS ROUND THE RECTANGLE in
+--- Plots.CAMP (three bases a side since 2026-10-04; it was a stepped outline with a back
+--- block for the old west pair before that, and one curved wall round a circular apron
+--- before THAT):
 ---
----              wing outer
----            ┌────────────────────────┐
----  block side│ wing west              │ east (shoulder)
----   ┌────────┘                        └── corridor wall (buildBoundaryWalls)
----   │ back                               Stage 1's mouth
----   └────────┐                        ┌── corridor wall
----            │                        │
----            └────────────────────────┘
+---         wing outer
+---   ┌────────────────────────────┐
+---   │                            │ east (shoulder)
+---   │                            └── corridor wall (buildBoundaryWalls)
+---   │ back                           Stage 1's mouth
+---   │                            ┌── corridor wall
+---   │                            │
+---   └────────────────────────────┘
 ---
 --- Every wall's INNER face sits on the outline and it grows outward into void, like
 --- the corridor walls. Each corner square belongs to exactly one wall (noted per piece
@@ -4428,10 +4429,8 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 
 	-- This layer's inner faces.
 	local eastF = camp.eastX + o
-	local wingZF = camp.wingZ + o
-	local wingXF = camp.wingX - o
-	local blockZF = camp.backHalfZ + o
-	local backF = camp.backX - o
+	local wingZF = camp.halfZ + o
+	local backF = camp.westX - o
 
 	-- Crown: the apron colour carried up and over, same as the stage walls (buildWallCap).
 	local capDark, capLight = campCapPair()
@@ -4460,16 +4459,11 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 		else
 			piece("ShoulderWallPos", false, eastF + t / 2, corridorMaxZ - OVERLAP, wingZF + t, "LeftSurface")
 		end
-		-- Wing outer: owns its west corner square (from wingXF - t), stops at the east piece.
-		piece(`WingOuter{tag}`, true, side * (wingZF + t / 2), wingXF - t, eastF, inward)
-		-- Wing west: owns the inner (concave) corner square where it meets the block side.
-		local z0, z1 = blockZF, wingZF
-		piece(`WingWest{tag}`, false, wingXF - t / 2, if side < 0 then -z1 else z0, if side < 0 then -z0 else z1, "RightSurface")
-		-- Block side: owns the back corner square (from backF - t), stops at the wing west.
-		piece(`BlockSide{tag}`, true, side * (blockZF + t / 2), backF - t, wingXF - t, inward)
+		-- Wing outer: owns its west corner square (from backF - t), stops at the east piece.
+		piece(`WingOuter{tag}`, true, side * (wingZF + t / 2), backF - t, eastF, inward)
 	end
-	-- The back wall, between the two block sides' corner squares.
-	piece("BackWall", false, backF - t / 2, -blockZF, blockZF, "RightSurface")
+	-- The back wall, between the two wing outers' corner squares.
+	piece("BackWall", false, backF - t / 2, -wingZF, wingZF, "RightSurface")
 
 	-- Turf on the cliff top: a bush every few columns along every piece. Seeded, so
 	-- rebuilds do not reshuffle.

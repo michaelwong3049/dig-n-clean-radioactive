@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 39 -- darker shop pavers + kerb (2026-10-04)
+local BUILDER_VERSION = 40 -- grey floor out to the third base of each row (2026-10-04)
 
 local C = Kit.C
 local build = Kit.build
@@ -229,15 +229,16 @@ Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 --- THE MIDDLE OF THE CAMP IS ONE GREY FLOOR, on request (2026-10-04: "connect square with
 --- grey ... the middle should be primarily gray"). It used to be the plaza plus a 16-wide
 --- gate path out to each pad, with grass between; now one rectangle paves everything the
---- six pads enclose -- out to the north/south fronts (z +/-80) and the west pair's (x -71),
+--- six pads enclose -- out to the north/south fronts and the west row's outer edge,
 --- snapped to the tile grid (x = -49 + 4k, z = -70 + 4k), so the pads' own front strips
 --- (Hub.setPadFronts) run straight on from it. The grass stays round the edge: behind and
 --- between the pads, along the walls, and the Camp -> Stage 1 strip (inGreenStrip wins).
 ---
 --- Hand-placed, like SHOP_ZONE: move it by hand with Plots.CENTERS.
 local GATE_RECTS = {
-	-- 2026-10-04: follows the bases in (fronts x -71, z +/-72).
-	{ minX = -69, maxX = 75, minZ = -70, maxZ = 70 },
+	-- 2026-10-04: follows the bases in (fronts x -71, z +/-72). Then (same day) out to
+	-- the west row's outer edge (x -132.5) when the rows went three to a side.
+	{ minX = -133, maxX = 75, minZ = -70, maxZ = 70 },
 }
 
 --- Each base's front strip (the washer / treadmill area in front of its raised deck),
