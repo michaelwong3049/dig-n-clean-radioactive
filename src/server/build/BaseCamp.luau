@@ -67,7 +67,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 26
+local BUILDER_VERSION = 27
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -187,7 +187,9 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- 2026-10-04: OUT OF THE MIDDLE, into the SE corner of the shop square (Shops.TRADER_AT),
 	-- where the Hose Shop stood before hoses moved to each base. Still four-sided; the group
 	-- chest took the middle (Config/GroupReward.CHEST_POSITION).
-	BaseCamp.buildHubTrader(camp, origin * CFrame.new(Shops.TRADER_AT.x - origin.X, 0, Shops.TRADER_AT.z - origin.Z))
+	-- Later that day it became a booth like the three shops (Shops.buildTraderBooth); the
+	-- four-sided kiosk (buildHubTrader) is Toxic Twilight's only now.
+	Shops.buildTraderBooth(camp)
 end
 
 -- ── The trader kiosk ──────────────────────────────────────────────────────────
