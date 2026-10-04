@@ -674,18 +674,24 @@ function Dock.sideLift(): number
 	return UIKit.touchCorner().Y
 end
 
--- The square tiles on the right edge: Gear, Nukes, Warp in ONE column, top to bottom
--- (HudTile builds them; Index and Shop moved to the left-column bars). Picture only, no
--- caption, on request: it was a 2x2 grid of 62px captioned tiles, and before that one
--- 80px column. The haul widget measures its clearance against the column's width
--- (HAULPANEL_RIGHT). 48 -> 58, a little bigger, on request.
+-- The corner buttons' square (Settings, Daily, Potions): HudTile builds them at this size.
 Dock.SIDE_TILE_SIZE = 58
-Dock.SIDE_GRID_COLUMNS = 1
+-- THE BUTTON GRID on the middle of the right edge, on request (2026-10-03, after a
+-- reference of a 2x3 grid of dark tiles with big 3D pictures and the name across the
+-- foot): Shop | Index, Nukes | Gear, Warp | Free Gifts, slots 1-6 left to right, top to
+-- bottom (HudTile builds them). It was one column of 58px Gear/Nukes/Warp squares, with
+-- Shop and Index as bars on the left. The haul widget measures its clearance against
+-- the grid's width (HAULPANEL_RIGHT).
+Dock.SIDE_GRID_TILE = 76
+Dock.SIDE_GRID_COLUMNS = 2
 Dock.SIDE_GRID_ROWS = 3
--- The space between two tiles: wider than the dock's shared GAP, on request (30 -> 40).
-Dock.SIDE_TILE_GAP = 40
-Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
-Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
+-- The space between two tiles. Tight, like the reference: the pictures poke up over the
+-- tile's top edge, so the rows need a little room for that.
+Dock.SIDE_TILE_GAP = 12
+-- How far a tile's picture pokes up over its top edge (HudTile), kept clear of the corner row.
+Dock.SIDE_GRID_POKE = 12
+Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
+Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
 -- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Settings hard in the
 -- corner, Daily rewards to its left. Same tiles as the column (HudTile), placed by
 -- Dock.cornerButtonCentre and measured from the SCREEN top (their guis ignore the
@@ -711,19 +717,19 @@ end
 --- bites on a short window or a phone. Every tile places itself from this one line
 --- (Dock.sideTileCentre).
 function Dock.sideColumnTop(height: number): number
-	local underGear = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP - height / 2
+	local underGear = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + Dock.SIDE_GRID_POKE - height / 2
 	return math.max(-Dock.SIDE_GRID_HEIGHT / 2, underGear)
 end
 
---- The CENTRE of grid tile `slot` (1-3, top to bottom), as a position on
+--- The CENTRE of grid tile `slot` (1-6, left to right, top to bottom), as a position on
 --- a canvas `height` design px tall: offset in from the right edge, and down from the
 --- vertical centre. Centred so a tile's hover UIScale grows it evenly on every side.
 function Dock.sideTileCentre(slot: number, height: number): UDim2
 	local column = (slot - 1) % Dock.SIDE_GRID_COLUMNS
 	local row = (slot - 1) // Dock.SIDE_GRID_COLUMNS
-	local step = Dock.SIDE_TILE_SIZE + Dock.SIDE_TILE_GAP
-	local fromRight = Dock.ROW_SIDE_MARGIN + (Dock.SIDE_GRID_COLUMNS - 1 - column) * step + Dock.SIDE_TILE_SIZE / 2
-	local down = Dock.sideColumnTop(height) + row * step + Dock.SIDE_TILE_SIZE / 2
+	local step = Dock.SIDE_GRID_TILE + Dock.SIDE_TILE_GAP
+	local fromRight = Dock.ROW_SIDE_MARGIN + (Dock.SIDE_GRID_COLUMNS - 1 - column) * step + Dock.SIDE_GRID_TILE / 2
+	local down = Dock.sideColumnTop(height) + row * step + Dock.SIDE_GRID_TILE / 2
 	return UDim2.new(1, -fromRight, 0.5, down)
 end
 

@@ -31,14 +31,10 @@ local ShinyCard = require(script.Parent.Parent.ShinyCard)
 
 local PlaytimeGiftController = {}
 
--- The left-edge row Masteries sits on (MasteriesController BAR_ROW), and how far above it
--- this tile stands: Masteries' own height (HudTile BARE_ICON 78 + BARE_CAPTION_GAP -11 +
--- its caption 17 + 4 = 88) plus a small gap.
-local TILE_ROW = 3
-local TILE_LIFT = 96
+-- THE GIFTS TILE: bottom right of the right-edge 2x3 grid (HudTile).
+local TILE_SLOT = 6
 local TILE_COLOR = Color3.fromRGB(255, 150, 40)
 local TILE_LIGHT = Color3.fromRGB(255, 214, 150)
-local TILE_CAPTION_SIZE = 17
 
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
@@ -651,22 +647,14 @@ function PlaytimeGiftController.start()
 
 	local tileGui, button = HudTile.build({
 		name = "FreeGiftsButton",
-		caption = "Free Gifts",
-		slot = 0,
+		caption = "Gifts",
+		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = PlaytimeGifts.ICONS.clock,
 		onActivated = PlaytimeGiftController.toggle,
-		leftRow = TILE_ROW,
-		captionSize = TILE_CAPTION_SIZE,
-		bare = true,
-		-- Stacked right above Masteries, same left edge.
-		lift = TILE_LIFT,
 	})
 	badge, badgeMark = HudTile.badge(button, PANEL.close, PANEL.ink)
-	-- On the clock's shoulder, not the (invisible) button's far corner.
-	badge.AnchorPoint = Vector2.new(0, 0)
-	badge.Position = UDim2.new(0.5, 22, 0, -2)
 	tileGui.Parent = playerGui
 	buildPanel().Parent = playerGui
 	HudTile.registerPanel("PlaytimeGifts", panelFrame :: Frame)

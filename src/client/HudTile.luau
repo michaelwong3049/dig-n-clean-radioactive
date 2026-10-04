@@ -1,21 +1,23 @@
 --[[
-	HudTile — one HUD tile: the right-edge column (Gear, Nukes, Warp) in "Glossy Candy", the
-	top-right corner buttons (Settings, Daily) in the dark "glow orb" look.
+	HudTile — one HUD tile: the 2x3 button grid on the middle right (Shop, Index, Nukes, Gear,
+	Warp, Gifts) in the dark "Grid" look, and the top-right corner buttons (Settings, Daily) in
+	the dark "glow orb" look. Masteries builds a bare picture on the left edge (spec.leftRow).
 
-	The glow orb: a small dark square with a soft glow in the tile's own colour behind a full-colour
-	symbol (Artwork.IMAGE), picture only: the name caption under it was dropped on request
-	when the tiles went from a 2x2 grid to one smaller column. Index and Shop build the
-	left-column bars through the same function (spec.leftRow), and keep their names.
+	The grid tile, on request (2026-10-03, from a reference picture): a dark navy rounded
+	square with a light rim, a big picture that pokes up over its top edge, and the name in
+	white GothamBlack across its foot.
+
+	The glow orb: a small dark square with a soft glow in the tile's own colour behind a
+	full-colour symbol (Artwork.IMAGE), picture only.
 	These used to be hand-copied builders, one per controller; they differed only in
 	name, picture and slot, so this builds all of them and each controller keeps its
 	own badge and click handler.
 
 	No radial gradients in Roblox UI, so the glow is a picture: a white disc whose alpha
 	eases from solid in the middle to nothing at the rim (Artwork.IMAGE.glow), tinted to
-	the tile's colour. It was a stack of five see-through discs first; their edges read
-	as rings ("chunky"), which a real gradient doesn't have.
+	the tile's colour.
 
-	PLACEMENT IS Dock's: the tile's slot in the column (1-3, top to bottom)
+	PLACEMENT IS Dock's: the tile's slot in the grid (1-6, left to right, top to bottom)
 	goes through Dock.sideTileCentre, re-run on every canvas resize. The button is
 	anchored on its centre so the hover UIScale grows it evenly on every side.
 ]]
@@ -47,15 +49,24 @@ local GLOW_SIZE = 60
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 
--- THE RIGHT-EDGE COLUMN (Gear, Nukes, Warp), on request: "Glossy Candy" (2026-10-03), the
--- tile's own colour solid under a hard two-band gloss (a shiny top half, a shade darker
--- below the line), a black outline and no glow. The corner buttons (Settings, Daily,
--- placed by spec.position) keep the dark glow-orb look.
-local CANDY_CORNER = 6
-local CANDY_EDGE_THICKNESS = 3
-local CANDY_SHINE_TOP = 0.45
-local CANDY_SHINE_LINE = 0.12
-local CANDY_SHADE_FOOT = 0.18
+-- THE RIGHT-EDGE GRID (Shop, Index, Nukes, Gear, Warp, Gifts), on request: a navy fill lit
+-- from the top, a light rim inside a thin dark outline, the picture big and poking up over
+-- the top edge by Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
+-- (Settings, Daily, placed by spec.position) keep the dark glow-orb look.
+local GRID_SIZE = Dock.SIDE_GRID_TILE
+local GRID_CORNER = 14
+local GRID_TOP = Color3.fromRGB(58, 74, 116)
+local GRID_FOOT = Color3.fromRGB(24, 30, 54)
+local GRID_OUTLINE = Color3.fromRGB(12, 14, 26)
+local GRID_OUTLINE_THICKNESS = 2
+local GRID_RIM = Color3.fromRGB(176, 192, 224)
+local GRID_RIM_THICKNESS = 3
+local GRID_ICON = 66
+-- The picture's centre, up from the tile's: its top then clears the edge by the poke.
+local GRID_ICON_RISE = GRID_ICON / 2 + Dock.SIDE_GRID_POKE - GRID_SIZE / 2
+local GRID_TEXT_SIZE = 19
+local GRID_TEXT_STROKE = 3
+local GRID_TEXT_DROP = Vector2.new(1, 2)
 
 local HOVER_SCALE = 1.07
 local PRESS_SCALE = 0.94
@@ -64,9 +75,9 @@ local TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 export type Spec = {
 	-- The ScreenGui's and the button's name ("IndexButton").
 	name: string,
-	-- The bar's name (leftRow only; a square tile shows no caption).
+	-- The name under the picture (grid tiles and bare rows; a corner button shows none).
 	caption: string,
-	-- Where in the right-edge column: 1-3, top to bottom.
+	-- Where in the right-edge grid: 1-6, left to right, top to bottom.
 	slot: number,
 	-- The glow and edge colour, and the lighter caption tint.
 	color: Color3,
@@ -81,46 +92,18 @@ export type Spec = {
 	-- Optional: a fixed spot (the button's centre) instead of a slot in the column —
 	-- the Settings gear in the top-right corner. `slot` is then unused.
 	position: UDim2?,
-	-- Optional: build a wide bar in the LEFT column instead of a grid square, stacked
-	-- up from the left edge's middle (1 = Index, 2 = Shop, 3 = Masteries, bottom to
-	-- top). `slot` is then unused.
+	-- Optional: put it on the LEFT edge instead, centred on the grid's middle line (Masteries).
+	-- With `bare`, the only kind left there. `slot` is then unused.
 	leftRow: number?,
-	-- Optional: the bar caption's text size, for a name too long for BAR_TEXT_SIZE.
+	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
 	-- Optional, with leftRow: no box at all, on request — just the picture, big, with the
 	-- caption centred under it (Masteries' medal).
 	bare: boolean?,
-	-- Optional, with bare: extra design px up from the row's spot, to stack one bare tile
-	-- over another on the same row (Free Gifts over Masteries).
+	-- Optional, with bare: extra design px up from the left edge's middle line.
 	lift: number?,
 }
 
--- THE LEFT-COLUMN BARS (Index, Shop, Masteries), on request: a rounded bar in the button's own
--- BRIGHT colour on the middle of the left edge, a top-lit gloss and faint black trefoils drifting
--- across it (option 11, "Radioactive Pattern", 2026-10-03), the picture on its left and the name
--- beside it in white GothamBlack (UIKit.hudNumber: same outline and drop shadow as the balance).
-local BAR_W = 168
-local BAR_H = 50
-local BAR_ICON = 38
-local BAR_CORNER = 10
-local BAR_EDGE_THICKNESS = 3
--- The drifting trefoils (Artwork.IMAGE.trefoilTile): black, mostly see-through, one tile
--- BAR_PATTERN_TILE px square, sliding one tile up and left every BAR_PATTERN_LOOP seconds (a
--- whole tile, so the repeat is seamless). The gloss is a vertical UIGradient on the bar's
--- fill: lighter at the top, the colour itself at the middle, a little darker at the foot.
-local BAR_PATTERN_TILE = 46
-local BAR_PATTERN_TRANSPARENCY = 0.72
-local BAR_PATTERN_LOOP = 6
-local BAR_GLOSS_TOP = 0.35
-local BAR_GLOSS_FOOT = 0.15
-local BAR_TEXT_LEFT = 54
-local BAR_TEXT_SIZE = 28
-local BAR_TEXT_STROKE = 3
-local BAR_TEXT_DROP = Vector2.new(2, 3)
--- The space between the two bars, on request. The pair is centred on the right-edge
--- tile column's middle (Dock.sideColumnTop + half the grid), so both sides of the screen
--- share one centre line, on request -- re-run on resize, as the column is.
-local BAR_GAP = 18
 -- A bare row (no box): the picture, the caption under it, and the button's whole size.
 local BARE_ICON = 78
 local BARE_GLOW = 112
@@ -128,8 +111,9 @@ local BARE_GLOW = 112
 local BARE_CAPTION_GAP = -11
 -- Just wider than "Masteries" at 20.
 local BARE_W = 100
--- Extra space over the row below, on top of BAR_GAP, on request.
-local BARE_LIFT = 28
+local BARE_TEXT_SIZE = 28
+local BARE_TEXT_STROKE = 3
+local BARE_TEXT_DROP = Vector2.new(2, 3)
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
 --- the true screen as the left column does). Returns the gui, unparented, and the button,
@@ -146,11 +130,11 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
-	local bar = spec.leftRow ~= nil
-	local candy = not bar and spec.position == nil
+	local bare = spec.leftRow ~= nil
+	local grid = not bare and spec.position == nil
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
-		size = if bar then UDim2.fromOffset(BAR_W, BAR_H) else UDim2.fromOffset(SIZE, SIZE),
+		size = if grid then UDim2.fromOffset(GRID_SIZE, GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		text = "",
 		textSize = UIKit.TextSize.body,
@@ -158,175 +142,119 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		fillTransparency = FILL_TRANSPARENCY,
 		strokeColor = spec.color,
 		strokeThickness = EDGE_THICKNESS,
-		cornerRadius = UDim.new(0, if bar then BAR_CORNER elseif candy then CANDY_CORNER else CORNER),
+		cornerRadius = UDim.new(0, if grid then GRID_CORNER else CORNER),
 		zIndex = 4,
 	})
 	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	edge.Transparency = EDGE_TRANSPARENCY
-	if bar then
-		-- A near-square box with a solid black outline, on request.
-		edge.Color = Color3.new(0, 0, 0)
-		edge.Thickness = BAR_EDGE_THICKNESS
+	if grid then
+		-- The thin dark outline is the button's own stroke; the light rim is a second
+		-- stroke on a frame inset by its thickness, so it draws just inside the outline.
+		edge.Color = GRID_OUTLINE
+		edge.Thickness = GRID_OUTLINE_THICKNESS
 		edge.Transparency = 0
-	elseif candy then
-		edge.Color = Color3.new(0, 0, 0)
-		edge.Thickness = CANDY_EDGE_THICKNESS
-		edge.Transparency = 0
-		-- The fill is white so the gradient's colours are the colours drawn. The two keys
-		-- either side of the middle make the gloss's hard line.
+		-- The fill is white so the gradient's colours are the colours drawn.
 		button.BackgroundColor3 = Color3.new(1, 1, 1)
 		button.BackgroundTransparency = 0
-		local white, black = Color3.new(1, 1, 1), Color3.new(0, 0, 0)
-		local gloss = Instance.new("UIGradient")
-		gloss.Rotation = 90
-		gloss.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, spec.color:Lerp(white, CANDY_SHINE_TOP)),
-			ColorSequenceKeypoint.new(0.49, spec.color:Lerp(white, CANDY_SHINE_LINE)),
-			ColorSequenceKeypoint.new(0.5, spec.color),
-			ColorSequenceKeypoint.new(1, spec.color:Lerp(black, CANDY_SHADE_FOOT)),
-		})
-		gloss.Parent = button
+		local fill = Instance.new("UIGradient")
+		fill.Rotation = 90
+		fill.Color = ColorSequence.new(GRID_TOP, GRID_FOOT)
+		fill.Parent = button
+		local rim = Instance.new("Frame")
+		rim.Name = "Rim"
+		rim.AnchorPoint = Vector2.new(0.5, 0.5)
+		rim.Position = UDim2.fromScale(0.5, 0.5)
+		rim.Size = UDim2.new(1, -2 * GRID_RIM_THICKNESS, 1, -2 * GRID_RIM_THICKNESS)
+		rim.BackgroundTransparency = 1
+		rim.ZIndex = 5
+		rim.Parent = button
+		local rimCorner = Instance.new("UICorner")
+		rimCorner.CornerRadius = UDim.new(0, GRID_CORNER - GRID_RIM_THICKNESS)
+		rimCorner.Parent = rim
+		local rimStroke = Instance.new("UIStroke")
+		rimStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		rimStroke.Color = GRID_RIM
+		rimStroke.Thickness = GRID_RIM_THICKNESS
+		rimStroke.Parent = rim
 	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
 
 	local glow, icon
-	if bar then
-		local row = spec.leftRow :: number
-		-- Rows 1 and 2 are centred as a pair on the right column's middle, row 1 under;
-		-- row 3 (Masteries) stacks on top of them without moving the pair. `raise` is
-		-- how far that middle sits above the screen's.
-		local function raise(): number
+	if bare then
+		-- No box, on request: the picture with its name under it, its left edge on the
+		-- left margin and its centre on the grid's middle line, so both sides of the screen
+		-- share one centre line -- re-run on resize, as the grid is.
+		local captionSize = spec.captionSize or BARE_TEXT_SIZE
+		local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
+		button.Size = UDim2.fromOffset(BARE_W, height)
+		local function place()
+			local canvasHeight = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
+			local middle = Dock.sideColumnTop(canvasHeight) + Dock.SIDE_GRID_HEIGHT / 2
+			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BARE_W / 2, 0.5, middle - (spec.lift or 0))
+		end
+		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+		place()
+		button.BackgroundTransparency = 1
+		edge.Enabled = false
+
+		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BARE_GLOW, spec.color)
+		glow.AnchorPoint = Vector2.new(0.5, 0.5)
+		glow.Position = UDim2.new(0.5, 0, 0, BARE_ICON / 2)
+		glow.ImageTransparency = GLOW_TRANSPARENCY
+		glow.ZIndex = 5
+
+		icon = Artwork.picture(button, "Icon", spec.image, BARE_ICON, Color3.new(1, 1, 1))
+		icon.AnchorPoint = Vector2.new(0.5, 0)
+		icon.Position = UDim2.new(0.5, 0, 0, spec.iconDrop or 0)
+		icon.ZIndex = 6
+
+		UIKit.hudNumber(button, {
+			name = "Caption",
+			anchorPoint = Vector2.new(0.5, 0),
+			position = UDim2.new(0.5, 0, 0, BARE_ICON + BARE_CAPTION_GAP),
+			size = UDim2.new(1, 0, 0, captionSize + 4),
+			text = spec.caption,
+			font = Enum.Font.GothamBlack,
+			textSize = captionSize,
+			color = spec.light,
+			xAlign = Enum.TextXAlignment.Center,
+			zIndex = 8,
+		}, BARE_TEXT_STROKE, BARE_TEXT_DROP)
+	elseif grid then
+		local function place()
 			local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-			return -(Dock.sideColumnTop(height) + Dock.SIDE_GRID_HEIGHT / 2)
+			button.Position = Dock.sideTileCentre(spec.slot, height)
 		end
-		if spec.bare then
-			-- Its bottom edge BAR_GAP + BARE_LIFT over the top of the row below, its left edge on the
-			-- bars' left edge (on request: further left than centring over the bar).
-			local captionSize = spec.captionSize or BAR_TEXT_SIZE
-			local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
-			button.Size = UDim2.fromOffset(BARE_W, height)
-			local function place()
-				local belowTop = (row - 2.5) * (BAR_H + BAR_GAP) + raise() + BAR_H / 2
-				local up = belowTop + BAR_GAP + BARE_LIFT + height / 2 + (spec.lift or 0)
-				button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BARE_W / 2, 0.5, -up)
-			end
-			canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-			place()
-			button.BackgroundTransparency = 1
-			edge.Enabled = false
+		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+		place()
 
-			glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BARE_GLOW, spec.color)
-			glow.AnchorPoint = Vector2.new(0.5, 0.5)
-			glow.Position = UDim2.new(0.5, 0, 0, BARE_ICON / 2)
-			glow.ImageTransparency = GLOW_TRANSPARENCY
-			glow.ZIndex = 5
+		icon = Artwork.picture(button, "Icon", spec.image, GRID_ICON, Color3.new(1, 1, 1))
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.Position = UDim2.new(0.5, 0, 0.5, -GRID_ICON_RISE + (spec.iconDrop or 0))
+		icon.ZIndex = 6
 
-			icon = Artwork.picture(button, "Icon", spec.image, BARE_ICON, Color3.new(1, 1, 1))
-			icon.AnchorPoint = Vector2.new(0.5, 0)
-			icon.Position = UDim2.new(0.5, 0, 0, spec.iconDrop or 0)
-			icon.ZIndex = 6
-
-			UIKit.hudNumber(button, {
-				name = "Caption",
-				anchorPoint = Vector2.new(0.5, 0),
-				position = UDim2.new(0.5, 0, 0, BARE_ICON + BARE_CAPTION_GAP),
-				size = UDim2.new(1, 0, 0, captionSize + 4),
-				text = spec.caption,
-				font = Enum.Font.GothamBlack,
-				textSize = captionSize,
-				color = spec.light,
-				xAlign = Enum.TextXAlignment.Center,
-				zIndex = 8,
-			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
-		else
-			local function place()
-				local up = (row - 1.5) * (BAR_H + BAR_GAP) + raise()
-				button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
-			end
-			canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-			place()
-			-- The bar's own colour, solid, under a top-lit gloss. The fill is white so the
-			-- gradient's colours are the colours drawn.
-			button.BackgroundColor3 = Color3.new(1, 1, 1)
-			button.BackgroundTransparency = 0
-			local gloss = Instance.new("UIGradient")
-			gloss.Rotation = 90
-			gloss.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, spec.color:Lerp(Color3.new(1, 1, 1), BAR_GLOSS_TOP)),
-				ColorSequenceKeypoint.new(0.5, spec.color),
-				ColorSequenceKeypoint.new(1, spec.color:Lerp(Color3.new(0, 0, 0), BAR_GLOSS_FOOT)),
-			})
-			gloss.Parent = button
-
-			-- The trefoils, in a CanvasGroup so they clip to the bar's rounded corners
-			-- (ClipsDescendants clips to the square). The tiled picture is one tile bigger
-			-- than the bar each way, so sliding it a tile never shows its edge.
-			local clip = Instance.new("CanvasGroup")
-			clip.Name = "Pattern"
-			clip.Size = UDim2.fromScale(1, 1)
-			clip.BackgroundTransparency = 1
-			clip.ZIndex = 5
-			local clipCorner = Instance.new("UICorner")
-			clipCorner.CornerRadius = UDim.new(0, BAR_CORNER)
-			clipCorner.Parent = clip
-			clip.Parent = button
-			local pattern = Instance.new("ImageLabel")
-			pattern.Name = "Trefoils"
-			pattern.BackgroundTransparency = 1
-			pattern.Image = Artwork.IMAGE.trefoilTile
-			pattern.ImageColor3 = Color3.new(0, 0, 0)
-			pattern.ImageTransparency = BAR_PATTERN_TRANSPARENCY
-			pattern.ScaleType = Enum.ScaleType.Tile
-			pattern.TileSize = UDim2.fromOffset(BAR_PATTERN_TILE, BAR_PATTERN_TILE)
-			pattern.Size = UDim2.new(1, BAR_PATTERN_TILE, 1, BAR_PATTERN_TILE)
-			pattern.Parent = clip
-			TweenService:Create(
-				pattern,
-				TweenInfo.new(BAR_PATTERN_LOOP, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1),
-				{ Position = UDim2.fromOffset(-BAR_PATTERN_TILE, -BAR_PATTERN_TILE) }
-			):Play()
-
-			local iconCentre = 6 + BAR_ICON / 2
-
-			icon = Artwork.picture(button, "Icon", spec.image, BAR_ICON, Color3.new(1, 1, 1))
-			icon.AnchorPoint = Vector2.new(0.5, 0.5)
-			icon.Position = UDim2.new(0, iconCentre, 0.5, spec.iconDrop or 0)
-			icon.ZIndex = 6
-
-			UIKit.hudNumber(button, {
-				name = "Caption",
-				anchorPoint = Vector2.new(0, 0.5),
-				position = UDim2.new(0, BAR_TEXT_LEFT, 0.5, -1),
-				size = UDim2.new(1, -BAR_TEXT_LEFT - 6, 0, (spec.captionSize or BAR_TEXT_SIZE) + 4),
-				text = spec.caption,
-				font = Enum.Font.GothamBlack,
-				textSize = spec.captionSize or BAR_TEXT_SIZE,
-				color = Color3.new(1, 1, 1),
-				xAlign = Enum.TextXAlignment.Left,
-				zIndex = 8,
-			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
-		end
+		UIKit.hudNumber(button, {
+			name = "Caption",
+			anchorPoint = Vector2.new(0.5, 1),
+			position = UDim2.new(0.5, 0, 1, 1),
+			size = UDim2.new(1, 12, 0, (spec.captionSize or GRID_TEXT_SIZE) + 4),
+			text = spec.caption,
+			font = Enum.Font.GothamBlack,
+			textSize = spec.captionSize or GRID_TEXT_SIZE,
+			color = Color3.new(1, 1, 1),
+			xAlign = Enum.TextXAlignment.Center,
+			zIndex = 8,
+		}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
 	else
-		if spec.position then
-			button.Position = spec.position
-		else
-			local function place()
-				local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-				button.Position = Dock.sideTileCentre(spec.slot, height)
-			end
-			canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-			place()
-		end
+		button.Position = spec.position :: UDim2
 
-		-- The glow (corner buttons only) and the picture, both on the tile's centre.
-		if not candy then
-			glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
-			glow.AnchorPoint = Vector2.new(0.5, 0.5)
-			glow.Position = UDim2.fromScale(0.5, 0.5)
-			glow.ImageTransparency = GLOW_TRANSPARENCY
-			glow.ZIndex = 5
-		end
+		-- The glow and the picture, both on the tile's centre.
+		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
+		glow.AnchorPoint = Vector2.new(0.5, 0.5)
+		glow.Position = UDim2.fromScale(0.5, 0.5)
+		glow.ImageTransparency = GLOW_TRANSPARENCY
+		glow.ZIndex = 5
 
 		icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -339,9 +267,9 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		local target = if pressed then PRESS_SCALE elseif hovered then HOVER_SCALE else 1
 		TweenService:Create(scale, TWEEN, { Scale = target }):Play()
 		TweenService:Create(edge, TWEEN, {
-			Transparency = if bar or candy then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
+			Transparency = if grid then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
 		}):Play()
-		-- The bright bars and candy tiles have no glow.
+		-- The grid tiles have no glow.
 		if glow then
 			TweenService:Create(glow, TWEEN, {
 				ImageTransparency = if hovered then GLOW_TRANSPARENCY_HOVER else GLOW_TRANSPARENCY,
