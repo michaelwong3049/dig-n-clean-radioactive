@@ -212,6 +212,9 @@ local function linesFor(gift: any): { { text: string, color: Color3 } }
 	if gift.speed > 0 then
 		table.insert(top, `+{shortCount(gift.speed)} Speed`)
 	end
+	if (gift.speedLevels or 0) > 0 then
+		table.insert(top, `+{gift.speedLevels} Walk`)
+	end
 	if #top > 0 then
 		table.insert(out, { text = table.concat(top, "  "), color = if gift.cash > 0 then PANEL.cash else PANEL.speed })
 	end
