@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 31
+local BUILDER_VERSION = 32
 
 local C = Kit.C
 local build = Kit.build
@@ -112,10 +112,10 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 ---             and the Camp -> Stage 1 border strip. This IS PLAZA_DARK/PLAZA_LIGHT (the
 ---             Stage-1-tinted green), so the ground meets Stage 1's own west edge with no
 ---             seam at all.
----   PATH   -- the plaza rectangle and the gate paths out to each pad: a warm
----             cream, ~6% apart so the checker reads.
----   PAVERS -- the shop cluster (SHOP_ZONE): warm tan pavers, edged by a one-tile darker
----             KERB so the square reads as paved rather than painted. Pale cool stone
+---   PATH   -- the plaza rectangle and the gate paths out to each pad: a mid grey
+---             (was a warm cream), ~6% apart so the checker reads.
+---   PAVERS -- the shop cluster (SHOP_ZONE): lighter grey pavers (were warm tan), edged by
+---             a half-tile darker KERB so the square reads as paved rather than painted. Pale cool stone
 ---             (AEB6BD/BFC6CC) came first and read near-white from ground level: glare,
 ---             and the stalls' grey lumber (Kit.C.shopWood) melted into it. The fix is
 ---             hue, not just value -- cool grey stalls on a warm floor. A darker slate
@@ -125,17 +125,20 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 --- Same studded board, same grid, same height everywhere -- only the palette changes
 --- zone to zone, so footing is unchanged.
 ---
---- GREY PATH AND KERB, on request (2026-10-03, with the square base layout): the path was
---- a warm cream (DCCBA3/EADCBA) and the kerb a darker sand (9C7A52/A6835B). The path is a
---- light grey now -- a step lighter than the pads' own deck grey (Kit.C.baseFloor
---- A7ABB0), so walking onto a base still reads -- and the kerb round the shop pavers a
---- slightly darker grey.
-local PATH_DARK = "BEC2C6"
-local PATH_LIGHT = "CACED1"
-local PAVER_DARK = "C9A37A"
-local PAVER_LIGHT = "D4B088"
-local KERB_DARK = "8E9297"
-local KERB_LIGHT = "999DA2"
+--- ALL GREY NOW, on request (2026-10-03, with the square base layout). The path was a
+--- warm cream (DCCBA3/EADCBA), the pavers tan (C9A37A/D4B088) and the kerb a darker sand
+--- (9C7A52/A6835B); a light grey path came first and was asked darker. Now: the path a
+--- mid grey, a step DARKER than the pads' deck (Kit.C.baseFloor A7ABB0) so walking onto a
+--- base still reads; the shop pavers a lighter grey than the path so the square still
+--- reads as its own floor; the kerb the darkest, and half a tile wide (buildShopKerb).
+--- Every pair is dark = 0.877 x light (Kit's twoTone ratio), so the whole cells lay as
+--- merged slabs on the shared StudChecker material instead of a part per tile.
+local PATH_DARK = "878C92"
+local PATH_LIGHT = "9AA0A6"
+local PAVER_DARK = "989CA1"
+local PAVER_LIGHT = "ADB2B7"
+local KERB_DARK = "62676C"
+local KERB_LIGHT = "70757B"
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
 --- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's snapped
@@ -220,10 +223,11 @@ Hub.PLAZA_LIFT = 0.15
 local GATE_RECTS = {
 	{ minX = 27, maxX = 43, minZ = -82, maxZ = -70 }, -- Plot1 (x 34): south edge, east pad
 	{ minX = -49, maxX = -33, minZ = -82, maxZ = -70 }, -- Plot2 (x -42): south edge, west pad
-	-- Plots 3 and 4 (z -/+38): the whole apron in front of the west pair is floor, out to
-	-- and under their fronts at x = -95 (on request, "fill in the path" rather than two long
-	-- strips), as wide as the pair (+/-71, rounded out to the tile line at +/-74).
-	{ minX = -105, maxX = -49, minZ = -74, maxZ = 74 },
+	-- Plots 3 and 4 (z -/+38): one path each out to and under their fronts at x = -95,
+	-- 32 wide (twice the others), grass between the two. On request: a single filled
+	-- square came first and was "too much", two 16-wide strips before that too thin.
+	{ minX = -105, maxX = -49, minZ = -54, maxZ = -22 },
+	{ minX = -105, maxX = -49, minZ = 22, maxZ = 54 },
 	{ minX = -49, maxX = -33, minZ = 70, maxZ = 82 }, -- Plot5 (x -42): north edge, west pad
 	{ minX = 27, maxX = 43, minZ = 70, maxZ = 82 }, -- Plot6 (x 34): north edge, east pad
 }
@@ -365,9 +369,9 @@ function Hub.groundPairAt(x: number, z: number): (string, string, number)
 	end
 	if not Hub.inShopFloor(cx, cz) then
 		return PATH_DARK, PATH_LIGHT, Hub.PLAZA_LIFT
-	elseif inShopKerb(cx, cz) then
-		return KERB_DARK, KERB_LIGHT, Hub.PLAZA_LIFT
 	end
+	-- The kerb ring is laid separately at half a tile (buildShopKerb); buildPlaza skips
+	-- those cells, so any other caller sees them as pavers.
 	return PAVER_DARK, PAVER_LIGHT, Hub.PLAZA_LIFT
 end
 
@@ -834,6 +838,64 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	return built
 end
 
+--- THE SHOP KERB, HALF A TILE WIDE, on request ("make the border 0.5 the width"). The
+--- kerb is the outermost ring of shop-floor cells (inShopKerb); buildPlaza leaves those
+--- cells out of its tileRect pass and this lays each one as the 2-stud kerb band(s) on its
+--- outward side(s) plus paver for the rest of the cell, flush with the board. Each piece
+--- takes its cell's checker parity, so the kerb still alternates along the ring and the
+--- pavers stay in register with their neighbours.
+local function buildShopKerb(parent: Instance)
+	local p, t = Hub.PLAZA, Hub.TILE_SIZE
+	local band = t / 2
+	local top = p.topY + Hub.PLAZA_LIFT
+	local function piece(x0: number, x1: number, z0: number, z1: number, color: string)
+		if x1 - x0 < 1e-3 or z1 - z0 < 1e-3 then
+			return
+		end
+		local part = build(parent, CFrame.new(0, 0, 0), {
+			name = "Kerb",
+			pos = { (x0 + x1) / 2, top - CAP / 2, (z0 + z1) / 2 },
+			size = { x1 - x0, CAP, z1 - z0 },
+			color = color,
+			material = "Plastic",
+		})
+		part.CastShadow = false
+	end
+	local ixMax = math.floor((p.maxX - p.minX) / t) - 1
+	local izMax = math.floor((p.maxZ - p.minZ) / t) - 1
+	for ix = 0, ixMax do
+		for iz = 0, izMax do
+			local cx, cz = p.minX + (ix + 0.5) * t, p.minZ + (iz + 0.5) * t
+			if not (Hub.inShopFloor(cx, cz) and inShopKerb(cx, cz)) then
+				continue
+			end
+			local isDark = (ix + iz) % 2 == 0
+			local kerb = if isDark then KERB_DARK else KERB_LIGHT
+			local paver = if isDark then PAVER_DARK else PAVER_LIGHT
+			local x0, x1, z0, z1 = cx - t / 2, cx + t / 2, cz - t / 2, cz + t / 2
+			-- Kerb bands along the outward X sides take the full cell depth...
+			if not Hub.inShopFloor(cx - t, cz) then
+				piece(x0, x0 + band, z0, z1, kerb)
+				x0 += band
+			end
+			if not Hub.inShopFloor(cx + t, cz) then
+				piece(x1 - band, x1, z0, z1, kerb)
+				x1 -= band
+			end
+			-- ...the outward Z sides what is left of its width, and the rest is paver.
+			if not Hub.inShopFloor(cx, cz - t) then
+				piece(x0, x1, z0, z0 + band, kerb)
+				z0 += band
+			end
+			if not Hub.inShopFloor(cx, cz + t) then
+				piece(x0, x1, z1 - band, z1, kerb)
+				z1 -= band
+			end
+			piece(x0, x1, z0, z1, paver)
+		end
+	end
+end
+
 local function buildPlaza(hub: Model)
 	local p = Hub.PLAZA
 
@@ -852,7 +914,14 @@ local function buildPlaza(hub: Model)
 	-- each other), so there is one tile per square and the checker parity carries
 	-- straight through every zone edge. Plots.buildApron makes the identical call over
 	-- the apron disc, so the grass runs unbroken across the plaza/apron seam.
-	Hub.tileRect(tiles, p, { ground = true })
+	Hub.tileRect(tiles, p, {
+		ground = true,
+		skip = function(x: number, z: number): boolean
+			local cx, cz = cellCentre(x, z)
+			return Hub.inShopFloor(cx, cz) and inShopKerb(cx, cz)
+		end,
+	})
+	buildShopKerb(tiles)
 	tiles.Parent = hub
 
 	-- NO RIM ON ANY SIDE ANY MORE. Three cream strips used to run along the north,
