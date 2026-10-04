@@ -58,16 +58,15 @@ end
 -- listing's decal on the server (`InsertService:LoadAsset(decalId)`) and copy its
 -- Decal.Texture here.
 Artwork.IMAGE = {
-	-- The four right-edge tiles (HudTile). Drawn for this game as full-colour cartoon
-	-- symbols with a dark outline, the left column's coin/heart family, and uploaded as
-	-- 256px PNGs. Picked from a mockup round (I6, S7, N4, W2). The SVG sources are in
-	-- tools/hud-icons: edit one, re-render it transparent at 256px, upload, and paste
-	-- the new id here. Full colour, so a caller leaves ImageColor3 white.
-	cards = "rbxassetid://79446288774542", -- Index: fanned rarity cards with a star
-	chest = "rbxassetid://137692103278879", -- Shop: open treasure chest of coins
-	nuke = "rbxassetid://87934061393163", -- Nukes: green finned bomb with a trefoil
-	portal = "rbxassetid://103055311931232", -- Warp: violet-to-cyan portal swirl
-	detector = "rbxassetid://82765642714145", -- Gear: metal detector, red coil
+	-- The left-edge button grid (HudTile): glossy 3D cartoon pictures the user made with an
+	-- AI image tool (2026-10-03), cut out of their white backgrounds and uploaded as 256px
+	-- PNGs. Sources in tools/hud-icons/ai. Full colour, so a caller leaves ImageColor3 white.
+	cards = "rbxassetid://116610662603362", -- Index: fanned cards, a white star on the gold one
+	chest = "rbxassetid://84040096771363", -- Shop: pink shopping basket, blue handle
+	nuke = "rbxassetid://111508823006778", -- Nukes: green finned bomb with a trefoil
+	portal = "rbxassetid://75514448109874", -- Warp: stone ring round a blue-violet vortex
+	detector = "rbxassetid://110438827801253", -- Gear: metal detector, red coil
+	giftBox = "rbxassetid://107608600195476", -- Gifts: gold gift box, red ribbon and bow
 	gift = "rbxassetid://131150228950941", -- Daily rewards: pink gift box, gold bow (daily_gift.svg)
 	-- The Settings button (SettingsController), top-right corner: a steel cog with a
 	-- dark steel hub (no green, on request). tools/hud-icons/settings_gear.svg.
