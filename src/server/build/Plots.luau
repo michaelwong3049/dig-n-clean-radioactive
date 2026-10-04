@@ -438,6 +438,15 @@ local function apronSkip(x: number, z: number): boolean
 	then
 		return true -- safely inside the plaza's own floor, well past its edge tiles
 	end
+	-- The shop square reaches the plaza's west edge (x = -49, a tile line, so no seam):
+	-- the plaza lays those cells itself as pavers and half-width kerb, and a doubled
+	-- full paver here would poke up through the kerb band.
+	if x > PLAZA.minX and x < PLAZA.maxX and z > PLAZA.minZ and z < PLAZA.maxZ then
+		local cx, cz = Hub.cellCentre(x, z)
+		if Hub.inShopFloor(cx, cz) then
+			return true
+		end
+	end
 	for _, c in Plots.CENTERS do
 		if Kit.pointInOrientedRect(x, z, padRect(c, PAD_SKIP_INSET)) then
 			return true
