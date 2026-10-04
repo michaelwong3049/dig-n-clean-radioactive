@@ -27,8 +27,8 @@ local Sfx = require(script.Parent.Parent.Sfx)
 
 local PotionController = {}
 
--- The top-right corner row: Settings (1), Daily (2), Potions (3); chips from 4 on.
-local CORNER_INDEX = 3
+-- The top-right corner row: Daily (1), Potions (2); chips from 3 on.
+local CORNER_INDEX = 2
 local TILE_COLOR = Color3.fromRGB(168, 75, 240)
 local TILE_LIGHT = Color3.fromRGB(227, 166, 255)
 

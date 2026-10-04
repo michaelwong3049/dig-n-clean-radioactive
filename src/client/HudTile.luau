@@ -97,6 +97,9 @@ export type Spec = {
 	-- 1 = Settings, 2 = Daily, 3 = Potions), re-placed when the scale changes. `slot`
 	-- is then unused.
 	corner: number?,
+	-- Optional: the top LEFT instead, right after Roblox's own topbar buttons
+	-- (Dock.topbarLeftCentre) -- the Settings gear. `slot` is then unused.
+	topbarLeft: boolean?,
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
 	-- Optional: no box at all, on request — just the picture, big, with the caption
@@ -134,7 +137,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local canvas = UIKit.canvas(gui)
 
 	local bare = spec.bare == true
-	local grid = not bare and spec.position == nil and spec.corner == nil
+	local grid = not bare and spec.position == nil and spec.corner == nil and not spec.topbarLeft
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
 		size = if grid then UDim2.fromOffset(GRID_SIZE, GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
@@ -238,7 +241,11 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
 	else
 		local corner = spec.corner
-		if corner then
+		if spec.topbarLeft then
+			Dock.onTopbarChanged(function()
+				button.Position = Dock.topbarLeftCentre()
+			end)
+		elseif corner then
 			UIKit.onScaleChanged(function()
 				button.Position = Dock.cornerButtonCentre(corner)
 			end)

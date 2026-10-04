@@ -32,6 +32,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
@@ -702,8 +703,8 @@ Dock.SIDE_GRID_DROP = 28
 Dock.SIDE_SOLO_SHIFT = 14
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
--- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Settings, Daily rewards to
--- its left, Potions left of that. Measured from the SCREEN top (their guis ignore the
+-- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Daily rewards, Potions to
+-- its left. (Settings moved to the top LEFT, beside Roblox's own buttons: topbarLeftCentre.) Measured from the SCREEN top (their guis ignore the
 -- topbar inset). WAY SMALLER, on request (2026-10-03): about the size of Roblox's own
 -- 44px topbar buttons and level with them (theirs run 12-56 screen px).
 Dock.CORNER_TILE_SIZE = 40
@@ -719,7 +720,7 @@ Dock.PLAYERLIST_CLEAR = 324
 -- The corner row's bottom edge, from the screen top.
 Dock.CORNER_BUTTON_BOTTOM = Dock.CORNER_TOP + Dock.CORNER_TILE_SIZE
 
---- The centre of corner button `index` (1 = Settings, 2 = Daily left of it, 3 = Potions),
+--- The centre of corner button `index` (1 = Daily, 2 = Potions left of it),
 --- on a canvas that ignores the topbar inset. Depends on the scale (the player list's
 --- clearance is in screen px), so re-read it from UIKit.onScaleChanged.
 function Dock.cornerButtonCentre(index: number): UDim2
@@ -727,6 +728,22 @@ function Dock.cornerButtonCentre(index: number): UDim2
 	local side = if UIKit.isTouch() then Dock.CORNER_SIDE else Dock.PLAYERLIST_CLEAR / UIKit.scale() + Dock.CORNER_GAP
 	local fromRight = side + half + (index - 1) * (Dock.CORNER_TILE_SIZE + Dock.CORNER_GAP)
 	return UDim2.new(1, -fromRight, 0, Dock.CORNER_TOP + half)
+end
+
+--- The Settings button's centre: in the topbar band on the LEFT, right after Roblox's
+--- own buttons (the menu, chat, the microphone), on request. GuiService.TopbarInset
+--- starts where those end (screen px, so divided by the scale); it moves when Roblox
+--- adds or drops a button, so re-read it on its change signal (Dock.onTopbarChanged).
+function Dock.topbarLeftCentre(): UDim2
+	local half = Dock.CORNER_TILE_SIZE / 2
+	local left = GuiService.TopbarInset.Min.X / UIKit.scale()
+	return UDim2.fromOffset(left + Dock.CORNER_GAP + half, Dock.CORNER_TOP + half)
+end
+
+--- Call `listener` now and whenever the scale or Roblox's topbar buttons change.
+function Dock.onTopbarChanged(listener: () -> ())
+	UIKit.onScaleChanged(listener)
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(listener)
 end
 
 --- The right-hand tile grid's TOP edge, in design px from the vertical centre of a
