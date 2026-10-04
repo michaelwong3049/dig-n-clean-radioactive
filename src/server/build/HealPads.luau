@@ -48,16 +48,17 @@ local HealPads = {}
 HealPads.MODEL_NAME = "HealPads"
 
 local BUILDER_SOURCE = "src/server/build/HealPads.luau"
-local BUILDER_VERSION = 8
+local BUILDER_VERSION = 9
 
 local SCALE = 0.8 -- the whole badge; 1 reached ~12 studs to a tooth tip, 0.8 ~9.4
--- x 5.5 = PLAZA_MID, between each row's two stalls. z 61 splits the gap between the stall
--- backs (44) and the bases' front strips (78), so the ~9.4-stud teeth clear both.
+-- x 5.5 = PLAZA_MID, between each row's two booths. z 55 splits the gap between the shop
+-- square's kerb (38) and the bases' fronts (72), so the ~9.4-stud teeth clear both
+-- (2026-10-04, with the compact booths; was 61).
 local PAD_X = 5.5
-local PAD_Z = 61
+local PAD_Z = 55
 local PADS = {
-	{ name = "HealPadSouth", z = -PAD_Z, yaw = 180 }, -- behind the Outfitter (Aura) + Hose Shop row
-	{ name = "HealPadNorth", z = PAD_Z, yaw = 0 }, -- behind the Magnet + Detector row
+	{ name = "HealPadSouth", z = -PAD_Z, yaw = 180 }, -- behind the Aura booth + Trader row
+	{ name = "HealPadNorth", z = PAD_Z, yaw = 0 }, -- behind the Magnet + Detector booths
 }
 
 local C = {

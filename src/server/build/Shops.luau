@@ -4,6 +4,14 @@
 
 	    require(game.ServerScriptService.Server.build.Shops).rebuild()
 
+	BASE CAMP IS BOOTHS NOW (2026-10-04, on request): Detector, Magnet and Aura are small
+	booths round the middle of a compact square -- just the stand and its sign, whose E
+	opens the shop panel, no tier rack or mannequins -- with the Trader in the fourth
+	corner and the group chest in the middle. See BOOTHS / buildBooth. Hoses are not sold
+	here at all any more (Plots.setHoseSign, at each base's wash bay). Everything below
+	about racks, wings and the Outfitter's mannequin row now describes the site camps'
+	stalls (CampSite builds them from STALLS / buildCampStall / buildCampOutfitter).
+
 	THREE STALLS ON THE PLAZA, one per tool you hold: the detector that finds it, the
 	magnet that pulls it, and the hose that washes it. Each is a different colour
 	and keeps that colour forever. A young player learns "the coral one is the
@@ -195,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 62
+local BUILDER_VERSION = 63
 
 local C = Kit.C
 local build = Kit.build
@@ -1915,6 +1923,81 @@ local function buildStall(parent: Instance, spec: StallSpec, originOverride: CFr
 	return m
 end
 
+-- ── The Base Camp booths ─────────────────────────────────────────────────────────
+
+--- BASE CAMP'S SHOPS ARE BOOTHS NOW, NOT RACKED STALLS (2026-10-04, on request: "remove
+--- the extended displays in main camp only, and only access to the shop gui"). Each one is
+--- a plaza stall cut down to its stand: the same StallFloor, studded posts, steel-plate
+--- roof and sign in the shop's colour, its trade props (ShopThemes), and the Stand and
+--- StandBack desks either side of a full-width spine, whose E opens the shop panel. No
+--- tier rack, no Aura mannequins, no RackZone. The site camps (CampSite) keep their full
+--- racked stalls -- STALLS above is still their template.
+---
+--- Four corners round PLAZA_MID, mirror-symmetric: Magnet NW, Detector NE, the Aura shop
+--- SW, and the Trader (BaseCamp.buildHubTrader, at BOOTH_TRADER_AT) in the SE corner the
+--- Hose Shop stood in until the hoses moved to each base's wash bay (Plots.setHoseSign).
+--- The group chest stands in the middle (Config/GroupReward.CHEST_POSITION). Move a booth
+--- here, move Hub's SHOP_ZONE with it.
+local BOOTH_WIDTH = STAND_WIDTH + 2 * STAND_EDGE + 2
+local BOOTH_DX = 15 -- east/west of PLAZA_MID
+local BOOTH_ROW_Z = 20 -- each row's build origin; its island centre is 4 further out
+local BOOTHS = {
+	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
+	{ track = "Detector", at = { PLAZA_MID.x + BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop" },
+	{ track = "Aura", at = { PLAZA_MID.x - BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = C.shopOutfitter, label = "Aura Shop" },
+}
+
+--- Where BaseCamp stands its four-sided Trader kiosk: the SE corner, on the south row's
+--- island centre line. Read by BaseCamp.buildShell.
+Shops.TRADER_AT = { x = PLAZA_MID.x + BOOTH_DX, z = -BOOTH_ROW_Z + ISLAND_Z }
+
+local function buildBooth(parent: Instance, spec: { track: string, at: { number }, faceYaw: number, color: string, label: string })
+	local m = Instance.new("Model")
+	m.Name = `{spec.track}Shop`
+	local origin = facingOrigin(spec.at[1], spec.at[2], spec.faceYaw)
+	local width = BOOTH_WIDTH
+
+	build(m, origin, {
+		name = "StallFloor",
+		pos = { 0, 0.05, -4 },
+		size = { width, 0.1, 12 },
+		color = C.steelDark,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	buildStorefrontPosts(m, origin, width)
+	buildSpine(m, origin, -width / 2 + 0.1, width / 2 - 0.1)
+
+	-- The stand, front and back, exactly a plaza stall's: see buildStall.
+	for _, side in { { name = "Stand", frame = origin }, { name = "StandBack", frame = backFrame(origin, 0) } } do
+		buildCounter(m, side.frame, {
+			name = side.name,
+			color = C.steel,
+			width = STAND_WIDTH,
+			depth = 2.5,
+			z = SHOPFRONT_Z,
+			stationKind = "shop",
+			stationId = spec.track,
+			radius = STAND_RADIUS,
+			promptText = spec.label,
+			material = "Plastic",
+			studded = true,
+		})
+	end
+
+	buildPlateRoof(m, origin, spec.color, width)
+	buildRoofTop(m, origin, width, spec.color, spec.label)
+	ShopThemes.dressStall(m, origin, spec.track, width, 0)
+
+	for _, z in { 3.4, mirrorZ(3.4) } do
+		buildFloorMarker(m, origin, 0, z, STAND_WIDTH + 3, 5, spec.color)
+	end
+
+	m.Parent = parent
+	return m
+end
+
 --- A shop's footprint on the plaza, as an oriented rectangle. `backZ`/`frontZ` are
 --- the extremes of everything the builder lays down, in the shop's own local z.
 local function shopFootprint(x: number, z: number, width: number, backZ: number, frontZ: number, faceYaw: number?): Kit.OrientedRect
@@ -1948,20 +2031,20 @@ end
 local function assertNoShopOverlap()
 	local rects: { { name: string, rect: Kit.OrientedRect } } = {}
 
-	for _, spec in STALLS do
-		local x, z = stallAt(spec)
+	for _, spec in BOOTHS do
 		-- +5.9 is the front floor marker's outer edge (centre 3.4, depth 5) and -13.9
 		-- the back one's (mirrored about ISLAND_Z) — the two extremes of everything
-		-- buildStall lays down now the stall is open on both sides.
+		-- buildBooth lays down, open on both sides.
 		table.insert(rects, {
-			name = `{spec.track} stall`,
-			rect = shopFootprint(x, z, stallWidth(#stallTiers(spec), stallPitch(spec)), mirrorZ(5.9), 5.9, spec.faceYaw),
+			name = `{spec.track} booth`,
+			rect = shopFootprint(spec.at[1], spec.at[2], BOOTH_WIDTH, mirrorZ(5.9), 5.9, spec.faceYaw),
 		})
 	end
 
+	-- The Trader's yellow ground square (BaseCamp's HUB_TRADER_OUTLINE_HALF, 11).
 	table.insert(rects, {
-		name = "Outfitter",
-		rect = shopFootprint(OUTFITTER.at[1], OUTFITTER.at[2], outfitterWidth(nil), mirrorZ(5.9), 5.9, OUTFITTER.faceYaw),
+		name = "Trader",
+		rect = { cx = Shops.TRADER_AT.x, cz = Shops.TRADER_AT.z, halfWidth = 11, halfDepth = 11, yawDeg = 0 },
 	})
 
 	for i = 1, #rects do
@@ -2123,10 +2206,6 @@ local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, 
 	return m
 end
 
-local function buildOutfitter(parent: Instance)
-	buildOutfitterAt(parent, "Outfitter", facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], OUTFITTER.faceYaw), nil)
-end
-
 -- ── The empty stall ───────────────────────────────────────────────────────────
 
 --- A plaza stall's SHELL with nothing for sale: the same StallFloor, studded posts,
@@ -2235,10 +2314,9 @@ local function createShops(): Model
 	-- every time, not once.
 	assertNoShopOverlap()
 
-	for _, spec in STALLS do
-		buildStall(shops, spec)
+	for _, spec in BOOTHS do
+		buildBooth(shops, spec)
 	end
-	buildOutfitter(shops)
 
 	-- SELF-CONSISTENCY, NOT GLOBAL COVERAGE, and that distinction is new. This used to
 	-- assert every entry in Gear.TRACKS had a counter here — correct while this file
@@ -2247,8 +2325,8 @@ local function createShops(): Model
 	-- next rebuild, which is exactly what a good assert does; it was just asking a
 	-- question this file can no longer answer.
 	--
-	-- So it now checks only what this file DECLARES: every track named in STALLS or
-	-- OUTFITTER.counters actually got a counter built with that StationId. That
+	-- So it now checks only what this file DECLARES: every track named in BOOTHS
+	-- actually got a counter built with that StationId. That
 	-- catches the real local failure (a typo'd track name, a counter that silently
 	-- did not build) without claiming to know about selling points it did not make.
 	--
@@ -2262,14 +2340,8 @@ local function createShops(): Model
 		end
 	end
 
-	local declared: { string } = {}
-	for _, spec in STALLS do
-		table.insert(declared, spec.track)
-	end
-	for _, counter in OUTFITTER.counters do
-		table.insert(declared, counter.track)
-	end
-	for _, track in declared do
+	for _, spec in BOOTHS do
+		local track = spec.track
 		assert(covered[track], `{track} is listed in this file but no counter was built for it`)
 	end
 
@@ -2284,7 +2356,7 @@ end
 
 function Shops.rebuild(parent: Instance?): Model
 	local shops = Kit.swap(Shops.MODEL_NAME, createShops, parent) :: Model
-	print(`[build] Shops rebuilt — {#shops:GetChildren()} storefronts, {#STALLS} stalls + {#OUTFITTER.counters} outfitter counters`)
+	print(`[build] Shops rebuilt — {#shops:GetChildren()} storefronts, {#BOOTHS} booths`)
 	return shops
 end
 
