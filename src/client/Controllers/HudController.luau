@@ -77,7 +77,7 @@ local STYLE = {
 	-- DetonationController), because white belongs to aura failure alone.
 	crater = Color3.fromHex("A6FF3E"),
 	text = Color3.new(1, 1, 1),
-	font = Enum.Font.FredokaOne,
+	font = UIKit.House.font,
 }
 
 -- Vitals-local design px. The frame is Dock.VITALS_WIDTH wide (less on a narrow

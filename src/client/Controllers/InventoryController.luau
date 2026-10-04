@@ -70,9 +70,15 @@ local Dock = UIKit.Dock
 
 local Inventory = {}
 
--- Same fields UIKit.C already carries, aliased so every COLOR.xxx read below keeps
--- working unchanged.
-local COLOR = UIKit.C
+-- UIKit.C's fields with the house slate (UIKit.House) in place of its olive panel
+-- greens, so the hotbar and bag panel match the other panels.
+local House = UIKit.House
+local COLOR = table.clone(UIKit.C)
+COLOR.panel = House.panel
+COLOR.empty = House.card
+COLOR.stroke = House.ink
+COLOR.text = House.white
+COLOR.dim = House.dim
 
 -- Slots shrink as the row fills so ten slots plus the bag tile fit one row. Below the
 -- floor the name is unreadable anyway, so the row is allowed to run wider instead.
@@ -298,7 +304,7 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		name = "Key",
 		position = UDim2.fromOffset(7, 4),
 		size = UDim2.fromOffset(18, 16),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 12,
 		color = Color3.fromHex("BBC5D0"),
 		strokeTransparency = 1,
@@ -324,7 +330,7 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		anchorPoint = Vector2.new(0.5, 1),
 		position = UDim2.new(0.5, 0, 1, -15),
 		size = UDim2.new(1, -8, 0, 14),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 12,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
@@ -344,7 +350,7 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		anchorPoint = Vector2.new(1, 1),
 		position = UDim2.new(1, -5, 1, -3),
 		size = UDim2.new(1, -10, 0, 14),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 12,
 		color = KG_GOLD,
 		shadow = false,
@@ -378,7 +384,7 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.fromScale(0.5, 0.5),
 		size = UDim2.new(1, 0, 0, 20),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 16,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
@@ -444,7 +450,7 @@ local function buildBagTile(row: Frame)
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.fromScale(0.5, 0.5),
 		size = UDim2.new(1, -6, 0, 16),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 14,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
@@ -457,7 +463,7 @@ local function buildBagTile(row: Frame)
 		anchorPoint = Vector2.new(0.5, 1),
 		position = UDim2.new(0.5, 0, 1, -5),
 		size = UDim2.new(1, -6, 0, 14),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 12,
 		color = COLOR.amber,
 		xAlign = Enum.TextXAlignment.Center,
@@ -483,7 +489,7 @@ local function buildDropButton(canvas: Frame)
 		anchorPoint = Vector2.new(0, 0.5),
 		size = UDim2.fromOffset(DROP_WIDTH, DROP_HEIGHT),
 		text = "Drop Nuke",
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 22,
 		color = COLOR.text,
 		fillColor = COLOR.red,
@@ -513,7 +519,7 @@ local function buildDropButton(canvas: Frame)
 	UIKit.label(cap, {
 		name = "Key",
 		size = UDim2.fromScale(1, 1),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 13,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
@@ -568,7 +574,7 @@ local function buildNotice(canvas: Frame)
 	local text = UIKit.label(pill, {
 		name = "Text",
 		size = UDim2.fromScale(0, 1),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 22,
 		color = COLOR.red,
 		xAlign = Enum.TextXAlignment.Center,
@@ -665,7 +671,7 @@ local function sectionCaption(parent: Instance, name: string, text: string, y: n
 		name = name,
 		position = UDim2.fromOffset(BAG_PAD, y),
 		size = UDim2.new(1, -2 * BAG_PAD, 0, BAG_CAPTION - 4),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 12,
 		color = COLOR.dim,
 		strokeTransparency = 1,
@@ -704,7 +710,7 @@ local function buildBag(): ScreenGui
 		name = "Title",
 		position = UDim2.fromOffset(BAG_PAD, 0),
 		size = UDim2.fromOffset(80, BAG_HEADER),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = UIKit.TextSize.header,
 		text = "Bag",
 	})
@@ -712,7 +718,7 @@ local function buildBag(): ScreenGui
 		name = "Count",
 		position = UDim2.fromOffset(BAG_PAD + 70, 0),
 		size = UDim2.fromOffset(160, BAG_HEADER),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 16,
 		color = COLOR.dim,
 		outline = false,
@@ -726,7 +732,7 @@ local function buildBag(): ScreenGui
 		position = UDim2.new(1, -BAG_PAD + 4, 0, BAG_HEADER / 2),
 		size = UDim2.fromOffset(34, 34),
 		text = "X",
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = UIKit.TextSize.header,
 		color = COLOR.text,
 		fillColor = COLOR.empty,
@@ -821,7 +827,7 @@ local function buildBombCard(): ScreenGui
 		name = "Title",
 		position = UDim2.fromOffset(CARD_PAD, 8),
 		size = UDim2.new(1, -2 * CARD_PAD, 0, 20),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 16,
 		shadow = false,
 	})
@@ -830,7 +836,7 @@ local function buildBombCard(): ScreenGui
 		name = "Stars",
 		position = UDim2.fromOffset(CARD_PAD, 28),
 		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 15,
 		color = STAR_GOLD,
 		shadow = false,
@@ -843,7 +849,7 @@ local function buildBombCard(): ScreenGui
 			name = `{caption}Caption`,
 			position = UDim2.fromOffset(CARD_PAD, y),
 			size = UDim2.new(0.5, -CARD_PAD, 0, CARD_ROW),
-			font = UIKit.Font.title,
+			font = House.font,
 			textSize = 13,
 			color = COLOR.dim,
 			outline = false,
@@ -855,7 +861,7 @@ local function buildBombCard(): ScreenGui
 			anchorPoint = Vector2.new(1, 0),
 			position = UDim2.new(1, -CARD_PAD, 0, y),
 			size = UDim2.new(0.5, -CARD_PAD, 0, CARD_ROW),
-			font = UIKit.Font.title,
+			font = House.font,
 			textSize = 14,
 			xAlign = Enum.TextXAlignment.Right,
 			shadow = false,
@@ -866,7 +872,7 @@ local function buildBombCard(): ScreenGui
 		name = "Footer",
 		position = UDim2.fromOffset(CARD_PAD, CARD_HEIGHT - 28),
 		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 13,
 		color = COLOR.amber,
 		xAlign = Enum.TextXAlignment.Center,
@@ -893,7 +899,7 @@ local function buildBombCard(): ScreenGui
 		name = "Title",
 		position = UDim2.fromOffset(0, 14),
 		size = UDim2.new(1, 0, 0, 30),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 26,
 		color = COLOR.red,
 		xAlign = Enum.TextXAlignment.Center,
@@ -904,7 +910,7 @@ local function buildBombCard(): ScreenGui
 		name = "ItemName",
 		position = UDim2.fromOffset(CARD_PAD, 50),
 		size = UDim2.new(1, -2 * CARD_PAD, 0, 22),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 19,
 		xAlign = Enum.TextXAlignment.Center,
 		shadow = false,
@@ -913,7 +919,7 @@ local function buildBombCard(): ScreenGui
 		name = "Stars",
 		position = UDim2.fromOffset(CARD_PAD, 73),
 		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 16,
 		color = STAR_GOLD,
 		xAlign = Enum.TextXAlignment.Center,
@@ -923,7 +929,7 @@ local function buildBombCard(): ScreenGui
 		name = "Warning",
 		position = UDim2.fromOffset(CARD_PAD, 96),
 		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 14,
 		color = COLOR.dim,
 		xAlign = Enum.TextXAlignment.Center,
@@ -939,7 +945,7 @@ local function buildBombCard(): ScreenGui
 			position = UDim2.new(x, 0, 1, -48),
 			size = UDim2.fromOffset(140, 42),
 			text = text,
-			font = UIKit.Font.title,
+			font = House.font,
 			textSize = 20,
 			color = COLOR.text,
 			fillColor = fill,
@@ -965,7 +971,7 @@ local function buildBombCard(): ScreenGui
 		position = UDim2.new(0.5, 0, 1, -12),
 		size = UDim2.fromOffset(200, 24),
 		text = "[  ]  Don't show again",
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 15,
 		color = COLOR.dim,
 		fillTransparency = 1,
@@ -1561,7 +1567,7 @@ local function buildRateTag(playerGui: Instance)
 	ui.rateTagStars = UIKit.label(tag, {
 		name = "Stars",
 		size = UDim2.new(1, 0, 0, 22),
-		font = UIKit.Font.title,
+		font = House.font,
 		textSize = 20,
 		color = STAR_GOLD,
 		xAlign = Enum.TextXAlignment.Center,
@@ -1571,7 +1577,7 @@ local function buildRateTag(playerGui: Instance)
 		name = "Rate",
 		position = UDim2.fromOffset(0, 22),
 		size = UDim2.new(1, 0, 0, 34),
-		font = UIKit.Font.hero,
+		font = House.font,
 		textSize = 26,
 		color = COLOR.green,
 		xAlign = Enum.TextXAlignment.Center,
