@@ -49,10 +49,10 @@ Kit.TREADMILL_TAG = "TreadmillUpgrade"
 --- LiquidService and the client's LiquidController find a plot's bottle by this tag
 --- (walking up to it opens the fluid panel).
 Kit.FLUID_TAG = "FluidSpin"
---- Anything with an `UpgradesBase` attribute: the Upgrade Base sign on every plot
---- (Plots.buildUpgradeSign). ExhibitService wires every one by this tag, for the same
---- "can never exist un-wired" reason.
-Kit.BASE_UPGRADE_TAG = "UpgradeBase"
+--- Anything with a `BuysFloor` attribute (the floor number it sells): the sign at the
+--- foot of the next flight of stairs on a base (Plots.buildFloorSign). ExhibitService
+--- wires every one by this tag, for the same "can never exist un-wired" reason.
+Kit.FLOOR_TAG = "BuyFloor"
 --- Anything a machine does on its own while you watch it: a pump's gauge needle, a
 --- fan in a treadmill cowl, the ripples on a tub.
 --- StationMotionController animates these client-side from the attributes `Kit.motion`
@@ -180,11 +180,12 @@ Kit.C = {
 	-- smooth no-stud plate (glinted in the sun), then charcoal studs.
 	-- `baseTileDark`/`Light` stay above for anything that still wants the old pair.
 	baseFloor = "A7ABB0",
-	-- The gallery walkways laid over that deck (Plots.buildGalleryLanes): the plaza
-	-- path's own cream (Hub's PATH_LIGHT), so the path you walk in on carries on through
-	-- the base, and a darker sand kerb edging each lane.
-	baseLane = "EADCBA",
-	baseLaneKerb = "C9B48C",
+	-- The paths inside a base: the gallery walkways laid over the deck
+	-- (Plots.buildGalleryLanes) and the front strip the washer and treadmill stand on
+	-- (Plots.buildFrontPath). Cream with a sand kerb until 2026-10-04, then black on
+	-- request, with a mid-grey kerb so each lane's edge still reads on the grey deck.
+	baseLane = "1F2226",
+	baseLaneKerb = "3A3F45",
 	-- The plot's back wall. WAS `plazaWarm` (a light cream) — dropped to a dark warm
 	-- taupe on request so the wall recedes behind the nameplate and the accent trim
 	-- instead of glowing pale over the whole base.
@@ -441,8 +442,8 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 	if p:GetAttribute("SpinsFluid") == true then
 		CollectionService:AddTag(p, Kit.FLUID_TAG)
 	end
-	if p:GetAttribute("UpgradesBase") == true then
-		CollectionService:AddTag(p, Kit.BASE_UPGRADE_TAG)
+	if p:GetAttribute("BuysFloor") ~= nil then
+		CollectionService:AddTag(p, Kit.FLOOR_TAG)
 	end
 
 	p.Parent = parent

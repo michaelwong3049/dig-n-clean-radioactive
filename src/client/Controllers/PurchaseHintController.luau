@@ -15,10 +15,10 @@
 	up, since that banner sits at the same height. Rows already up are kept while hidden
 	and come back with the bar; anything that became affordable meanwhile pops then.
 
-	THE NEXT BASE UPGRADE GETS A LINE TOO (on request): "You can afford a Base Upgrade"
-	once your cash covers the next Upgrade Base. Your plot is read off RespawnLocation
-	(its PlotSpawn carries PlotIndex) and its level off that plot's `BaseLevel`
-	attribute (build/Plots.setLevel).
+	THE NEXT BASE FLOOR GETS A LINE TOO (on request): "You can afford Floor 2" once
+	your cash covers the next floor your base is missing. Your plot is read off
+	RespawnLocation (its PlotSpawn carries PlotIndex) and the floors you own off that
+	plot's `Floors` attribute (build/Plots.setFloors).
 
 	READS CashState (the balance) and GearList (what you own). GearList only answers a
 	GearAction "list", so this asks once on start and again whenever cash goes DOWN —
@@ -34,7 +34,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Gear = require(Shared.Config.Gear)
-local BaseUpgrades = require(Shared.Config.BaseUpgrades)
+local Floors = require(Shared.Config.Floors)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
@@ -70,8 +70,8 @@ local TRACK_COLOR: { [string]: Color3 } = {
 	Cleaner = Color3.fromHex("4DE3E0"), -- cyan
 	Aura = Color3.fromHex("B77BFF"), -- purple
 }
--- The base-upgrade line's key, beside the gear tracks, and its word's colour (the
--- Upgrade Base sign's own price green, build/Plots UPGRADE_SIGN_PRICE_COLOR).
+-- The base-floor line's key, beside the gear tracks, and its word's colour (the
+-- floor sign's own price green, build/Plots FLOOR_SIGN_PRICE_COLOR).
 local FLOOR_KEY = "Floor"
 local FLOOR_COLOR = Color3.fromHex("8FE36B")
 
@@ -95,7 +95,7 @@ type Row = { rung: Rung, frame: Frame }
 local rows: { [string]: Row } = {} -- track -> the row on screen
 local rowCount = 0
 
---- The upgrade level your base would buy next and its price, or nil (no plot, or maxed).
+--- The floor your base would buy next and its price, or nil (no plot, or all built).
 local function nextFloor(): (number?, number?)
 	local spawn = Players.LocalPlayer.RespawnLocation
 	local index = spawn and spawn:GetAttribute("PlotIndex")
@@ -104,8 +104,8 @@ local function nextFloor(): (number?, number?)
 	if not plot then
 		return nil, nil
 	end
-	local owned = BaseUpgrades.clamp(plot:GetAttribute("BaseLevel"))
-	local price = BaseUpgrades.nextPrice(owned)
+	local owned = Floors.clamp(plot:GetAttribute("Floors"))
+	local price = Floors.nextPrice(owned)
 	if price == nil then
 		return nil, nil
 	end
@@ -113,7 +113,7 @@ local function nextFloor(): (number?, number?)
 end
 
 --- Cheapest price of any tier above the best owned on this track, if within cash.
---- For FLOOR_KEY: the next upgrade's price, if within cash.
+--- For FLOOR_KEY: the next floor's price, if within cash.
 local function cheapestAffordable(track: string): number?
 	if cash == nil or bestOwned == nil then
 		return nil
@@ -143,7 +143,7 @@ local function scan()
 	table.insert(tracks, FLOOR_KEY)
 	for _, track in tracks do
 		local price = cheapestAffordable(track)
-		-- Each upgrade is announced once on its own, so the next still pops after one is bought.
+		-- Each floor is announced once on its own, so Floor 3 still pops after Floor 2.
 		local floor = if track == FLOOR_KEY then (nextFloor()) else nil
 		local key = if floor ~= nil then `{FLOOR_KEY}{floor}` else track
 		if price ~= nil then
@@ -165,7 +165,7 @@ end
 
 local function stillTrue(rung: Rung): boolean
 	if rung.floor ~= nil and (nextFloor()) ~= rung.floor then
-		return false -- that upgrade was bought; the next one pops on its own
+		return false -- that floor was bought; the next one pops on its own
 	end
 	return cheapestAffordable(rung.track) ~= nil
 end
@@ -242,7 +242,7 @@ local function popRow(list: Frame, key: string, rung: Rung, order: number)
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.RichText = true
 	if rung.floor ~= nil then
-		label.Text = `You can afford a <font color="#{FLOOR_COLOR:ToHex()}">Base Upgrade</font>`
+		label.Text = `You can afford <font color="#{FLOOR_COLOR:ToHex()}">Floor {rung.floor}</font> for your base`
 	else
 		local word = TRACK_LABEL[rung.track] or rung.track
 		local color = TRACK_COLOR[rung.track] or Color3.new(1, 1, 1)

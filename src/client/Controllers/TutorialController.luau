@@ -15,7 +15,7 @@
 	    dig      banner only. Finding the glow is the lesson, so nothing points at one.
 	    haul     banner + an amber ring pulsing round REEL IN, and arrows bouncing at it
 	    clean    banner + trail to YOUR cleansing station
-	    place    banner + trail to the middle of your base's open floor
+	    place    banner + trail to your nearest EMPTY stand
 	    upgrade  banner + trail to the Detector Shop
 	    navigate banner + rings and arrows on the HOME and SHOPS buttons (WarpController);
 	             using one ends the walkthrough (no "You're set!" card, removed on request)
@@ -844,10 +844,24 @@ local function targetFor(step: Tutorial.StepId, from: Vector3): Vector3?
 		local spot = plot and (plot:FindFirstChild("WashSpot", true) or plot:FindFirstChild("WashStand", true))
 		return if spot and spot:IsA("BasePart") then spot.Position else nil
 	elseif step == "place" then
-		-- The middle of your base's open floor: the nuke goes down wherever you click.
 		local plot = plotModel()
-		local pad = plot and plot:FindFirstChild("Pad")
-		return if pad and pad:IsA("BasePart") then pad.Position + Vector3.new(0, pad.Size.Y / 2, 0) else nil
+		if plot == nil then
+			return nil
+		end
+		local best: Vector3? = nil
+		local bestDist = math.huge
+		for _, d in plot:GetDescendants() do
+			if d:IsA("BasePart") and string.match(d.Name, "^Stand%d+$") then
+				local prompt = d:FindFirstChildWhichIsA("ProximityPrompt")
+				if prompt and prompt:GetAttribute("Occupied") ~= true then
+					local dist = (d.Position - from).Magnitude
+					if dist < bestDist then
+						best, bestDist = d.Position, dist
+					end
+				end
+			end
+		end
+		return best
 	elseif step == "upgrade" then
 		local shops = Workspace:FindFirstChild("Shops")
 		if shops == nil then
