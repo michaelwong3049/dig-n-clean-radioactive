@@ -224,7 +224,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 110 -- three bases a side, stage-end cleansing stations (2026-10-04)
+local BUILDER_VERSION = 111 -- locker on the treadmill's fence (2026-10-04)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -1499,8 +1499,8 @@ function Plots.setHoseTier(station: Instance?, tier: number?): Model?
 	return hose
 end
 
---- THE HOSE UPGRADE SIGN: the treadmill's studded navy board (UPGRADE_SIGN), stood on
---- the open deck just past the hose reel, turned to face the walk-up into the base. It
+--- THE HOSE UPGRADE SIGN: the treadmill's studded navy board (UPGRADE_SIGN), stood just
+--- left of the gantry's CLEANSING STATION board, facing the wash spot like it. It
 --- REPLACED THE HOSE SHOPS (2026-10-04, on request): every Cleaner rung is bought here,
 --- at your own wash bay, and the camps no longer build a Hose stall.
 ---
@@ -1512,9 +1512,10 @@ end
 --- bay on every pad. Deck-local +X runs toward the plot's entrance and -Z out to the
 --- aisle the washer walks up from (see buildCleansingStation's quarter-turn).
 local HOSE_SIGN = {
-	x = -7, -- deck-local: beside the reel, toward the back of the bay
-	z = -12.5, -- out past the reel on the open floor
-	yaw = -45, -- faces between the aisle and the entrance
+	x = 8.9, -- deck-local: just past the gantry's CLEANSING STATION board (x -3.6..5.4),
+	-- on its left as you face it from the wash spot (on request, 2026-10-04)
+	z = 3.8, -- in line with the gantry, at the far side of the tub
+	yaw = 0, -- faces the wash spot, like the station board
 	boardW = 5,
 	boardH = 2.75,
 	boardT = 1,
@@ -2356,17 +2357,16 @@ end
 --- a world built before this rack existed -- a stale world keeps its old cabinet but
 --- still gets a locker that opens.
 ---
---- WHERE: backed onto the +X fence beside the cleansing station (moved back on
---- request, after a spell on the -X fence by the treadmill), facing -X into the aisle
---- beside the front row of stands, between that row's +X plinth and the cleansing
---- station (which ends at z ~= -21.3). This is where it first stood. A locker whose
---- station overlapped the tub would steal the decon station, and your hose with it;
---- World.verify asserts the gap.
+--- WHERE: backed onto the treadmill's fence (-X before buildPlot's `stripFlip`), facing
+--- +X into the aisle beside the front row of stands (moved back over from the cleansing
+--- station's fence on request, 2026-10-04): the cleansing-station spot mirrored, so it
+--- sits beside the ground flight's foot gate on a north pad just as it did on a south
+--- one. World.verify asserts its station's gap to the treadmill's.
 local LOCKER_TUBES_PER_TIER = 4
 local LOCKER = {
-	x = 29.6, -- the rack's centre; its back reaches x ~= 31.1
+	x = -29.6, -- the rack's centre; its back reaches x ~= -31.1
 	z = -15.5,
-	yaw = 90, -- turns the authored -Z front to face -X, its back against the +X fence
+	yaw = -90, -- turns the authored -Z front to face +X, its back against the -X fence
 	pitch = 1.65, -- tube centre to tube centre, along the rack
 	tubeD = 1.45, -- glass diameter
 	tubeH = 3.8, -- glass height, cap to cap (taller on request; the rack grows with it)
@@ -2505,7 +2505,7 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, index: nu
 	local floorY = Plots.PAD.topY
 
 	-- Authored facing -Z, long axis along X, centred on the rack; L.yaw turns the front
-	-- to face -X and puts the back against the +X fence.
+	-- to face +X and puts the back against the -X fence.
 	local face = origin * CFrame.new(L.x, floorY, L.z) * CFrame.Angles(0, math.rad(L.yaw), 0)
 	local template = lockerTemplate()
 	if template then
@@ -4444,20 +4444,21 @@ local function buildPlot(parent: Instance, index: number)
 		buildDisplayStand(m, origin, index, slot, accent)
 	end
 
-	-- The +X machines and the -X treadmill moved in with the fences (STRIP_INSET).
+	-- The +X machines and the -X treadmill and locker moved in with the fences (STRIP_INSET).
 	local plusIn = CFrame.new(-STRIP_INSET, 0, 0)
-	local treadmillAt = CFrame.new(STRIP_INSET, 0, 0)
+	local minusIn = CFrame.new(STRIP_INSET, 0, 0)
+	local treadmillAt = minusIn
 	-- THE CLEANSING STATION GOES AT THE STAGE END (on request, 2026-10-04). Written on the
 	-- +X side, which is east on a north pad but west on a south one (turned 180), so a
-	-- pad whose +X points away from the stage swaps the strip: the station, bottle and
-	-- locker each turned 180 about their own centre onto the -X fence (still backed
-	-- onto it, still facing the aisle), the treadmill slid across to +X (not turned: its
-	-- runner faces out of the base either way).
+	-- pad whose +X points away from the stage swaps the strip: the station and bottle
+	-- turned 180 about their own centre onto the -X fence and the locker onto the +X one
+	-- (each still backed onto its fence, still facing the aisle), the treadmill slid
+	-- across to +X (not turned: its runner faces out of the base either way).
 	local stripFlip = math.cos(math.rad(center.facing)) < 0
-	local stationAt, lockerAt, bottleAt = plusIn, plusIn, plusIn
+	local stationAt, lockerAt, bottleAt = plusIn, minusIn, plusIn
 	if stripFlip then
 		stationAt = flipAbout(STATION_CENTER.x - STRIP_INSET, STATION_CENTER.z) * plusIn
-		lockerAt = flipAbout(LOCKER.x - STRIP_INSET, LOCKER.z) * plusIn
+		lockerAt = flipAbout(LOCKER.x + STRIP_INSET, LOCKER.z) * minusIn
 		bottleAt = flipAbout(BOTTLE.x - STRIP_INSET, BOTTLE.z) * plusIn
 		treadmillAt = CFrame.new(-2 * TREADMILL.cx - STRIP_INSET, 0, 0)
 	end
