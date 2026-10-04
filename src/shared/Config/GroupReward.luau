@@ -27,10 +27,10 @@ GroupReward.LUCK_SECONDS = 15 * 60
 GroupReward.CASH_MULT = 1.1
 
 -- On the camp side of the Stage 1 entrance, by the brown shoulder wall that runs out
--- from the entrance's left corner (its camp-facing face is X 96, from Z -88 outward).
+-- from the entrance's left corner (its camp-facing face is X 96, from Z -85 outward).
 -- The camp floor's top is Y -1.5. The ring's edge just clears the wall; the chest's
--- front faces the camp (-X).
-GroupReward.CHEST_POSITION = Vector3.new(86.8, -1.5, -104)
+-- front faces the camp (-X). 2026-10-04: 8 studs toward the entrance (was Z -104).
+GroupReward.CHEST_POSITION = Vector3.new(86.8, -1.5, -96)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.
