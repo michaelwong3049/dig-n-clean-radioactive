@@ -106,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 63
+local BUILDER_VERSION = 64
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4009,10 +4009,11 @@ end
 local BASE_FOLIAGE_CELL = 24 -- stud pitch of the jitter grid -- see scatterBushes for the same idiom at a different scale. Widened (was 18) on request, "too much"
 local BASE_FOLIAGE_JITTER = 0.4 -- fraction of a cell a point may drift off its centre
 local BASE_FOLIAGE_EDGE_MARGIN = 6 -- keep clear of the perimeter wall's own inner face
--- Bare margins: `plaza` off the plaza rectangle (the middle -- see comment above), `eastStrip`
--- in from the east walls (the leaderboards and the group chest). One table: this file sits
+-- Bare margins: `plaza` off the plaza rectangle (the middle -- see comment above), `backStrip`
+-- in from the back wall's middle and either side of it (the leaderboards and the group
+-- chest). One table: this file sits
 -- at Luau's 200-local ceiling.
-local BASE_FOLIAGE_CLEAR = { plaza = 10, eastStrip = 34 }
+local BASE_FOLIAGE_CLEAR = { plaza = 10, backStrip = 30 }
 local BASE_FOLIAGE_PAD_CLEARANCE = 6 -- extra clearance past each pad's real footprint
 local BASE_FOLIAGE_BUSH_CHANCE = 0.08 -- was 0.14, thinned on request, "too much"
 local BASE_FOLIAGE_GRASS_CHANCE = 0.3 -- was 0.46, rolled after a spot misses the bush chance
@@ -4048,9 +4049,9 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 			if x > math.min(plaza.minX, camp.pavedMinX) - clear and z > plaza.minZ - clear and z < plaza.maxZ + clear then
 				continue
 			end
-			-- The strip by the east walls, past the north/south pads: the leaderboards and
-			-- the group chest stand there.
-			if x > camp.eastX - BASE_FOLIAGE_CLEAR.eastStrip then
+			-- The middle of the back wall: the leaderboards and the group chest stand there
+			-- (LeaderboardService, Config/GroupReward; moved from the east wall 2026-10-04).
+			if x < camp.westX + BASE_FOLIAGE_CLEAR.backStrip and math.abs(z) < BASE_FOLIAGE_CLEAR.backStrip then
 				continue
 			end
 			local onPad = false

@@ -33,11 +33,15 @@ GroupReward.CASH_MULT = 1.1
 -- 2026-10-04, on request: MOVED TO THE MIDDLE of the compact shop square, on PLAZA_MID
 -- (the booths ring it, the Trader in the SE corner), standing on the raised shop floor
 -- (Hub PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35). Respawns land 13 out round it.
-GroupReward.CHEST_POSITION = Vector3.new(5.5, -1.15, 0)
+-- 2026-10-04, on request ("move leaderboards and the group chest near the backend"): to
+-- the back of the camp, on the grey floor between the two rows of bases, in front of
+-- the leaderboards on the back wall (x -147). The grey path's top is PLAZA.topY -1.5 +
+-- PLAZA_LIFT 0.15; the ring reaches x ~ -134.5, well off the boards.
+GroupReward.CHEST_POSITION = Vector3.new(-125, -1.35, 0)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.
-GroupReward.CHEST_FACING = -math.pi / 2 -- front to world +X, toward Stage 1 (2026-10-04)
+GroupReward.CHEST_FACING = -math.pi / 2 -- front to world +X, toward Stage 1 and the shops (2026-10-04)
 
 GroupReward.RING_RADIUS = 8.5 -- to the ring's centre line
 GroupReward.RING_WIDTH = 1.2
