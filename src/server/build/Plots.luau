@@ -221,7 +221,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 106 -- bases nudged toward Stage 1 and in round the booths
+local BUILDER_VERSION = 107 -- bases nudged toward Stage 1 and in round the booths
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -357,8 +357,9 @@ local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
 -- 2026-10-04, on request ("push all the player bases closer to the stage", a ~10-stud
 -- nudge, with the shop square shrunk to booths): every pad 10 toward Stage 1 (NS x +10,
 -- west fronts -71 -> -59 incl. 2 of grid snap) and the N/S fronts in from 80 to 72.
+-- Then (same day, on request) the west pair 12 back from the stage again: -59 -> -71.
 local NS_FRONT_Z = 72
-local WEST_FRONT_X = -59
+local WEST_FRONT_X = -71
 local NS_X = { -28, 48 }
 local WEST_Z = 38
 
