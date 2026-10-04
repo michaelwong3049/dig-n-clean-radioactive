@@ -415,7 +415,7 @@ local function renderNuke(index: number, entry: any)
 		-- A slow turn and a faint bob, animated client-side by StationMotionController
 		-- from this seated pose. Lifted by the bob's amplitude so the low point still
 		-- clears the floor.
-		model:PivotTo(at + Vector3.new(0, STAND_HOVER.amp + 0.03, 0))
+		NukeDisplay.seat(model, at, STAND_HOVER.amp + 0.03)
 		model:SetAttribute("Motion", "hover")
 		model:SetAttribute("MotionRate", STAND_HOVER.rate)
 		model:SetAttribute("MotionAmp", STAND_HOVER.amp)

@@ -251,7 +251,7 @@ local function update(screen: Vector2): boolean
 
 	local spot = frame * CFrame.new(p.X, 0, p.Z)
 	if g.model then
-		g.model:PivotTo(spot + Vector3.new(0, 0.03, 0))
+		NukeDisplay.seat(g.model, spot, 0.03)
 	end
 	g.ring.CFrame = spot * CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.rad(90))
 	g.ring.Color = if ok then OK_COLOR else BAD_COLOR

@@ -174,6 +174,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage.Shared
 local BaseUpgrades = require(Shared.Config.BaseUpgrades)
+local Placement = require(Shared.Placement)
 local Liquids = require(Shared.Config.Liquids)
 local Treadmill = require(Shared.Config.Treadmill)
 local Tuning = require(Shared.Config.Tuning)
@@ -185,7 +186,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 94
+local BUILDER_VERSION = 95
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -3457,6 +3458,33 @@ local function buildFrontFence(parent: Instance, origin: CFrame)
 	folder.Parent = parent
 end
 
+--- THE HAZARD LINE — yellow and black studded bricks laid flat across the pad where the
+--- open floor starts (Shared/Placement.AREA.minZ), on request: everything behind it is
+--- where nukes go, everything in front (the washer, the treadmill, the locker, the
+--- spawn) is not. The bricks sit just in FRONT of the edge, so a nuke placed right up to
+--- the line never stands on it. Flat, so you walk over it; not collidable either way.
+local PLACE_LINE = { depth = 0.8, height = 0.16, stripe = 2.4 }
+local function buildPlaceLine(parent: Instance, origin: CFrame)
+	local folder = Instance.new("Folder")
+	folder.Name = "PlaceLine"
+	local x0, x1 = -HALF_W + 1, HALF_W - 1
+	local stripes = math.max(2, math.round((x1 - x0) / PLACE_LINE.stripe))
+	local w = (x1 - x0) / stripes
+	local z = Placement.AREA.minZ - PLACE_LINE.depth / 2
+	for i = 0, stripes - 1 do
+		build(folder, origin, {
+			name = "HazardStripe",
+			pos = { x0 + (i + 0.5) * w, Plots.PAD.topY + PLACE_LINE.height / 2, z },
+			size = { w, PLACE_LINE.height, PLACE_LINE.depth },
+			color = if i % 2 == 0 then C.hazard else C.hazardBlack,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+	folder.Parent = parent
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -3513,6 +3541,8 @@ local function buildPlot(parent: Instance, index: number)
 		color = C.baseFloor,
 		material = "Plastic",
 	})
+
+	buildPlaceLine(m, origin)
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for
