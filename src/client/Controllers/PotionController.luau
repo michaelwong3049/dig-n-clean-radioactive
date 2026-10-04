@@ -257,13 +257,14 @@ local function buildRow(panel: Frame, index: number, id: string)
 	local time = inked(card, {
 		Name = "Time",
 		Text = "",
-		Font = Enum.Font.FredokaOne,
+		Font = UIKit.House.font,
 		TextSize = 15,
 		TextColor3 = colour,
 		Size = UDim2.new(1, -(ICON + 24 + BUTTON_W + 70), 0, 16),
 		Position = UDim2.fromOffset(ICON + 18, 56),
 		ZIndex = 12,
 	})
+	time.UIStroke.Thickness = 1 -- as on the chips: keeps Gotham Black's colon readable
 	local count = inked(card, {
 		Name = "Count",
 		Text = "x0",
@@ -420,13 +421,14 @@ local function buildChip(canvas: Frame, id: string): Chip
 	local time = inked(pill, {
 		Name = "Time",
 		Text = "",
-		-- FredokaOne: GothamBlack's colon vanishes under the outline at this size.
-		Font = Enum.Font.FredokaOne,
+		Font = UIKit.House.font,
 		TextSize = 15,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = 7,
 	})
+	-- A 1px edge: at 1.5 Gotham Black's colon vanishes under the outline at this size.
+	time.UIStroke.Thickness = 1
 	return { frame = frame, time = time, pill = pill }
 end
 

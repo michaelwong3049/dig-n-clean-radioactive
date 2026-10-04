@@ -50,15 +50,15 @@ local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 
 -- The reference's look: a near-black tray under a lighter grey header box, blacker
 -- rows with a grey well behind each model, chunky red / green buttons, every word in
--- FredokaOne with a black outline.
+-- the house Gotham Black (UIKit.House) with a black outline.
 local PANEL = {
 	tray = Color3.fromHex("17191C"),
 	header = Color3.fromHex("3A3E45"),
 	row = Color3.fromHex("0C0D0F"),
 	well = Color3.fromHex("4A4F57"),
-	dim = Color3.fromHex("A9B0B8"),
+	dim = UIKit.House.dim,
 	gold = Color3.fromHex("F5C24B"),
-	red = Color3.fromHex("E3201B"),
+	red = UIKit.House.close,
 	redHover = Color3.fromHex("F5433D"),
 	green = Color3.fromHex("33D62F"),
 	greenHover = Color3.fromHex("52E84E"),
@@ -68,9 +68,9 @@ local PANEL = {
 	equipHover = Color3.fromHex("52C96C"),
 	equipFont = Enum.Font.GothamBlack,
 	off = Color3.fromHex("5C6167"),
-	ink = Color3.fromHex("111214"),
+	ink = UIKit.House.ink,
 	white = Color3.new(1, 1, 1),
-	font = Enum.Font.FredokaOne,
+	font = UIKit.House.font,
 }
 
 -- Design px (UIKit.canvas: a 1280x720 screen).
