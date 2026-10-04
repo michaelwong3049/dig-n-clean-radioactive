@@ -116,6 +116,22 @@ local function priceText(id: number, isPass: boolean, onLoaded: () -> ()): strin
 	return ROBUX
 end
 
+--- The bare price of a game pass or product once loaded (nil until; `onLoaded` runs
+--- when it lands), for a buy card that draws its own price (PassOfferController).
+function RobuxButton.priceOf(id: number, isPass: boolean, onLoaded: () -> ()): number?
+	priceText(id, isPass, onLoaded)
+	return prices[`{if isPass then "pass" else "product"}:{id}`] or nil
+end
+
+--- Open the game-pass prompt, counted by prompting() like a button press.
+function RobuxButton.promptPass(id: number)
+	if id == 0 then
+		return
+	end
+	openSince = os.clock()
+	MarketplaceService:PromptGamePassPurchase(Players.LocalPlayer, id)
+end
+
 -- ── The button ────────────────────────────────────────────────────────────
 
 local function text(parent: Instance, name: string, size: UDim2, position: UDim2, textSize: number): TextLabel
