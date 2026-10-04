@@ -36,6 +36,8 @@ local Weight = require(Config.Weight)
 local Payload = require(Config.Payload)
 local Treadmill = require(Config.Treadmill)
 local Floors = require(Config.Floors)
+local BaseUpgrades = require(Config.BaseUpgrades)
+local Placement = require(script.Parent.Parent.Placement)
 local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
@@ -1291,6 +1293,54 @@ function Spec.run(): boolean
 		end
 		check("§8 every floor above the ground has a price, each dearer than the last", rising and Floors.PRICES[1] == nil)
 		check("§8 a full base has nothing left to buy", Floors.nextPrice(Floors.MAX) == nil and Floors.nextPrice(1) == Floors.PRICES[2])
+	end
+
+	-- ── §8 OPEN-FLOOR BASES ───────────────────────────────────────────────
+	--
+	-- A base is one open floor (Config/BaseUpgrades, Shared/Placement): START nukes,
+	-- PER_LEVEL more per Upgrade Base, and a deeper floor to put them on.
+
+	check("§8 a base starts with 10 nukes", BaseUpgrades.capFor(0) == 10 and BaseUpgrades.START == 10)
+	check("§8 each upgrade adds 2 nukes, 8 upgrades to 26", BaseUpgrades.capFor(1) == 12 and BaseUpgrades.MAX_NUKES == 26 and BaseUpgrades.capFor(BaseUpgrades.MAX_LEVEL) == 26)
+	check("§8 a nonsense level clamps to a real one", BaseUpgrades.capFor(-3) == 10 and BaseUpgrades.capFor(99) == 26 and BaseUpgrades.clamp(0 / 0) == 0)
+	do
+		local rising = true
+		for level = 1, BaseUpgrades.MAX_LEVEL do
+			local price = BaseUpgrades.PRICES[level]
+			if price == nil or price <= 0 or (level > 1 and price <= (BaseUpgrades.PRICES[level - 1] :: number)) then
+				rising = false
+			end
+		end
+		check("§8 every upgrade has a price, each dearer than the last", rising and BaseUpgrades.PRICES[0] == nil)
+		check("§8 a maxed base has nothing left to buy", BaseUpgrades.nextPrice(BaseUpgrades.MAX_LEVEL) == nil and BaseUpgrades.nextPrice(0) == BaseUpgrades.PRICES[1])
+	end
+	do
+		local small, big = Placement.area(0), Placement.area(BaseUpgrades.MAX_LEVEL)
+		check("§8 upgrading only pushes the back edge out", big.maxZ - small.maxZ == BaseUpgrades.MAX_LEVEL * BaseUpgrades.DEPTH_PER_LEVEL and big.minZ == small.minZ and big.minX == small.minX)
+		local r = 3
+		local others = { { x = 0, z = 0, r = r } }
+		check("§8 a nuke off the base is refused", not Placement.fits(small, {}, small.maxX, 0, r))
+		check("§8 two nukes can't share a spot", not Placement.fits(small, others, 1, 0, r))
+		check("§8 two nukes need a walking gap", not Placement.fits(small, others, 2 * r + Placement.GAP - 0.5, 0, r) and Placement.fits(small, others, 2 * r + Placement.GAP, 0, r))
+		check("§8 moving a nuke ignores its own old spot", Placement.fits(small, others, 1, 0, r, 0, 1))
+		-- The full cap of average-sized nukes has to fit on the smallest base, or the
+		-- cap is a lie. 4 studs is a generous circle for a normal roll.
+		local placed: { Placement.Spot } = {}
+		for _ = 1, BaseUpgrades.capFor(0) do
+			local x, z = Placement.firstFree(small, placed, 4)
+			if x and z then
+				table.insert(placed, { x = x, z = z, r = 4 })
+			end
+		end
+		check("§8 a fresh base fits its whole cap of nukes", #placed == BaseUpgrades.capFor(0))
+		local full: { Placement.Spot } = {}
+		for _ = 1, BaseUpgrades.MAX_NUKES do
+			local x, z = Placement.firstFree(big, full, 4)
+			if x and z then
+				table.insert(full, { x = x, z = z, r = 4 })
+			end
+		end
+		check("§8 a maxed base fits its whole cap of nukes", #full == BaseUpgrades.MAX_NUKES)
 	end
 
 	-- ── §5.1 THE TREADMILL ────────────────────────────────────────────────
