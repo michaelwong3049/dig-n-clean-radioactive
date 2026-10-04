@@ -353,9 +353,9 @@ end
 --- A pad's FRONT edge is its local Z = PAD_MIN_Z (-51), so the origin sits 51 studs
 --- behind the front:
 ---   fronts at z = +/-72, centres x -104, -28 and 48, 76 apart (a 19-stud gap between
----   neighbours). The east pad stops at x 76.5, so the leaderboards and the group
----   chest keep the strip by the east wall; the third pad of each row went WEST (the
----   shops stayed put, on request), where the old west pair's back block used to be.
+---   neighbours). The third pad of each row went WEST (the shops stayed put, on
+---   request), where the old west pair's back block used to be. The leaderboards and the
+---   group chest moved to the middle of the back wall after (LeaderboardService).
 --- World.verify() checks that no pad overlaps the plaza, a stage, or another pad.
 local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
 -- 2026-10-03, on request: the west pair pulled in twice (-95 -> -87 -> -71); the
@@ -4518,7 +4518,7 @@ local function buildApron(row: Model)
 
 	-- The camp's rim: edge lights 4 studs inside the perimeter wall, along the outline
 	-- from the south wall round the back to the north one. The east walls are left
-	-- dark: the leaderboards and the group chest stand against them.
+	-- dark.
 	local rim = Instance.new("Folder")
 	rim.Name = "RimLights"
 	local c = Plots.CAMP

@@ -991,9 +991,9 @@ local function buildSpawns(hub: Model)
 	-- two rows (Shops.luau's STALLS + OUTFITTER) run east-west either side of it, and
 	-- since 2026-09-27 BaseCamp's four-sided Trader kiosk stands ON this point. So the
 	-- anchor marks the centre of a RING: `RingRadius` tells ExposureService.baseCampCFrame
-	-- to land you at one of `RingPoints` spots that far out, facing the middle. Since
-	-- 2026-10-04 the group chest stands on this point (its ring reaches ~9) and the Trader
-	-- moved to the SE corner; 13 clears the chest ring and stays short of the booth rows
+	-- to land you at one of `RingPoints` spots that far out, facing the middle. The
+	-- group chest stood on this point for a while on 2026-10-04 (it is at the back wall
+	-- now) and the Trader moved to the SE corner; 13 stays short of the booth rows
 	-- (pads end at z +/-10.25 since the rows moved to +/-18; the four points sit in the aisles).
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {

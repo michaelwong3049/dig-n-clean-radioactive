@@ -43,13 +43,16 @@ local TOP = 25
 local MAX_SCORE = 2 ^ 53 -- OrderedDataStore takes integers; keep them exact
 
 -- ── Board placement ──────────────────────────────────────────────────────────
--- Scenery.BaseWalls.ShoulderWallPos: plaza face at x = 96, runs from the Stage 1
--- corridor wall (z = 85) outward, floor (Plots.Apron tiles) top at y = -1.5. Boards
--- face west, Cash on the left as you face the wall (lower z), Speed on the right.
--- 2026-10-04: 8 studs toward the Stage 1 entrance (was 112 / 131), on request.
-local WALL_X_FALLBACK = 96
+-- Scenery.BaseWalls.BackWall: the camp's back (west) wall, inner face at x = -147
+-- (Plots.CAMP.westX), floor (Plots.Apron tiles) top at y = -1.5. Boards face EAST, into
+-- the camp, Cash on the left as you face the wall (+z), Speed on the right, either side
+-- of the camp's centre line with the group chest in front of them.
+-- 2026-10-04, on request ("move leaderboards and the group chest near the backend"): from
+-- the east shoulder wall by Stage 1 (x 96, z 104 / 123) to the back wall.
+local WALL_X_FALLBACK = -147
 local FLOOR_Y_FALLBACK = -1.5
-local BOARD_Z = { 104, 123 }
+local BOARD_Z = { 9.5, -9.5 }
+local OUT = Vector3.new(1, 0, 0) -- the way the boards face, off the wall into the camp
 local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
 local BOARD_H = 22.5 -- keep W:H at 2:3 so the canvas stays 800 x 1200
 local BOARD_LIFT = 1.5 -- gap between floor and the board's bottom edge
@@ -186,13 +189,13 @@ local function wallAndFloorAt(z: number, exclude: { Instance }): (number, number
 	params.FilterDescendantsInstances = exclude
 
 	local wallX = WALL_X_FALLBACK
-	local hit = Workspace:Raycast(Vector3.new(WALL_X_FALLBACK - 30, 8, z), Vector3.new(60, 0, 0), params)
+	local hit = Workspace:Raycast(Vector3.new(WALL_X_FALLBACK, 8, z) + OUT * 30, -OUT * 60, params)
 	if hit and math.abs(hit.Position.X - WALL_X_FALLBACK) < 12 then
 		wallX = hit.Position.X
 	end
 
 	local floorY = FLOOR_Y_FALLBACK
-	local down = Workspace:Raycast(Vector3.new(wallX - 6, 40, z), Vector3.new(0, -80, 0), params)
+	local down = Workspace:Raycast(Vector3.new(wallX, 40, z) + OUT * 6, Vector3.new(0, -80, 0), params)
 	if down and math.abs(down.Position.Y - FLOOR_Y_FALLBACK) < 10 then
 		floorY = down.Position.Y
 	end
@@ -202,30 +205,29 @@ end
 local function buildBoard(board: Board, z: number, folder: Folder)
 	local wallX, floorY = wallAndFloorAt(z, { folder })
 	local centreY = floorY + BOARD_LIFT + BOARD_H / 2
-	local west = Vector3.new(-1, 0, 0)
 
 	local model = Instance.new("Model")
 	model.Name = (string.gsub(board.title, " ", "")) .. "Board"
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 
-	local rimPos = Vector3.new(wallX - RIM_DEPTH / 2, centreY, z)
+	local rimPos = Vector3.new(wallX, centreY, z) + OUT * (RIM_DEPTH / 2)
 	local rim = Instance.new("Part")
 	rim.Name = "Rim"
 	rim.Anchored = true
 	rim.Material = Enum.Material.SmoothPlastic
 	rim.Color = INK
 	rim.Size = Vector3.new(BOARD_W + RIM * 2, BOARD_H + RIM * 2, RIM_DEPTH)
-	rim.CFrame = CFrame.lookAt(rimPos, rimPos + west)
+	rim.CFrame = CFrame.lookAt(rimPos, rimPos + OUT)
 	rim.Parent = model
 
-	local facePos = Vector3.new(wallX - RIM_DEPTH - FACE_DEPTH / 2, centreY, z)
+	local facePos = Vector3.new(wallX, centreY, z) + OUT * (RIM_DEPTH + FACE_DEPTH / 2)
 	local face = Instance.new("Part")
 	face.Name = "Face"
 	face.Anchored = true
 	face.Material = Enum.Material.SmoothPlastic
 	face.Color = FACE
 	face.Size = Vector3.new(BOARD_W, BOARD_H, FACE_DEPTH)
-	face.CFrame = CFrame.lookAt(facePos, facePos + west)
+	face.CFrame = CFrame.lookAt(facePos, facePos + OUT)
 	face.Parent = model
 
 	local gui = Instance.new("SurfaceGui")
