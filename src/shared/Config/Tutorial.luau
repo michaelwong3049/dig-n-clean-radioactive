@@ -46,9 +46,9 @@ Tutorial.STEPS = {
 		holdHint = "Pick your nuke from the hotbar, then take it to your cleansing station",
 	},
 	place = {
-		title = "Place the nuke on a stand",
-		hint = "Hold E at an empty stand",
-		holdHint = "Pick your nuke from the hotbar, then hold E at an empty stand",
+		title = "Place the nuke on your base",
+		hint = "Click a spot on your base to put it down",
+		holdHint = "Pick your nuke from the hotbar, then click a spot on your base",
 	},
 	upgrade = { title = "Upgrade your detector", hint = "Buy the Bent Coil at the Detector Shop" },
 	navigate = { title = "Use Home and Shops to get around", hint = "Tap Home or Shops at the top of the screen" },
@@ -147,7 +147,7 @@ function Tutorial.promptOpen(player: Player, prompt: ProximityPrompt): boolean
 		-- button is a "Luck" mount, so it stays shut with the other shops.
 		local track = parent:GetAttribute("SellsTrack")
 		return type(track) == "string" and Tutorial.stationOpen(player, "shop", track)
-	elseif name == "BuyFloor" then
+	elseif name == "UpgradeBase" then
 		return false
 	end
 	return true

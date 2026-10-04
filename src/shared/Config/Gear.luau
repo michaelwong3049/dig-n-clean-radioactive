@@ -546,7 +546,7 @@ Gear.SPRINT_MULTIPLIER = 1.35
 --
 -- NEITHER IS A PEDESTAL PRICE. The ground floor's exhibit stands are free from the
 -- start; the cash-bought slot track and its `pedestalPrice` curve were cut with it.
--- More stands now come a floor at a time (Config/Floors), priced there.
+-- More room for nukes now comes from the Upgrade Base sign (Config/BaseUpgrades), priced there.
 --
 -- AND NEITHER IS BOOTS, ANY MORE. Dropping it from this list is the whole mechanism
 -- of the retirement: the shop's stall row, the generic sell path, the card panel's

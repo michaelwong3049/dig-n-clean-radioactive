@@ -17,7 +17,7 @@
 	(Config/Treadmill.TIERS), not the hidden walk-speed level.
 
 	ONLY YOUR OWN SIGN SELLS. Someone else's still shows its owner's rung, with no
-	buttons — the same call FloorSignController makes for a floor prompt that was only
+	buttons — the same call UpgradeSignController makes for an upgrade prompt that was only
 	ever going to be refused. The red button asks the server (Net.TreadmillBuy), which
 	re-checks the base and the distance and answers on the hotbar notice; the purple
 	one prompts the next rung's Developer Product (Treadmill.PRODUCTS).

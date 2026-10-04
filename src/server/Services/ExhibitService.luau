@@ -25,7 +25,7 @@
 	NO INCOME CAP, ON REQUEST (balance/economy-pacing-pass). Stands pay exactly what
 	their nukes earn. There used to be an hourly cap (`EXHIBIT_HOURLY_CAP_PER_LEVEL *
 	level`), but `level` never rose past 1, so it pinned every player at ~$139/sec from
-	Stage 3 on. The shop prices in Config/Gear, Config/Floors and Config/Treadmill are
+	Stage 3 on. The shop prices in Config/Gear, Config/BaseUpgrades and Config/Treadmill are
 	sized against the uncapped rate instead.
 ]]
 
@@ -38,7 +38,9 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net) -- assign(): tell the owning client its plot index for the "YOUR BASE" beacon
 local Bag = require(Shared.Bag)
 local Tuning = require(Shared.Config.Tuning)
-local Floors = require(Shared.Config.Floors)
+local BaseUpgrades = require(Shared.Config.BaseUpgrades)
+local Placement = require(Shared.Placement)
+local NukeDisplay = require(Shared.NukeDisplay)
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
@@ -78,26 +80,15 @@ local LOCKER_ITEM_SIZE = 1.2 -- longest axis a stored item model is scaled to; t
 -- caps it -- the tubes are narrow, no room for a "giga nuke" roll on top of an
 -- already-normalised size.
 local LOCKER_PAYLOAD_CAP = 1.05
--- THE STAND HEIGHT CAP. A displayed nuke is ~7 studs x its sizeMult x its Payload roll,
--- which left alone runs anywhere up to ~61 (the Atomic Bomb rolling GIGA: through TWO
--- floors). So every stand nuke is capped to stay under the deck overhead with
--- STAND_CEILING_ROOM to spare for its trophy card -- except a GIGA Anomaly, on request:
--- the one roll big enough to punch up THROUGH the floor above. Its top always clears
--- that deck by GIGA_PIERCE.min..max studs (low end of the GIGA band to the top), never
--- more, so it never reaches a second floor. Floor 3 measures against where a 4th deck
--- would be, so the rule reads the same on the roof.
-local STAND_CEILING_ROOM = 6 -- the deck's own 1.2 thickness plus the card
-local GIGA_PIERCE = { min = 3, max = 8 }
 -- The pool a crusted ??? sits in: the crust's own brown, since its rarity is all the
 -- rack is allowed to say and the brown says "not washed yet" first.
 local LOCKER_CRUST_GLOW = Color3.fromHex("8A6440")
 local LOCKER_EMPTY_GLOW = Color3.fromHex("4A5560")
 -- The reach of the station ensureLockerStation stands in front of an old cabinet.
 local STALE_LOCKER_RADIUS = 4.5
--- Matches build/Kit.FLOOR_TAG: the sign that sells a base's next floor. A string,
--- not a require, for the same reason PLOT_COUNT is.
-local FLOOR_TAG = "BuyFloor"
--- How long a refused floor purchase stays written on the sign before it goes back.
+-- Matches build/Kit.BASE_UPGRADE_TAG: the sign that sells a base's next upgrade.
+local UPGRADE_TAG = "UpgradeBase"
+-- How long a refused upgrade stays written on the sign before it goes back.
 local SIGN_FLASH_SECONDS = 2.5
 
 -- Who is sitting on which physical plot this session. Never persisted — see header.
@@ -286,51 +277,86 @@ local function renderBottle(index: number, data: any?)
 	Plots.setTubFluid(plot:FindFirstChild("CleansingStation", true), liquidId)
 end
 
---- The world half of "hold the item, hold E on the stand": a plain default-styled
---- ProximityPrompt (small white ActionText, same as the wash tub's own "Wash"
---- prompt — see WashService/build/Plots' `buildCleansingStation`), built once per
---- stand and reused after that, same lazy-once shape `setStandCard` uses below
---- for the card's tag.
----
---- ONE PROMPT PER STAND, NOT TWO. An earlier version ran separate "Place" and
---- "Take" prompts so a swap (something already there, and you are holding a
---- replacement) could offer both at once — confirmed live that TWO ProximityPrompts
---- enabled on the SAME part, even with different KeyboardKeyCodes, are unreliable
---- for a real player (they visibly overlap, and which one an actual keypress/click
---- reaches is inconsistent) even though driving them directly via
---- InputHoldBegin/InputHoldEnd in isolation looked fine. One prompt whose verb
---- flips with the stand's occupied state (a fact every viewer agrees on) sidesteps
---- the whole problem.
----
---- WHICH STAND THIS IS is captured in the closure at build time (`plot`, `slot`),
---- not re-derived from the player's facing or position when pressed. That used to
---- be necessary because nothing in the world was tied to a specific stand; now
---- that the prompt itself IS the specific stand — Roblox already decided which one
---- you reached by which prompt it let you trigger — re-deriving it a second way
---- could only ever introduce a disagreement, never resolve one. This is also why
---- `StationService.facedStation` and the old two-function `display`/`undisplay`
---- split are gone: `ExhibitService.interact` below is the only entry point.
-local function ensurePrompt(stand: BasePart, plot: number, slot: number): ProximityPrompt
-	local existing = stand:FindFirstChild("Interact")
-	if existing and existing:IsA("ProximityPrompt") then
-		return existing
-	end
+-- ── Placed nukes ──────────────────────────────────────────────────────────────
+--
+-- A BASE IS ONE OPEN FLOOR (Config/BaseUpgrades, Shared/Placement). Each displayed
+-- nuke is saved with its own plot-local spot (`x`, `z`) and the circle it needs (`r`),
+-- and stands on the plot as one invisible ANCHOR part in the plot's PlacedNukes folder,
+-- named by the nuke's uid. The anchor carries everything the stands used to: the model
+-- (Shared/NukeDisplay, the same build the client's placement ghost uses), the
+-- StandCard attributes the client draws the money card from, and the one "Interact"
+-- prompt that takes it back or swaps the held nuke in.
+--
+-- ONE PROMPT PER NUKE, NOT TWO. Two ProximityPrompts on one part are unreliable for a
+-- real player (memory: two-prompts-same-key-drops-one), so it is one "Interact" whose
+-- outcome `interact` decides from whether you are holding something — and WHICH nuke
+-- it is is captured in the prompt's closure (the uid), never re-derived from where the
+-- player stands.
 
+--- The pad-local frame of plot `index`: build/Plots builds every pad through the same
+--- yawed origin, so a saved spot lands in the same place on any physical plot.
+local function plotOrigin(index: number): CFrame
+	local c = Plots.CENTERS[index]
+	return CFrame.new(c.x, Plots.PAD.topY, c.z) * CFrame.Angles(0, math.rad(c.facing), 0)
+end
+
+--- The folder a plot's placed nukes live in, made on first use (a world saved before
+--- the open floor has none).
+local function placedFolder(index: number): Instance?
+	local plot = plotModel(index)
+	if plot == nil then
+		return nil
+	end
+	local folder = plot:FindFirstChild("PlacedNukes")
+	if folder == nil then
+		folder = Instance.new("Folder")
+		folder.Name = "PlacedNukes"
+		folder.Parent = plot
+	end
+	return folder
+end
+
+--- Every placed nuke's circle on this profile's base, for Shared/Placement.
+local function spotsOf(data: any): { Placement.Spot }
+	local spots = {}
+	for _, entry in data.exhibit.pedestals do
+		table.insert(spots, { x = entry.x or 0, z = entry.z or 0, r = entry.r or Placement.MIN_RADIUS })
+	end
+	return spots
+end
+
+--- The circle `item` needs on the floor: built once with NukeDisplay to measure it.
+--- MIN_RADIUS when the catalogue model has not arrived (the server always has it).
+local function radiusFor(item: any): number
+	local model, r = NukeDisplay.create(item.itemId, item.uid, item.modifier)
+	if model then
+		model:Destroy()
+	end
+	return r
+end
+
+local function ensurePrompt(anchor: BasePart, plot: number, uid: string, reach: number): ProximityPrompt
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Interact"
 	prompt.ObjectText = ""
+	prompt.ActionText = "Take"
 	prompt.HoldDuration = Tuning.EXHIBIT_STAND_HOLD_SECONDS
-	prompt.MaxActivationDistance = (stand:GetAttribute("Radius") :: number?) or 7
+	prompt.MaxActivationDistance = reach
 	prompt.RequiresLineOfSight = false
-	prompt.Parent = stand
+	-- The per-player half of the label: InventoryController reads these and says
+	-- "Swap" while YOU are holding a nuke. `interact` still decides; the label only
+	-- tells the truth about what it will do.
+	prompt:SetAttribute("ExhibitStand", true)
+	prompt:SetAttribute("Occupied", true)
+	prompt.Parent = anchor
 
 	prompt.Triggered:Connect(function(player: Player)
-		local ok, message = ExhibitService.interact(player, plot, slot)
+		local ok, message = ExhibitService.interact(player, plot, uid)
 		if resultRemote then
 			resultRemote:FireClient(player, message)
 		end
-		-- A stand has no panel, so the StationResult toast above lands in a hidden
-		-- widget. A refusal also goes to the hotbar popup, where it is actually seen.
+		-- A placed nuke has no panel, so the StationResult toast above lands in a
+		-- hidden widget. A refusal also goes to the hotbar popup, where it is seen.
 		if not ok and noticeRemote then
 			noticeRemote:FireClient(player, message)
 		end
@@ -338,115 +364,75 @@ local function ensurePrompt(stand: BasePart, plot: number, slot: number): Proxim
 			print(`[exhibit] {player.Name}: {message}`)
 		end
 	end)
-
 	return prompt
 end
 
---- Repaint one stand with real item art when it exists, or the old rarity-coloured
---- block while that catalogue entry is still waiting for a model. `uid` is the
---- specific dig on display, so its own Config/Payload roll can size the model --
---- nil (clearing a stand) just skips that.
-local function renderStand(index: number, slot: number, itemId: string?, rarity: string?, uid: string?, modifier: string?)
-	local plot = plotModel(index)
-	if plot == nil then
+--- Take one placed nuke's anchor (model, card, prompt) off the plot.
+local function clearNuke(index: number, uid: string)
+	local folder = placedFolder(index)
+	local anchor = folder and folder:FindFirstChild(uid)
+	if anchor then
+		anchor:Destroy()
+	end
+end
+
+--- Every placed nuke off the plot (a release, or before a full redraw).
+local function clearNukes(index: number)
+	local folder = placedFolder(index)
+	if folder then
+		folder:ClearAllChildren()
+	end
+end
+
+--- Stand one saved entry on its plot: the anchor at its spot, the model seated on the
+--- floor and turning slowly, and the Take prompt. Replaces any anchor already there.
+local function renderNuke(index: number, entry: any)
+	local folder = placedFolder(index)
+	if folder == nil then
 		return
 	end
+	clearNuke(index, entry.uid)
 
-	-- ActionText is the one thing safe to flip here: occupied is the same fact for
-	-- every viewer, unlike ownership (which the prompt does not attempt to gate —
-	-- a non-owner who presses it gets refused by `interact` itself, same as
-	-- pressing Wash on someone else's tub costs nothing to attempt and fails
-	-- cleanly) and unlike "are you holding something" (per-player, which is why a
-	-- swap has to be decided inside `interact`, never by the prompt's own label).
-	local stand = plot:FindFirstChild(`Stand{slot}`, true) :: BasePart?
-	if stand then
-		local prompt = ensurePrompt(stand, index, slot)
-		prompt.ActionText = if itemId == nil then "Place" else "Take"
-		-- The per-player half of the label: InventoryController reads these and says
-		-- "Swap" on an occupied stand while YOU are holding a nuke. `interact` still
-		-- decides; the label only tells the truth about what it will do.
-		prompt:SetAttribute("ExhibitStand", true)
-		prompt:SetAttribute("Occupied", itemId ~= nil)
-	end
+	local at = plotOrigin(index) * CFrame.new(entry.x or 0, 0, entry.z or 0)
+	local anchor = Instance.new("Part")
+	anchor.Name = entry.uid
+	anchor.Size = Vector3.new(1, 1, 1)
+	anchor.CFrame = at
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor:SetAttribute("PlotIndex", index)
+	-- The saved circle, so the owner's placement ghost keeps clear of it (client
+	-- PlacementController reads it; Shared/Placement is the rule).
+	anchor:SetAttribute("PlaceRadius", entry.r or Placement.MIN_RADIUS)
 
-	-- The gallery's empty/full look (build/Plots.setStandState): slot brackets while
-	-- empty, a line in the displayed item's rarity colour while full.
-	Plots.setStandState(plot, slot, if rarity then Rarity.get(rarity).color else nil)
-
-	local display = plot:FindFirstChild(`Display{slot}`, true) :: BasePart?
-	if display == nil then
-		return
-	end
-
-	local previous = display:FindFirstChild("ItemModel")
-	if previous then
-		previous:Destroy()
-	end
-
-	local model: Model? = nil
-	if itemId then
-		local item = Items.get(itemId)
-		model = ItemModels.create(item.model, itemId, modifier)
-	end
-
+	local model, r, height = NukeDisplay.create(entry.itemId, entry.uid, entry.modifier)
 	if model then
-		display.Transparency = 1
 		model.Name = "ItemModel"
-		model:SetAttribute("ItemId", itemId)
-		model.Parent = display
-
-		-- Config/Payload's per-dig roll, full range -- this is an open plinth, not a
-		-- fixed-footprint aiming surface (unlike WashService's capped version). The
-		-- only ceiling is the deck overhead -- the height cap just below.
-		-- Plus the item's own Config/Items `sizeMult` (the Atomic Bomb's is huge).
-		local sizeMult = Items.get(itemId :: string).sizeMult or 1
-		local mult = sizeMult * (if uid then Payload.forUid(uid) else 1)
-		if mult ~= 1 then
-			model:ScaleTo(model:GetScale() * mult)
-		end
-
-		-- -0.72 used to be a hand-tuned constant that happened to seat the old
-		-- horizontal nuke's belly on the plinth; it has no relation to an upright
-		-- model's height, so this now seats whatever bounding box actually comes
-		-- back, the same way renderLocker already does below.
-		model:PivotTo(display.CFrame * ItemModels.rotation(model, "Display"))
-		local bounds, extent = model:GetBoundingBox()
-		local floorY = display.Position.Y - display.Size.Y / 2
-
-		-- The height cap (STAND_CEILING_ROOM / GIGA_PIERCE above), against the deck
-		-- one storey up from the deck this stand is on.
-		local room = display.Position.Y - Plots.DISPLAY_LIFT + Floors.HEIGHT - floorY
-		local roll = if uid then Payload.forUid(uid) else 1
-		local height = math.min(extent.Y, room - STAND_CEILING_ROOM)
-		if Items.get(itemId :: string).rarity == "Anomaly" and Payload.calloutFor(roll) == "GIGA" then
-			local t = math.clamp((roll - Payload.CALLOUTS[1].min) / (Payload.MAX - Payload.CALLOUTS[1].min), 0, 1)
-			height = room + GIGA_PIERCE.min + (GIGA_PIERCE.max - GIGA_PIERCE.min) * t
-		end
-		if math.abs(height - extent.Y) > 0.01 and extent.Y > 0 then
-			model:ScaleTo(model:GetScale() * height / extent.Y)
-			model:PivotTo(display.CFrame * ItemModels.rotation(model, "Display"))
-			bounds, extent = model:GetBoundingBox()
-		end
-		model:PivotTo(model:GetPivot() + Vector3.new(0, floorY - (bounds.Position.Y - extent.Y / 2) + 0.03, 0))
-		-- Where the card hangs from: the model's own top, so a GIGA roll lifts its
-		-- card with it instead of swallowing a card pinned at a fixed height.
-		display:SetAttribute(StandCard.ATTR.top, floorY + 0.03 + extent.Y - display.Position.Y)
+		model:SetAttribute("ItemId", entry.itemId)
 		-- A slow turn and a faint bob, animated client-side by StationMotionController
 		-- from this seated pose. Lifted by the bob's amplitude so the low point still
-		-- clears the plinth.
-		model:PivotTo(model:GetPivot() + Vector3.new(0, STAND_HOVER.amp, 0))
+		-- clears the floor.
+		model:PivotTo(at + Vector3.new(0, STAND_HOVER.amp + 0.03, 0))
 		model:SetAttribute("Motion", "hover")
 		model:SetAttribute("MotionRate", STAND_HOVER.rate)
 		model:SetAttribute("MotionAmp", STAND_HOVER.amp)
 		CollectionService:AddTag(model, "StationMotion")
-	elseif rarity then
-		display.Color = Rarity.get(rarity).color
-		display.Transparency = 0
-		display:SetAttribute(StandCard.ATTR.top, display.Size.Y / 2)
+		model.Parent = anchor
 	else
-		display.Transparency = 1
-		display:SetAttribute(StandCard.ATTR.top, nil)
+		-- The rarity-coloured block the catalogue documents for an unmodelled key.
+		anchor.Size = Vector3.new(2, 2, 2)
+		anchor.CFrame = at + Vector3.new(0, 1, 0)
+		anchor.Color = Rarity.get(entry.rarity).color
+		anchor.Transparency = 0
+		height = 1
 	end
+	-- Where the card hangs from: the model's own top, so a GIGA roll lifts its card.
+	anchor:SetAttribute(StandCard.ATTR.top, height + STAND_HOVER.amp)
+	ensurePrompt(anchor, index, entry.uid, math.max(7, (entry.r or r) + 5))
+	anchor.Parent = folder
 end
 
 -- ── The trophy-ribbon card over a displayed item ──────────────────────────────
@@ -515,8 +501,8 @@ local function setStandCard(display: BasePart, card: StandCardInfo?)
 	display:SetAttribute(A.owner, if card then card.owner else nil)
 end
 
---- Republish every stand's card on one plot from the profile: clear them all, then
---- fill the occupied ones -- the same shape as renderAll. It walks `pedestals` in the
+--- Republish every placed nuke's card on one plot from the profile -- the same shape
+--- as renderAll. It walks `pedestals` in the
 --- same order rawRatePerSecond does, so the damping baked into each card matches the
 --- damping that entry is actually paid at (a wall of one repeated Legendary visibly
 --- shows its 4th copy paying almost nothing). `data == nil` clears all of them.
@@ -529,13 +515,11 @@ local function refreshStandCards(index: number, data: any?)
 		return
 	end
 
-	for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
-		local display = plot:FindFirstChild(`Display{slot}`, true) :: BasePart?
-		if display then
-			setStandCard(display, nil)
-		end
-	end
 	if data == nil then
+		return
+	end
+	local folder = placedFolder(index)
+	if folder == nil then
 		return
 	end
 
@@ -547,7 +531,7 @@ local function refreshStandCards(index: number, data: any?)
 		seen[entry.itemId] = copyIndex
 		local damping = Tuning.EXHIBIT_DUPLICATE_YIELD[math.min(copyIndex, #Tuning.EXHIBIT_DUPLICATE_YIELD)]
 
-		local display = plot:FindFirstChild(`Display{entry.slot}`, true) :: BasePart?
+		local display = folder:FindFirstChild(entry.uid) :: BasePart?
 		if display then
 			setStandCard(display, {
 				itemId = entry.itemId,
@@ -704,32 +688,39 @@ local function renderLocker(index: number, data: any)
 	end
 end
 
---- Show the floors this profile has built on its plot and hide the rest, or strip an
---- unclaimed plot back to its ground floor (`data == nil`) — which also takes every
---- floor sign away, since there is nobody there to buy one. Which parts that moves is
---- build/Plots.setFloors' business.
+--- Show the extension strips this profile has bought and the Upgrade Base sign (with
+--- the next price painted on it), or strip an unclaimed plot back to level 0 with no
+--- sign (`data == nil`). Which parts that moves is build/Plots.setLevel's business.
 ---
---- CALL IT BEFORE ANYTHING THAT PAINTS THE PLOT. A hidden floor is out of Workspace,
---- so renderAccent and renderStand cannot reach it; renderAll brings the floors back
---- first so the accent and the stands on them are painted for THIS owner.
-local function renderFloors(index: number, data: any?)
-	Plots.setFloors(plotModel(index), if data then data.exhibit.floors else 1, data ~= nil)
+--- CALL IT BEFORE ANYTHING THAT PAINTS THE PLOT. A hidden strip is out of Workspace,
+--- so renderAccent cannot reach it; renderAll brings the strips back first so their
+--- trim and fence caps are painted for THIS owner.
+local function renderLevel(index: number, data: any?)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+	local level = if data then BaseUpgrades.clamp(data.exhibit.level) else 0
+	Plots.setLevel(plot, level, data ~= nil)
+	local sign = plot:FindFirstChild("UpgradeSign")
+	local board = sign and sign:FindFirstChild("SignBoard")
+	if board and board:IsA("BasePart") then
+		Plots.dressUpgradeSign(board, level)
+	end
 end
 
 --- Redraw everything on a plot from the profile — called once on assignment so a
 --- returning player's collection shows up on whichever physical plot they land on,
---- and again after a floor is built, so the new floor's stands wake up.
+--- and again after an upgrade, so the new strip is painted.
 local function renderAll(index: number, data: any)
 	local owner = plotOwner[index]
-	renderFloors(index, data)
+	renderLevel(index, data)
 	renderName(index, owner)
 	renderAccent(index, data)
 	renderLuck(index, data)
-	for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
-		renderStand(index, slot, nil, nil)
-	end
+	clearNukes(index)
 	for _, entry in data.exhibit.pedestals do
-		renderStand(index, entry.slot, entry.itemId, entry.rarity, entry.uid, entry.modifier)
+		renderNuke(index, entry)
 	end
 	renderLocker(index, data)
 	renderHose(index, data)
@@ -1030,14 +1021,9 @@ local function release(player: Player)
 		renderHose(index, nil)
 		renderTreadmill(index, nil)
 		renderBottle(index, nil)
-		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
-			renderStand(index, slot, nil, nil)
-		end
+		clearNukes(index)
 		renderLocker(index, nil)
-		refreshStandCards(index, nil)
-		-- Last: the stands on the upper floors have to be cleared while they are
-		-- still in Workspace to be found.
-		renderFloors(index, nil)
+		renderLevel(index, nil)
 	end
 end
 
@@ -1152,7 +1138,65 @@ end
 
 -- ── Actions ───────────────────────────────────────────────────────────────────
 
---- A plain take: pedestal `index` comes off its stand into the bag. Shared by the stand
+--- The held nuke, checked for display: clean, not slag, in the bag. Returns the item
+--- and its index in `carry`, or nil and why not.
+local function heldForDisplay(data: any): (any?, number?, string?)
+	if data.heldUid == "" then
+		return nil, nil, "hold a nuke first \u{2014} pick it from your bag"
+	end
+	local item, list, index = EconomyService.find(data, data.heldUid)
+	if item == nil or list ~= data.carry or index == nil then
+		if Bag.findCrate(data, data.heldUid) then
+			return nil, nil, "open the crate first \u{2014} you can't do that with a crate"
+		end
+		return nil, nil, "you aren't carrying that"
+	end
+	if not Contamination.isClean(item.patches or {}) then
+		return nil, nil, "clean it first"
+	end
+	if item.modifier == "Slagged" then
+		return nil, nil, "slag can't be displayed"
+	end
+	return item, index, nil
+end
+
+--- What a piece coming off the floor goes back into the bag as: frozen, no patches,
+--- clock reset. It was already docked; coming off must not restart the decay clock.
+local function backToBag(data: any, entry: any)
+	table.insert(data.carry, {
+		uid = entry.uid,
+		itemId = entry.itemId,
+		rarity = entry.rarity,
+		modifier = entry.modifier,
+		merge = entry.merge,
+		bonus = entry.bonus,
+		forge = entry.forge,
+		reforges = entry.reforges,
+		elapsed = 0,
+		frozen = true,
+		patches = {},
+	})
+end
+
+--- The saved shape of a placed nuke: the item's own fields plus its spot and circle.
+local function placedEntry(item: any, x: number, z: number, r: number): any
+	return {
+		x = x,
+		z = z,
+		r = r,
+		uid = item.uid,
+		itemId = item.itemId,
+		rarity = item.rarity,
+		modifier = item.modifier,
+		merge = item.merge,
+		bonus = item.bonus,
+		forge = item.forge,
+		reforges = item.reforges,
+		placedAt = os.time(),
+	}
+end
+
+--- A plain take: pedestal `index` comes off the floor into the bag. Shared by the nuke's
 --- prompt (`interact`, holding nothing) and the Nukes panel's Unequip.
 local function takeOff(data: any, plot: number, index: number): (boolean, string)
 	local entry = data.exhibit.pedestals[index]
@@ -1167,133 +1211,126 @@ local function takeOff(data: any, plot: number, index: number): (boolean, string
 	end
 
 	table.remove(data.exhibit.pedestals, index)
-	table.insert(data.carry, {
-		uid = entry.uid,
-		itemId = entry.itemId,
-		rarity = entry.rarity,
-		modifier = entry.modifier,
-		merge = entry.merge,
-		bonus = entry.bonus,
-		forge = entry.forge,
-		reforges = entry.reforges,
-		elapsed = 0,
-		frozen = true,
-		patches = {},
-	})
+	backToBag(data, entry)
 
-	renderStand(plot, entry.slot, nil, nil)
+	clearNuke(plot, entry.uid)
 	refreshStandCards(plot, data)
 	return true, `{Items.get(entry.itemId).name} back in your bag`
 end
 
---- The stand's one ProximityPrompt calls this and only this — `plot`/`slot` come
---- from the prompt's own closure (which physical stand you reached), never
---- re-derived from facing or position, so it can never disagree with what the
---- player actually pressed.
+--- A placed nuke's one ProximityPrompt calls this and only this — `plot`/`uid` come
+--- from the prompt's own closure (which nuke you reached), never re-derived from
+--- facing or position, so it can never disagree with what the player pressed.
 ---
---- WHICH OF PLACE / TAKE / SWAP HAPPENS IS DECIDED BY WHETHER YOU ARE HOLDING
---- SOMETHING, not by anything the prompt itself knows (its label is a hint, not
---- the logic — "are you holding something" is per-player and the prompt's
---- `ActionText` is not). Holding nothing at an occupied stand takes; holding
---- something at an empty stand places; holding something at an occupied stand
---- swaps — the occupant comes off into the bag exactly like a plain take (frozen,
---- crating delay respected) and the held item goes up in its place, in one step.
-function ExhibitService.interact(player: Player, plot: number, slot: number): (boolean, string)
+--- Holding nothing takes it back into the bag. Holding a nuke SWAPS: the one on the
+--- floor comes off (crating delay respected) and the held one goes down on the same
+--- spot — if it fits there; a bigger nuke can be refused for a spot a smaller one held.
+function ExhibitService.interact(player: Player, plot: number, uid: string): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
 		return false, "your save hasn't loaded"
 	end
-
 	if plotOf[player] ~= plot then
-		return false, "that isn't your plot"
-	end
-	if slot < 1 or slot > Floors.slotsFor(data.exhibit.floors) then
-		return false, "that stand doesn't exist"
+		return false, "that isn't your base"
 	end
 
 	local occupiedIndex = nil
 	for i, entry in data.exhibit.pedestals do
-		if entry.slot == slot then
+		if entry.uid == uid then
 			occupiedIndex = i
 			break
 		end
 	end
+	if occupiedIndex == nil then
+		return false, "that nuke isn't on display"
+	end
 
 	if data.heldUid == "" then
-		-- Nothing in hand to place -- the only thing left worth trying is taking
-		-- whatever is already here.
-		if occupiedIndex == nil then
-			return false, "hold something first \u{2014} pick it from your bag"
-		end
-
 		return takeOff(data, plot, occupiedIndex)
 	end
 
-	-- Holding something: validate it before worrying about what, if anything, is
-	-- already up there.
-	local item, list, index = EconomyService.find(data, data.heldUid)
-	if item == nil or list ~= data.carry or index == nil then
-		if Bag.findCrate(data, data.heldUid) then
-			return false, "open the crate first \u{2014} you can't do that with a crate"
-		end
-		return false, "you aren't carrying that"
+	local item, index, why = heldForDisplay(data)
+	if item == nil or index == nil then
+		return false, why or "you can't display that"
 	end
-	if not Contamination.isClean(item.patches or {}) then
-		return false, "clean it first"
+	local entry = data.exhibit.pedestals[occupiedIndex]
+	local elapsed = os.time() - entry.placedAt
+	if elapsed < Tuning.EXHIBIT_UNCRATE_SECONDS then
+		return false, `still crating \u{2014} {Tuning.EXHIBIT_UNCRATE_SECONDS - elapsed}s left`
 	end
-	if item.modifier == "Slagged" then
-		return false, "slag can't be displayed"
+	local r = radiusFor(item)
+	local area = Placement.area(data.exhibit.level)
+	local refusal = Placement.why(area, spotsOf(data), entry.x or 0, entry.z or 0, r, Placement.SLACK, occupiedIndex)
+	if refusal then
+		return false, `{Items.get(item.itemId).name} is too big for that spot`
 	end
 
-	local displaced: any = nil
-	if occupiedIndex then
-		local entry = data.exhibit.pedestals[occupiedIndex]
-		local elapsed = os.time() - entry.placedAt
-		if elapsed < Tuning.EXHIBIT_UNCRATE_SECONDS then
-			return false, `still crating \u{2014} {Tuning.EXHIBIT_UNCRATE_SECONDS - elapsed}s left`
-		end
-		table.remove(data.exhibit.pedestals, occupiedIndex)
-		displaced = entry
+	table.remove(data.exhibit.pedestals, occupiedIndex)
+	table.remove(data.carry, index)
+	backToBag(data, entry)
+	local placed = placedEntry(item, entry.x or 0, entry.z or 0, r)
+	table.insert(data.exhibit.pedestals, placed)
+
+	clearNuke(plot, entry.uid)
+	renderNuke(plot, placed)
+	refreshStandCards(plot, data)
+	return true, `swapped in {Items.get(item.itemId).name} \u{2014} {Items.get(entry.itemId).name} back in your bag`
+end
+
+-- How far from a spot its placer may stand. The client only offers spots under the
+-- cursor on your own floor; this just stops a remote placing from across the map.
+local PLACE_REACH = 90
+local PLACE_COOLDOWN = 0.3
+local lastPlace: { [Player]: number } = {}
+
+--- The client's placement ghost asks for the held nuke to go down at plot-local
+--- (`x`, `z`) on the player's own base. Same checks the ghost already ran
+--- (Shared/Placement), against the server's own measure of the model, with
+--- Placement.SLACK for the hair two machines can measure differently.
+function ExhibitService.place(player: Player, x: number, z: number): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	local plot = plotOf[player]
+	if plot == nil then
+		return false, "you don't have a base yet"
+	end
+	local now = os.clock()
+	if now - (lastPlace[player] or 0) < PLACE_COOLDOWN then
+		return false, "slow down"
+	end
+	lastPlace[player] = now
+
+	local item, index, why = heldForDisplay(data)
+	if item == nil or index == nil then
+		return false, why or "you can't display that"
+	end
+	local cap = BaseUpgrades.capFor(data.exhibit.level)
+	if #data.exhibit.pedestals >= cap then
+		return false,
+			if BaseUpgrades.nextPrice(data.exhibit.level)
+				then `your base holds {cap} nukes \u{2014} upgrade it for more`
+				else `your base is full ({cap} nukes)`
+	end
+
+	local at = plotOrigin(plot) * CFrame.new(x, 0, z)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if root == nil or ((root :: BasePart).Position - at.Position).Magnitude > PLACE_REACH then
+		return false, "walk back to your base"
+	end
+
+	local r = radiusFor(item)
+	local refusal = Placement.why(Placement.area(data.exhibit.level), spotsOf(data), x, z, r, Placement.SLACK)
+	if refusal then
+		return false, refusal
 	end
 
 	table.remove(data.carry, index)
-	if displaced then
-		-- Same shape a plain take gives a retrieved item: frozen, no patches, clock
-		-- reset. It was already docked; coming off must not restart the decay clock.
-		table.insert(data.carry, {
-			uid = displaced.uid,
-			itemId = displaced.itemId,
-			rarity = displaced.rarity,
-			modifier = displaced.modifier,
-			merge = displaced.merge,
-			bonus = displaced.bonus,
-			forge = displaced.forge,
-			reforges = displaced.reforges,
-			elapsed = 0,
-			frozen = true,
-			patches = {},
-		})
-	end
-
-	table.insert(data.exhibit.pedestals, {
-		slot = slot,
-		uid = item.uid,
-		itemId = item.itemId,
-		rarity = item.rarity,
-		modifier = item.modifier,
-		merge = item.merge,
-		bonus = item.bonus,
-		forge = item.forge,
-		reforges = item.reforges,
-		placedAt = os.time(),
-	})
-
-	renderStand(plot, slot, item.itemId, item.rarity, item.uid, item.modifier)
+	local entry = placedEntry(item, x, z, r)
+	table.insert(data.exhibit.pedestals, entry)
+	renderNuke(plot, entry)
 	refreshStandCards(plot, data)
-
-	if displaced then
-		return true, `swapped in {Items.get(item.itemId).name} \u{2014} {Items.get(displaced.itemId).name} back in your bag`
-	end
 	return true, `{Items.get(item.itemId).name} is on display`
 end
 
@@ -1369,13 +1406,12 @@ function ExhibitService.nukeList(player: Player): any?
 			merge = Merge.levelOf(entry),
 			rate = entryYieldPerSecond(entry, damping, stats),
 			copy = copyIndex,
-			slot = entry.slot,
 			crating = crateLeft(entry),
 		})
 	end
 
 	return {
-		slots = Floors.slotsFor(data.exhibit.floors),
+		slots = BaseUpgrades.capFor(data.exhibit.level),
 		used = #data.exhibit.pedestals,
 		rate = rawRatePerSecond(data, stats),
 		displayed = displayed,
@@ -1412,9 +1448,10 @@ end
 --- still crating are pinned -- they stay where they are and count as copies -- the
 --- same clock `interact` refuses a take on.
 ---
---- The bag can never overflow: every piece that comes off a stand is replaced by one
---- going up out of the bag, and the picked set is never smaller than what was up.
---- Pieces that stay stay on their own stand; new ones fill the lowest free slot.
+--- Pieces that stay stay on their own spot. New ones go down on the open floor back row
+--- first (Placement.firstFree), in the room the pieces coming off leave, best first.
+--- A piece with no room left stays in the bag -- and if that would leave the bag over
+--- its capacity, pieces that came off go back on their old spots until it is not.
 function ExhibitService.equipBest(player: Player): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
@@ -1432,7 +1469,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 	end
 
 	local stats = StatResolver.get(data)
-	local slots = Floors.slotsFor(data.exhibit.floors)
+	local slots = BaseUpgrades.capFor(data.exhibit.level)
 
 	local chosen: { Pick } = {}
 	local pool: { Pick } = {}
@@ -1450,7 +1487,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 
 	for _, entry in data.exhibit.pedestals do
 		local pick = { item = entry, value = entryYieldPerSecond(entry, 1, stats), onStand = true }
-		if crateLeft(entry) > 0 or entry.slot > slots then
+		if crateLeft(entry) > 0 then
 			take(pick)
 		else
 			table.insert(pool, pick)
@@ -1495,67 +1532,58 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 
 	local stays = {}
 	local comingOff = {}
-	local used: { [number]: boolean } = {}
 	for _, entry in data.exhibit.pedestals do
 		if keep[entry.uid] then
 			table.insert(stays, entry)
-			used[entry.slot] = true
 		else
 			table.insert(comingOff, entry)
 		end
 	end
 
-	local placing: { [string]: boolean } = {}
+	-- Best first, so the biggest earners get the back row and the room.
+	table.sort(goingUp, function(a, b)
+		return entryYieldPerSecond(a, 1, stats) > entryYieldPerSecond(b, 1, stats)
+	end)
+	local area = Placement.area(data.exhibit.level)
+	local spots: { Placement.Spot } = {}
+	for _, entry in stays do
+		table.insert(spots, { x = entry.x or 0, z = entry.z or 0, r = entry.r or Placement.MIN_RADIUS })
+	end
+	local placed: { any } = {}
 	for _, item in goingUp do
-		placing[item.uid] = true
+		local r = radiusFor(item)
+		local x, z = Placement.firstFree(area, spots, r)
+		if x and z then
+			table.insert(spots, { x = x, z = z, r = r })
+			table.insert(placed, placedEntry(item, x, z, r))
+		end
+	end
+	if #placed == 0 then
+		return false, "no room left on your base"
+	end
+
+	local placing: { [string]: boolean } = {}
+	for _, entry in placed do
+		placing[entry.uid] = true
+		table.insert(stays, entry)
 	end
 	for i = #data.carry, 1, -1 do
 		if placing[data.carry[i].uid] then
 			table.remove(data.carry, i)
 		end
 	end
-	-- Same shape a plain take gives a retrieved piece (see `interact`).
+	-- What came off goes back into the bag -- unless the bag is full and its old spot
+	-- is still free, in which case it simply stays where it was.
+	local cameOff = 0
 	for _, entry in comingOff do
-		table.insert(data.carry, {
-			uid = entry.uid,
-			itemId = entry.itemId,
-			rarity = entry.rarity,
-			modifier = entry.modifier,
-			merge = entry.merge,
-			bonus = entry.bonus,
-			forge = entry.forge,
-			reforges = entry.reforges,
-			elapsed = 0,
-			frozen = true,
-			patches = {},
-		})
-	end
-
-	local changed: { [number]: any } = {}
-	for _, entry in comingOff do
-		changed[entry.slot] = false
-	end
-	local now = os.time()
-	local nextSlot = 1
-	for _, item in goingUp do
-		while used[nextSlot] do
-			nextSlot += 1
+		local spot = { x = entry.x or 0, z = entry.z or 0, r = entry.r or Placement.MIN_RADIUS }
+		if Bag.used(data) >= StatResolver.get(data).capacity and Placement.clear(spots, spot.x, spot.z, spot.r) then
+			table.insert(spots, spot)
+			table.insert(stays, entry)
+		else
+			backToBag(data, entry)
+			cameOff += 1
 		end
-		used[nextSlot] = true
-		local entry = {
-			slot = nextSlot,
-			uid = item.uid,
-			itemId = item.itemId,
-			rarity = item.rarity,
-			modifier = item.modifier,
-			merge = item.merge,
-			bonus = item.bonus,
-			forge = item.forge,
-			reforges = item.reforges,
-			placedAt = now,
-		}
-		table.insert(stays, entry)
-		changed[nextSlot] = entry
 	end
 
 	-- Best first, so each item id's top copy is the one paid at full rate:
@@ -1565,33 +1593,30 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 	end)
 	data.exhibit.pedestals = stays
 
-	for slot, entry in changed do
-		if entry then
-			renderStand(plot, slot, entry.itemId, entry.rarity, entry.uid, entry.modifier)
-		else
-			renderStand(plot, slot, nil, nil)
-		end
+	clearNukes(plot)
+	for _, entry in stays do
+		renderNuke(plot, entry)
 	end
 	refreshStandCards(plot, data)
 
-	local message = `{#goingUp} {if #goingUp == 1 then "nuke" else "nukes"} on display`
-	if #comingOff > 0 then
-		message ..= ` \u{2014} {#comingOff} back in your bag`
+	local message = `{#placed} {if #placed == 1 then "nuke" else "nukes"} on display`
+	if cameOff > 0 then
+		message ..= ` \u{2014} {cameOff} back in your bag`
+	end
+	if #placed < #goingUp then
+		message ..= ` \u{2014} no room for {#goingUp - #placed} more`
 	end
 	return true, message
 end
 
--- ── Floors ────────────────────────────────────────────────────────────────────
+-- ── Base upgrades ─────────────────────────────────────────────────────────────
 
---- Build the next floor on this player's own base. `plot`/`floor` come from the
---- sign's own attributes (which base it stands on, which floor it sells), the same
---- "the prompt IS the thing" rule `interact` follows. Same shape as
---- TreadmillService.buy: check everything, debit FIRST, and only touch the profile
---- once the money has actually moved.
----
---- NO PROXIMITY CHECK: only ever reached from a ProximityPrompt.Triggered, which the
---- engine has already range-checked (TreadmillService.buy says the same).
-function ExhibitService.buyFloor(player: Player, plot: number, floor: number): (boolean, string)
+--- Buy the next Upgrade Base on this player's own base: BaseUpgrades.PER_LEVEL more
+--- nukes and a deeper floor. `plot` comes from the sign's own attributes (which base it
+--- stands on). `level` is the level the popup offered, so a double-tapped BUY can never
+--- buy two. Same shape as TreadmillService.buy: check everything, debit FIRST, and only
+--- touch the profile once the money has actually moved.
+function ExhibitService.buyUpgrade(player: Player, plot: number, level: number): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
 		return false, "your save hasn't loaded"
@@ -1600,16 +1625,13 @@ function ExhibitService.buyFloor(player: Player, plot: number, floor: number): (
 		return false, "that isn't your base"
 	end
 
-	local owned = Floors.clamp(data.exhibit.floors)
-	if floor <= owned then
-		return false, `you already have floor {floor}`
+	local owned = BaseUpgrades.clamp(data.exhibit.level)
+	if level ~= owned + 1 then
+		return false, "you already bought that upgrade"
 	end
-	if floor ~= owned + 1 then
-		return false, `build floor {owned + 1} first`
-	end
-	local price = Floors.PRICES[floor]
+	local price = BaseUpgrades.PRICES[level]
 	if price == nil then
-		return false, "your base can't go any higher"
+		return false, "your base is fully upgraded"
 	end
 
 	local paid, reason = EconomyService.spend(player, price)
@@ -1617,20 +1639,18 @@ function ExhibitService.buyFloor(player: Player, plot: number, floor: number): (
 		return false, reason
 	end
 
-	data.exhibit.floors = floor
-	data.exhibit.slots = Floors.slotsFor(floor)
+	data.exhibit.level = level
 	renderAll(plot, data)
-	-- The "YOUR BASE" beacon rides over the top deck; PlotState is what (re)builds it.
 	Net.get("PlotState"):FireClient(player, plot)
-	return true, `floor {floor} built \u{2014} {Floors.UPPER_SLOTS} more stands (paid ${price})`
+	return true, `base upgraded \u{2014} room for {BaseUpgrades.capFor(level)} nukes (paid ${price})`
 end
 
 -- Per sign, so a second refusal inside the flash window restarts it rather than
 -- being cut short by the first one's timer.
 local signFlash: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
 
---- Write `message` into a floor sign's painted subtitle for a moment, then put its
---- price back. The world answer for a refused purchase — see build/Plots.buildFloorSign.
+--- Write `message` into the Upgrade Base sign's painted subtitle for a moment, then put
+--- its price back. The world answer for a refusal — see build/Plots.buildUpgradeSign.
 local function flashSign(board: BasePart, message: string)
 	local sign = board:FindFirstChild("Sign")
 	local subtitle = sign and sign:FindFirstChild("Subtitle")
@@ -1650,113 +1670,148 @@ end
 
 local wiredSigns: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
--- The floor purchase popup (client FloorPurchaseController). Holding E on a sign no
--- longer buys: it sends the offer, and the popup's BUY button asks for it back.
-local floorRemote: RemoteEvent = nil
+-- The Upgrade Base popup (client BaseUpgradeController). Tapping E on the sign sends
+-- the offer; the popup's BUY button asks for it back.
+local upgradeRemote: RemoteEvent = nil
 -- How far from the board a BUY may be pressed. The prompt reaches 10; this leaves room
 -- to step back while reading the popup, and the popup closes itself past it.
-local FLOOR_BUY_REACH = 16
+local UPGRADE_BUY_REACH = 16
 
---- The live (in-Workspace) board selling `floor` on plot `plot`, or nil.
-local function liveFloorBoard(plot: number, floor: number): BasePart?
+--- The live (in-Workspace) Upgrade Base board on plot `plot`, or nil.
+local function liveUpgradeBoard(plot: number): BasePart?
 	for board in wiredSigns do
-		if
-			board:IsA("BasePart")
-			and board:IsDescendantOf(Workspace)
-			and board:GetAttribute("PlotIndex") == plot
-			and board:GetAttribute("BuysFloor") == floor
-		then
+		if board:IsA("BasePart") and board:IsDescendantOf(Workspace) and board:GetAttribute("PlotIndex") == plot then
 			return board
 		end
 	end
 	return nil
 end
 
---- Open the popup for `floor` on `player`'s screen: the price, what it adds and what
---- they have, so the card can say up front whether they can afford it.
-local function offerFloor(player: Player, board: BasePart, plot: number, floor: number)
+--- Open the popup on `player`'s screen: the price, what it adds and what they have,
+--- so the card can say up front whether they can afford it.
+local function offerUpgrade(player: Player, board: BasePart, plot: number)
 	local data = DataService.data(player)
 	if data == nil then
 		return
 	end
-	floorRemote:FireClient(player, {
+	local owned = BaseUpgrades.clamp(data.exhibit.level)
+	local price = BaseUpgrades.nextPrice(owned)
+	if price == nil then
+		flashSign(board, "fully upgraded")
+		return
+	end
+	upgradeRemote:FireClient(player, {
 		kind = "offer",
 		plot = plot,
-		floor = floor,
-		price = Floors.PRICES[floor] or 0,
-		stands = Floors.UPPER_SLOTS,
+		level = owned + 1,
+		maxLevel = BaseUpgrades.MAX_LEVEL,
+		price = price,
+		nukes = BaseUpgrades.PER_LEVEL,
+		cap = BaseUpgrades.capFor(owned + 1),
 		cash = data.cash,
 		board = board,
 	})
 end
 
 --- The popup's BUY. Range-checked here because, unlike the prompt, a remote is not.
-local function onFloorBuy(player: Player, plot: any, floor: any)
-	if type(plot) ~= "number" or type(floor) ~= "number" then
+local function onUpgradeBuy(player: Player, plot: any, level: any)
+	if type(plot) ~= "number" or type(level) ~= "number" then
 		return
 	end
-	local board = liveFloorBoard(plot, floor)
+	local board = liveUpgradeBoard(plot)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local ok, message
 	if board == nil then
-		ok, message = false, "that floor isn't for sale"
-	elseif root == nil or ((root :: BasePart).Position - board.Position).Magnitude > FLOOR_BUY_REACH then
+		ok, message = false, "there's no upgrade for sale"
+	elseif root == nil or ((root :: BasePart).Position - board.Position).Magnitude > UPGRADE_BUY_REACH then
 		ok, message = false, "walk back to the sign"
 	else
-		ok, message = ExhibitService.buyFloor(player, plot, floor)
+		ok, message = ExhibitService.buyUpgrade(player, plot, level)
 	end
 	if ok then
 		print(`[exhibit] {player.Name}: {message}`)
 	end
 	local data = DataService.data(player)
-	floorRemote:FireClient(player, {
+	upgradeRemote:FireClient(player, {
 		kind = "result",
 		ok = ok,
 		message = message,
-		floor = floor,
+		level = level,
 		cash = if data then data.cash else nil,
 	})
 end
 
---- Connect one floor sign's prompt to buyFloor. Built by build/Plots.buildFloorSign and
+--- Connect one Upgrade Base sign's prompt. Built by build/Plots.buildUpgradeSign and
 --- saved with the place; wired here by tag, the same build-time/runtime split every
---- world purchase uses. Once per board: a parked floor sign never leaves the DataModel
---- (it goes to ServerStorage), so its connection survives being hidden.
-local function wireFloorSign(board: Instance)
+--- world purchase uses. Once per board: a parked sign never leaves the DataModel (it
+--- goes to ServerStorage), so its connection survives being hidden.
+local function wireUpgradeSign(board: Instance)
 	if not board:IsA("BasePart") or wiredSigns[board] then
 		return
 	end
 	local prompt = board:FindFirstChildOfClass("ProximityPrompt")
 	if prompt == nil then
-		warn(`[exhibit] {board:GetFullName()} sells a floor but has no ProximityPrompt — nobody can buy from it`)
+		warn(`[exhibit] {board:GetFullName()} sells base upgrades but has no ProximityPrompt — nobody can buy from it`)
 		return
 	end
 	wiredSigns[board] = true
-	-- A place saved before the painted "Floor N / Purchase floor for $X" look still
-	-- wears the old billboard; this swaps it in without a world rebuild.
-	Plots.dressFloorSign(board :: BasePart)
-	-- The popup is the confirm step now, so a tap opens it (a saved place still has
-	-- the old half-second hold).
-	prompt.HoldDuration = 0
-	prompt.ActionText = `Purchase Floor {board:GetAttribute("BuysFloor")}`
 
 	prompt.Triggered:Connect(function(player: Player)
 		if not Tutorial.promptOpen(player, prompt) then
 			return
 		end
 		local plot = board:GetAttribute("PlotIndex")
-		local floor = board:GetAttribute("BuysFloor")
-		if type(plot) ~= "number" or type(floor) ~= "number" then
+		if type(plot) ~= "number" then
 			return
 		end
-		-- Someone else's base: answer on the sign, the way it always has. Your own:
-		-- the popup, which does the buying.
+		-- Someone else's base: answer on the sign. Your own: the popup, which buys.
 		if plotOf[player] ~= plot then
-			flashSign(board, "that isn't your base")
+			flashSign(board :: BasePart, "that isn't your base")
 			return
 		end
-		offerFloor(player, board :: BasePart, plot, floor)
+		offerUpgrade(player, board :: BasePart, plot)
 	end)
+end
+
+--- A save from the stand days carries `slot` numbers, not spots. Give each such piece a
+--- spot on the open floor (back row first, Placement.firstFree), and send any that do
+--- not fit — past the level's cap, or out of room — back into the bag, so nothing a
+--- player owned is lost in the move. Drops the old `floors`/`slots` keys.
+local function settleOldStands(data: any)
+	data.exhibit.floors = nil
+	data.exhibit.slots = nil
+	local area = Placement.area(data.exhibit.level)
+	local cap = BaseUpgrades.capFor(data.exhibit.level)
+	local kept = {}
+	local spots: { Placement.Spot } = {}
+	local pending = {}
+	for _, entry in data.exhibit.pedestals do
+		if type(entry.x) == "number" and type(entry.z) == "number" and type(entry.r) == "number" then
+			table.insert(kept, entry)
+			table.insert(spots, { x = entry.x, z = entry.z, r = entry.r })
+		else
+			table.insert(pending, entry)
+		end
+	end
+	if #pending == 0 then
+		return
+	end
+	for _, entry in pending do
+		entry.slot = nil
+		local r = radiusFor(entry)
+		local x, z = nil, nil
+		if #kept < cap then
+			x, z = Placement.firstFree(area, spots, r)
+		end
+		if x and z then
+			entry.x, entry.z, entry.r = x, z, r
+			table.insert(kept, entry)
+			table.insert(spots, { x = x, z = z, r = r })
+		else
+			backToBag(data, entry)
+		end
+	end
+	data.exhibit.pedestals = kept
 end
 
 -- ── Bootstrap ─────────────────────────────────────────────────────────────────
@@ -1767,7 +1822,7 @@ function ExhibitService.init()
 	colorRemote = Net.get("PlotColor")
 	incomeRemote = Net.get("IncomeState")
 	nukeListRemote = Net.get("NukeList")
-	floorRemote = Net.get("FloorPurchase")
+	upgradeRemote = Net.get("BaseUpgrade")
 end
 
 function ExhibitService.start()
@@ -1823,32 +1878,44 @@ function ExhibitService.start()
 		ensureLockerStation(index)
 	end
 
-	-- Every floor sign, including ones a later World.rebuild() adds mid-session.
-	for _, board in CollectionService:GetTagged(FLOOR_TAG) do
-		wireFloorSign(board)
+	-- Every Upgrade Base sign, including ones a later World.rebuild() adds mid-session.
+	for _, board in CollectionService:GetTagged(UPGRADE_TAG) do
+		wireUpgradeSign(board)
 	end
-	CollectionService:GetInstanceAddedSignal(FLOOR_TAG):Connect(wireFloorSign)
-	floorRemote.OnServerEvent:Connect(function(player: Player, verb, plot, floor)
+	CollectionService:GetInstanceAddedSignal(UPGRADE_TAG):Connect(wireUpgradeSign)
+	upgradeRemote.OnServerEvent:Connect(function(player: Player, verb, plot, level)
 		if verb == "buy" then
-			onFloorBuy(player, plot, floor)
+			onUpgradeBuy(player, plot, level)
 		end
 	end)
 
-	-- The place is saved with every floor of every plot showing (build/Plots builds
-	-- them all); nobody owns anything yet, so strip every plot to its ground floor.
+	-- The held nuke goes down on the open floor where the client's ghost says. The
+	-- answer goes to the hotbar popup either way, like a placed nuke's own prompt.
+	Net.get("PlaceNuke").OnServerEvent:Connect(function(player: Player, x, z)
+		if type(x) ~= "number" or type(z) ~= "number" then
+			return
+		end
+		local ok, message = ExhibitService.place(player, x, z)
+		if noticeRemote and (not ok or message ~= "") then
+			noticeRemote:FireClient(player, message)
+		end
+		if ok then
+			print(`[exhibit] {player.Name}: {message}`)
+		end
+	end)
+
+	-- The place is saved with every extension strip of every plot showing (build/Plots
+	-- builds them all); nobody owns anything yet, so strip every plot to level 0.
 	for index = 1, PLOT_COUNT do
-		renderFloors(index, nil)
+		renderLevel(index, nil)
 		-- And every treadmill gets its upgrade sign up (and a saved place's old E
 		-- prompt taken down) before anyone claims it; Plots.setTreadmillTier does both.
 		renderTreadmill(index, nil)
 	end
 
 	DataService.onLoaded(function(player, data)
-		-- `slots` is always derived from `floors` (Config/Floors). This also brings up
-		-- saves from before every ground stand was free (the old EXHIBIT_STARTING_SLOTS
-		-- was 3, upgraded with cash) — Reconcile can't, since the key already exists.
-		data.exhibit.floors = Floors.clamp(data.exhibit.floors)
-		data.exhibit.slots = Floors.slotsFor(data.exhibit.floors)
+		data.exhibit.level = BaseUpgrades.clamp(data.exhibit.level)
+		settleOldStands(data)
 		bankOffline(player, data)
 		deposit(player, data)
 		assign(player)
@@ -1875,6 +1942,7 @@ function ExhibitService.start()
 		lastIncome[player] = nil
 		lastEquip[player] = nil
 		lastUnequip[player] = nil
+		lastPlace[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)

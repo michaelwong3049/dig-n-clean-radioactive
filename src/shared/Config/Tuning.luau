@@ -627,11 +627,9 @@ Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0 }
 -- The crating lock (a nuke just put up can't come off for this long) is off, on
 -- request: 0 lets a take / swap / Unequip happen straight away.
 Tuning.EXHIBIT_UNCRATE_SECONDS = 0
--- Every stand a base can ever have, across all of its floors (Config/Floors): the
--- ground floor's 12 are free from the start, and each floor bought on top adds 8
--- more. How many a given player has unlocked is `Floors.slotsFor(data.exhibit.floors)`
--- -- this is the ceiling loops that scan "every stand" walk up to.
-Tuning.EXHIBIT_MAX_SLOTS = require(script.Parent.Floors).MAX_SLOTS
+-- Every nuke a fully upgraded base can have out at once (Config/BaseUpgrades). How
+-- many a given player may place is `BaseUpgrades.capFor(data.exhibit.level)`.
+Tuning.EXHIBIT_MAX_SLOTS = require(script.Parent.BaseUpgrades).MAX_NUKES
 -- There is NO hourly cap on stand income any more (balance/economy-pacing-pass): stands
 -- pay exactly what their nukes earn. See ExhibitService's header.
 

@@ -7,7 +7,7 @@
 	    GiftReady (past Toxic Twilight, holding a nuke) and they are GiftUnlocked --
 	    both attributes the server publishes. Holding T fires Gift("offer", them); the
 	    server re-checks all of it.
-	  * THE CARD. The receiver's popup, in FloorPurchaseController's dark-slab voice:
+	  * THE CARD. The receiver's popup, in BaseUpgradeController's dark-slab voice:
 	    "GIFT FROM <name>", the nuke turning in a well, its rarity / stars / kg and what
 	    it would earn, a lapse countdown, then ACCEPT and DECLINE.
 ]]
