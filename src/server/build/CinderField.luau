@@ -32,21 +32,23 @@ local CinderField = {}
 
 local SEED = 7700
 
-local SNAGS = 6
-local STUMPS = 6
-local LOGS = 3
-local EMBER_BEDS = 6
+-- MINIMAL-DECOR PASS (2026-10-03, on request): one landmark kept (charred snags), every
+-- other count cut to a handful and the ground scatter to x0.3. Old values inline.
+local SNAGS = 3 -- was 6
+local STUMPS = 1 -- was 6
+local LOGS = 1 -- was 3
+local EMBER_BEDS = 2 -- was 6
 --- How many of the beds carry a light, sparks, smoke. The rest glow by Neon alone.
-local BED_LIGHTS = 4
-local BED_SPARKS = 3
-local BED_SMOKE = 2
+local BED_LIGHTS = 2 -- was 4
+local BED_SPARKS = 1 -- was 3
+local BED_SMOKE = 1 -- was 2
 
 --- The ground grid and its per-cell chances (sum 0.34 — one cell in three).
 local CELL = 13
-local ASH_CHANCE = 0.02
-local CINDER_CHANCE = 0.05
-local SPECK_CHANCE = 0.03
-local TWIG_CHANCE = 0.03
+local ASH_CHANCE = 0.006 -- was 0.02
+local CINDER_CHANCE = 0.015 -- was 0.05
+local SPECK_CHANCE = 0.009 -- was 0.03
+local TWIG_CHANCE = 0.009 -- was 0.03
 
 local WOOD = { K.hex("1E1A1C"), K.hex("2A2426"), K.hex("352C29") }
 local CHAR = K.hex("121012")

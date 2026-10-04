@@ -55,11 +55,12 @@ local EDGE_MARGIN = 6
 --- Per-cell chances. `*_NEAR` is added on top at a crater's outer foot and fades out
 --- by NEAR_FALLOFF per unit of rho past it; a pock counts POCK_BLAST as hard as the
 --- big crater.
-local DIRT_CHANCE = 0.04
-local GRAVEL_CHANCE = 0.03
-local GRAVEL_NEAR = 0.07
-local WRECK_CHANCE = 0.01
-local WRECK_NEAR = 0.12
+-- x0.3 in the minimal-decor pass (2026-10-03).
+local DIRT_CHANCE = 0.012
+local GRAVEL_CHANCE = 0.009
+local GRAVEL_NEAR = 0.021
+local WRECK_CHANCE = 0.003
+local WRECK_NEAR = 0.036
 --- Share of dirt patches that are pale dust rather than dark ash.
 local DUST_SHARE = 0.4
 local NEAR_FALLOFF = 1.1

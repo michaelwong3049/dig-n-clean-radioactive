@@ -61,9 +61,10 @@ local SEED = 8100
 --- the Stage 2 seam. Both x0.8 since the middle lane opened up (#377), which holds
 --- the field to its old part count instead of adding clumps. x0.45 again on request
 --- ("remove a lot of the flowers"), and clumps cut to 1-3 heads so they stop repeating.
+--- x0.35 again in the minimal-decor pass (2026-10-03): a few clumps, not a meadow.
 local CELL = 14
-local FLOWER_WEST = 0.42 * 0.8 * 0.45
-local FLOWER_EAST = 0.2 * 0.8 * 0.45
+local FLOWER_WEST = 0.42 * 0.8 * 0.45 * 0.35
+local FLOWER_EAST = 0.2 * 0.8 * 0.45 * 0.35
 
 --- Where along the field (0 = camp edge, 1 = Stage 2 seam) the flowers start to wilt,
 --- and how far on they are fully dead.
@@ -916,7 +917,10 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	local best: { Vector3 }? = nil
 	local bestHits = math.huge
 	for _, sx in { 0.076, 0.1, 0.125 } do
-		for _, zb in { 46, 50, 54, 58 } do
+		-- Depths off the field's own north edge (was a flat 46-58 against a maxZ of 70;
+		-- the 124-wide map-shrink pass put that meander inside the wall).
+		for _, back in { 24, 20, 16, 12 } do
+			local zb = f.maxZ - back
 			local path = creekPath(zb, f.maxZ, sx)
 			local hits = 0
 			local list = sampleCreek(path)
@@ -956,7 +960,7 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	end
 	local deadAt = place(taken, 7, rng, fx(0.69), fx(0.92), f.minZ + 6, -lane)
 	if deadAt then
-		sunflowerPatch(folder, "DeadSunflowers", deadAt, 5, 0.75, 1, groundY, rng)
+		sunflowerPatch(folder, "DeadSunflowers", deadAt, 3, 0.75, 1, groundY, rng) -- 5 -> 3, minimal-decor pass
 	end
 	local picnicAt = place(taken, 6, rng, fx(0.076), fx(0.31), f.minZ + 6, -lane)
 	if picnicAt then
@@ -968,7 +972,7 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	end
 	local liveAt = place(taken, 7, rng, fx(0.07), fx(0.33), lane, f.maxZ - 6)
 	if liveAt then
-		sunflowerPatch(folder, "Sunflowers", liveAt, 4, 0, 0.12, groundY, rng)
+		sunflowerPatch(folder, "Sunflowers", liveAt, 2, 0, 0.12, groundY, rng) -- 4 -> 2, minimal-decor pass
 	end
 
 	-- THE FLOWERS last, into whatever ground the rest left.

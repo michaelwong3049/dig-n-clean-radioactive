@@ -44,14 +44,16 @@ local RIFT_WANDER = 6
 local RIFT_LIGHT_EVERY = 4
 local RIFT_SPARK_EVERY = 9
 
-local SPIRES = 8
-local BASALT = 4
-local BOULDERS = 7
+-- MINIMAL-DECOR PASS (2026-10-03, on request): one landmark kept (the rift), every
+-- other count cut to a handful and the ground scatter to x0.3. Old values inline.
+local SPIRES = 2 -- was 8
+local BASALT = 1 -- was 4
+local BOULDERS = 3 -- was 7
 
 local CELL = 13
-local DUST_CHANCE = 0.02
-local GRIT_CHANCE = 0.05
-local CRACK_CHANCE = 0.03
+local DUST_CHANCE = 0.006 -- was 0.02
+local GRIT_CHANCE = 0.015 -- was 0.05
+local CRACK_CHANCE = 0.009 -- was 0.03
 
 local ROCK = { K.hex("6E1224"), K.hex("8A1A2E"), K.hex("5A0E1C"), K.hex("B02438") }
 local BASALT_COLORS = { K.hex("2A1216"), K.hex("3A1A1E"), K.hex("22101A") }
