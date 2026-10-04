@@ -299,7 +299,10 @@ end
 --
 -- 20 -> 22 WITH THE 10%-WIDER PASS (2026-10-03: FOOTPRINT_Z 124 -> 136, area x1.097).
 -- Same rule: the count follows the area so `area / N` holds.
-Tuning.SIGNALS_PER_STAGE = 22
+--
+-- 22 -> 28 WITH THE BACK-TO-170 PASS (2026-10-04: FOOTPRINT_Z 136 -> 170, area x1.25;
+-- 27.5 rounded up).
+Tuning.SIGNALS_PER_STAGE = 28
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate

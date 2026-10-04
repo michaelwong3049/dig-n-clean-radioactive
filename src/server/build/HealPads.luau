@@ -4,13 +4,12 @@
 
 	    require(game.ServerScriptService.Server.build.HealPads).rebuild()
 
-	ONE EACH SIDE OF STAGE 1'S MOUTH, on the green strip between the shop rows and the
-	field (2026-10-03, with the square base layout). They used to sit behind the two shop
-	rows on the plaza's centre line (x = 17.5, |z| = 68), but the north and south bases'
-	fronts are at |z| = 76 now, so that aisle is a walkway. Here they mirror about the
-	Trader's line (z = 0), clear of the shop rows (they end at x = 61), the walk-out lane
-	between them, and the corridor walls (|z| >= 68 past x = 100). Players coming back from
-	the field walk straight past them.
+	ONE BEHIND EACH SHOP ROW, on request (2026-10-04): centred on the plaza's midline
+	(x = 5.5, PLAZA_MID) in the paved strip between a row's stall backs (|z| = 44) and the
+	north/south bases' front strips (|z| = 78). They mirror about the Trader's line (z = 0):
+	south behind the Outfitter (Aura) + Hose Shop, north behind Magnet + Detector. Before
+	this they sat either side of Stage 1's mouth at (85, +/-46), and before the square base
+	layout behind the rows at (17.5, +/-68).
 
 	A PAD IS A SHOWER ANYONE CAN USE, PLUS HEALING. The red core hex carries
 	`Shower = true` (Kit.build tags it, ExposureService's shower cache finds it), and
@@ -29,8 +28,12 @@
 	to a regular hexagon of circumradius R exactly. Pointy along local Z, so the heart's
 	tip and top sit on two corners.
 
-	THE HEART'S TOP POINTS AT THE FIELD (+X), so a player walking out from the shops sees
-	it upright. Each pad's origin is yawed so its local +Z is that direction.
+	THE HEART'S TOP POINTS AWAY FROM THE PLAZA MIDDLE (out along +/-Z), so a player
+	coming round the back of the shops sees it upright. Each pad's origin is yawed so its
+	local +Z is that direction.
+
+	SCALE shrinks the whole badge (0.8 since 2026-10-04, "slightly smaller"): every
+	footprint size, offset and the heal Radius; layer heights stay as they are.
 
 	NO LIGHTS: base camp already had too many (Shops' glowOutline note).
 ]]
@@ -45,16 +48,16 @@ local HealPads = {}
 HealPads.MODEL_NAME = "HealPads"
 
 local BUILDER_SOURCE = "src/server/build/HealPads.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
--- x 85: the badge reaches ~12 studs to a tooth tip, so it stays a couple of studs clear
--- of the Stage 1 hazard line (x = 100). Laid at lawn height (the green strip starts at
--- x = 75); the teeth that reach the raised cream still stand proud of it.
-local PAD_X = 85
-local PAD_Z = 46 -- either side: the tooth tips stay ~10 studs inside the corridor's +/-68 (was +/-62)
+local SCALE = 0.8 -- the whole badge; 1 reached ~12 studs to a tooth tip, 0.8 ~9.4
+-- x 5.5 = PLAZA_MID, between each row's two stalls. z 61 splits the gap between the stall
+-- backs (44) and the bases' front strips (78), so the ~9.4-stud teeth clear both.
+local PAD_X = 5.5
+local PAD_Z = 61
 local PADS = {
-	{ name = "HealPadSouth", z = -PAD_Z }, -- by the Outfitter (Aura) + Hose Shop row
-	{ name = "HealPadNorth", z = PAD_Z }, -- by the Magnet + Detector row
+	{ name = "HealPadSouth", z = -PAD_Z, yaw = 180 }, -- behind the Outfitter (Aura) + Hose Shop row
+	{ name = "HealPadNorth", z = PAD_Z, yaw = 0 }, -- behind the Magnet + Detector row
 }
 
 local C = {
@@ -69,7 +72,7 @@ local C = {
 	shine = "FF8A7A",
 }
 local HEART_PX = 44
-local REACH = 10
+local REACH = 10 * SCALE
 
 local SQRT3 = math.sqrt(3)
 local LIFT = 0.04 -- each layer's top above the one under it
@@ -177,21 +180,23 @@ local function buildSign(core: BasePart)
 	Kit.textOutline(label, 2.5)
 end
 
-local function buildPad(parent: Instance, name: string, z: number)
+local function buildPad(parent: Instance, name: string, z: number, yaw: number)
 	local pad = Instance.new("Model")
 	pad.Name = name
-	-- Local +Z points at the field: the heart's top. On the lawn, so no plaza lift.
-	local origin = CFrame.new(PAD_X, Hub.PLAZA.topY, z) * Kit.ang(0, 90, 0)
+	-- Local +Z points away from the plaza middle: the heart's top. On the grey path, so
+	-- it sits on the plaza's raised floor.
+	local origin = CFrame.new(PAD_X, Hub.PLAZA.topY + Hub.PLAZA_LIFT, z) * Kit.ang(0, yaw, 0)
+	local k = SCALE
 
 	local y = 0.3
 	-- The gear: an outlined tooth off each corner, under the navy hex.
 	for i = 0, 5 do
 		local a = i * 60
 		local dir = Kit.ang(0, a, 0)
-		for _, layer in { { w = 3.4, l = 3.2, top = y, color = C.outline }, { w = 2.6, l = 2.6, top = y + LIFT, color = C.gear } } do
+		for _, layer in { { w = 3.4 * k, l = 3.2 * k, top = y, color = C.outline }, { w = 2.6 * k, l = 2.6 * k, top = y + LIFT, color = C.gear } } do
 			local tooth = Kit.build(pad, origin * dir, {
 				name = `Tooth{i + 1}`,
-				pos = { 0, layer.top / 2, 10.2 },
+				pos = { 0, layer.top / 2, 10.2 * k },
 				size = { layer.w, layer.top, layer.l },
 				color = layer.color,
 				material = "Plastic",
@@ -201,34 +206,34 @@ local function buildPad(parent: Instance, name: string, z: number)
 			tooth.CastShadow = false
 		end
 	end
-	hex(pad, origin, "Outline", 10.4, y, C.outline)
+	hex(pad, origin, "Outline", 10.4 * k, y, C.outline)
 	y += LIFT
-	hex(pad, origin, "Gear", 9.8, y, C.gear)
+	hex(pad, origin, "Gear", 9.8 * k, y, C.gear)
 	y += LIFT
-	hex(pad, origin, "Navy", 9.2, y, C.navy)
+	hex(pad, origin, "Navy", 9.2 * k, y, C.navy)
 	y += LIFT
-	hex(pad, origin, "RingLine", 8.3, y, C.outline)
+	hex(pad, origin, "RingLine", 8.3 * k, y, C.outline)
 	y += LIFT
-	hex(pad, origin, "RingOuter", 7.9, y, C.purpleLight)
+	hex(pad, origin, "RingOuter", 7.9 * k, y, C.purpleLight)
 	y += LIFT
-	hex(pad, origin, "RingInner", 7.1, y, C.purpleDark)
+	hex(pad, origin, "RingInner", 7.1 * k, y, C.purpleDark)
 	y += LIFT
-	hex(pad, origin, "CoreLine", 6.5, y, C.outline)
+	hex(pad, origin, "CoreLine", 6.5 * k, y, C.outline)
 	y += LIFT
-	hex(pad, origin, "CoreDeep", 6.1, y, C.redDeep)
+	hex(pad, origin, "CoreDeep", 6.1 * k, y, C.redDeep)
 	y += LIFT
-	local core = hex(pad, origin, "Core", 5.6, y, C.red, { Shower = true, HealPad = true, Radius = REACH })
+	local core = hex(pad, origin, "Core", 5.6 * k, y, C.red, { Shower = true, HealPad = true, Radius = REACH })
 	y += LIFT
 
-	local s = 4.3
-	heart(pad, origin, "HeartLine", s, 0.8, y, C.outline)
+	local s = 4.3 * k
+	heart(pad, origin, "HeartLine", s, 0.8 * k, y, C.outline)
 	y += LIFT
 	heart(pad, origin, "Heart", s, 0, y, C.heart)
 	y += LIFT
 	-- Gloss on the lobe at the viewer's upper left (+X, facing local +Z), like the image.
 	local off = s / (2 * math.sqrt(2))
-	disc(pad, origin, "Shine", off + 0.35, -0.073 * s + off + 0.45, 1.1, y, C.shine)
-	disc(pad, origin, "ShineDot", off + 1.15, -0.073 * s + off - 0.35, 0.5, y, C.shine)
+	disc(pad, origin, "Shine", off + 0.35 * k, -0.073 * s + off + 0.45 * k, 1.1 * k, y, C.shine)
+	disc(pad, origin, "ShineDot", off + 1.15 * k, -0.073 * s + off - 0.35 * k, 0.5 * k, y, C.shine)
 
 	buildSparkles(core)
 	buildSign(core)
@@ -241,7 +246,7 @@ local function createHealPads(): Model
 	root.Name = HealPads.MODEL_NAME
 	Kit.stamp(root, BUILDER_SOURCE, BUILDER_VERSION)
 	for _, spec in PADS do
-		buildPad(root, spec.name, spec.z)
+		buildPad(root, spec.name, spec.z, spec.yaw)
 	end
 	return root
 end
