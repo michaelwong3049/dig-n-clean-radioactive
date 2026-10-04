@@ -682,21 +682,26 @@ Dock.SIDE_TILE_SIZE = 58
 -- bottom (HudTile builds them). It was one column of 58px Gear/Nukes/Warp squares on the
 -- right, with Shop and Index as bars on the left. Masteries' bare medal stands on top of
 -- it (SIDE_SOLO_*).
--- 76 -> 66, a bit smaller, on request (with the AI pictures).
-Dock.SIDE_GRID_TILE = 66
+-- 76 -> 66 -> 58, smaller, on request (with the AI pictures).
+Dock.SIDE_GRID_TILE = 58
 Dock.SIDE_GRID_COLUMNS = 2
 Dock.SIDE_GRID_ROWS = 3
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
-Dock.SIDE_TILE_GAP = 10
+Dock.SIDE_TILE_GAP = 9
 -- Masteries' bare medal, on top of the grid with its left edge on the grid's (HudTile):
 -- its box, and the space between its foot and the tallest picture poking over the grid.
 -- 88 tall = HudTile BARE_ICON 78 + BARE_CAPTION_GAP -11 + its caption 17 + 4.
 Dock.SIDE_SOLO_WIDTH = 100
 Dock.SIDE_SOLO_HEIGHT = 88
-Dock.SIDE_SOLO_GAP = 6
--- How far a tile's picture pokes up over its top edge (HudTile), kept clear of the corner row.
-Dock.SIDE_GRID_POKE = 12
+Dock.SIDE_SOLO_GAP = 22
+-- How far a tile's picture pokes up over its top edge (HudTile): "barely sticking out", on request.
+Dock.SIDE_GRID_POKE = 4
+-- How far below the canvas's middle the grid's middle sits, on request ("lower them a little").
+Dock.SIDE_GRID_DROP = 28
+-- Masteries' medal sits this far left of the grid's left edge, on request: the medal art
+-- has clear space either side in its box, so this lines the disc up nearer the edge.
+Dock.SIDE_SOLO_SHIFT = 14
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
 -- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Settings hard in the
@@ -731,7 +736,7 @@ function Dock.sideColumnTop(height: number): number
 		+ Dock.SIDE_SOLO_GAP
 		+ Dock.SIDE_GRID_POKE
 		- height / 2
-	return math.max(-Dock.SIDE_GRID_HEIGHT / 2, underGear)
+	return math.max(-Dock.SIDE_GRID_HEIGHT / 2 + Dock.SIDE_GRID_DROP, underGear)
 end
 
 --- The CENTRE of grid tile `slot` (1-6, left to right, top to bottom), as a position on
