@@ -62,9 +62,13 @@ local SEED = 8100
 --- the field to its old part count instead of adding clumps. x0.45 again on request
 --- ("remove a lot of the flowers"), and clumps cut to 1-3 heads so they stop repeating.
 --- x0.35 again in the minimal-decor pass (2026-10-03): a few clumps, not a meadow.
+--- Then on request (2026-10-04, "remove... some flowers"), every KEEP_EVERYth clump
+--- only: at these odds a field is a handful of clumps, and scaling the odds again
+--- emptied it outright instead of thinning it.
 local CELL = 14
 local FLOWER_WEST = 0.42 * 0.8 * 0.45 * 0.35
 local FLOWER_EAST = 0.2 * 0.8 * 0.45 * 0.35
+local KEEP_EVERY = 2
 
 --- Where along the field (0 = camp edge, 1 = Stage 2 seam) the flowers start to wilt,
 --- and how far on they are fully dead.
@@ -880,6 +884,7 @@ end
 local function wildflowers(parent: Instance, f: K.Field, taken: Taken, rng: Random)
 	local folder = Instance.new("Folder")
 	folder.Name = "Wildflowers"
+	local clumps = 0
 	K.grid(f, CELL, rng, function(x, z)
 		local t = along(x)
 		local roll = rng:NextNumber()
@@ -892,6 +897,10 @@ local function wildflowers(parent: Instance, f: K.Field, taken: Taken, rng: Rand
 		local petal = K.pick(rng, PETALS)
 		local w = math.clamp((t - WILT_START) / WILT_SPAN + rng:NextNumber(-0.15, 0.15), 0, 1)
 		local n = math.max(1, rng:NextInteger(1, 3) - math.floor(w))
+		clumps += 1
+		if (clumps - 1) % KEEP_EVERY ~= 0 then
+			return
+		end
 		for _ = 1, n do
 			local a, d = rng:NextNumber(0, math.pi * 2), rng:NextNumber(0, 1.6)
 			flower(folder, x + math.cos(a) * d, z + math.sin(a) * d, petal, math.clamp(w + rng:NextNumber(-0.08, 0.08), 0, 1), f.groundY, rng)
@@ -975,8 +984,10 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 		sunflowerPatch(folder, "Sunflowers", liveAt, 2, 0, 0.12, groundY, rng) -- 4 -> 2, minimal-decor pass
 	end
 
-	-- THE FLOWERS last, into whatever ground the rest left.
-	wildflowers(folder, f, taken, rng)
+	-- THE FLOWERS last, into whatever ground the rest left -- off their OWN seed, so
+	-- trimming a bush or snag (which shifts this rng through `place`) cannot empty or
+	-- refill the meadow by accident; their count is tuned by FLOWER_*/KEEP_EVERY only.
+	wildflowers(folder, f, taken, Random.new(SEED + 1))
 
 	for _, d in folder:GetDescendants() do
 		if d:IsA("BasePart") then
