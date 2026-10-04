@@ -184,22 +184,22 @@ local CARD_SLOTS = 1
 for _, track in Gear.TRACKS do
 	CARD_SLOTS = math.max(CARD_SLOTS, Gear.maxTier(track))
 end
-local CARD_WIDTH = 500
-local CARD_HEIGHT = 580
+local CARD_WIDTH = 340
+local CARD_HEIGHT = 470
 local CARD_GAP = 18
 -- How much of each neighbour shows at the panel's edges on a full-width panel. On a
 -- viewport too narrow for the ceiling, the panel narrows and the peeks go first; the
 -- focused card stays whole and centred because the row is placed from the carousel's
 -- own centre (Scale 0.5), not from its left edge.
-local CARD_PEEK = 64
+local CARD_PEEK = CARD_WIDTH -- THREE WHOLE CARDS ACROSS (2026-10-04, on request: the studded-card shop)
 -- Distance from one card's centre to the next — one "notch" of the carousel.
 local CAROUSEL_STEP = CARD_WIDTH + CARD_GAP
 -- A few px taller than a card so the focused card's stroke is never clipped.
 local CAROUSEL_HEIGHT = CARD_HEIGHT + 8
 -- Neighbours sit slightly smaller and behind a slate veil, so the focused card is the
 -- only thing on the row that reads as in front of you.
-local NEIGHBOUR_SCALE = 0.92
-local NEIGHBOUR_VEIL = 0.35
+local NEIGHBOUR_SCALE = 1
+local NEIGHBOUR_VEIL = 1
 local CAROUSEL_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 -- A drag must travel this far (design px) before it counts as a drag and not a click,
 -- and past this fraction of a step it moves one card even if it did not reach halfway.
@@ -215,11 +215,11 @@ local WHEEL_COOLDOWN = 0.15
 local DOT_SIZE = 9
 local DOT_FOCUS_WIDTH = 26
 -- The close badge's 32px plus the 14px it is inset by, less the panel pad it shares.
-local WALLET_INSET = 34
+local WALLET_INSET = 58
 
 local PANEL_PAD = 16
 -- The focused card, a gap and a peek either side, and the panel's own padding.
-local SHOP_PANEL_WIDTH = CARD_WIDTH + 2 * (CARD_GAP + CARD_PEEK) + 2 * PANEL_PAD
+local SHOP_PANEL_WIDTH = CARD_WIDTH + 2 * (CARD_GAP + CARD_PEEK) + 2 * PANEL_PAD + 10 -- + the outer cards' 4px edges
 -- The rack card (see `rackCard`): one card and nothing either side of it, with a few
 -- px spare so the carousel window does not clip the card's outline.
 local RACK_CARD_EDGE = 4
@@ -282,6 +282,34 @@ local STALL_ACCENT: { [string]: Color3 } = {
 	Detector = Color3.fromHex("E0714E"),
 	Magnet = Color3.fromHex("4E9AAE"),
 	Cleaner = Color3.fromHex("9560B0"),
+}
+
+--- THE STUDDED-CARD SHOP (2026-10-04, on request, after a reference the user sent: a
+--- purple striped title bar, a big red X, and three chunky studded cards across, each a
+--- solid colour with the item standing on it, a dark stat strip and a lime button).
+--- Cards are coloured by where you stand with that rung, so the row reads at a glance:
+--- grey = in your hands, tan = owned (EQUIP), green = you can buy it, slate = not yet
+--- affordable. The studs and the header's stripes are two uploaded tiles (art/ui).
+local STUDDED = {
+	studs = "rbxassetid://89675992974575", -- art/ui/stud-tile.png
+	stripes = "rbxassetid://120310774406938", -- art/ui/stripe-tile.png
+	studTile = 26,
+	cardEdge = Color3.fromHex("B9BFC8"),
+	cardCurrent = Color3.fromHex("C5CBD3"),
+	cardOwned = Color3.fromHex("B08560"),
+	cardBuy = Color3.fromHex("48D63A"),
+	cardDear = Color3.fromHex("6F7C92"),
+	header = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
+	cash = Color3.fromHex("7CFF4F"),
+	-- Buttons are white under a UIGradient, so one gradient per state is the fill.
+	lime = ColorSequence.new(Color3.fromHex("D9F51C"), Color3.fromHex("33D23F")),
+	equipped = ColorSequence.new(Color3.fromHex("43474F"), Color3.fromHex("33363C")),
+	dear = ColorSequence.new(Color3.fromHex("9AA3B0"), Color3.fromHex("7C8594")),
+	robux = ColorSequence.new(Color3.fromHex("A866FF"), Color3.fromHex("7A2FEA")),
+	equippedText = Color3.fromHex("D2D6DC"),
+	chip = Color3.fromHex("000000"),
+	chipTransparency = 0.62,
+	closeRed = Color3.fromHex("E5281F"),
 }
 
 -- THE WIDTHS ABOVE ARE A CEILING, NOT A SIZE, and that distinction is load-bearing.
@@ -458,9 +486,9 @@ end
 --- use — a stat block that rebuilt its children on every StationState tick would churn
 --- forty frames' worth of instances ten times a second.
 local STAT_ROWS = 5
-local STAT_CHIP_HEIGHT = 66
+local STAT_CHIP_HEIGHT = 60
 local STAT_CHIP_GAP = 8
-local STAT_CHIP_PAD = 11
+local STAT_CHIP_PAD = 7
 local STAT_LABEL_SIZE = 12
 local STAT_VALUE_SIZE = 19
 local STAT_BAR_HEIGHT = 5
@@ -479,14 +507,14 @@ local CARD_NAME_TOP = 12
 local CARD_NAME_HEIGHT = 46
 local CARD_ART_TOP = 68
 local CARD_ROW_GAP = 16
-local CARD_BUY_HEIGHT = 52
+local CARD_BUY_HEIGHT = 48
 local CARD_BUY_BOTTOM = 18
 local CARD_BUY_TOP = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT
 -- Roblox's own Robux glyph (private-use U+E002), same as ShopController's Robux buttons.
 local ROBUX = utf8.char(0xE002)
 -- The purple Robux button splits the buy row on a tier sold for Robux: cash on the
 -- left, this on the right.
-local CARD_ROBUX_WIDTH = 150
+local CARD_ROBUX_WIDTH = 104
 local CARD_ROBUX_GAP = 10
 local CARD_CHIPS_TOP = CARD_BUY_TOP - CARD_ROW_GAP - STAT_CHIP_HEIGHT
 local CARD_ART_WIDTH = CARD_WIDTH - 2 * CARD_INSET
@@ -590,15 +618,15 @@ local function makeStatChip(parent: Instance, order: number): Frame
 	local chip = UIKit.panel(parent, {
 		name = `Stat{order}`,
 		size = UDim2.fromOffset(0, STAT_CHIP_HEIGHT),
-		color = FIELD.well,
-		transparency = 0,
-		strokeColor = FIELD.rule,
-		strokeThickness = 1,
-		cornerRadius = UDim.new(0, 9),
+		-- The reference's dark see-through strip, so the card's own colour shows through.
+		color = STUDDED.chip,
+		transparency = STUDDED.chipTransparency,
+		strokeThickness = 0,
+		cornerRadius = UDim.new(0, 7),
 		visible = false,
 	})
 
-	UIKit.label(chip, {
+	local statLabel = UIKit.label(chip, {
 		name = "StatLabel",
 		position = UDim2.fromOffset(STAT_CHIP_PAD, 9),
 		size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, 14),
@@ -610,7 +638,7 @@ local function makeStatChip(parent: Instance, order: number): Frame
 		shadow = false,
 	})
 
-	UIKit.label(chip, {
+	local statValue = UIKit.label(chip, {
 		name = "StatValue",
 		position = UDim2.fromOffset(STAT_CHIP_PAD, 24),
 		size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, 20),
@@ -621,6 +649,14 @@ local function makeStatChip(parent: Instance, order: number): Frame
 		outline = false,
 		shadow = false,
 	})
+	-- Three cards across leave a five-stat track (the Aura) ~50px a chip, so both lines
+	-- shrink to fit rather than run out of the chip; never larger than their design size.
+	for _, pair in { { statLabel, STAT_LABEL_SIZE }, { statValue, STAT_VALUE_SIZE } } do
+		pair[1].TextScaled = true
+		local limit = Instance.new("UITextSizeConstraint")
+		limit.MaxTextSize = pair[2]
+		limit.Parent = pair[1]
+	end
 
 	-- The track, and the fill inside it. Two plain Frames rather than a UIKit helper:
 	-- a 5px bar wants a corner and nothing else.
@@ -629,7 +665,8 @@ local function makeStatChip(parent: Instance, order: number): Frame
 	track.AnchorPoint = Vector2.new(0, 1)
 	track.Position = UDim2.new(0, STAT_CHIP_PAD, 1, -9)
 	track.Size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, STAT_BAR_HEIGHT)
-	track.BackgroundColor3 = FIELD.rule
+	track.BackgroundColor3 = STUDDED.chip
+	track.BackgroundTransparency = 0.45
 	track.BorderSizePixel = 0
 	track.Parent = chip
 
@@ -704,14 +741,30 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT),
 		position = UDim2.new(0, (order - 1) * CAROUSEL_STEP + CARD_WIDTH / 2, 0.5, 0),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		color = FIELD.card,
+		color = STUDDED.cardBuy,
 		transparency = 0,
-		strokeColor = FIELD.edge,
-		strokeThickness = 1,
-		cornerRadius = UDim.new(0, 8),
+		strokeColor = STUDDED.cardEdge,
+		strokeThickness = 4,
+		cornerRadius = UDim.new(0, 12),
 		visible = false,
 	})
 	card.LayoutOrder = order
+
+	-- The studs: one tiled tile of soft light and shadow over whatever colour the card
+	-- is painted (paintShopCard), first child so everything else sits on top of it.
+	local studs = Instance.new("ImageLabel")
+	studs.Name = "CardStuds"
+	studs.Size = UDim2.fromScale(1, 1)
+	studs.BackgroundTransparency = 1
+	studs.Image = STUDDED.studs
+	studs.ScaleType = Enum.ScaleType.Tile
+	studs.TileSize = UDim2.fromOffset(STUDDED.studTile, STUDDED.studTile)
+	studs.ImageTransparency = 0.35 -- soft, like moulded plastic, not a grid
+	studs.ZIndex = 0
+	studs.Parent = card
+	local studCorner = Instance.new("UICorner")
+	studCorner.CornerRadius = UDim.new(0, 12)
+	studCorner.Parent = studs
 
 	local scale = Instance.new("UIScale")
 	scale.Name = "FocusScale"
@@ -730,27 +783,32 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	strip.BackgroundTransparency = 1
 	strip.Parent = card
 
-	UIKit.label(strip, {
+	-- Centred over the card, the reference's big white title; the flag (NEED $x) is a
+	-- small line under it, only on a rung you cannot pay for yet.
+	local cardName = UIKit.label(strip, {
 		name = "CardName",
 		position = UDim2.fromOffset(CARD_NAME_INSET, 0),
-		size = UDim2.new(1, -(2 * CARD_NAME_INSET + 150), 1, 0),
+		size = UDim2.new(1, -2 * CARD_NAME_INSET, 0, 32),
 		font = FIELD.headline,
 		textSize = 26,
 		color = FIELD.text,
-		xAlign = Enum.TextXAlignment.Left,
+		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		shadow = false,
 	})
+	cardName.TextScaled = true
+	local nameLimit = Instance.new("UITextSizeConstraint")
+	nameLimit.MaxTextSize = 26
+	nameLimit.Parent = cardName
 
 	UIKit.label(strip, {
 		name = "CardFlag",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -CARD_NAME_INSET, 0, 0),
-		size = UDim2.new(0, 150, 1, 0),
+		position = UDim2.fromOffset(CARD_NAME_INSET, 32),
+		size = UDim2.new(1, -2 * CARD_NAME_INSET, 0, 18),
 		font = FIELD.label,
-		textSize = 17,
+		textSize = 15,
 		color = FIELD.text,
-		xAlign = Enum.TextXAlignment.Right,
+		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		shadow = false,
 	})
@@ -764,26 +822,12 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	art.Name = "CardArt"
 	art.Position = UDim2.fromOffset(CARD_INSET, CARD_ART_TOP)
 	art.Size = UDim2.fromOffset(CARD_ART_WIDTH, CARD_ART_HEIGHT)
-	art.BackgroundColor3 = Color3.new(1, 1, 1)
-	art.BackgroundTransparency = 0
+	-- Clear: the item stands straight on the studded card, as in the reference.
+	art.BackgroundTransparency = 1
 	art.BorderSizePixel = 0
 	art.Image = ""
 	art.ScaleType = Enum.ScaleType.Fit
 	art.Parent = card
-
-	local artFade = Instance.new("UIGradient")
-	artFade.Rotation = 90
-	artFade.Color = FIELD.wellFade
-	artFade.Parent = art
-
-	local artCorner = Instance.new("UICorner")
-	artCorner.CornerRadius = UDim.new(0, 8)
-	artCorner.Parent = art
-
-	local artEdge = Instance.new("UIStroke")
-	artEdge.Color = FIELD.rule
-	artEdge.Thickness = 1
-	artEdge.Parent = art
 
 	-- Clear over the well, so the well's own fill is the backdrop. The camera is made
 	-- once here and only ever moved; paintArt swaps the model in front of it.
@@ -818,6 +862,13 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		shadow = false,
 	})
 	buy.LayoutOrder = 9
+	-- The fill is white under a vertical gradient that paintShopCard swaps per state
+	-- (lime to buy or equip, dark grey when equipped, grey when you cannot pay yet).
+	local buyFill = Instance.new("UIGradient")
+	buyFill.Name = "Fill"
+	buyFill.Rotation = 90
+	buyFill.Color = STUDDED.lime
+	buyFill.Parent = buy
 
 	-- Hidden until paintShopCard finds a product for the tier.
 	local robux = UIKit.button(card, {
@@ -838,11 +889,16 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		visible = false,
 	})
 	robux.AutoButtonColor = false
+	robux.BackgroundColor3 = Color3.new(1, 1, 1)
+	local robuxFill = Instance.new("UIGradient")
+	robuxFill.Rotation = 90
+	robuxFill.Color = STUDDED.robux
+	robuxFill.Parent = robux
 	robux.MouseEnter:Connect(function()
-		robux.BackgroundColor3 = FIELD.robuxHover
+		robux.BackgroundColor3 = Color3.fromHex("E6D6FF")
 	end)
 	robux.MouseLeave:Connect(function()
-		robux.BackgroundColor3 = FIELD.robux
+		robux.BackgroundColor3 = Color3.new(1, 1, 1)
 	end)
 
 	local focus = UIKit.button(card, {
@@ -940,14 +996,14 @@ local function build(): ScreenGui
 	-- is the Robux shop's close badge (ShopController), so the two read as one.
 	local closeButton, closeInk = UIKit.button(canvas, {
 		name = "Close",
-		size = UDim2.fromOffset(32, 32),
+		size = UDim2.fromOffset(40, 40), -- the reference's big red X (STUDDED)
 		anchorPoint = Vector2.new(1, 0),
 		font = FIELD.headline,
-		textSize = 22,
+		textSize = 26,
 		color = Color3.new(1, 1, 1),
-		fillColor = COLOR.red,
+		fillColor = STUDDED.closeRed,
 		fillTransparency = 0,
-		cornerRadius = UDim.new(0, 10),
+		cornerRadius = UDim.new(0, 8),
 		strokeThickness = 2,
 		strokeColor = FIELD.ink,
 		shadow = false,
@@ -1054,10 +1110,36 @@ local function build(): ScreenGui
 	local header = Instance.new("Frame")
 	header.Name = "ShopHeader"
 	header.LayoutOrder = 0
-	header.Size = UDim2.new(1, 0, 0, 60)
-	header.BackgroundTransparency = 1
+	header.Size = UDim2.new(1, 0, 0, 64)
+	-- The reference's purple title bar: a vertical purple fade with pale diagonal
+	-- stripes tiled over it, inked round the edge (STUDDED).
+	header.BackgroundColor3 = Color3.new(1, 1, 1)
+	header.BackgroundTransparency = 0
 	header.Parent = shop
 	ui.shopHeader = header
+	local headerFill = Instance.new("UIGradient")
+	headerFill.Rotation = 90
+	headerFill.Color = STUDDED.header
+	headerFill.Parent = header
+	local headerCorner = Instance.new("UICorner")
+	headerCorner.CornerRadius = UDim.new(0, 12)
+	headerCorner.Parent = header
+	local headerInk = Instance.new("UIStroke")
+	headerInk.Color = FIELD.ink
+	headerInk.Thickness = 3
+	headerInk.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	headerInk.Parent = header
+	local stripes = Instance.new("ImageLabel")
+	stripes.Name = "Stripes"
+	stripes.Size = UDim2.fromScale(1, 1)
+	stripes.BackgroundTransparency = 1
+	stripes.Image = STUDDED.stripes
+	stripes.ScaleType = Enum.ScaleType.Tile
+	stripes.TileSize = UDim2.fromOffset(64, 64)
+	stripes.Parent = header
+	local stripeCorner = Instance.new("UICorner")
+	stripeCorner.CornerRadius = UDim.new(0, 12)
+	stripeCorner.Parent = stripes
 
 	local headerRule = Instance.new("Frame")
 	headerRule.Name = "HeaderRule"
@@ -1066,6 +1148,7 @@ local function build(): ScreenGui
 	headerRule.Size = UDim2.new(1, 0, 0, 1)
 	headerRule.BackgroundColor3 = FIELD.rule
 	headerRule.BorderSizePixel = 0
+	headerRule.Visible = false -- the purple bar is its own edge now
 	headerRule.Parent = header
 
 	-- The stall's accent, and the only per-stall colour on the panel. render() repaints
@@ -1077,16 +1160,17 @@ local function build(): ScreenGui
 	accentBar.Size = UDim2.fromOffset(4, 32)
 	accentBar.BackgroundColor3 = FIELD.amber
 	accentBar.BorderSizePixel = 0
+	accentBar.Visible = false -- the purple bar carries the title now
 	accentBar.Parent = header
 	ui.shopAccent = accentBar
 
 	-- The track name as written: Detector, Magnet, Cleaner.
 	ui.shopTitle = UIKit.label(header, {
 		name = "ShopTitle",
-		position = UDim2.fromOffset(16, 0),
+		position = UDim2.fromOffset(20, 0),
 		size = UDim2.new(1, -230, 1, -1),
 		font = FIELD.headline,
-		textSize = 30,
+		textSize = 36,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -1116,7 +1200,7 @@ local function build(): ScreenGui
 		size = UDim2.fromOffset(200, 30),
 		font = FIELD.headline,
 		textSize = 26,
-		color = FIELD.amber,
+		color = STUDDED.cash,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
 		shadow = false,
@@ -1462,14 +1546,25 @@ local function build(): ScreenGui
 	-- And the Reforge Station's.
 	ui.reforge = ReforgePanel.new(panel, 23)
 
+	-- No drop shadow: UIKit draws it as a SIBLING label, and every child of `panel` is a
+	-- row of its list layout, so the shadow used to turn up as a faint copy of the
+	-- message at the top of the panel. Centred and inked instead, like the reference's
+	-- "NEW SHOVEL EQUIPPED!" line (STUDDED).
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
-		size = UDim2.new(1, 0, 0, 22),
+		size = UDim2.new(1, 0, 0, 26),
 		font = FIELD.label,
-		textSize = 16,
+		textSize = 20,
 		color = COLOR.green,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
 	})
 	ui.toast.LayoutOrder = 70
+	local toastInk = ui.toast:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	toastInk.Color = FIELD.ink
+	toastInk.Thickness = 2
+	toastInk.LineJoinMode = Enum.LineJoinMode.Round
+	toastInk.Parent = ui.toast
 
 	return gui
 end
@@ -1649,39 +1744,35 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 
 	nameLabel.TextColor3 = FIELD.text
 
+	-- THE CARD'S COLOUR IS ITS STATE (see STUDDED): grey in hand, tan owned, green for
+	-- sale, slate not yet affordable. The button is white under its state's gradient.
+	local fill = buy:FindFirstChild("Fill") :: UIGradient
+	cardStroke.Color = STUDDED.cardEdge
+	buy.BackgroundColor3 = Color3.new(1, 1, 1)
+	buy.BackgroundTransparency = 0
+	flag.Text = ""
 	if entry.current then
-		cardStroke.Color = FIELD.amber
-		flag.Text = "ISSUED"
-		flag.TextColor3 = FIELD.amber
-		buy.Text = if track == "Aura" then "WEARING" else "IN HAND"
-		buy.TextColor3 = FIELD.amber
-		buy.BackgroundTransparency = 1
+		card.BackgroundColor3 = STUDDED.cardCurrent
+		buy.Text = if track == "Aura" then "WEARING" else "EQUIPPED"
+		buy.TextColor3 = STUDDED.equippedText
+		fill.Color = STUDDED.equipped
 	elseif entry.owned then
-		cardStroke.Color = FIELD.edge
-		flag.Text = "OWNED"
-		flag.TextColor3 = FIELD.text
+		card.BackgroundColor3 = STUDDED.cardOwned
 		buy.Text = "EQUIP"
 		buy.TextColor3 = FIELD.text
-		buy.BackgroundColor3 = FIELD.ownedFill
-		buy.BackgroundTransparency = 0
+		fill.Color = STUDDED.lime
 	elseif dear then
-		cardStroke.Color = FIELD.edge
+		card.BackgroundColor3 = STUDDED.cardDear
 		flag.Text = `NEED {money(entry.price - cash)}`
 		flag.TextColor3 = FIELD.short
 		buy.Text = money(entry.price)
-		buy.TextColor3 = FIELD.muted
-		buy.BackgroundColor3 = FIELD.dearFill
-		buy.BackgroundTransparency = 0
+		buy.TextColor3 = FIELD.text
+		fill.Color = STUDDED.dear
 	else
-		cardStroke.Color = FIELD.edge
-		flag.Text = ""
-		-- Affordable is the ONE solid fill anywhere on this panel. Everything else is
-		-- outlined, ghosted or muted, so the things worth clicking are the only things
-		-- that look clickable.
+		card.BackgroundColor3 = STUDDED.cardBuy
 		buy.Text = money(entry.price)
 		buy.TextColor3 = FIELD.text
-		buy.BackgroundColor3 = FIELD.amber
-		buy.BackgroundTransparency = 0
+		fill.Color = STUDDED.lime
 	end
 	-- current, owned and buyable are exhaustive over every tier: `current` is checked
 	-- first and `owned` second, so the equipped tier takes the ISSUED branch even
@@ -1909,8 +2000,9 @@ local function paintPager()
 			else FIELD.edge
 	end
 	ui.shopCounter.Text = if carousel.count > 0 then `{carousel.focus} / {carousel.count}` else ""
-	ui.shopPrev.Visible = carousel.focus > 1
-	ui.shopNext.Visible = carousel.focus < carousel.count
+	local edge = if carousel.count >= 3 then 1 else 0 -- three across (setShopFocus)
+	ui.shopPrev.Visible = carousel.focus > 1 + edge
+	ui.shopNext.Visible = carousel.focus < carousel.count - edge
 end
 
 --- Neighbours shrink and go behind the veil; the focused card comes forward. The
@@ -1924,7 +2016,7 @@ local function paintFocus(animate: boolean)
 		local scaleTarget = if focused then 1 else NEIGHBOUR_SCALE
 		local veilTarget = if focused then 1 else NEIGHBOUR_VEIL
 		if not focused then
-			veil.Visible = true
+			veil.Visible = false -- three across: every card is live (see CARD_PEEK)
 		end
 		if animate then
 			TweenService:Create(scale, CAROUSEL_TWEEN, { Scale = scaleTarget }):Play()
@@ -1940,7 +2032,7 @@ local function paintFocus(animate: boolean)
 		else
 			scale.Scale = scaleTarget
 			veil.BackgroundTransparency = veilTarget
-			veil.Visible = not focused
+			veil.Visible = false
 		end
 	end
 end
@@ -1972,7 +2064,13 @@ end
 local function setShopFocus(index: number, animate: boolean)
 	-- Every way of paging ends here, so pinning the row is this one line.
 	index = tutorialPinnedIndex() or index
-	carousel.focus = math.clamp(index, 1, math.max(carousel.count, 1))
+	-- Three cards across: the middle one never sits on the first or last rung, so the
+	-- row is always three full cards (one or two when the stall sells fewer).
+	local count = carousel.count
+	local three = count >= 3 and not carousel.single -- a rack card shows just its own tier
+	local low = if three then 2 else 1
+	local high = if three then count - 1 else math.max(count, 1)
+	carousel.focus = math.clamp(index, low, high)
 	carousel.drag = 0
 	placeRow(animate)
 	paintFocus(animate)
@@ -2177,7 +2275,7 @@ local function render()
 		ui.introButton.Visible = overview ~= nil and count > 0
 		-- Measured in design px: TextBounds is screen px, under the canvas and fit scales.
 		local titleWidth = TextService:GetTextSize(track, ui.shopTitle.TextSize, ui.shopTitle.Font, Vector2.new(1000, 100)).X
-		ui.introButton.Position = UDim2.new(0, 16 + titleWidth + 14, 0.5, -1)
+		ui.introButton.Position = UDim2.new(0, 20 + titleWidth + 14, 0.5, -1)
 		ui.intro.scrim.Visible = introTrack == track
 		if introTrack == track then
 			paintIntro(track, accent)
@@ -2273,7 +2371,7 @@ function Station.isOpen(): boolean
 end
 
 local function toast(message: string)
-	ui.toast.Text = message
+	ui.toast.Text = string.upper(message)
 	toastToken += 1
 	local token = toastToken
 	task.delay(3.5, function()
