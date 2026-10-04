@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 32
+local BUILDER_VERSION = 33
 
 local C = Kit.C
 local build = Kit.build
@@ -132,13 +132,14 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 --- base still reads; the shop pavers a lighter grey than the path so the square still
 --- reads as its own floor; the kerb the darkest, and half a tile wide (buildShopKerb).
 --- Every pair is dark = 0.877 x light (Kit's twoTone ratio), so the whole cells lay as
---- merged slabs on the shared StudChecker material instead of a part per tile.
-local PATH_DARK = "878C92"
-local PATH_LIGHT = "9AA0A6"
-local PAVER_DARK = "989CA1"
-local PAVER_LIGHT = "ADB2B7"
-local KERB_DARK = "62676C"
-local KERB_LIGHT = "70757B"
+--- merged slabs on the shared StudChecker material instead of a part per tile. All three
+--- then went ~14% darker again on request.
+local PATH_DARK = "74797D"
+local PATH_LIGHT = "848A8F"
+local PAVER_DARK = "83868A"
+local PAVER_LIGHT = "95999D"
+local KERB_DARK = "54595D"
+local KERB_LIGHT = "60656A"
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
 --- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's snapped
@@ -212,6 +213,13 @@ Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands
 --- `facingOrigin` and BaseCamp's Trader read this constant, and the respawn anchor adds
 --- it, so nothing sinks into the raised floor.
 Hub.PLAZA_LIFT = 0.15
+
+--- THE SHOP SQUARE STANDS A FURTHER 0.2 PROUD of the plaza path, on request ("elevate the
+--- shop studs by 0.2"): its pavers and kerb (SHOP_ZONE) lay their tops here above
+--- PLAZA.topY, so the square reads as a raised slab. Everything standing on it -- Shops'
+--- stalls (facingOrigin), BaseCamp's Trader, the respawn anchor -- reads this, not
+--- PLAZA_LIFT, so nothing sinks into it.
+Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 
 --- THE GATE PATHS ARE PART OF THIS FLOOR, on request: same tiles, same checker, same
 --- height as the plaza. Each runs square off the plaza edge that faces its pad, straight
@@ -372,7 +380,7 @@ function Hub.groundPairAt(x: number, z: number): (string, string, number)
 	end
 	-- The kerb ring is laid separately at half a tile (buildShopKerb); buildPlaza skips
 	-- those cells, so any other caller sees them as pavers.
-	return PAVER_DARK, PAVER_LIGHT, Hub.PLAZA_LIFT
+	return PAVER_DARK, PAVER_LIGHT, Hub.SHOP_FLOOR_LIFT
 end
 
 export type GroundSplit = {
@@ -847,7 +855,7 @@ end
 local function buildShopKerb(parent: Instance)
 	local p, t = Hub.PLAZA, Hub.TILE_SIZE
 	local band = t / 2
-	local top = p.topY + Hub.PLAZA_LIFT
+	local top = p.topY + Hub.SHOP_FLOOR_LIFT
 	local function piece(x0: number, x1: number, z0: number, z1: number, color: string)
 		if x1 - x0 < 1e-3 or z1 - z0 < 1e-3 then
 			return
@@ -968,7 +976,7 @@ local function buildSpawns(hub: Model)
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
-		pos = { grate.X, Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.5, grate.Z }, -- on the raised plaza floor
+		pos = { grate.X, Hub.PLAZA.topY + Hub.SHOP_FLOOR_LIFT + 0.5, grate.Z }, -- on the raised shop square
 		size = { 4, 1, 4 },
 		color = C.cyan,
 		material = "SmoothPlastic",

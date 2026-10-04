@@ -195,7 +195,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 99 -- apron re-tiled for Hub's grey palette and the west pair's two paths
+local BUILDER_VERSION = 100 -- apron re-tiled for Hub's darker greys
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
