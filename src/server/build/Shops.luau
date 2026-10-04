@@ -179,6 +179,7 @@
 
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
@@ -1005,183 +1006,107 @@ local function buildSpine(parent: Instance, origin: CFrame, x0: number, x1: numb
 	end
 end
 
--- The icon-disc glyphs, drawn from Frames so the server needs no uploaded art. Keyed
--- by a word in the sign's label; a label with none of them (a camp stall's own name)
--- simply gets no disc and a shorter pill.
---
--- A DARK DISC WITH THE GLYPH IN THE SHOP'S ACCENT, rimmed in that accent — picked from
--- a round of mockups over the old dark-ink-on-accent disc, whose thin strokes blurred
--- at distance and whose magnet cover block poked out past the round disc. The glyph now
--- reads as a lit symbol on the same dark as the pill.
-local SIGN_DISC_COLOR = Color3.fromRGB(11, 18, 11)
-local SIGN_GLOW_IMAGE = "rbxassetid://76655055685501" -- HudArtwork.IMAGE.glow
+--- The floating stall sign: a TWO-TIER TAG (2026-10-04, option 10 of a round of
+--- mockups, replacing the dark glow pill with its icon disc). A small black "SHOP"
+--- header sits on a chunky button-style plate in the shop's accent colour, the name in
+--- big white FredokaOne with a black outline, a hard black drop shadow under the plate
+--- and a darker band along its bottom edge. "Detector Shop" reads as SHOP over
+--- "Detector"; a label with no " Shop" on the end ("Trader") is just the plate.
+--- `accent` is the shop's hex string. Hung ABOVE the roof (the highest point of
+--- `buildPlateRoof`'s plates and rivets is ~10.9 studs up at the stall's own origin, so
+--- 11.5 clears it) so it reads over the whole structure instead of hiding behind its
+--- own roofline.
+local SIGN_INK = Color3.fromHex(Kit.C.hazardBlack)
+local SIGN_NAME_SIZE = 30
+local SIGN_HEADER_SIZE = 12
+local SIGN_SHADOW = 5 -- px the black shadow drops under the plate
 
-local function signShape(parent: Instance, x: number, y: number, w: number, h: number, color: Color3, rot: number?, round: boolean?): Frame
-	local f = Instance.new("Frame")
-	f.AnchorPoint = Vector2.new(0.5, 0.5)
-	f.Position = UDim2.fromOffset(x, y)
-	f.Size = UDim2.fromOffset(w, h)
-	f.BackgroundColor3 = color
-	f.BorderSizePixel = 0
-	f.Rotation = rot or 0
-	f.Parent = parent
-	if round then
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(1, 0)
-		corner.Parent = f
-	end
-	return f
-end
-
---- A ring whose stroke sits OUTSIDE a `w` x `h` box (UIStroke's Border mode). The aura's
---- orbits are drawn with this; the other glyphs use `signHoop`, sized by outer edge.
-local function signRing(parent: Instance, x: number, y: number, w: number, h: number, thickness: number, ink: Color3, rot: number?): Frame
-	local f = signShape(parent, x, y, w, h, ink, rot, true)
-	f.BackgroundTransparency = 1
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = ink
-	stroke.Thickness = thickness
-	stroke.Parent = f
-	return f
-end
-
---- A round hoop `outer` px across at its OUTER edge, `thickness` thick.
-local function signHoop(parent: Instance, x: number, y: number, outer: number, thickness: number, ink: Color3): Frame
-	local inner = outer - 2 * thickness
-	return signRing(parent, x, y, inner, inner, thickness, ink)
-end
-
---- A hoop showing only where it falls inside the rect (rx, ry, rw, rh), so two of them
---- can draw the "S" of the trader's "$". Clipping goes through a plain unrotated
---- container with ClipsDescendants; the hoop is placed inside it in disc coordinates.
-local function signArc(parent: Instance, x: number, y: number, outer: number, thickness: number, ink: Color3, rx: number, ry: number, rw: number, rh: number)
-	local clip = Instance.new("Frame")
-	clip.Position = UDim2.fromOffset(rx, ry)
-	clip.Size = UDim2.fromOffset(rw, rh)
-	clip.BackgroundTransparency = 1
-	clip.BorderSizePixel = 0
-	clip.ClipsDescendants = true
-	clip.Parent = parent
-	signHoop(clip, x - rx, y - ry, outer, thickness, ink)
-end
-
---- Draws the glyph for `label` in `ink` inside a 36x36 `disc` filled with `bg`.
-local function buildSignIcon(disc: Frame, label: string, ink: Color3, bg: Color3)
-	local lower = label:lower()
-	if lower:find("detector") then
-		-- A detector wand: search coil, shaft, grip.
-		signHoop(disc, 15, 13, 16, 3.5, ink)
-		signShape(disc, 22, 23, 4, 14, ink, -40)
-		signShape(disc, 27, 29, 6, 7, ink, -40)
-	elseif lower:find("magnet") then
-		-- A U magnet, poles up with white tips. The cover block that turns the hoop into
-		-- a U is the disc's own colour and sits well inside the round disc.
-		signHoop(disc, 18, 20, 22, 6, ink)
-		signShape(disc, 18, 13, 24, 14, bg)
-		signShape(disc, 10, 15, 6, 12, ink)
-		signShape(disc, 26, 15, 6, 12, ink)
-		signShape(disc, 10, 9, 6, 5, Color3.new(1, 1, 1))
-		signShape(disc, 26, 9, 6, 5, Color3.new(1, 1, 1))
-	elseif lower:find("hose") then
-		-- A spray nozzle tipped up-right, throwing three drops.
-		signShape(disc, 13, 22, 14, 7, ink, -30)
-		signShape(disc, 21, 17, 6, 9, ink, -30)
-		signShape(disc, 24, 11, 4, 4, ink, 0, true)
-		signShape(disc, 29, 15, 4, 4, ink, 0, true)
-		signShape(disc, 28, 8, 3, 3, ink, 0, true)
-	elseif lower:find("trader") then
-		-- A real curved "$": two stacked hoops, each clipped to three quarters so
-		-- together they sweep an S, with the bar showing only above and below it.
-		signArc(disc, 18, 13, 14, 3, ink, 9, 4, 18, 9) -- top ring: top half
-		signArc(disc, 18, 13, 14, 3, ink, 9, 13, 9, 8) -- top ring: lower-left quarter
-		signArc(disc, 18, 23, 14, 3, ink, 9, 23, 18, 9) -- bottom ring: bottom half
-		signArc(disc, 18, 23, 14, 3, ink, 18, 15, 9, 8) -- bottom ring: upper-right quarter
-		signShape(disc, 18, 5, 3, 6, ink)
-		signShape(disc, 18, 31, 3, 6, ink)
-	elseif lower:find("aura") then
-		signShape(disc, 18, 18, 6, 6, ink, 0, true)
-		signRing(disc, 18, 18, 28, 11, 2, ink, 0)
-		signRing(disc, 18, 18, 28, 11, 2, ink, 60)
-		signRing(disc, 18, 18, 28, 11, 2, ink, 120)
-	end
-end
-
---- The floating stall sign: a dark glow pill in the shop's accent colour -- the same
---- family as the HUD's glow-orb tiles -- with a round icon disc and the stall's name
---- ("Detector Shop" / "Magnet Shop" / "Hose Shop" / "Aura Shop"), so the sign does
---- the colour-navigation. `accent` is the shop's hex string. Hung ABOVE the roof (the
---- highest point of `buildPlateRoof`'s plates and rivets is ~10.9 studs up at the
---- stall's own origin, so 11.5 clears it) so it reads over the whole structure
---- instead of hiding behind its own roofline.
----
---- Kit.FONT (FredokaOne) now, matching the HUD tiles it is modelled on; TextScaled
---- so any label length fits the fixed band.
 local function buildStoreBillboard(adornee: BasePart, label: string, accent: string, offsetY: number?)
 	local accentColor = Color3.fromHex(accent)
-	local lower = label:lower()
-	local iconed = lower:find("detector") or lower:find("magnet") or lower:find("hose") or lower:find("aura") or lower:find("trader")
+	local name = label:match("^(.-) [Ss]hop$")
+	local header = name and "SHOP" or nil
+	name = name or label
+
+	local nameWidth = TextService:GetTextSize(name, SIGN_NAME_SIZE, Kit.FONT, Vector2.new(1000, 100)).X
+	local plateW, plateH = nameWidth + 36, 44
+	local headerH = header and 18 or 0
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(iconed and 250 or 210, 50)
+	gui.Size = UDim2.fromOffset(plateW + 10, plateH + headerH + SIGN_SHADOW + 8)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY or 11.5, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 60
 	gui.Parent = adornee
 
-	local glow = Instance.new("ImageLabel")
-	glow.Name = "Glow"
-	glow.AnchorPoint = Vector2.new(0.5, 0.5)
-	glow.Position = UDim2.fromScale(0.5, 0.5)
-	glow.Size = UDim2.fromScale(1.3, 1.9)
-	glow.BackgroundTransparency = 1
-	glow.Image = SIGN_GLOW_IMAGE
-	glow.ImageColor3 = accentColor
-	glow.ImageTransparency = 0.55
-	glow.Parent = gui
-
-	local pill = Instance.new("Frame")
-	pill.Name = "Pill"
-	pill.AnchorPoint = Vector2.new(0.5, 0.5)
-	pill.Position = UDim2.fromScale(0.5, 0.5)
-	pill.Size = UDim2.new(1, -10, 0, 44)
-	pill.BackgroundColor3 = Color3.fromRGB(17, 26, 17)
-	pill.BackgroundTransparency = 0.06
-	pill.BorderSizePixel = 0
-	pill.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = pill
-	local rim = Instance.new("UIStroke")
-	rim.Color = accentColor
-	rim.Thickness = 3
-	rim.Parent = pill
-
-	local textLeft = 16
-	if iconed then
-		local disc = signShape(pill, 26, 22, 36, 36, SIGN_DISC_COLOR, 0, true)
-		disc.Name = "Icon"
-		local discRim = Instance.new("UIStroke")
-		discRim.Color = accentColor
-		discRim.Thickness = 2
-		discRim.Parent = disc
-		buildSignIcon(disc, label, accentColor, SIGN_DISC_COLOR)
-		textLeft = 50
+	local function plate(frameName: string, y: number, color: Color3): Frame
+		local f = Instance.new("Frame")
+		f.Name = frameName
+		f.AnchorPoint = Vector2.new(0.5, 1)
+		f.Position = UDim2.new(0.5, 0, 1, y)
+		f.Size = UDim2.fromOffset(plateW, plateH)
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		f.Parent = gui
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 12)
+		corner.Parent = f
+		local rim = Instance.new("UIStroke")
+		rim.Color = SIGN_INK
+		rim.Thickness = 3
+		rim.Parent = f
+		return f
 	end
+
+	if header then
+		-- Drawn first, so the plate covers its rounded bottom corners.
+		local headerW = TextService:GetTextSize(header, SIGN_HEADER_SIZE, Enum.Font.GothamBlack, Vector2.new(1000, 100)).X + 24
+		local tab = Instance.new("Frame")
+		tab.Name = "Header"
+		tab.AnchorPoint = Vector2.new(0.5, 0)
+		tab.Position = UDim2.fromOffset((plateW + 10) / 2, 2)
+		tab.Size = UDim2.fromOffset(headerW, headerH + 8)
+		tab.BackgroundColor3 = SIGN_INK
+		tab.BorderSizePixel = 0
+		tab.Parent = gui
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 6)
+		corner.Parent = tab
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.new(1, 0, 0, headerH)
+		text.BackgroundTransparency = 1
+		text.Font = Enum.Font.GothamBlack
+		text.Text = header
+		text.TextSize = SIGN_HEADER_SIZE
+		text.TextColor3 = Color3.new(1, 1, 1)
+		text.Parent = tab
+	end
+
+	plate("Shadow", -4, SIGN_INK)
+	local main = plate("Plate", -4 - SIGN_SHADOW, Color3.new(1, 1, 1))
+	-- Accent face with a darker band along the bottom, the button's lip.
+	local shade = Kit.blendHex(accent, "000000", 0.25)
+	local fill = Instance.new("UIGradient")
+	fill.Rotation = 90
+	fill.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, accentColor),
+		ColorSequenceKeypoint.new(0.8, accentColor),
+		ColorSequenceKeypoint.new(0.801, Color3.fromHex(shade)),
+		ColorSequenceKeypoint.new(1, Color3.fromHex(shade)),
+	})
+	fill.Parent = main
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Position = UDim2.fromOffset(textLeft, 5)
-	title.Size = UDim2.new(1, -(textLeft + 16), 1, -10)
+	title.Size = UDim2.new(1, 0, 1, -4)
 	title.BackgroundTransparency = 1
 	title.Font = Kit.FONT
-	title.Text = label
-	title.TextScaled = true
+	title.Text = name
+	title.TextSize = SIGN_NAME_SIZE
 	title.TextColor3 = Color3.new(1, 1, 1)
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Parent = pill
-	Kit.textOutline(title, 2)
+	title.Parent = main
+	Kit.textOutline(title, 2.5)
 end
 
 -- ── The roof top ─────────────────────────────────────────────────────────────
