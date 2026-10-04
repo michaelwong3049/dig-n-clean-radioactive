@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 33
+local BUILDER_VERSION = 34 -- one grey floor fills the middle of the camp
 
 local C = Kit.C
 local build = Kit.build
@@ -140,6 +140,8 @@ local PAVER_DARK = "83868A"
 local PAVER_LIGHT = "95999D"
 local KERB_DARK = "54595D"
 local KERB_LIGHT = "60656A"
+--- The darker grey the bases' 2-stud border is laid in (Plots, buildPadBorder).
+Hub.BORDER_COLOR = KERB_DARK
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
 --- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's snapped
@@ -221,28 +223,17 @@ Hub.PLAZA_LIFT = 0.15
 --- PLAZA_LIFT, so nothing sinks into it.
 Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 
---- THE GATE PATHS ARE PART OF THIS FLOOR, on request: same tiles, same checker, same
---- height as the plaza. Each runs square off the plaza edge that faces its pad, straight
---- out to the pad's front and on under it (the pad's slab hides the end), so it meets the
---- plaza with no seam. Every edge sits on a tile line (x = -49 + 4k, z = -70 + 4k).
+--- THE MIDDLE OF THE CAMP IS ONE GREY FLOOR, on request (2026-10-04: "connect square with
+--- grey ... the middle should be primarily gray"). It used to be the plaza plus a 16-wide
+--- gate path out to each pad, with grass between; now one rectangle paves everything the
+--- six pads enclose -- out to the north/south fronts (z +/-80) and the west pair's (x -71),
+--- snapped to the tile grid (x = -49 + 4k, z = -70 + 4k), so the pads' own front strips
+--- (Hub.setPadFronts) run straight on from it. The grass stays round the edge: behind and
+--- between the pads, along the walls, and the Camp -> Stage 1 strip (inGreenStrip wins).
 ---
---- Centred on its pad (Plots.CENTERS), 16 wide. Hand-placed, like SHOP_ZONE: move them
---- by hand with Plots.CENTERS.
+--- Hand-placed, like SHOP_ZONE: move it by hand with Plots.CENTERS.
 local GATE_RECTS = {
-	{ minX = 31, maxX = 47, minZ = -86, maxZ = -70 }, -- Plot1 (x 38): south edge, east pad
-	{ minX = -45, maxX = -29, minZ = -86, maxZ = -70 }, -- Plot2 (x -38): south edge, west pad
-	-- Plots 3 and 4 (z -/+38): one path each out to and under their fronts at x = -71,
-	-- 32 wide (twice the others), grass between the two. On request: a single filled
-	-- square came first and was "too much", two 16-wide strips before that too thin.
-	{ minX = -81, maxX = -49, minZ = -54, maxZ = -22 },
-	{ minX = -81, maxX = -49, minZ = 22, maxZ = 54 },
-	{ minX = -45, maxX = -29, minZ = 70, maxZ = 86 }, -- Plot5 (x -38): north edge, west pad
-	{ minX = 31, maxX = 47, minZ = 70, maxZ = 86 }, -- Plot6 (x 38): north edge, east pad
-	-- The rectangle itself continued 16 west (four tiles, away from Stage 1), on request,
-	-- full height, toward the west pair -- not the paths. Paint only: the apron's tiles
-	-- take it from groundPairAt; PLAZA (and the slab, and the pad ring derived from it)
-	-- stays put.
-	{ minX = -65, maxX = -49, minZ = -70, maxZ = 70 },
+	{ minX = -69, maxX = 75, minZ = -78, maxZ = 78 },
 }
 
 --- Each base's front strip (the washer / treadmill area in front of its raised deck),

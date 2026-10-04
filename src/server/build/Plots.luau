@@ -197,7 +197,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 101 -- arch + front fence gone, deck stops at the hazard line
+local BUILDER_VERSION = 102 -- dark grey 2-stud border round each base
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -263,6 +263,28 @@ Plots.PAD = {
 --- How far the front strip's machines sit below the deck: the deck's top down to the
 --- grey path's (Hub.PLAZA_LIFT above the plaza).
 local STRIP_DROP = Plots.PAD.topY - (Hub.PLAZA.topY + Hub.PLAZA_LIFT)
+
+--- THE BASE BORDER, on request (2026-10-04: "a darker grey border to indicate the
+--- person's base"): a flat 2-stud band (half a tile, like the shop kerb) in Hub's kerb
+--- grey, laid on the ground just outside the pad's whole footprint -- front strip and deck
+--- alike -- so each base reads as its own plot on the grey camp floor. Its top sits a hair
+--- above the grey path. Not collidable: it is paint you walk over.
+local BORDER_W = 2
+local BORDER_TOP = Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.05
+local function borderPiece(parent: Instance, origin: CFrame, x: number, z: number, sx: number, sz: number)
+	local part = build(parent, origin, {
+		name = "BaseBorder",
+		pos = { x, BORDER_TOP - Hub.TILE_CAP / 2, z },
+		size = { sx, Hub.TILE_CAP, sz },
+		color = Hub.BORDER_COLOR,
+		material = "Plastic",
+		canCollide = false,
+	})
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	return part
+end
 
 --- THE SQUARE. Six pads, two on each of the plaza's north, south and west edges, each
 --- facing the shops. Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are cut to
@@ -2930,6 +2952,9 @@ local function buildBackFence(parent: Instance, origin: CFrame)
 		})
 	end
 
+	-- The base border's back edge, in this model so it slides out with the fence.
+	borderPiece(folder, origin, 0, pad.maxZ + BORDER_W / 2, pad.width + BORDER_W * 2, BORDER_W)
+
 	folder.Parent = parent
 	folder:SetAttribute("BasePivot", folder:GetPivot())
 	folder:SetAttribute("BackAxis", origin:VectorToWorldSpace(Vector3.zAxis))
@@ -3037,6 +3062,11 @@ local function buildExtension(parent: Instance, origin: CFrame, level: number, a
 			canCollide = false,
 			attributes = { Accent = true },
 		})
+	end
+
+	-- The base border carried out along the strip (the back piece rides the BackFence).
+	for _, side in { -1, 1 } do
+		borderPiece(m, origin, side * (pad.width / 2 + BORDER_W / 2), zc, BORDER_W, EXT_DEPTH)
 	end
 
 	-- The side fence carried out along the strip: two rails from the last strip's
@@ -3350,6 +3380,15 @@ local function buildPlot(parent: Instance, index: number)
 	})
 
 	buildPlaceLine(m, origin)
+
+	-- The base border's front and sides (the back is laid with the BackFence).
+	local border = Instance.new("Folder")
+	border.Name = "BaseBorder"
+	borderPiece(border, origin, 0, pad.minZ - BORDER_W / 2, pad.width + BORDER_W * 2, BORDER_W)
+	for _, side in { -1, 1 } do
+		borderPiece(border, origin, side * (HALF_W + BORDER_W / 2), (pad.minZ + pad.maxZ) / 2, BORDER_W, pad.depth)
+	end
+	border.Parent = m
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for
