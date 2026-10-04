@@ -195,7 +195,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 96
+local BUILDER_VERSION = 97
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -263,12 +263,15 @@ Plots.PAD = {
 ---   north/south pairs: fronts at z = +/-76 (the plaza edge is +/-70, the shop kerb
 ---       +/-51, so ~25 studs of walkway), x -42 and 34 -- pulled west of the shops'
 ---       centre so the leaderboards and the group chest keep the strip by the east wall.
----   west pair: fronts at x = -51 (the plaza's west edge is -49, the shop stalls end at
----       -26), z +/-38 -- a 10-stud gap between the two.
+---   west pair: fronts at x = -95, z +/-38 -- a 10-stud gap between the two. Pushed
+---       back from -51 on request ("make the top longer, so the side bases aren't looking
+---       at the top bases"): the north/south pads reach x = -75, so a front 20 studs past
+---       that keeps the west pair out of their view. Gate paths (Hub.GATE_RECTS) run the
+---       walk from the plaza's west edge (-49) out to them.
 --- World.verify() checks that no pad overlaps the plaza, a stage, or another pad.
 local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
 local NS_FRONT_Z = 76
-local WEST_FRONT_X = -51
+local WEST_FRONT_X = -95
 local NS_X = { -42, 34 }
 local WEST_Z = 38
 
@@ -305,6 +308,7 @@ Plots.CENTERS = {
 local WALL_CLEARANCE = 10
 local BACK_REACH = Plots.PAD.maxZ + Plots.MAX_EXTRA_DEPTH -- origin to a maxed pad's back edge
 Plots.CAMP = {
+	westFrontX = WEST_FRONT_X, -- the west pair's fronts (Scenery keeps the walk to them bare)
 	eastX = PLAZA.maxX - 4,
 	backX = WEST_X - BACK_REACH - WALL_CLEARANCE,
 	backHalfZ = WEST_Z + HALF_W + WALL_CLEARANCE,

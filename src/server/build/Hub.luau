@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 29
+local BUILDER_VERSION = 30
 
 local C = Kit.C
 local build = Kit.build
@@ -214,8 +214,8 @@ Hub.PLAZA_LIFT = 0.15
 local GATE_RECTS = {
 	{ minX = 27, maxX = 43, minZ = -82, maxZ = -70 }, -- Plot1 (x 34): south edge, east pad
 	{ minX = -49, maxX = -33, minZ = -82, maxZ = -70 }, -- Plot2 (x -42): south edge, west pad
-	{ minX = -61, maxX = -49, minZ = -46, maxZ = -30 }, -- Plot3 (z -38): west edge
-	{ minX = -61, maxX = -49, minZ = 30, maxZ = 46 }, -- Plot4 (z 38): west edge
+	{ minX = -105, maxX = -49, minZ = -46, maxZ = -30 }, -- Plot3 (z -38): west edge, out to its front at -95
+	{ minX = -105, maxX = -49, minZ = 30, maxZ = 46 }, -- Plot4 (z 38): west edge, out to its front at -95
 	{ minX = -49, maxX = -33, minZ = 70, maxZ = 82 }, -- Plot5 (x -42): north edge, west pad
 	{ minX = 27, maxX = 43, minZ = 70, maxZ = 82 }, -- Plot6 (x 34): north edge, east pad
 }
