@@ -221,7 +221,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 107 -- bases nudged toward Stage 1 and in round the booths
+local BUILDER_VERSION = 108 -- pads 57 wide, stands evenly spaced (2026-10-04)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -276,8 +276,11 @@ local PAD_MAX_Z = 56
 --- raised deck itself begins, just in front of the hazard line (HAZARD_Z, -20) so it
 --- line still lies on the deck, and behind the cleansing station's back (z -21.3).
 local DECK_MIN_Z = -21
+--- 66 -> 57 wide, fence to fence (2026-10-04, on request: "shrink each player base width by
+--- 9 studs"). The centres stayed put, so the gaps between bases grew by 9 and the camp
+--- walls (Plots.CAMP, read off CAMP_HALF_W) did not move.
 Plots.PAD = {
-	width = 66,
+	width = 57,
 	depth = PAD_MAX_Z - PAD_MIN_Z,
 	minZ = PAD_MIN_Z,
 	maxZ = PAD_MAX_Z,
@@ -365,6 +368,13 @@ local WEST_Z = 38
 
 local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
+--- The half-width the camp walls were laid round (the 66-wide pads). Kept when the pads
+--- narrowed, so the walls, the apron and the foliage did not move.
+local CAMP_HALF_W = 33
+--- How far each side's front-strip machines (cleansing station, bottle, locker, treadmill)
+--- moved in with the side fences when the pad narrowed: they are written for a 66-wide
+--- pad and built through frames shifted by this toward the middle.
+local STRIP_INSET = CAMP_HALF_W - HALF_W
 local HALF_D = Plots.PAD.depth / 2
 local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 local DECK_CENTER_Z = (DECK_MIN_Z + Plots.PAD.maxZ) / 2
@@ -404,8 +414,8 @@ Plots.CAMP = {
 	westFrontX = WEST_FRONT_X, -- the west pair's fronts (Scenery keeps the walk to them bare)
 	eastX = PLAZA.maxX - 4,
 	backX = WEST_X - BACK_REACH - WALL_CLEARANCE,
-	backHalfZ = WEST_Z + HALF_W + WALL_CLEARANCE,
-	wingX = math.min(NS_X[1], NS_X[2]) - HALF_W - WALL_CLEARANCE,
+	backHalfZ = WEST_Z + CAMP_HALF_W + WALL_CLEARANCE,
+	wingX = math.min(NS_X[1], NS_X[2]) - CAMP_HALF_W - WALL_CLEARANCE,
 	wingZ = NS_Z + BACK_REACH + WALL_CLEARANCE,
 }
 
@@ -596,10 +606,9 @@ end
 --- (the centre column's front three left out) and then put back to 12 on request;
 --- buildGalleryLanes' two aisles run either side of the centre column either way.
 ---
---- GRID_COLS are 3 evenly spaced x's (pitch 20, symmetric about x = 0): ±20
---- leaves a wide margin to the side Trim (well past the old flanking columns'
---- ±25), and the open floor either side of the centre column (20 studs) clears
---- the bigger stand footprint below with room to spare.
+--- GRID_COLS are 3 evenly spaced x's, symmetric about x = 0. ±16.5 since the pad went
+--- 57 wide (was ±20 on 66): with 8.9-wide plinths, the four gaps fence -> plinth ->
+--- plinth -> plinth -> fence are all ~7.6 studs ("make them even", on request).
 ---
 --- GRID_ROWS are 4 evenly spaced z's (pitch 17, widened from 13 with the +12 pad), ROW_TOP first — closest to the
 --- back wall — counting DOWN from there toward the entrance. The front row
@@ -608,7 +617,7 @@ end
 --- GRID_SLOTS numbers the stands left to right, back row to front row: slot 1 is
 --- back-left, slot 2 back-centre, slot 3 back-right, slot 12 front-right. Each entry
 --- is a { column, row } index pair.
-local GRID_COLS = { -20, 0, 20 }
+local GRID_COLS = { -16.5, 0, 16.5 }
 local GRID_ROWS = { 45, 28, 11, -6 }
 local GRID_SLOTS = {
 	{ 1, 1 }, { 2, 1 }, { 3, 1 },
@@ -625,9 +634,9 @@ assert(#GRID_SLOTS == Floors.GROUND_SLOTS, "the ground grid must hold exactly Fl
 
 --- THE UPPER FLOORS' GALLERY — the ground's own 12-stand layout (Floors.UPPER_SLOTS
 --- = 12), on every floor above the ground (see buildFloor). The outer columns' plinths
---- (edge at +/-24.45) leave the side corridors clear, and the front
+--- (edge at +/-20.95) leave the side corridors clear, and the front
 --- row (plinth front at z -10.45) sits behind the deck's front rail at FLOOR.front.
---- The walkway corridor past them (out to the stair gates) starts at |x| 27.2.
+--- The walkway corridor past them (out to the stair gates) starts at |x| 22.7.
 ---
 --- Numbered the same way as the ground.
 assert(#GRID_SLOTS == Floors.UPPER_SLOTS, "the upper grid must hold exactly Floors.UPPER_SLOTS stands")
@@ -4411,10 +4420,12 @@ local function buildPlot(parent: Instance, index: number)
 		buildDisplayStand(m, origin, index, slot, accent)
 	end
 
-	buildCleansingStation(m, ground, accent)
-	buildQuarantineLocker(m, origin, index)
-	buildFluidBottle(m, ground)
-	buildTreadmill(m, ground, accent)
+	-- The +X machines and the -X treadmill moved in with the fences (STRIP_INSET).
+	local plusIn = CFrame.new(-STRIP_INSET, 0, 0)
+	buildCleansingStation(m, ground * plusIn, accent)
+	buildQuarantineLocker(m, origin * plusIn, index)
+	buildFluidBottle(m, ground * plusIn)
+	buildTreadmill(m, ground * CFrame.new(STRIP_INSET, 0, 0), accent)
 
 	buildBaseGlow(m, origin)
 
