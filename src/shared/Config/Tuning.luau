@@ -296,7 +296,10 @@ end
 -- shorter, area x0.72). On request the count scales WITH the area, so `area / N`
 -- (and so the walk between contacts) holds where the 28 left it. Per-dig odds
 -- untouched again; the field holds ~0.53 Rare+ in Stage 1 and Spec §7's floor moved.
-Tuning.SIGNALS_PER_STAGE = 20
+--
+-- 20 -> 22 WITH THE 10%-WIDER PASS (2026-10-03: FOOTPRINT_Z 124 -> 136, area x1.097).
+-- Same rule: the count follows the area so `area / N` holds.
+Tuning.SIGNALS_PER_STAGE = 22
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate

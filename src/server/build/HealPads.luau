@@ -9,7 +9,7 @@
 	rows on the plaza's centre line (x = 17.5, |z| = 68), but the north and south bases'
 	fronts are at |z| = 76 now, so that aisle is a walkway. Here they mirror about the
 	Trader's line (z = 0), clear of the shop rows (they end at x = 61), the walk-out lane
-	between them, and the corridor walls (|z| >= 62 past x = 100). Players coming back from
+	between them, and the corridor walls (|z| >= 68 past x = 100). Players coming back from
 	the field walk straight past them.
 
 	A PAD IS A SHOWER ANYONE CAN USE, PLUS HEALING. The red core hex carries
@@ -51,7 +51,7 @@ local BUILDER_VERSION = 7
 -- of the Stage 1 hazard line (x = 100). Laid at lawn height (the green strip starts at
 -- x = 75); the teeth that reach the raised cream still stand proud of it.
 local PAD_X = 85
-local PAD_Z = 46 -- either side: the tooth tips stay ~4 studs inside the corridor's +/-62
+local PAD_Z = 46 -- either side: the tooth tips stay ~10 studs inside the corridor's +/-68 (was +/-62)
 local PADS = {
 	{ name = "HealPadSouth", z = -PAD_Z }, -- by the Outfitter (Aura) + Hose Shop row
 	{ name = "HealPadNorth", z = PAD_Z }, -- by the Magnet + Detector row
