@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 30
+local BUILDER_VERSION = 31
 
 local C = Kit.C
 local build = Kit.build
@@ -124,12 +124,18 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 ---
 --- Same studded board, same grid, same height everywhere -- only the palette changes
 --- zone to zone, so footing is unchanged.
-local PATH_DARK = "DCCBA3"
-local PATH_LIGHT = "EADCBA"
+---
+--- GREY PATH AND KERB, on request (2026-10-03, with the square base layout): the path was
+--- a warm cream (DCCBA3/EADCBA) and the kerb a darker sand (9C7A52/A6835B). The path is a
+--- light grey now -- a step lighter than the pads' own deck grey (Kit.C.baseFloor
+--- A7ABB0), so walking onto a base still reads -- and the kerb round the shop pavers a
+--- slightly darker grey.
+local PATH_DARK = "BEC2C6"
+local PATH_LIGHT = "CACED1"
 local PAVER_DARK = "C9A37A"
 local PAVER_LIGHT = "D4B088"
-local KERB_DARK = "9C7A52"
-local KERB_LIGHT = "A6835B"
+local KERB_DARK = "8E9297"
+local KERB_LIGHT = "999DA2"
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
 --- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's snapped
@@ -214,8 +220,10 @@ Hub.PLAZA_LIFT = 0.15
 local GATE_RECTS = {
 	{ minX = 27, maxX = 43, minZ = -82, maxZ = -70 }, -- Plot1 (x 34): south edge, east pad
 	{ minX = -49, maxX = -33, minZ = -82, maxZ = -70 }, -- Plot2 (x -42): south edge, west pad
-	{ minX = -105, maxX = -49, minZ = -46, maxZ = -30 }, -- Plot3 (z -38): west edge, out to its front at -95
-	{ minX = -105, maxX = -49, minZ = 30, maxZ = 46 }, -- Plot4 (z 38): west edge, out to its front at -95
+	-- Plots 3 and 4 (z -/+38): the whole apron in front of the west pair is floor, out to
+	-- and under their fronts at x = -95 (on request, "fill in the path" rather than two long
+	-- strips), as wide as the pair (+/-71, rounded out to the tile line at +/-74).
+	{ minX = -105, maxX = -49, minZ = -74, maxZ = 74 },
 	{ minX = -49, maxX = -33, minZ = 70, maxZ = 82 }, -- Plot5 (x -42): north edge, west pad
 	{ minX = 27, maxX = 43, minZ = 70, maxZ = 82 }, -- Plot6 (x 34): north edge, east pad
 }
