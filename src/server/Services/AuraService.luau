@@ -66,7 +66,9 @@ local function stepPlayer(player: Player)
 	-- The free starter rung (Faint Glow) keeps its stats but is never drawn: a new
 	-- player starts with no visible aura until they buy one.
 	local equipped = math.clamp(data.gear[AURA_KEY] or 1, 1, Gear.maxTier("Aura"))
-	local tier: number? = if data.hideAura == true or equipped <= 1 then nil else equipped
+	-- The old HIDE MY AURA setting is gone from Settings, so a saved `hideAura` is ignored
+	-- here: nobody is left hidden with no way to turn it back on.
+	local tier: number? = if equipped <= 1 then nil else equipped
 	if character:GetAttribute(AuraLook.ATTRIBUTE) ~= tier then
 		character:SetAttribute(AuraLook.ATTRIBUTE, tier)
 	end

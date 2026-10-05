@@ -2,7 +2,7 @@
 	SettingsController.lua — the player Settings panel: a wide panel with a tab rail
 	down the left (General / Graphics / Audio) and the chosen page on the right.
 
-	  GENERAL   base colour, hide my aura, rare drop alerts, confirm rare drops
+	  GENERAL   base colour, rare drop alerts, confirm rare drops
 	  GRAPHICS  graphics level, radiation effects, screen shake, reduce flashing, show auras, fast mode
 	  AUDIO     sound effects (the mute) and the master / effects / UI / Geiger / music sliders
 
@@ -17,16 +17,10 @@
 	it holds even if this panel never builds. Prefs apply the same frame and save behind;
 	the colour, aura and mute keep their older wait-for-the-echo shape.
 
-	SOUND EFFECTS is the same shape as HIDE MY AURA below: a profile setting
+	SOUND EFFECTS is the same shape as the colour: a profile setting
 	(data.sfxMuted) the server owns and echoes on Net.SfxMuted. The mute itself is
 	SfxController's (it zeroes Sfx.luau's master group); this panel only shows and
 	flips it.
-
-	HIDE MY AURA turns your aura off for everyone (on request, over hiding auras only
-	on your own screen). It is a profile setting the server owns, exactly like the
-	colour: the switch fires Net.HideAura with the new boolean and waits for
-	AuraService's confirmed echo before it changes, and the server sends the saved
-	value once on load. The aura keeps protecting you while hidden.
 
 	WHY A COLOUR PICKER LIVES HERE. Every plot is built in one neutral grey
 	(build/Plots' `C.plotNeutral`), and the accent — the two side Trim strips, the
@@ -147,15 +141,8 @@ local state = {
 	fallback = nil :: Color3?,
 }
 
--- HIDE MY AURA, as the server last confirmed it. `known` stays false until the load
+-- SOUND EFFECTS, as the server last confirmed it. `known` stays false until the load
 -- echo, and the switch ignores clicks until then rather than guessing.
-local aura = {
-	hidden = false,
-	known = false,
-	pending = false,
-}
-
--- SOUND EFFECTS, as the server last confirmed it. Same known/pending gate as `aura`.
 local sound = {
 	muted = false,
 	known = false,
@@ -347,39 +334,6 @@ local function rowText(row: Instance, title: string, hint: string, rightW: numbe
 		wrapped = true,
 		zIndex = 12,
 	})
-end
-
--- ── Hide my aura ────────────────────────────────────────────────────
-
-local function applyAura()
-	if ui.paintAura then
-		ui.paintAura(aura.hidden, aura.pending or not aura.known)
-	end
-end
-
---- The server's confirmed value: once on load, then after every toggle.
-local function onServerHideAura(hidden: any)
-	aura.hidden = hidden == true
-	aura.known = true
-	aura.pending = false
-	applyAura()
-end
-
-local function toggleAura()
-	if not aura.known or aura.pending then
-		return
-	end
-	aura.pending = true
-	applyAura()
-	Net.get("HideAura"):FireServer(not aura.hidden)
-end
-
-local function buildAuraRow(row: Instance)
-	rowText(row, "Hide my aura", "Off for everyone, it still protects you", PILL_W)
-	local switch, paint = pillSwitch(row, "AuraSwitch")
-	switch.MouseButton1Click:Connect(toggleAura)
-	ui.paintAura = paint
-	applyAura()
 end
 
 -- ── Sound effects ───────────────────────────────────────────────────
@@ -1216,7 +1170,6 @@ local function build(): ScreenGui
 
 	-- GENERAL
 	buildColourRow(row("GENERAL", "BaseColour", COLOUR_H))
-	buildAuraRow(row("GENERAL", "Aura"))
 	choiceRow(row("GENERAL", "RareDrops"), "rareDrops", "Rare drops", "Which drop alerts you see", {
 		{ "all", "All" },
 		{ "mine", "Mine" },
@@ -1283,8 +1236,6 @@ function Settings.start()
 	-- Fired once on load with the saved value, and again after every change as the
 	-- server-confirmed echo — same channel both ways (Shared/Net.PlotColor).
 	Net.get("PlotColor").OnClientEvent:Connect(onServerColor)
-	-- The same once-on-load-then-echo channel for HIDE MY AURA (AuraService).
-	Net.get("HideAura").OnClientEvent:Connect(onServerHideAura)
 	-- And for SOUND EFFECTS (SfxService). SfxController applies the mute off the same echo.
 	Net.get("SfxMuted").OnClientEvent:Connect(onServerSfxMuted)
 	-- Ask rather than wait: SfxController connected first and took the queued load echo.
