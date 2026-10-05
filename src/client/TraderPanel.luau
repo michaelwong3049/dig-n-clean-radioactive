@@ -34,6 +34,7 @@ local Tuning = require(Shared.Config.Tuning)
 local UIKit = require(script.Parent.UIKit)
 local StarLine = require(script.Parent.StarLine)
 local ItemArt = require(script.Parent.ItemArt)
+local Studded = require(script.Parent.Studded)
 
 local TraderPanel = {}
 
@@ -41,9 +42,13 @@ local TraderPanel = {}
 -- StationController keeps its copy file-local on purpose (see its note), so this is a
 -- copy rather than a reach.
 local SKIN = {
-	row = Color3.fromHex("26292E"),
+	-- Near-black like the Nukes panel's rows, to stand off the dark studded backdrop
+	-- StationController lays under the trader since 2026-10-05.
+	row = Color3.fromHex("16181C"),
 	block = Color3.fromHex("3A3E45"),
-	header = Color3.fromHex("33383F"),
+	-- The glossy L-stud title bar (2026-10-05, on request), dark navy like the Nukes
+	-- panel's rather than the gear shop's purple.
+	header = ColorSequence.new(Color3.fromHex("2C3E6B"), Color3.fromHex("1C2848")),
 	edge = Color3.fromHex("343B42"),
 	amber = Color3.fromHex("F2A93B"),
 	text = Color3.new(1, 1, 1),
@@ -257,13 +262,19 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	root.Visible = false
 
 	-- ── Header ─────────────────────────────────────────────────────────
-	-- Title and wallet on their own grey box, like the Nukes panel's header.
-	local header = frame(root, "Header", SKIN.header)
+	-- Title and wallet on the Nukes panel's navy patterned header.
+	local header = frame(root, "Header")
 	header.Position = UDim2.fromOffset(0, -HEADER_LIFT)
 	header.Size = UDim2.new(1, 0, 0, HEADER_H)
+	Studded.fill(header, SKIN.header)
+	edge(header, SKIN.ink, 2)
 	local headerPad = Instance.new("UIPadding")
 	headerPad.PaddingLeft = UDim.new(0, HEADER_PAD)
 	headerPad.Parent = header
+	-- Under the header's left padding like the labels, so pushed back out to its edge.
+	local headerPattern = Studded.pattern(header, { tile = 22, bands = { 0.28, 0.5, 0.58, 0.64 } })
+	headerPattern.Position = UDim2.fromOffset(-HEADER_PAD, 0)
+	headerPattern.Size = UDim2.new(1, HEADER_PAD, 1, 0)
 
 	text(header, {
 		name = "Title",
