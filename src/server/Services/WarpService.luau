@@ -21,9 +21,8 @@
 	  base   -> ExhibitService.plotSpawn(player), the same PlotSpawn assign() already
 	            routes this player's respawns to. nil (no plot this session, all six
 	            taken) falls through to the shop anchor, so the button is never dead.
-	  shops  -> ExposureService.baseCampCFrame(), the RespawnAnchor in the plaza
-	            aisle between the stalls and the Outfitter — already the shared
-	            "where you land when you leave the field" point (blackout uses it).
+	  shops  -> the SELL button: Base Camp's Trader booth step pad (traderCFrame),
+	            falling back to ExposureService.baseCampCFrame() if it is missing.
 
 	  <camp key> -> CampService.arrivalCFrame(key), the CampAnchor build/CampSite stands
 	            in that camp's plaza (Config/Camps; "twilight" is Toxic Twilight). A
@@ -39,6 +38,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Net = require(ReplicatedStorage.Shared.Net)
 local Camps = require(ReplicatedStorage.Shared.Config.Camps)
@@ -69,9 +69,26 @@ local DROP_IN = Vector3.new(0, 4, 0)
 local PRELOAD_TIMEOUT = 1.5
 local preloading: { [Player]: boolean } = {}
 
+--- The SELL button lands you on Base Camp's Trader booth (2026-10-04, on request:
+--- "change shop tp name to sell and make it go to the trader"): on the front step pad,
+--- facing the stand. Looked up only on a press, scoped to BaseCamp (Toxic Twilight has a
+--- Trader too). Falls back to the plaza anchor if the booth is not there.
+local function traderCFrame(): CFrame
+	local camp = Workspace:FindFirstChild("BaseCamp", true)
+	local trader = camp and camp:FindFirstChild("Trader")
+	local pad = trader and trader:FindFirstChild("StepPad")
+	local station = trader and trader:FindFirstChild("TraderStation", true)
+	if pad and pad:IsA("BasePart") and station and station:IsA("BasePart") then
+		local at = pad.Position + DROP_IN
+		local look = Vector3.new(station.Position.X, at.Y, station.Position.Z)
+		return CFrame.lookAt(at, look)
+	end
+	return ExposureService.baseCampCFrame()
+end
+
 local function destinationFor(player: Player, dest: string): CFrame?
 	if dest == "shops" then
-		return ExposureService.baseCampCFrame()
+		return traderCFrame()
 	elseif dest == "base" then
 		local spawn = ExhibitService.plotSpawn(player)
 		if spawn then

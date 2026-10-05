@@ -457,7 +457,7 @@ local function setNavPointers(on: boolean)
 	end
 	local warpBar = player:FindFirstChildOfClass("PlayerGui") and player.PlayerGui:FindFirstChild("WarpBar")
 	local home = warpBar and warpBar:FindFirstChild("HOME", true)
-	local shops = warpBar and warpBar:FindFirstChild("SHOPS", true)
+	local shops = warpBar and warpBar:FindFirstChild("SELL", true)
 	if home == nil or shops == nil or not home:IsA("GuiObject") or not shops:IsA("GuiObject") then
 		return
 	end
