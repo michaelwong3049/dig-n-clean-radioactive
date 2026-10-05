@@ -366,12 +366,15 @@ local function rowText(row: Instance, title: string, hint: string, rightW: numbe
 	})
 	UIKit.label(row, {
 		name = "SectionHint",
-		position = UDim2.fromOffset(0, 28),
-		size = UDim2.new(1, -rightW - 12, 0, 20),
+		position = UDim2.fromOffset(0, 30),
+		-- Tall enough for two lines: a long hint wraps instead of running under the control.
+		size = UDim2.new(1, -rightW - 12, 0, 36),
 		font = FONT,
 		textSize = SIZE.hint,
 		color = C.dim,
 		text = hint,
+		yAlign = Enum.TextYAlignment.Top,
+		wrapped = true,
 		zIndex = 12,
 	})
 end
