@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 41 -- grey floor 4 nearer Stage 1, black end borders (2026-10-04)
+local BUILDER_VERSION = 42 -- respawn ring round the Trader kiosk again (2026-10-04)
 
 local C = Kit.C
 local build = Kit.build
@@ -1023,8 +1023,9 @@ local function buildSpawns(hub: Model)
 	-- anchor marks the centre of a RING: `RingRadius` tells ExposureService.baseCampCFrame
 	-- to land you at one of `RingPoints` spots that far out, facing the middle. The
 	-- group chest stood on this point for a while on 2026-10-04 (it is at the back wall
-	-- now) and the Trader moved to the SE corner; 13 stays short of the booth rows
-	-- (pads end at z +/-10.25 since the rows moved to +/-18; the four points sit in the aisles).
+	-- now) and the Trader moved to the SE corner. It is back on this point (2026-10-04,
+	-- with the Hose Shop in the SE corner), so 16 lands you just past its sell radius again,
+	-- in the four aisles between the corner booths.
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
@@ -1034,7 +1035,7 @@ local function buildSpawns(hub: Model)
 		material = "SmoothPlastic",
 		transparency = 1,
 		canCollide = false,
-		attributes = { RingRadius = 13, RingPoints = 4 },
+		attributes = { RingRadius = 16, RingPoints = 4 },
 	})
 
 	spawns.Parent = hub

@@ -236,33 +236,6 @@ local function renderHose(index: number, data: any?)
 	-- which Beam runs to which attachment — is build/Plots' business.
 	local station = plot:FindFirstChild("CleansingStation", true)
 	Plots.setHoseTier(station, if data then data.gear.cleaner else nil)
-	Plots.setHoseSign(station, if data then ExhibitService.hoseOffer(data) else nil)
-end
-
---- The hose upgrade sign's offer for this profile (build/Plots.setHoseSign): the rung
---- on the mast, and the one above the BEST hose owned. That next rung is for sale once
---- its camp (Config/Gear's `camp` column) has been reached -- the Base Camp rungs
---- always, Toxic Twilight's once you have walked into Twilight, and so on. ShopService's
---- HoseBuy re-derives the same answer here before taking any money.
-function ExhibitService.hoseOffer(data: any): Plots.HoseOffer
-	local best = data.gear.cleaner or 1
-	local owned = data.gearOwned and data.gearOwned.cleaner
-	if type(owned) == "table" then
-		for _, tier in owned do
-			if type(tier) == "number" and tier > best then
-				best = tier
-			end
-		end
-	end
-	local nextTier: number? = if best < Gear.maxTier("Cleaner") then best + 1 else nil
-	local lockedCamp: string? = nil
-	if nextTier then
-		local camp = Gear.campOf("Cleaner", nextTier)
-		if camp ~= "base" and not (data.camps and data.camps[camp] == true) then
-			lockedCamp = camp
-		end
-	end
-	return { tier = data.gear.cleaner or 1, next = nextTier, lockedCamp = lockedCamp }
 end
 
 --- Dress the plot's treadmill in the belt rung this profile owns, or the free
@@ -1875,8 +1848,6 @@ function ExhibitService.start()
 		-- And every treadmill gets its upgrade sign up (and a saved place's old E
 		-- prompt taken down) before anyone claims it; Plots.setTreadmillTier does both.
 		renderTreadmill(index, nil)
-		-- Likewise the hose sign beside the wash bay's reel (Plots.setHoseSign).
-		renderHose(index, nil)
 	end
 
 	DataService.onLoaded(function(player, data)

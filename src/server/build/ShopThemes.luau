@@ -15,8 +15,8 @@
 	    antenna on the back corner post.
 	  * MAGNET — a scrapyard: a giant horseshoe magnet on the roof, a wall crane
 	    holding an electromagnet with a rusty plate stuck to it, and a scrap pile.
-	  * CLEANER (the Hose Shop) — retired 2026-10-04 with the hose shops themselves: hoses
-	    are bought off the upgrade sign at your own wash bay (build/Plots.setHoseSign).
+	  * CLEANER (the Hose Shop) — a decon bay: a tiled wall with a shower bar, a hose
+	    reel, a drain grate, a mop bucket, and a water tank on the roof.
 	  * OUTFITTER (the Aura Shop) — a row of faceless mannequins, one per rung, each
 	    wearing that rung's live aura, and a giant atom turning on the roof. It was a locker room round a hazmat suit until the Suit
 	    track became the Aura.
@@ -445,6 +445,227 @@ local function dressMagnet(parent: Instance, origin: CFrame, _width: number, sta
 	end
 end
 
+-- ── Cleaner (the Hose Shop): the decon bay ────────────────────────────────────
+
+local TILE = "D6ECF7"
+local GROUT = "8FB8D0"
+local TANK_BLUE = "7FB9D6"
+
+local function dressCleaner(parent: Instance, origin: CFrame, _width: number, standX: number, part: string)
+	local accent = C.shopCleaner
+
+	if part == "side" then
+		-- A tiled panel on the back wall behind the stand: pale blue tiles in a grout
+		-- grid, with an accent band along the bottom.
+		local PW, PH, PY = 9.2, 7.2, 4.5
+		local panelZ = WALL_FACE_Z + 0.12
+		prop(parent, origin, {
+			name = "TilePanel",
+			pos = { standX, PY, panelZ },
+			size = { PW, PH, 0.2 },
+			color = TILE,
+			material = "SmoothPlastic",
+		})
+		for i = 1, 7 do
+			prop(parent, origin, {
+				name = "Grout",
+				pos = { standX - PW / 2 + i * PW / 8, PY, panelZ + 0.12 },
+				size = { 0.08, PH, 0.04 },
+				color = GROUT,
+				material = "SmoothPlastic",
+			})
+		end
+		for j = 1, 5 do
+			prop(parent, origin, {
+				name = "Grout",
+				pos = { standX, PY - PH / 2 + j * PH / 6, panelZ + 0.12 },
+				size = { PW, 0.08, 0.04 },
+				color = GROUT,
+				material = "SmoothPlastic",
+			})
+		end
+		prop(parent, origin, {
+			name = "TileBand",
+			pos = { standX, PY - PH / 2 + 0.6, panelZ + 0.14 },
+			size = { PW, 1.2, 0.06 },
+			color = accent,
+			material = "SmoothPlastic",
+		})
+
+		-- A shower bar across the top of the tiles with three nozzles hanging off it.
+		prop(parent, origin, {
+			name = "ShowerBar",
+			pos = { standX, 8.4, -9.1 },
+			size = { PW - 0.6, 0.3, 0.3 },
+			color = C.steel,
+			material = "Metal",
+			shape = "Cylinder",
+		})
+		for _, dx in { -3, 0, 3 } do
+			prop(parent, origin, {
+				name = "ShowerStem",
+				pos = { standX + dx, 8.1, -8.85 },
+				size = { 0.18, 0.5, 0.18 },
+				color = C.steel,
+				material = "Metal",
+			})
+			prop(parent, origin, {
+				name = "ShowerHead",
+				pos = { standX + dx, 7.8, -8.85 },
+				size = { 0.25, 0.8, 0.8 },
+				color = C.steelDark,
+				material = "Metal",
+				shape = "Cylinder",
+				rot = R_CYL_UP,
+			})
+		end
+
+		-- A hose reel on a wall bracket. Its axle runs along the wall, so the plaza sees
+		-- the wound green hose between two brass flanges rather than a flange face-on.
+		-- The hose drops from the drum in a slanted run to a coil on the floor.
+		local rx, ry, rz = standX + 2.6, 4.2, -8.3
+		prop(parent, origin, {
+			name = "ReelBracket",
+			pos = { rx, ry, (WALL_FACE_Z + rz) / 2 + 0.1 },
+			size = { 0.3, 0.3, rz - WALL_FACE_Z },
+			color = C.steelDark,
+			material = "Metal",
+		})
+		prop(parent, origin, {
+			name = "ReelDrum",
+			pos = { rx, ry, rz },
+			size = { 1.4, 2.0, 2.0 },
+			color = C.hoseGreen,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+		})
+		for _, dx in { -0.76, 0.76 } do
+			prop(parent, origin, {
+				name = "ReelFlange",
+				pos = { rx + dx, ry, rz },
+				size = { 0.12, 2.6, 2.6 },
+				color = C.hoseBrass,
+				material = "Metal",
+				shape = "Cylinder",
+			})
+		end
+		for i = 0, 5 do
+			local t = i / 5
+			prop(parent, origin, {
+				name = "HoseRun",
+				pos = { rx + 0.3 + t * 0.9, ry - 1.0 - t * 2.9, rz + 0.5 + t * 0.6 },
+				size = { 0.35, 0.9, 0.35 },
+				color = C.hoseGreenDark,
+				material = "SmoothPlastic",
+			})
+		end
+		prop(parent, origin, {
+			name = "HoseCoil",
+			pos = { rx + 1.6, 0.35, rz + 1.1 },
+			size = { 0.35, 1.6, 1.6 },
+			color = C.hoseGreenDark,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+
+		-- A drain grate in the floor behind the stand, and a mop bucket beside it.
+		local dx, dz = standX - 1.5, -8.0
+		prop(parent, origin, {
+			name = "DrainGrate",
+			pos = { dx, 0.12, dz },
+			size = { 2.2, 0.06, 2.2 },
+			color = C.steelDark,
+			material = "DiamondPlate",
+		})
+		for i = -2, 2 do
+			prop(parent, origin, {
+				name = "DrainSlot",
+				pos = { dx + i * 0.4, 0.16, dz },
+				size = { 0.12, 0.04, 2.0 },
+				color = C.hazardBlack,
+				material = "SmoothPlastic",
+			})
+		end
+		prop(parent, origin, {
+			name = "MopBucket",
+			pos = { standX - 3.4, 0.8, -8.2 },
+			size = { 1.4, 1.5, 1.5 },
+			color = C.barrelYellow,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+		prop(parent, origin, {
+			name = "MopHandle",
+			pos = { standX - 3.4, 2.6, -8.2 },
+			size = { 0.12, 3.6, 0.12 },
+			color = C.woodLight,
+			material = "Wood",
+			rot = Kit.ang(0, 0, 12),
+		})
+	end
+
+	if part == "roof" then
+		-- A banded water tank on the roof over the stand, capped in the accent, with a
+		-- pipe running forward and down into the top of the spine the showers hang on.
+		roofPlinth(parent, origin, standX, 3.4, 3.4)
+		for _, sx in { -1.2, 1.2 } do
+			prop(parent, origin, {
+				name = "TankSaddle",
+				pos = { standX + sx, ROOF_Y + 0.9, ROOF_Z },
+				size = { 0.3, 0.8, 3.0 },
+				color = C.steelDark,
+				material = "Metal",
+			})
+		end
+		local tankY = ROOF_Y + 2.6
+		prop(parent, origin, {
+			name = "WaterTank",
+			pos = { standX, tankY, ROOF_Z },
+			size = { 3.4, 3.6, 3.6 },
+			color = TANK_BLUE,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+		for _, dy in { -1.1, 0, 1.1 } do
+			prop(parent, origin, {
+				name = "TankBand",
+				pos = { standX, tankY + dy, ROOF_Z },
+				size = { 0.18, 3.75, 3.75 },
+				color = C.steelDark,
+				material = "Metal",
+				shape = "Cylinder",
+				rot = R_CYL_UP,
+			})
+		end
+		prop(parent, origin, {
+			name = "TankLid",
+			pos = { standX, tankY + 1.9, ROOF_Z },
+			size = { 0.3, 3.2, 3.2 },
+			color = accent,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+		prop(parent, origin, {
+			name = "TankPipe",
+			pos = { standX + 1.9, tankY - 0.4, (ROOF_Z + ISLAND_Z) / 2 },
+			size = { 0.3, 0.3, ISLAND_Z - ROOF_Z },
+			color = C.steel,
+			material = "Metal",
+		})
+		prop(parent, origin, {
+			name = "TankPipeDrop",
+			pos = { standX + 1.9, 10.4, ISLAND_Z },
+			size = { 0.3, 4.4, 0.3 },
+			color = C.steel,
+			material = "Metal",
+		})
+	end
+end
+
 -- ── Outfitter: the aura shop ──────────────────────────────────────────────────
 
 local MANNEQUIN = "3A3F47"
@@ -560,6 +781,7 @@ end
 local DRESSERS: { [string]: (Instance, CFrame, number, number, string) -> () } = {
 	Detector = dressDetector,
 	Magnet = dressMagnet,
+	Cleaner = dressCleaner,
 }
 
 --- Dress one track stall in its theme, under a "Theme" model inside `parent`.

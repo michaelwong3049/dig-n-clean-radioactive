@@ -67,7 +67,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 28
+local BUILDER_VERSION = 29
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -138,7 +138,7 @@ end
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
-local function buildShell(camp: Model, _origin: CFrame)
+local function buildShell(camp: Model, origin: CFrame)
 	-- NO FLOOR PAD. There used to be a 64x46 slab of cream Pavement here whose top
 	-- face landed on exactly Y = 0 — the same plane as the plaza it sits inside. That
 	-- was invisible while the plaza was cream too: two coplanar faces in the same
@@ -187,9 +187,11 @@ local function buildShell(camp: Model, _origin: CFrame)
 	-- 2026-10-04: OUT OF THE MIDDLE, into the SE corner of the shop square (Shops.TRADER_AT),
 	-- where the Hose Shop stood before hoses moved to each base. Still four-sided; the group
 	-- chest took the middle (Config/GroupReward.CHEST_POSITION).
-	-- Later that day it became a booth like the three shops (Shops.buildTraderBooth); the
-	-- four-sided kiosk (buildHubTrader) is Toxic Twilight's only now.
-	Shops.buildTraderBooth(camp)
+	-- Later that day it became a booth like the three shops in that corner.
+	-- BACK IN THE MIDDLE, FOUR-SIDED AGAIN (2026-10-04, on request): the Hose Shop took the
+	-- SE corner back (Shops BOOTHS), so the kiosk stands on PLAZA_MID with a booth at each
+	-- corner round it.
+	BaseCamp.buildHubTrader(camp, origin)
 end
 
 -- ── The trader kiosk ──────────────────────────────────────────────────────────
