@@ -15,15 +15,14 @@
 	roll, the sale, the stand payout, the haul, the wash and the walk speed all read
 	the same answer:
 
-	  luck      x1.5 on `luckBoost`, so the dig roll's Rare+ weights AND the wash pad
-	            (luckMultiplier). Kept under the Clover's x2 so the Robux one stays the
-	            better buy; it stacks on top of it.
-	  cash      x1.5 on every sale and every stand's income (sell + yield multipliers).
+	  luck      x2   on `luckBoost`, so the dig roll's Rare+ weights AND the wash pad
+	            (luckMultiplier). The same x2 as the Clover; it stacks on top of it.
+	  cash      x2   on every sale and every stand's income (sell + yield multipliers).
 	  speed     x1.25 walk speed, on the same footing as the aura's speed bonus: after
 	            the picker and the haul penalty (StatResolver.walkBonus), and shown on
 	            the Walk Speed badge.
-	  strength  x1.5 on `digPower`, the magnet's whole side of a haul (DigService).
-	  clean     x1.5 on `scrubRate`, so the wash bay strips crust faster.
+	  strength  x2   on `digPower`, the magnet's whole side of a haul (DigService).
+	  clean     x2   on `scrubRate`, so the wash bay strips crust faster.
 
 	The server publishes each running potion's end time as a Player attribute
 	(`attrFor(id)`), so a late joiner's HUD has it on arrival (LuckBoost's note).
@@ -58,19 +57,19 @@ Potions.DEFS = {
 		id = "luck",
 		name = "Luck Potion",
 		short = "Luck",
-		blurb = "x1.5 luck on digs and the wash pad",
+		blurb = "x2 luck on digs and the wash pad",
 		color = "3FC94F",
 		image = "rbxassetid://109888002736859",
-		mult = 1.5,
+		mult = 2,
 	},
 	cash = {
 		id = "cash",
 		name = "Cash Potion",
 		short = "Cash",
-		blurb = "x1.5 cash from sales and stands",
+		blurb = "x2 cash from sales and stands",
 		color = "FFBE21",
 		image = "rbxassetid://120916555692019",
-		mult = 1.5,
+		mult = 2,
 	},
 	speed = {
 		id = "speed",
@@ -85,19 +84,19 @@ Potions.DEFS = {
 		id = "strength",
 		name = "Strength Potion",
 		short = "Strength",
-		blurb = "x1.5 magnet power, so hauls come up faster",
+		blurb = "x2 magnet power, so hauls come up faster",
 		color = "F04A2E",
 		image = "rbxassetid://119308481222971",
-		mult = 1.5,
+		mult = 2,
 	},
 	clean = {
 		id = "clean",
 		name = "Cleaning Potion",
 		short = "Clean",
-		blurb = "x1.5 wash speed on crusted finds",
+		blurb = "x2 wash speed on crusted finds",
 		color = "25D3C9",
 		image = "rbxassetid://97159203394716",
-		mult = 1.5,
+		mult = 2,
 	},
 } :: { [string]: PotionDef }
 
