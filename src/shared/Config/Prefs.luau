@@ -32,11 +32,15 @@ export type Def = {
 Prefs.VOLUME_STEP = 0.05
 
 Prefs.DEFS = {
+	-- NEW PLAYERS START ON THE LIGHT SETTINGS: graphics "low", radFx "reduced",
+	-- reduceFlashing and fastMode on. Profiles snapshot these defaults, so a change here
+	-- reaches new saves only; existing players keep what they chose.
+
 	-- GRAPHICS. "high" is the game as built. "med" pulls nuke detail in closer and
 	-- halves the lights; "low" also stops ambient machine/magnet motion and draws only
 	-- your own aura (client ItemFxController, StationMotionController,
 	-- ToolMotionController, AuraController).
-	graphics = { kind = "choice", default = "high", options = { "low", "med", "high" } },
+	graphics = { kind = "choice", default = "low", options = { "low", "med", "high" } },
 
 	-- SCREEN SHAKE. Off = no blast shake or FOV kick (DetonationController) and no
 	-- radiation camera wobble (HudController).
@@ -45,11 +49,11 @@ Prefs.DEFS = {
 	-- RADIATION SCREEN EFFECTS (client RadFx). "reduced" softens every layer and drops
 	-- the snow, scanlines, dust and blur. No "off" on purpose: the over-tier keyhole is
 	-- the soft gate that warns you are too deep, so reduced still narrows the view.
-	radFx = { kind = "choice", default = "full", options = { "full", "reduced" } },
+	radFx = { kind = "choice", default = "reduced", options = { "full", "reduced" } },
 
 	-- REDUCE FLASHING. Full-screen flashes (blast, wash reveal, crate, flask, death)
 	-- are skipped or dimmed and the Anomaly colour cycle slows right down.
-	reduceFlashing = { kind = "flag", default = false },
+	reduceFlashing = { kind = "flag", default = true },
 
 	-- VOLUME. Master scales everything; the rest are client/Sfx.luau's groups. The
 	-- Geiger clicks have their own because they are the one sound people want quieter.
@@ -75,7 +79,7 @@ Prefs.DEFS = {
 	-- FAST MODE (client FastModeController). On = the nukes standing on OTHER players'
 	-- bases are hidden from you, along with their effects: far less to draw on a busy
 	-- server. Your own base is untouched.
-	fastMode = { kind = "flag", default = false },
+	fastMode = { kind = "flag", default = true },
 } :: { [string]: Def }
 
 --- A fresh table of every default, for the profile template and a client that has not
