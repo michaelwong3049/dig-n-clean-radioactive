@@ -714,9 +714,10 @@ function WasteDump.build(parent: Instance, stageId: number, groundY: number, dru
 	local folder = Instance.new("Folder")
 	folder.Name = "WasteDump"
 
-	-- The two landmarks first, on opposite sides of the walk and at opposite ends: the
-	-- crane in the east third with its boom swung back west over the field (so the hook
-	-- hangs inside it and the drum on it faces the walk in), the truck in the west third.
+	-- The two landmarks first, TOGETHER on one side of the walk (on request, 2026-10-04 --
+	-- they used to sit on opposite sides at opposite ends): the crane in the east third
+	-- with its boom swung back west over the field (so the hook hangs inside it and the
+	-- drum on it faces the walk in), the truck parked just past the end of the boom.
 	local craneSide = if rng:NextNumber() < 0.5 then -1 else 1
 	local craneYaw = 90 - craneSide * rng:NextNumber(6, 18)
 	local boomDir = CFrame.Angles(0, math.rad(craneYaw), 0).LookVector
@@ -737,8 +738,10 @@ function WasteDump.build(parent: Instance, stageId: number, groundY: number, dru
 		table.insert(taken, { cx + boomDir.X * d, cz + boomDir.Z * d, 7 })
 	end
 
+	-- Beside the crane, west of it and past the hook (the boom's footprint is in `taken`,
+	-- so `place` keeps the truck from parking under the drum).
 	local tx, tz = place(taken, 12, function()
-		return rng:NextNumber(f.minX + 36, f.minX + 80), -craneSide * rng:NextNumber(36, 50)
+		return cx - rng:NextNumber(38, 52), craneSide * rng:NextNumber(f.maxZ - 36, f.maxZ - 18)
 	end)
 	-- Backed in from the west: nose toward Stage 2 and the walk, tipped bed and its
 	-- spilled load facing into the field. Turned the other way (shot live) the load

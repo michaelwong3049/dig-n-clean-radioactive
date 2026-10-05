@@ -106,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 64
+local BUILDER_VERSION = 65
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -794,9 +794,8 @@ local THEME: { [number]: StageTheme } = {
 	-- broad, some mid, the rest spills), so this number is now "how many pools" and
 	-- NOT "how much ooze" -- the lake alone covers more ground than a third of the
 	-- old 26 did. Retune the ladder there, not just this number.
-	-- FOUR DEAD TREES, and the number is the whole design of them -- see
-	-- scatterStage4Trees for why four and not nine. Strays standing out of a field whose
-	-- landmarks are its puddles, not a tree line like Stage 2's.
+	-- TWO DEAD TREES, together in one far corner (scatterStage4Trees), and the lake's
+	-- partner pool beside it (scatterOozePools) -- both on request, 2026-10-04.
 	[4] = { props = 18, pools = 5, kind = "barriers", scatter = true, signs = 0, trees = 2 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
@@ -2659,19 +2658,6 @@ local function scatterWarningSigns(folder: Instance, origin: CFrame, count: numb
 	end
 end
 
---- How far a Stage 4 tree has to stand off the WEST edge, clear of the warning-sign
---- rank scatterWarningSigns puts at x = -hx + 5..11. The rank's whole job is to be the
---- first thing you read walking in, seen against open ground; a 40-stud snag leaning
---- over a 5-stud sign takes that away. 30 leaves roughly twenty studs of daylight
---- between the furthest sign and the nearest trunk.
-local STAGE4_TREE_ENTRANCE_KEEPOUT = 30
-
---- Studs between Stage 4 trunks. Wider than the old Stage 2 line's 32 for its stand of
---- nine, and the count is the reason: on a field carrying FOUR trees a pair that reads
---- as one clump costs a quarter of everything standing out there, where on Stage 2 it
---- costs a ninth and the rest of the line covers for it.
-local STAGE4_TREE_MIN_GAP = 40
-
 --- How far gone Stage 4's trees are (`deadTree`'s `wither`). High, and the stage is
 --- the argument: Stage 2's stand is the last field where anything was recently alive,
 --- and the Marsh is two fields past it with 37.5 rads at the far end. Whatever died
@@ -2680,20 +2666,10 @@ local STAGE4_TREE_MIN_GAP = 40
 --- thing this parameter buys, which is that you can see how much further in you are.
 local STAGE4_TREE_WITHER = 0.85
 
---- Stage 4 -- a HANDFUL of dead trees over the whole field. Not Stage 2's tree line:
---- that field is edge-weighted (BAND_WEIGHTS) because nine of them reading as a treed
---- corridor is the point there. Four is not a line and should never try to be one, so
---- these are dealt off a 2x2 jittered grid -- one per quadrant -- which is what keeps
---- four trees from landing in the same half of a 290 x 170 field while each one is
---- still placed anywhere inside its own quadrant. The min-gap rejection is for the one
---- case the grid cannot cover: two trees in NEIGHBOURING quadrants both jittered hard
---- toward the shared boundary.
----
---- WHY STAGE 4 GETS TREES AT ALL when the note under Stage 5 has "nothing left
---- standing" starting at Stage 3. Four is the count that keeps that true: the Marsh's
---- landmarks are still its puddles (scatterOozePools' mini lake is the thing you walk
---- to), and four snags over the whole field are strays on the horizon, not a stand you
---- walk through. Raise this count and the field turns back into Stage 2.
+--- Stage 4 -- its dead trees STAND TOGETHER IN ONE CORNER (on request, 2026-10-04;
+--- they used to be dealt one per quadrant over the whole field). The corner is at the
+--- far (east) end, so the trees never crowd the entrance, on a side picked by the stage
+--- rng; each tree after the first steps west along the wall from the last.
 ---
 --- NO CENTRE LANE, the same call Stage 2's old tree line made: a trunk is something you
 --- walk around, not a carcass laid across the route, and every piece of a deadTree is
@@ -2705,37 +2681,15 @@ local STAGE4_TREE_WITHER = 0.85
 --- RUNS LAST ON THE STAGE RNG, after the signs AND the puddles, so adding it moved
 --- neither: the same discipline every other multi-pass field in this file follows.
 local function scatterStage4Trees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
-	local MAX_ATTEMPTS_PER_TREE = 50
-	local JITTER = 0.38 -- share of a cell, each axis
-
-	local x0 = -hx + STAGE4_TREE_ENTRANCE_KEEPOUT
-	local cols = 2
-	local rows = math.max(1, math.ceil(count / cols))
-	local cellW = (hx - x0) / cols
-	local cellH = 2 * hz / rows
-
-	local placed = {}
-	local function tooClose(x: number, z: number): boolean
-		for _, p in placed do
-			if (x - p[1]) ^ 2 + (z - p[2]) ^ 2 < STAGE4_TREE_MIN_GAP ^ 2 then
-				return true
-			end
-		end
-		return false
+	if count <= 0 then
+		return
 	end
-
-	for i = 0, count - 1 do
-		local col = i % cols
-		local row = math.floor(i / cols) % rows
-		local x, z
-		local attempts = 0
-		repeat
-			x = math.clamp(x0 + (col + 0.5 + rng:NextNumber(-JITTER, JITTER)) * cellW, x0, hx)
-			z = math.clamp(-hz + (row + 0.5 + rng:NextNumber(-JITTER, JITTER)) * cellH, -hz, hz)
-			attempts += 1
-		until not tooClose(x, z) or attempts >= MAX_ATTEMPTS_PER_TREE
-		table.insert(placed, { x, z })
+	local side = if rng:NextNumber() < 0.5 then -1 else 1
+	local x = hx - rng:NextNumber(16, 24)
+	for _ = 1, count do
+		local z = side * (hz - rng:NextNumber(14, 22))
 		deadTree(folder, origin, x, z, rng, STAGE4_TREE_WITHER)
+		x -= rng:NextNumber(16, 22)
 	end
 end
 
@@ -3148,6 +3102,22 @@ local function scatterOozePools(
 		sizes[i], sizes[swap] = sizes[swap], sizes[i]
 	end
 
+	-- THE TWO LARGE POOLS SIT TOGETHER (on request, 2026-10-04): the biggest of the
+	-- rest is pulled out of the deal and laid beside the lake, along the walk axis
+	-- toward whichever end has more room, with a strip of mud between the two rims.
+	local big = 1
+	for i = 2, #sizes do
+		if sizes[i] > sizes[big] then
+			big = i
+		end
+	end
+	local mateR = table.remove(sizes, big)
+	local mateDir = if lakeX > 0 then -1 else 1
+	local mateX = math.clamp(lakeX + mateDir * (lakeR + mateR + rng:NextNumber(4, 8)), -hx + mateR, hx - mateR)
+	local mateZ = math.clamp(lakeZ + rng:NextNumber(-0.4, 0.4) * lakeR, -hz + mateR, hz - mateR)
+	oozePool(folder, origin, mateX, mateZ, mateR, rng, ooze, hx, hz)
+	rest -= 1
+
 	local cols = math.ceil(math.sqrt(rest * (hx / hz)))
 	local rows = math.ceil(rest / cols)
 
@@ -3214,7 +3184,10 @@ local function scatterOozePools(
 		blocked[col] = {}
 		for row = 1, rows do
 			local ccx, ccz = cellCenter(col, row)
-			if (ccx - lakeX) ^ 2 + (ccz - lakeZ) ^ 2 < blockRadiusSq then
+			if
+				(ccx - lakeX) ^ 2 + (ccz - lakeZ) ^ 2 < blockRadiusSq
+				or (ccx - mateX) ^ 2 + (ccz - mateZ) ^ 2 < (mateR + math.max(cellW, cellH) * 0.5) ^ 2
+			then
 				blocked[col][row] = true
 				freeCells -= 1
 			end
@@ -3339,6 +3312,14 @@ local function scatterOozePools(
 				local ux = if dist > 0.01 then dx / dist else 1
 				local uz = if dist > 0.01 then dz / dist else 0
 				px, pz = lakeX + ux * need, lakeZ + uz * need
+			end
+			dx, dz = px - mateX, pz - mateZ
+			dist = math.sqrt(dx * dx + dz * dz)
+			need = mateR + r
+			if dist < need then
+				local ux = if dist > 0.01 then dx / dist else 1
+				local uz = if dist > 0.01 then dz / dist else 0
+				px, pz = mateX + ux * need, mateZ + uz * need
 			end
 
 			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, -hz, hz), r, rng, ooze, hx, hz)
