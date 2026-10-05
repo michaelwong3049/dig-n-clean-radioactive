@@ -159,7 +159,7 @@ function Mastery.rewardText(def: Masteries.Def, tier: number): string
 	elseif kind == "brewCooldown" then
 		return `-{percentOff(v)} brew cooldown`
 	elseif kind == "awayRate" then
-		return `{math.floor(v * 100 + 0.5)}% away earnings`
+		return `{(string.gsub(string.format("%.1f", v * 100), "%.0$", ""))}% away earnings`
 	end
 	return x
 end

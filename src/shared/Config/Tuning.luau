@@ -629,8 +629,10 @@ Tuning.ASSAY_FEE_FRACTION = 0.02
 
 -- ── Exhibition (PLAN §8.2) ────────────────────────────────────────────────────
 -- Offline stands pay this share of their live $/s. 0.15 -> 0.04 on request (AFK nerf).
-Tuning.EXHIBIT_OFFLINE_RATE = 0.04
-Tuning.EXHIBIT_OFFLINE_BANK_HOURS = 4
+-- Cap 4 h -> 12 h with the rate cut to a third (0.04 -> 0.013), so a full 12 h away
+-- pays a touch less than the old 4 h maximum; time past 12 h earns nothing.
+Tuning.EXHIBIT_OFFLINE_RATE = 0.013
+Tuning.EXHIBIT_OFFLINE_BANK_HOURS = 12
 -- Every copy of an item pays in full; the old 100/40/15/5% duplicate damping is gone.
 Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0 }
 -- The crating lock (a nuke just put up can't come off for this long) is off, on

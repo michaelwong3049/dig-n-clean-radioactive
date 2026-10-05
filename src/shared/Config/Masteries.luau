@@ -170,7 +170,8 @@ Masteries.LIST = {
 		goals = { 10e6, 1e9, 50e9 },
 		unit = "$",
 		reward = "awayRate",
-		values = { 0.05, 0.06, 0.08 },
+		-- A third of the old 0.05/0.06/0.08, to match the 12 h bank (Tuning.EXHIBIT_OFFLINE_*).
+		values = { 0.016, 0.02, 0.026 },
 		color = Color3.fromRGB(255, 205, 52),
 	},
 } :: { Def }
