@@ -19,7 +19,8 @@
 	every few frames the active nukes are ranked by distance to the camera: the
 	nearest FULL_BUDGET inside FULL_RANGE run everything every frame; the rest inside
 	MID_RANGE keep their motion and pulses at MID_STEP but drop particles, glint,
-	bolts and ping; past that a nuke holds its last pose and glow. Only the nearest
+	bolts and ping; past that a nuke holds its last pose and glow. FAST MODE (the
+	`fastMode` pref) puts every nuke in that last tier. Only the nearest
 	LIGHT_BUDGET keep a PointLight on. Spinning parts move in one BulkMoveTo per
 	frame rather than one CFrame write per part.
 
@@ -1746,9 +1747,14 @@ local function retier(cameraPosition: Vector3)
 
 	local detail = DETAIL[Prefs.get("graphics")] or DETAIL.high
 	local fullLeft, lightsLeft = detail.fullBudget, detail.lights
+	-- FAST MODE (Settings > Graphics): every nuke holds still, with no particles, glint,
+	-- bolts, ping, glow or light, wherever it is.
+	local fast = Prefs.get("fastMode") == true
 	for _, entry in ranked do
 		local tier: Tier = "still"
-		if entry.distance <= detail.fullRange and fullLeft > 0 then
+		if fast then
+			tier = "still"
+		elseif entry.distance <= detail.fullRange and fullLeft > 0 then
 			tier = "full"
 			fullLeft -= 1
 		elseif entry.distance <= detail.midRange then

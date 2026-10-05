@@ -53,6 +53,7 @@ local StandCard = require(Shared.StandCard)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
+local Prefs = require(script.Parent.Parent.Prefs)
 
 local StandCards = {}
 
@@ -183,6 +184,25 @@ type Card = {
 }
 
 local cards: { [BasePart]: Card } = {}
+
+--- FAST MODE (Settings > Graphics): a card over someone else's nuke is not drawn.
+--- Your own base's cards stay.
+local function fastHidden(card: Card): boolean
+	return Prefs.get("fastMode") == true and card.display:GetAttribute(A.owner) ~= Players.LocalPlayer.UserId
+end
+
+--- Show or hide a card that has something to draw; a hidden one holds its shimmer still.
+local function applyVisible(card: Card)
+	local show = card.root ~= nil and not fastHidden(card)
+	card.gui.Enabled = show
+	if card.shimmer then
+		if show and card.near then
+			card.shimmer:Play()
+		else
+			card.shimmer:Pause()
+		end
+	end
+end
 
 -- ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -688,7 +708,7 @@ local function draw(card: Card)
 	root.Parent = card.canvas
 	card.root = root
 	card.gui.StudsOffsetWorldSpace = Vector3.new(0, (if type(top) == "number" then top else 1) + LIFT, 0)
-	card.gui.Enabled = true
+	applyVisible(card)
 
 	if pop then
 		scale.Scale = 0.25
@@ -791,6 +811,11 @@ function StandCards.start()
 	end
 	CollectionService:GetInstanceAddedSignal(StandCard.TAG):Connect(track)
 	CollectionService:GetInstanceRemovedSignal(StandCard.TAG):Connect(untrack)
+	Prefs.observe("fastMode", function()
+		for _, card in cards do
+			applyVisible(card)
+		end
+	end)
 
 	-- The crating clocks. A few times a second is plenty for a seconds readout; when
 	-- one runs out its card redraws without the footer.
@@ -824,7 +849,7 @@ function StandCards.start()
 			if near ~= card.near then
 				card.near = near
 				local shimmer = card.shimmer
-				if shimmer then
+				if shimmer and card.gui.Enabled then
 					if near then
 						shimmer:Play()
 					else

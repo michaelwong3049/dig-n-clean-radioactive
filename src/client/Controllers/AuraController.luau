@@ -667,7 +667,11 @@ local function step(dt: number)
 	end
 	local eye = camera.CFrame.Position
 	local now = os.clock()
-	stepIcons(now, camera.ViewportSize.X)
+	-- FAST MODE (Settings > Graphics): nothing of an aura moves or draws, shop atoms included.
+	local fast = Prefs.get("fastMode") == true
+	if not fast then
+		stepIcons(now, camera.ViewportSize.X)
+	end
 	table.clear(movedParts)
 	table.clear(movedFrames)
 
@@ -679,7 +683,7 @@ local function step(dt: number)
 		local inside = rig.isLocal and distance < rig.reach * rig.scale + 1.5
 		-- Settings' GRAPHICS "low" draws only your own aura. Theirs still protects them.
 		local others = rig.isLocal or Prefs.get("graphics") ~= "low"
-		setShown(rig, distance <= FAR and not downed and not inside and others)
+		setShown(rig, distance <= FAR and not downed and not inside and others and not fast)
 		if not rig.shown then
 			continue
 		end
