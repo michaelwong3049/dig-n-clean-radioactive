@@ -430,13 +430,17 @@ end
 
 --- The player's own bottle, or nil if they have no plot (or a world built before the
 --- bottle existed).
+---
+--- WORKSPACE ONLY. Old base copies parked in ServerStorage keep their tagged bottles, and
+--- one of those can come first in GetTagged. That far-off copy then fails atBottle, and
+--- every BREW press gets "walk up to your bottle".
 local function bottleOf(player: Player): BasePart?
 	local index = ExhibitService.plotOf(player)
 	if index == nil then
 		return nil
 	end
 	for _, part in CollectionService:GetTagged(FLUID_TAG) do
-		if part:IsA("BasePart") and plotIndexOf(part) == index then
+		if part:IsA("BasePart") and part:IsDescendantOf(workspace) and plotIndexOf(part) == index then
 			return part
 		end
 	end
