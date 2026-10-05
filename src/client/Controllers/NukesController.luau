@@ -56,9 +56,10 @@ local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 -- the house Gotham Black (UIKit.House) with a black outline.
 local PANEL = {
 	-- The shop's glossy L-stud look (2026-10-05, on request: "apply the same pattern to
-	-- the nukes gui"): a dark grey studded tray under a purple patterned header.
+	-- the nukes gui"): a dark grey studded tray under a patterned header. The header
+	-- is dark navy, not the shop's purple (on request: "use another dark color").
 	tray = Color3.fromHex("2B2F36"),
-	header = ColorSequence.new(Color3.fromHex("D63BFF"), Color3.fromHex("B406E6")),
+	header = ColorSequence.new(Color3.fromHex("2C3E6B"), Color3.fromHex("1C2848")),
 	row = Color3.fromHex("0C0D0F"),
 	well = Color3.fromHex("4A4F57"),
 	dim = UIKit.House.dim,
@@ -545,7 +546,7 @@ local function buildPanel(): ScreenGui
 	trayPattern.Position = UDim2.fromOffset(-PAD, -PAD)
 	trayPattern.Size = UDim2.new(1, 2 * PAD, 1, 2 * PAD)
 
-	-- The header box: the shop's purple patterned title bar over the list. The title
+	-- The header box: a navy patterned title bar over the list. The title
 	-- with what the stands pay beside it on the left; how full they are on the right.
 	local header = Instance.new("Frame")
 	header.Name = "Header"
