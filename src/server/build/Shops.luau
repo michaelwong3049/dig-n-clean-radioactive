@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 76
+local BUILDER_VERSION = 77
 
 local C = Kit.C
 local build = Kit.build
@@ -2012,15 +2012,17 @@ end
 --- front stand and the dear one the back, so whichever side you walk up to shows you one
 --- front-on. Look only: no prompt, no SellsTrack -- the stand's E is still the shop.
 ---
---- The tools stand on a plinth as tall as the booth wall (BOOTH_WALL_HEIGHT), so they
---- clear it, via hangTierModel (the racks' own fitting, magnets seated poles-down). The
+--- The tools stand on the floor on a low plinth (BOOTH_PLINTH_HEIGHT; they were up at
+--- wall height first, and the user asked for them on the floor "but on something"), via
+--- hangTierModel (the racks' own fitting, magnets seated poles-down). The
 --- Aura shop shows two mannequins wearing their rung's aura instead (ShopThemes'
 --- dressOutfitter), standing on the floor: their torsos already clear the wall.
 local BOOTH_DISPLAY_X = 6.5 -- each display's distance from the booth's centre line
 local BOOTH_PLINTH = 2.4 -- the plinth's width and depth
+local BOOTH_PLINTH_HEIGHT = 1
 -- The racks' sizes read as specks from the plaza (a magnet came out ~1 stud), so a
 -- booth tool is grown to this tall, or this wide, whichever is reached first.
-local BOOTH_DISPLAY_HEIGHT = 4
+local BOOTH_DISPLAY_HEIGHT = 4.5
 local BOOTH_DISPLAY_WIDTH = 4
 local BOOTH_MANNEQUIN_SCALE = 1.2 -- the racks' 0.8 left only the head over the wall
 local function buildBoothDisplays(parent: Instance, origin: CFrame, track: string, color: string)
@@ -2047,15 +2049,15 @@ local function buildBoothDisplays(parent: Instance, origin: CFrame, track: strin
 		end
 		build(displays, frame, {
 			name = "DisplayPlinth",
-			pos = { x, BOOTH_WALL_HEIGHT / 2, ISLAND_Z },
-			size = { BOOTH_PLINTH, BOOTH_WALL_HEIGHT, BOOTH_PLINTH },
+			pos = { x, BOOTH_PLINTH_HEIGHT / 2, ISLAND_Z },
+			size = { BOOTH_PLINTH, BOOTH_PLINTH_HEIGHT, BOOTH_PLINTH },
 			color = BOOTH_FRAME,
 			material = "Plastic",
 			studs = true,
 		})
 		build(displays, frame, {
 			name = "DisplayPlinthTop",
-			pos = { x, BOOTH_WALL_HEIGHT + 0.05, ISLAND_Z },
+			pos = { x, BOOTH_PLINTH_HEIGHT + 0.05, ISLAND_Z },
 			size = { BOOTH_PLINTH + BOOTH_WALL_LIP * 2, 0.3, BOOTH_PLINTH + BOOTH_WALL_LIP * 2 },
 			color = color,
 			material = "Plastic",
@@ -2064,7 +2066,7 @@ local function buildBoothDisplays(parent: Instance, origin: CFrame, track: strin
 		})
 		-- hangTierModel stands its model on RACK_DROP_BASE at z = SHOPFRONT_Z; shift the
 		-- frame so that lands on the plinth top, on the island's centre line.
-		local deck = frame * CFrame.new(0, BOOTH_WALL_HEIGHT + 0.2 - RACK_DROP_BASE, ISLAND_Z - SHOPFRONT_Z)
+		local deck = frame * CFrame.new(0, BOOTH_PLINTH_HEIGHT + 0.2 - RACK_DROP_BASE, ISLAND_Z - SHOPFRONT_Z)
 		local present = stall and stall.present
 		local hand = if present then deck * Kit.ang(0, present.yaw, 0) * Kit.ang(present.pitch, 0, 0) else nil
 		local gear = Instance.new("Model")
