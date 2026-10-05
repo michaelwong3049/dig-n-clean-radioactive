@@ -819,7 +819,7 @@ function Dock.sideTileCentre(slot: number, height: number): UDim2
 end
 
 --- Where the tile grid ends: its bottom row's bottom edge, in design px from the canvas
---- TOP. LuckBoostController keeps the 2x-luck clover below it.
+--- TOP. BoostsController keeps the Boosts widget below it.
 function Dock.sideColumnBottom(height: number): number
 	return height / 2 + Dock.leftGridTop(height) + Dock.SIDE_GRID_HEIGHT
 end
@@ -862,9 +862,16 @@ Dock.HAULPANEL_CENTRE_GAP = 100
 -- to overlap the surfacing item; further in it tucks behind the meter (DisplayOrder 100
 -- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
 -- width, not a different anchor.
--- With the button grid on the LEFT edge, the right corner only holds the luck clover's
--- badge (LuckBoostController BADGE_W 90); this keeps about the clearance it always had.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + 100 + Dock.GAP
+-- THE BOOSTS WIDGET (BoostsController): the bottom-right stack of Luck / Cash / ... totals,
+-- just above the hotbar. Up to BOOSTS_ROWS pills; PassOfferController stacks above it and
+-- the haul panel keeps clear of its width.
+Dock.BOOSTS_WIDTH = 150
+Dock.BOOSTS_ROW = 26
+Dock.BOOSTS_ROW_GAP = 4
+Dock.BOOSTS_ROWS = 4
+Dock.BOOSTS_HEIGHT = Dock.BOOSTS_ROWS * Dock.BOOSTS_ROW + (Dock.BOOSTS_ROWS - 1) * Dock.BOOSTS_ROW_GAP
+-- With the button grid on the LEFT edge, the right corner only holds the Boosts widget.
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.BOOSTS_WIDTH + Dock.GAP
 
 -- AND NEVER TALLER THAN THE SCREEN HAS ROOM FOR. On a landscape phone (~625-650 design
 -- px tall) HAULPANEL_BOTTOM + 474 ran the widget's top off the screen, under the

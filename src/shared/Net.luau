@@ -332,6 +332,11 @@ local REMOTES: { [string]: string } = {
 	-- receiver: { kind = "offer", from, fromUserId, seconds, item }, { kind = "result",
 	-- ok, message, keep? } after ACCEPT, or { kind = "closed", reason } when it lapses.
 	Gift = "RemoteEvent",
+
+	-- The bottom-right Boosts widget (Services/BoostsService, BoostsController). Server ->
+	-- client: StatResolver.boosts(data), sent on join and whenever a total or a source
+	-- changes. Countdowns are not in it: the client reads each source's `timer` attribute.
+	Boosts = "RemoteEvent",
 }
 
 local Net = {}

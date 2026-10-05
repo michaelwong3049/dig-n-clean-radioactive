@@ -1,6 +1,6 @@
 --!strict
 --[[
-	LuckBoost.luau — 2x LUCK, for a while. The clover in the bottom-right corner.
+	LuckBoost.luau — 2x LUCK, for a while. Shown as the Luck pill of the Boosts widget.
 
 	Two ways to be boosted, and they stack:
 
