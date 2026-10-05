@@ -100,6 +100,56 @@ local training: { [Player]: boolean } = {}
 --- When each trainee was last sent a readout (os.clock), for PUSH_INTERVAL.
 local lastPush: { [Player]: number } = {}
 
+-- ── The run on the spot ─────────────────────────────────────────────────────
+--
+-- PLAYED HERE, NOT ON THE CLIENT, so every player sees it. It used to be a local
+-- track in TreadmillController, which only the runner could be relied on to see;
+-- a track the server loads onto the character's Animator replicates to every
+-- client, the runner included. Borrowed off the character's own `Animate` script
+-- (its children exist server-side too), so it matches the rig and can't ship a
+-- broken asset id. Decoration only: no rig, no animation, nothing breaks.
+
+--- The run track per trainee, and the character it was loaded on: a respawn builds
+--- a new Animator, so a track on the old one is dead and must not be reused.
+local runTracks: { [Player]: { track: AnimationTrack, character: Model } } = {}
+
+local function startRunning(player: Player)
+	local character = player.Character
+	if character == nil then
+		return
+	end
+	local held = runTracks[player]
+	if held and held.character == character then
+		held.track:Play(0.2)
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	local animateScript = character:FindFirstChild("Animate")
+	local source = animateScript and animateScript:FindFirstChild("run")
+	local anim = source and source:FindFirstChildWhichIsA("Animation")
+	if animator == nil or anim == nil then
+		return
+	end
+	local ok, track = pcall(function()
+		return (animator :: Animator):LoadAnimation(anim :: Animation)
+	end)
+	if not ok or track == nil then
+		return
+	end
+	track.Priority = Enum.AnimationPriority.Movement
+	track.Looped = true
+	track:Play(0.2)
+	runTracks[player] = { track = track, character = character }
+end
+
+local function stopRunning(player: Player)
+	local held = runTracks[player]
+	if held then
+		held.track:Stop(0.2)
+	end
+end
+
 -- ── The readout ───────────────────────────────────────────────────────────
 
 --- This player's Speed, as the client renders it: the HUD counter reads `points` and
@@ -226,6 +276,7 @@ function TreadmillService.buy(player: Player): (boolean, string)
 		-- step-on, because the StationService edge has already fired.
 		if StationService.kindOf(player) == STATION_KIND then
 			training[player] = true
+			startRunning(player)
 		end
 		push(player)
 		return true, if Treadmill.UNLOCK_PRICE > 0
@@ -386,9 +437,11 @@ function TreadmillService.start()
 				return
 			end
 			training[player] = true
+			startRunning(player)
 			push(player)
 		elseif previousKind == STATION_KIND then
 			training[player] = nil
+			stopRunning(player)
 			-- Their plot's console shows the owner's level; bring it up to date with
 			-- whatever this run earned. Once per run, not per tick.
 			ExhibitService.refreshTreadmill(player)
@@ -414,6 +467,7 @@ function TreadmillService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		training[player] = nil
+		runTracks[player] = nil
 		lastPush[player] = nil
 		lastPick[player] = nil
 		lastBuy[player] = nil

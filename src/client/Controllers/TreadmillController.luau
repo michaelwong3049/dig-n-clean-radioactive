@@ -14,11 +14,11 @@
 	     part of the curve itself.
 
 	  2. THE MACHINE. Every belt near the camera scrolls its chevrons and turns its
-	     rollers all the time, and while you train the character plays its own run
-	     animation on the spot. All of it is
-	     LOCAL: the parts moved here are cosmetic children of a server-built model (see
-	     build/Plots.buildTreadmill — the Belt part itself, the one thing a service
-	     reads, is never touched), and nothing about the animation crosses the wire.
+	     rollers all the time. All of it is LOCAL: the parts moved here are cosmetic
+	     children of a server-built model (see build/Plots.buildTreadmill — the Belt
+	     part itself, the one thing a service reads, is never touched). The runner's
+	     run-on-the-spot animation is NOT here: TreadmillService plays it on the server
+	     so every player sees it, not just the runner.
 
 	WHY THE CARD IS A SCREEN PANEL AND NOT A BILLBOARD, when LiquidController's
 	readout is the opposite: what is loaded in your hose is a fact about a machine on
@@ -27,13 +27,6 @@
 	the numbers here belong to the player rather than to the plot. The console's own
 	world billboard keeps showing its OWNER's walk speed, exactly as the luck button
 	shows its owner's multiplier, and the two never claim to be the same thing.
-
-	THE RUN ANIMATION IS BORROWED, NOT AUTHORED. The id is read off the character's own
-	`Animate` script at play time rather than hardcoded, so this cannot ship a broken
-	asset reference and it automatically matches whatever rig (R6/R15) the player is on.
-	If the script is not there — a custom rig, a future avatar change — the belt still
-	scrolls and the card still works, and nobody sees an error. It is decoration, and
-	decoration is not allowed to be load-bearing.
 
 	3. THE HINT. No spotlight walkthrough: the belt is usable straight away, and while
 	   you train a small card above the bar (the walkthrough's dark/amber skin) says what
@@ -95,8 +88,6 @@ local function dismissHint()
 	end
 	actionRemote:FireServer({ action = "tutorialSeen", id = "treadmill" })
 end
-
-local runTrack: AnimationTrack? = nil
 
 -- ── The bar ───────────────────────────────────────────────────────────────
 
@@ -706,62 +697,16 @@ local function animate(dt: number)
 	end
 end
 
---- Play the character's own run animation on the spot. Borrowed off the default
---- Animate script rather than hardcoded — see this file's header.
-local function startRunning()
-	if runTrack then
-		runTrack:Play(0.2)
-		return
-	end
-	local character = Players.LocalPlayer.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-	local animateScript = character and character:FindFirstChild("Animate")
-	local source = animateScript and animateScript:FindFirstChild("run")
-	local anim = source and source:FindFirstChildWhichIsA("Animation")
-	if animator == nil or anim == nil then
-		return -- custom rig, or the character is still assembling. Decoration only.
-	end
-
-	local clone = anim:Clone()
-	local ok, track = pcall(function()
-		return animator:LoadAnimation(clone)
-	end)
-	if not ok or track == nil then
-		return
-	end
-	runTrack = track
-	track.Priority = Enum.AnimationPriority.Movement
-	track.Looped = true
-	track:Play(0.2)
-end
-
-local function stopRunning()
-	if runTrack then
-		runTrack:Stop(0.2)
-	end
-end
-
---- The character is rebuilt on every respawn, so a track loaded onto the old
---- Animator is dead and must not be reused. Dropping the reference is enough:
---- `startRunning` reloads from whatever rig exists at the time.
-local function onCharacter()
-	runTrack = nil
-end
-
 -- ── Wiring ────────────────────────────────────────────────────────────────
 
 function Treadmill.start()
-	Players.LocalPlayer.CharacterAdded:Connect(onCharacter)
 	actionRemote = Net.get("StationAction")
 
 	Speed.onChanged(function(view, previous)
 		local wasTraining = previous ~= nil and previous.training
 		if view.training and not wasTraining then
-			startRunning()
 			show(true)
 		elseif not view.training and wasTraining then
-			stopRunning()
 			show(false)
 		end
 		-- The popups belong to the bar, so they only fly while it is up.
