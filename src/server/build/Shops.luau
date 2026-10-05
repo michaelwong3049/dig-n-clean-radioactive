@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 70
+local BUILDER_VERSION = 71
 
 local C = Kit.C
 local build = Kit.build
@@ -1914,13 +1914,15 @@ local TRADER_BOOTH = { track = "Trader", at = { PLAZA_MID.x + BOOTH_DX, -BOOTH_R
 -- The sell panel opens on this radius round the booth's centre: past both stands and the ends.
 local TRADER_RADIUS = 16
 
---- The booth's step pad: a studded plate in `color` on the plaza just in front of the
+--- The booth's step pad: a studded strip in `color` on the plaza just in front of the
 --- stand (inside STAND_PROMPT_REACH of the desk), with a thin Neon rim in the same colour.
+--- It runs the booth's whole width, out to the outer face of each leg (2026-10-04, on
+--- request: "extend them to the end of each leg, make them thinner too but longer").
 --- Its outer edge is BOOTH_PAD_FRONT, which assertNoShopOverlap reads.
-local BOOTH_PAD_DEPTH = 5.5 -- was 4; "slightly longer" on request
+local BOOTH_PAD_DEPTH = 2.5 -- 4 -> 5.5 -> 2.5: a thin strip now it spans the booth
 local BOOTH_PAD_FRONT = SHOPFRONT_Z + 1.25 + 0.4 + BOOTH_PAD_DEPTH
 local function buildStepPad(parent: Instance, frame: CFrame, color: string)
-	local w, d = STAND_WIDTH, BOOTH_PAD_DEPTH
+	local w, d = BOOTH_WIDTH, BOOTH_PAD_DEPTH
 	local cz = BOOTH_PAD_FRONT - d / 2
 	build(parent, frame, {
 		name = "StepPad",
