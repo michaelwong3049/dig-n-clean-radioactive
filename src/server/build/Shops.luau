@@ -203,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 78
+local BUILDER_VERSION = 79
 
 local C = Kit.C
 local build = Kit.build
@@ -1905,8 +1905,8 @@ end
 --- Trader's four-sided kiosk (BaseCamp.buildHubTrader) stands in the middle, on PLAZA_MID.
 --- Move a booth here, move Hub's SHOP_ZONE with it.
 local BOOTH_WIDTH = 26 -- longer on request (was 14, just the stand); the spine and roof run its length
-local BOOTH_DX = 25 -- east/west of PLAZA_MID (15 -> 19 -> 25 with the longer booths: 24-stud aisles)
-local BOOTH_ROW_Z = 18 -- each row's build origin; its island centre is 4 further out (20 -> 24 -> 18: rows pulled together on request)
+local BOOTH_DX = 35 -- east/west of PLAZA_MID (15 -> 19 -> 25 -> 35: out into the square's corners on request, ~6 inside the kerb)
+local BOOTH_ROW_Z = 24 -- each row's build origin (20 -> 24 -> 18 -> 24: into the corners, ~5 inside the square's edge)
 local BOOTHS = {
 	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
 	{ track = "Detector", at = { PLAZA_MID.x + BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop" },
