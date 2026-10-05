@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 74
+local BUILDER_VERSION = 75
 
 local C = Kit.C
 local build = Kit.build
@@ -1940,7 +1940,7 @@ local BOOTH_WALL_THICK = 1
 local BOOTH_WALL_Z = SHOPFRONT_Z + 1.25 + 0.2 - BOOTH_WALL_THICK / 2 -- 1.55: outer face 2.05
 local BOOTH_POST_X = BOOTH_WIDTH / 2 - 1.5 / 2 -- buildStorefrontPosts' post centres
 local BOOTH_WALL_HEIGHT = 2.7 -- 2.2 -> 2.7 on request: "slightly taller"
---- The booth's frame colour: wall, legs and roof beams (black -> dark grey on request).
+--- The booth's frame colour: wall, legs, roof beams and name boards (black -> dark grey on request).
 --- Darker and more neutral than the steelDark floor, so the wall still reads against it.
 local BOOTH_FRAME = "3A3A3A"
 local BOOTH_WALL_LIP = 0.5 -- the top cap's overhang each side (0.2 -> 0.5 on request: "a little longer")
@@ -1987,7 +1987,7 @@ local function buildNameBoard(parent: Instance, frame: CFrame, text: string)
 		name = "NameBoard",
 		pos = { 0, ROOF_CENTER_Y - 0.2, ROOF_CENTER_Z + ROOF_DEPTH / 2 + NAME_BOARD_DEPTH / 2 },
 		size = { NAME_BOARD_WIDTH, NAME_BOARD_HEIGHT, NAME_BOARD_DEPTH },
-		color = C.hazardBlack,
+		color = BOOTH_FRAME,
 		material = "Plastic",
 		studs = true,
 		canCollide = false,
