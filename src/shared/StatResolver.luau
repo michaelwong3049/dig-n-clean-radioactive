@@ -308,6 +308,101 @@ function StatResolver.get(profile: Profile): Stats
 	}
 end
 
+-- ── The boosts breakdown ──────────────────────────────────────────────────────
+
+export type BoostSource = {
+	name: string,
+	mult: number,
+	-- The attribute holding this source's end time (server time), when it runs out:
+	-- on the Player, or on ReplicatedStorage when `global`. Absent = permanent.
+	timer: string?,
+	global: boolean?,
+}
+
+export type Boost = {
+	key: string,
+	label: string,
+	total: number,
+	sources: { BoostSource },
+}
+
+-- Rows that show even at x1, so a fresh player can see where luck and cash stand.
+StatResolver.ALWAYS_SHOWN = { luck = true, cash = true }
+
+--- EVERY MULTIPLIER, SOURCE BY SOURCE, for the bottom-right Boosts widget
+--- (BoostsController). Players stack potions, passes, the aurora and the clover and
+--- lose track of what their luck actually is; this answers it with the same numbers
+--- `get` folds in, from the same helpers, so the widget cannot disagree with the dig
+--- roll (Spec checks each total against `get`).
+---
+--- `total` is the product of `sources`; a source at x1 is left out. Only what a
+--- player would call a boost is here -- Luck is `luckBoost` (digs AND the wash pad),
+--- not the wash-only gear button.
+function StatResolver.boosts(profile: Profile): { Boost }
+	local stats = StatResolver.get(profile)
+	local list: { Boost } = {}
+
+	local function add(key: string, label: string, sources: { BoostSource })
+		local kept = {}
+		local total = 1
+		for _, source in sources do
+			if math.abs(source.mult - 1) > 1e-9 then
+				table.insert(kept, source)
+				total *= source.mult
+			end
+		end
+		table.insert(list, { key = key, label = label, total = total, sources = kept })
+	end
+
+	local function pass(key: string, mult: number): number
+		return if GamePasses.owns(profile, key) then mult else 1
+	end
+
+	local function potion(id: string): BoostSource
+		return { name = Potions.get(id).name, mult = Potions.multiplier(profile.potionLeft, id), timer = Potions.attrFor(id) }
+	end
+
+	add("luck", "Luck", {
+		{
+			name = LuckBoost.EVENT_NAME,
+			mult = if StatResolver.luckEventActive() then LuckBoost.MULT else 1,
+			timer = LuckBoost.EVENT_ATTR,
+			global = true,
+		},
+		{ name = "Lucky Clover", mult = if (profile.luckBoostLeft or 0) > 0 then LuckBoost.MULT else 1, timer = LuckBoost.PERSONAL_ATTR },
+		{ name = "2x Luck Pass", mult = pass("luck", GamePasses.LUCK) },
+		potion("luck"),
+	})
+	add("cash", "Cash", {
+		{ name = "2x Cash Pass", mult = pass("cash", GamePasses.CASH) },
+		{ name = "2x Cash Boost", mult = CashBoost.multiplier((profile.cashBoostLeft or 0) > 0), timer = CashBoost.PERSONAL_ATTR },
+		potion("cash"),
+		{ name = "Group Bonus", mult = GroupReward.cashMultiplier(profile.groupRewardClaimed) },
+		{ name = "Index Complete", mult = stats.indexCashMultiplier },
+		{ name = "Masteries", mult = stats.masteryCash },
+	})
+	add("speed", "Walk Speed", {
+		{ name = "Aura", mult = 1 + stats.auraSpeedBonus },
+		potion("speed"),
+	})
+	add("strength", "Dig Power", {
+		{ name = "2x Dig Power Pass", mult = pass("digPower", GamePasses.DIG_POWER) },
+		potion("strength"),
+	})
+	add("clean", "Wash Speed", { potion("clean") })
+	add("training", "Training", {
+		{ name = "2x Speed Pass", mult = pass("speed", GamePasses.SPEED) },
+		{ name = "Masteries", mult = Mastery.value(profile, "training") },
+	})
+	add("bomb", "Bomb Damage", {
+		{ name = "1.5x Bomb Damage Pass", mult = pass("bombDamage", GamePasses.BOMB_DAMAGE) },
+		{ name = "Masteries", mult = Mastery.value(profile, "bombDamage") },
+	})
+	add("health", "Health", { { name = "2x Health Pass", mult = stats.healthMult } })
+
+	return list
+end
+
 --- Movement speed after the haul penalty. PLAN §5.1: carrying hot items should
 --- physically slow you, which is what turns capacity from a bigger number into
 --- a decision.

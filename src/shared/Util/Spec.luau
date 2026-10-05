@@ -2853,6 +2853,50 @@ function Spec.run(): boolean
 				seen[pass.key] = true
 			end
 			check("§pass every pass has its own key and id", unique)
+
+			-- The Boosts widget (StatResolver.boosts): every total is the number `get`
+			-- actually applies, with every source stacked at once.
+			local potionLeft = {}
+			for _, id in Potions.ORDER do
+				potionLeft[id] = 60
+			end
+			local stacked = {
+				level = 1,
+				gear = { aura = 3 },
+				perks = {},
+				passes = all,
+				potionLeft = potionLeft,
+				luckBoostLeft = 60,
+				cashBoostLeft = 60,
+				groupRewardClaimed = true,
+			}
+			local got = StatResolver.get(stacked)
+			local totals = {}
+			local sourcesMultiply = true
+			for _, boost in StatResolver.boosts(stacked) do
+				totals[boost.key] = boost.total
+				local product = 1
+				for _, source in boost.sources do
+					product *= source.mult
+				end
+				sourcesMultiply = sourcesMultiply and math.abs(product - boost.total) < 1e-9
+			end
+			local function near(a: number?, b: number): boolean
+				return a ~= nil and math.abs(a - b) < 1e-9
+			end
+			check("§boosts each total is its sources multiplied", sourcesMultiply)
+			check(
+				"§boosts every total matches what StatResolver.get applies",
+				near(totals.luck, got.luckBoost)
+					and near(totals.cash, got.sellMultiplier)
+					and near(totals.speed, StatResolver.walkBonus(got))
+					and near(totals.strength, got.digPower)
+					and near(totals.clean, got.scrubRate / Gear.tier("Cleaner", 1).volume)
+					and near(totals.training, got.trainingMult)
+					and near(totals.bomb, got.bombDamageMult)
+					and near(totals.health, got.healthMult)
+					and totals.luck == GamePasses.LUCK * LuckBoost.MULT * Potions.get("luck").mult
+			)
 		end
 
 		-- A pack's timed 2x cash (Config/CashBoost): both payouts double, nothing else

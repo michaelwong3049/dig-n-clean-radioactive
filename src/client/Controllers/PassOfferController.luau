@@ -12,7 +12,7 @@
 	(GamePassService's `Pass_<key>` attribute), and the other closes up to the top.
 
 	POSITION: hard right, between the Starter Pack offer above (whose bottom stops at
-	Dock.sideColumnTop's line) and the luck clover badge above the hotbar below; on a
+	Dock.sideColumnTop's line) and the Boosts widget above the hotbar below; on a
 	screen too short for both cards the stack shrinks (`Fit`, floored at MIN_FIT).
 	DisplayOrder 53 sits under the offer (54) and the haul panel, which may slide over
 	it on a narrow screen mid-haul.
@@ -54,9 +54,9 @@ local PRICE_H = 18
 local STEP = CARD_H + PRICE_H / 2 + 10 -- card top to the next card's top
 local STUD = 14 -- stud grid pitch
 local STUD_D = 7
--- The luck clover badge's box above the hotbar (LuckBoostController: 80 clover + 34
--- pill), which the stack stays clear of even while the badge is hidden.
-local LUCK_CLEAR = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP + 114 + Dock.GAP
+-- The Boosts widget's box above the hotbar (BoostsController), which the stack stays
+-- clear of.
+local LUCK_CLEAR = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP + Dock.BOOSTS_HEIGHT + Dock.GAP
 local MIN_FIT = 0.6
 
 local INK = Color3.fromHex("15130F")

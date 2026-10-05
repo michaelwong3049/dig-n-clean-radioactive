@@ -37,7 +37,8 @@ local ORDER = {
 	"PassOfferController", -- the 2x Luck / 2x Speed pass buy cards on the right edge, under the Starter Pack offer; gone once owned
 	"GroupRewardController", -- the group chest on Stage 1: the join-group prompt + claim toast; reads GroupReward
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
-	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
+	"LuckBoostController", -- the Violet Aurora banner + lights (the luck countdown now lives in BoostsController)
+	"BoostsController", -- the bottom-right Boosts widget: Luck/Cash/... totals, tap for every source; reads Boosts
 	"RareDropController", -- the announced rare drop: the "LEGENDARY DROP!" card, the live tracker pill, who claimed it
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"AwayEarningsController", -- the "While you were away" card on login: COLLECT flies coins into the cash badge, DOUBLE IT is Robux
