@@ -30,6 +30,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local ToolFX = require(ReplicatedStorage.Shared.ToolFX)
+local Prefs = require(script.Parent.Prefs)
 
 local GearArtFx = {}
 
@@ -102,6 +103,8 @@ type Rig = {
 	halos: { Halo },
 	moves: { Move },
 	connection: RBXScriptConnection?,
+	-- FAST MODE: the halos have been laid once and nothing moves after that.
+	stilled: boolean?,
 }
 
 local rigs: { [ViewportFrame]: Rig } = {}
@@ -493,6 +496,16 @@ function GearArtFx.attach(viewport: ViewportFrame, model: Model, track: string, 
 			return
 		end
 		local now = os.clock()
+		-- FAST MODE: no moving parts, sparks or pulsing glow. The halos are laid once so
+		-- the card still has its static glow; every frame after that is skipped.
+		if Prefs.get("fastMode") == true then
+			if not rig.stilled then
+				rig.stilled = true
+				stepHalos(rig, now)
+			end
+			return
+		end
+		rig.stilled = nil
 		stepMoves(rig, now)
 		stepParticles(rig, math.min(dt, 0.1))
 		stepHalos(rig, now)
