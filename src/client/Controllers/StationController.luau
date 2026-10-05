@@ -2339,7 +2339,9 @@ local function render()
 	-- Still set on every render, because the stroke is repainted per stall below.
 	ui.panel.BackgroundColor3 = FIELD.panel
 	ui.panel.BackgroundTransparency = 0 -- solid: it sits over the depth readout and vitals bars now
-	ui.shopBackdrop.Visible = atShop
+	-- The dark studded backdrop sits under the shop and the trader alike.
+	local atTrader = not (atShop or atLocker or atMerge or atReforge)
+	ui.shopBackdrop.Visible = atShop or atTrader
 
 	if atShop then
 		local offer = state.offer
@@ -2446,7 +2448,8 @@ local function render()
 	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
 	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
 	-- the RACK button with it -- see this file's header. The body is TraderPanel's.
-	ui.panelStroke.Color = FIELD.edge
+	ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
+	ui.panelStroke.Color = STUDDED.cardEdge
 	ui.trader.paint(state)
 end
 

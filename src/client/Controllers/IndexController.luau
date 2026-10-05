@@ -60,6 +60,7 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
+local Studded = require(script.Parent.Parent.Studded)
 
 local Index = {}
 
@@ -865,6 +866,7 @@ local function buildDetail(panel: Frame)
 	local artGlow = box(art, "Fill", UDim2.fromScale(1, 1), nil, COL.white)
 	corner(artGlow, 12)
 	cartoonShade(artGlow, ART_H - 20, 0.5)
+	Studded.pattern(artGlow, { radius = 12, tile = 20, glow = false })
 	local viewport = newViewport(art, "Model")
 	text(art, {
 		name = "DragHint",
@@ -1375,6 +1377,9 @@ local function buildCard(item: any, order: number)
 		rarityPaint(card, "BackgroundColor3", item.rarity)
 		-- Centred on the art square (4 + CARD_ART / 2 down the card).
 		cartoonShade(card, CARD_ART, (4 + CARD_ART / 2) / CARD_H)
+		-- The shop's glossy L-studs over the colour (2026-10-05, on request: "make the
+		-- colors behind the nukes studded"). The glass around the cards stays glass.
+		Studded.pattern(card, { radius = 12, tile = 16, glow = false })
 	else
 		glass(card, GLASS.cardEmpty)
 	end
