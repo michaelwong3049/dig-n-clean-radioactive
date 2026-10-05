@@ -24,6 +24,15 @@
 	LIGHT_BUDGET keep a PointLight on. Spinning parts move in one BulkMoveTo per
 	frame rather than one CFrame write per part.
 
+	BUILT ONLY WHEN NEAR, A FEW PER FRAME. Walking up to a base streams in dozens of
+	nukes in one go, and setting all of them up in the same frame froze the game for
+	50-90 ms (Pristine worst: two glint Textures on every part). So the full-tier
+	extras (particles, glint, bolts, the Irradiated Highlight) are built only when a
+	nuke enters the full tier and torn down FX_KEEP after it leaves, and both that
+	and the first activation share SETUP_BUDGET per frame; at least one nuke is
+	always set up per frame, so a wash reveal is never held back. The Pristine shine
+	covers only its PRISTINE_GLINT_PARTS largest parts.
+
 	ALL OF IT IS LOCAL. Materials, colours, lights, particles and part motion are
 	written on this client only. The server's parts are untouched, so nothing
 	replicates per frame and each player culls by their own distance.
@@ -119,6 +128,18 @@ local DETAIL = {
 
 --- How often the nukes are re-ranked by distance.
 local RETIER_INTERVAL = 0.2
+
+--- Seconds per frame spent activating nukes and building or tearing down their
+--- full-tier extras (see the header). One nuke always goes through regardless.
+local SETUP_BUDGET = 0.002
+
+--- A nuke that drops out of the full tier keeps its extras (switched off) this
+--- long, so one hovering at the edge of the budget isn't rebuilt every retier.
+local FX_KEEP = 5
+
+--- The Pristine shine goes on this many of the model's largest parts. On every
+--- part it was two Textures per part: 5k Textures for 24 nukes.
+local PRISTINE_GLINT_PARTS = 8
 
 --- How far a fully dimmed glow part drops toward black. Short of 1 so an "off"
 --- lamp still reads as a coloured lens, not a hole.
@@ -280,6 +301,10 @@ type Entry = {
 	startedAt: number,
 	rng: Random,
 	tier: Tier,
+	-- Whether the full-tier extras exist right now, and when the entry was last
+	-- ranked into the full tier.
+	fxBuilt: boolean,
+	fullSeenAt: number,
 	-- When this entry's effects last ran (mid-tier entries skip frames), its
 	-- distance from the camera at the last ranking, the part that distance is
 	-- measured from, and whether its parts can go through BulkMoveTo.
@@ -322,6 +347,14 @@ local moveFrames: { CFrame } = {}
 
 -- Re-rank on the next frame instead of waiting out RETIER_INTERVAL.
 local retierAt = 0
+
+-- This frame's SETUP_BUDGET: when it runs out, and whether anything used it yet.
+local setupDeadline = 0
+local setupUsed = false
+
+local function canSetUp(): boolean
+	return not setupUsed or os.clock() < setupDeadline
+end
 
 local function buildBolt(def: ItemFxConfig.Bolt, from: BasePart, to: BasePart, scale: number, now: number, rng: Random): BoltRun
 	local segments = def.segments or 6
@@ -1406,49 +1439,26 @@ local function activate(entry: Entry, now: number)
 
 	if entry.fused then
 		local fused = ItemFxConfig.FUSED
-		local visible = visibleParts(model)
-		pullColour(visible, fused.color, fused.whiten, fused.reflectance)
-		if #visible > 0 then
-			local e = PRESETS.smoke(fused.smoke.color, fused.smoke.rate, entry.scale)
-			e.Parent = visible[1]
-			table.insert(entry.emitters, e)
-		end
+		pullColour(visibleParts(model), fused.color, fused.whiten, fused.reflectance)
 	end
 
 	if entry.irradiated then
 		local hot = ItemFxConfig.IRRADIATED
 		local visible = visibleParts(model)
 		pullColour(visible, hot.color, hot.tint)
-		local glow = Instance.new("Highlight")
-		glow.Name = "ItemFxIrradiated"
-		glow.Adornee = model
-		glow.DepthMode = Enum.HighlightDepthMode.Occluded
-		glow.FillColor = hot.color
-		glow.FillTransparency = hot.glow.fillMin
-		glow.OutlineColor = hot.glow.rim
-		glow.OutlineTransparency = 1
-		-- On, like the emitters: activate starts an entry in the full tier.
-		glow.Enabled = true
-		glow.Parent = model
-		entry.irradiatedGlow = glow
 		local body = visible[1]
-		if body then
-			-- Its own light only when the nuke has none; one that already glows just
-			-- takes the green breath on top (stepEntry).
-			if def.light == nil then
-				local light = Instance.new("PointLight")
-				light.Name = "ItemFxLight"
-				light.Color = hot.color
-				light.Range = math.clamp(longest * hot.light.range, 3, 60)
-				light.Brightness = 0
-				light.Shadows = false
-				light.Parent = body
-				entry.light = light
-				entry.lightBase = hot.light.brightness
-			end
-			local e = PRESETS.drift(hot.drift.color, hot.drift.rate, entry.scale)
-			e.Parent = body
-			table.insert(entry.emitters, e)
+		-- Its own light only when the nuke has none; one that already glows just
+		-- takes the green breath on top (stepEntry).
+		if body and def.light == nil then
+			local light = Instance.new("PointLight")
+			light.Name = "ItemFxLight"
+			light.Color = hot.color
+			light.Range = math.clamp(longest * hot.light.range, 3, 60)
+			light.Brightness = 0
+			light.Shadows = false
+			light.Parent = body
+			entry.light = light
+			entry.lightBase = hot.light.brightness
 		end
 	end
 
@@ -1467,43 +1477,6 @@ local function activate(entry: Entry, now: number)
 		end
 	end
 
-	local box = model:GetBoundingBox()
-	for _, particles in def.particles or {} do
-		local part = ItemFx.firstPart(model, particles.part)
-		local build = PRESETS[particles.preset]
-		if part and build then
-			local e = build(particles.color, particles.rate, entry.scale)
-			local host: Instance = part
-			if particles.direction then
-				e.EmissionDirection = (Enum.NormalId :: any)[particles.direction]
-			end
-			if particles.outward then
-				-- A part flush on the shell has half its box inside it, and anything
-				-- born there rises into the shell and is never seen. Emit from a point
-				-- just off the surface instead: straight out from the model's axis.
-				local offset = box:PointToObjectSpace(part.Position) * Vector3.new(1, 0, 1)
-				local out = if offset.Magnitude > 1e-3 then box:VectorToWorldSpace(offset.Unit) else box.UpVector
-				local attachment = Instance.new("Attachment")
-				attachment.Name = "ItemFxEmitPoint"
-				attachment.Parent = part
-				attachment.WorldPosition = part.Position + out * part.Size.Magnitude * particles.outward
-				host = attachment
-			end
-			if particles.burstEvery then
-				-- On a timer instead of a stream: idle, then a puff all at once.
-				e.Rate = 0
-				table.insert(entry.bursts, {
-					emitter = e,
-					every = particles.burstEvery,
-					count = particles.burstCount or 8,
-					nextAt = now + particles.burstEvery * entry.rng:NextNumber(0.3, 1),
-				})
-			end
-			e.Parent = host
-			table.insert(entry.emitters, e)
-		end
-	end
-
 	for _, anim in def.anims or {} do
 		local run = makeRun(model, anim, now, entry.rng)
 		table.insert(entry.anims, run)
@@ -1513,22 +1486,6 @@ local function activate(entry: Entry, now: number)
 	end
 
 	entry.spins, entry.spinRef = buildSpins(model, def, now, entry.rng)
-
-	if def.glint then
-		entry.glint = buildGlint(model, def.glint, entry.scale, now, entry.rng)
-	end
-
-	if entry.pristine then
-		-- The reference part (the one the sweep is measured from) is the body.
-		local visible = visibleParts(model)
-		if #visible > 0 then
-			entry.pristineGlint = buildGlint(model, ItemFxConfig.PRISTINE.glint, entry.scale, now, entry.rng, visible)
-			local frost = ItemFxConfig.PRISTINE.sparkle
-			local e = PRESETS.sparkle(frost.color, frost.rate, entry.scale)
-			e.Parent = visible[1]
-			table.insert(entry.emitters, e)
-		end
-	end
 
 	if def.seam then
 		local part = ItemFx.firstPart(model, def.seam.part)
@@ -1575,14 +1532,6 @@ local function activate(entry: Entry, now: number)
 		end
 	end
 
-	for _, boltDef in def.bolts or {} do
-		local from = ItemFx.firstPart(model, boltDef.from)
-		local to = ItemFx.firstPart(model, boltDef.to)
-		if from and to then
-			table.insert(entry.bolts, buildBolt(boltDef, from, to, entry.scale, now, entry.rng))
-		end
-	end
-
 	local voice = NUKE_VOICES[model:GetAttribute(ItemFx.ATTRIBUTE) :: string? or ""]
 	local voicePart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	if voice and voicePart then
@@ -1595,9 +1544,160 @@ local function activate(entry: Entry, now: number)
 	entry.active = true
 	entry.startedAt = now
 	entry.steppedAt = now
-	entry.tier = "full"
+	-- Starts still; the retier on the next frame promotes it, and the full-tier
+	-- extras are built from there (buildFull).
+	entry.tier = "still"
 	entry.anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	retierAt = 0
+end
+
+--- The full-tier extras: particles, glint, bolts and the Irradiated Highlight.
+--- Built when an entry enters the full tier, so a far nuke never pays for them.
+local function buildFull(entry: Entry, now: number)
+	local model, def = entry.model, entry.def
+	entry.fxBuilt = true
+
+	if entry.fused then
+		local fused = ItemFxConfig.FUSED
+		local body = visibleParts(model)[1]
+		if body then
+			local e = PRESETS.smoke(fused.smoke.color, fused.smoke.rate, entry.scale)
+			e.Parent = body
+			table.insert(entry.emitters, e)
+		end
+	end
+
+	if entry.irradiated then
+		local hot = ItemFxConfig.IRRADIATED
+		local glow = Instance.new("Highlight")
+		glow.Name = "ItemFxIrradiated"
+		glow.Adornee = model
+		glow.DepthMode = Enum.HighlightDepthMode.Occluded
+		glow.FillColor = hot.color
+		glow.FillTransparency = hot.glow.fillMin
+		glow.OutlineColor = hot.glow.rim
+		glow.OutlineTransparency = 1
+		glow.Enabled = entry.tier == "full"
+		glow.Parent = model
+		entry.irradiatedGlow = glow
+		local body = visibleParts(model)[1]
+		if body then
+			local e = PRESETS.drift(hot.drift.color, hot.drift.rate, entry.scale)
+			e.Parent = body
+			table.insert(entry.emitters, e)
+		end
+	end
+
+	local box = model:GetBoundingBox()
+	for _, particles in def.particles or {} do
+		local part = ItemFx.firstPart(model, particles.part)
+		local build = PRESETS[particles.preset]
+		if part and build then
+			local e = build(particles.color, particles.rate, entry.scale)
+			local host: Instance = part
+			if particles.direction then
+				e.EmissionDirection = (Enum.NormalId :: any)[particles.direction]
+			end
+			if particles.outward then
+				-- A part flush on the shell has half its box inside it, and anything
+				-- born there rises into the shell and is never seen. Emit from a point
+				-- just off the surface instead: straight out from the model's axis.
+				local offset = box:PointToObjectSpace(part.Position) * Vector3.new(1, 0, 1)
+				local out = if offset.Magnitude > 1e-3 then box:VectorToWorldSpace(offset.Unit) else box.UpVector
+				local attachment = Instance.new("Attachment")
+				attachment.Name = "ItemFxEmitPoint"
+				attachment.Parent = part
+				attachment.WorldPosition = part.Position + out * part.Size.Magnitude * particles.outward
+				host = attachment
+			end
+			if particles.burstEvery then
+				-- On a timer instead of a stream: idle, then a puff all at once.
+				e.Rate = 0
+				table.insert(entry.bursts, {
+					emitter = e,
+					every = particles.burstEvery,
+					count = particles.burstCount or 8,
+					nextAt = now + particles.burstEvery * entry.rng:NextNumber(0.3, 1),
+				})
+			end
+			e.Parent = host
+			table.insert(entry.emitters, e)
+		end
+	end
+
+	if def.glint then
+		entry.glint = buildGlint(model, def.glint, entry.scale, now, entry.rng)
+	end
+
+	if entry.pristine then
+		-- Largest first, so the reference part (the one the sweep is measured from)
+		-- is the body; the small fittings don't carry the shine.
+		local visible = visibleParts(model)
+		if #visible > 0 then
+			local shine = table.move(visible, 1, math.min(#visible, PRISTINE_GLINT_PARTS), 1, {})
+			entry.pristineGlint = buildGlint(model, ItemFxConfig.PRISTINE.glint, entry.scale, now, entry.rng, shine)
+			local frost = ItemFxConfig.PRISTINE.sparkle
+			local e = PRESETS.sparkle(frost.color, frost.rate, entry.scale)
+			e.Parent = visible[1]
+			table.insert(entry.emitters, e)
+		end
+	end
+
+	for _, boltDef in def.bolts or {} do
+		local from = ItemFx.firstPart(model, boltDef.from)
+		local to = ItemFx.firstPart(model, boltDef.to)
+		if from and to then
+			table.insert(entry.bolts, buildBolt(boltDef, from, to, entry.scale, now, entry.rng))
+		end
+	end
+end
+
+local function destroyGlint(glint: GlintRun?)
+	if glint == nil then
+		return
+	end
+	for _, layer in glint.layers do
+		layer.texture:Destroy()
+	end
+	for _, star in glint.stars do
+		-- Each star's emitter sits on its own attachment.
+		local attachment = star.emitter.Parent
+		star.emitter:Destroy()
+		if attachment then
+			attachment:Destroy()
+		end
+	end
+end
+
+--- Undo buildFull once an entry has been out of the full tier for FX_KEEP.
+local function dropFull(entry: Entry)
+	entry.fxBuilt = false
+	for _, e in entry.emitters do
+		local host = e.Parent
+		e:Destroy()
+		if host and host:IsA("Attachment") and host.Name == "ItemFxEmitPoint" then
+			host:Destroy()
+		end
+	end
+	table.clear(entry.emitters)
+	table.clear(entry.bursts)
+	destroyGlint(entry.glint)
+	destroyGlint(entry.pristineGlint)
+	entry.glint = nil
+	entry.pristineGlint = nil
+	for _, bolt in entry.bolts do
+		for _, beam in bolt.beams do
+			beam:Destroy()
+		end
+		for _, point in bolt.points do
+			point:Destroy()
+		end
+	end
+	table.clear(entry.bolts)
+	if entry.irradiatedGlow then
+		entry.irradiatedGlow:Destroy()
+		entry.irradiatedGlow = nil
+	end
 end
 
 local function untrack(model: Model)
@@ -1608,6 +1708,11 @@ local function untrack(model: Model)
 	entries[model] = nil
 	for _, connection in entry.connections do
 		connection:Disconnect()
+	end
+	-- A model that leaves and comes back is tracked afresh; don't let it carry a
+	-- second set of extras.
+	if entry.fxBuilt then
+		dropFull(entry)
 	end
 	if entry.voice then
 		entry.voice:destroy()
@@ -1639,6 +1744,8 @@ local function track(instance: Instance)
 		startedAt = now,
 		rng = Random.new(seedOf(model)),
 		tier = "still",
+		fxBuilt = false,
+		fullSeenAt = 0,
 		steppedAt = now,
 		distance = math.huge,
 		anchor = nil,
@@ -1747,6 +1854,7 @@ local function retier(cameraPosition: Vector3)
 
 	local detail = DETAIL[Prefs.get("graphics")] or DETAIL.high
 	local fullLeft, lightsLeft = detail.fullBudget, detail.lights
+	local now = os.clock()
 	-- FAST MODE (Settings > Graphics): every nuke holds still, with no particles, glint,
 	-- bolts, ping, glow or light, wherever it is.
 	local fast = Prefs.get("fastMode") == true
@@ -1761,6 +1869,12 @@ local function retier(cameraPosition: Vector3)
 			tier = "mid"
 		end
 		setTier(entry, tier)
+		if tier == "full" then
+			entry.fullSeenAt = now
+		elseif entry.fxBuilt and now - entry.fullSeenAt > FX_KEEP and canSetUp() then
+			dropFull(entry)
+			setupUsed = true
+		end
 
 		local light = entry.light
 		if light then
@@ -1777,10 +1891,12 @@ local function stepEntry(entry: Entry, now: number, cameraPosition: Vector3)
 	local model = entry.model
 
 	if not entry.active then
-		if now >= entry.checkAt then
+		-- Out of budget: wait for next frame without pushing checkAt back.
+		if now >= entry.checkAt and canSetUp() then
 			entry.checkAt = now + POLL_INTERVAL
 			if model.Parent and not ItemCrust.isCrusted(model) then
 				activate(entry, now)
+				setupUsed = true
 			end
 		end
 		return
@@ -1791,6 +1907,10 @@ local function stepEntry(entry: Entry, now: number, cameraPosition: Vector3)
 		return
 	end
 	local full = tier == "full"
+	if full and not entry.fxBuilt and canSetUp() then
+		buildFull(entry, now)
+		setupUsed = true
+	end
 	if not full and now - entry.steppedAt < MID_STEP then
 		return
 	end
@@ -1914,6 +2034,8 @@ function Controller.start()
 		local camera = Workspace.CurrentCamera
 		local cameraPosition = if camera then camera.CFrame.Position else Vector3.zero
 		local now = os.clock()
+		setupDeadline = now + SETUP_BUDGET
+		setupUsed = false
 		if now >= retierAt then
 			retierAt = now + RETIER_INTERVAL
 			retier(cameraPosition)
