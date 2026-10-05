@@ -686,7 +686,20 @@ local function makeStatChip(parent: Instance, order: number): Frame
 	fill.BorderSizePixel = 0
 	fill.Parent = track
 
-	for _, bar in { track, fill } do
+	-- The ghost: a pale slip over the start of the fill, as long as the same stat on
+	-- the tier you have equipped. The gap between it and the fill's end is the upgrade.
+	-- Hidden unless paintStats finds an equipped tier below this card.
+	local ghost = Instance.new("Frame")
+	ghost.Name = "StatGhost"
+	ghost.Size = UDim2.fromScale(0, 1)
+	ghost.BackgroundColor3 = Color3.new(1, 1, 1)
+	ghost.BackgroundTransparency = 0.45
+	ghost.BorderSizePixel = 0
+	ghost.ZIndex = fill.ZIndex + 1
+	ghost.Visible = false
+	ghost.Parent = track
+
+	for _, bar in { track, fill, ghost } do
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0, 3)
 		corner.Parent = bar
@@ -1624,10 +1637,21 @@ end
 --- A FLAG CELL KEEPS THE BAR'S GEOMETRY AND THROWS AWAY ITS MEANING: a capability is
 --- not an amount, so the chip prints YES/NO and fills its track whole or not at all.
 --- Currently exercised by no track — see makeStatChip.
-local function paintStats(card: Frame, entry, track: string, dear: boolean)
+---
+--- `held` is the equipped tier's entry (nil when nothing on the track is equipped). On
+--- a card above it, each bar gets a ghost as long as the held tier's own bar, so the
+--- upgrade reads as the coloured stretch past it. Cards at or below it show no ghost:
+--- a ghost longer than the fill would read as part of this tier's bar.
+local function paintStats(card: Frame, entry, track: string, dear: boolean, held)
 	local stats = card.CardStats :: Frame
 	local meta = Gear.STAT_META[track] or {}
 	local count = math.min(#entry.stats, STAT_ROWS)
+	local heldByKey = {}
+	if held and held.tier < entry.tier then
+		for _, heldCell in held.stats do
+			heldByKey[heldCell.key] = heldCell
+		end
+	end
 	local width = if count > 0 then (CARD_ART_WIDTH - (count - 1) * STAT_CHIP_GAP) / count else 0
 	for index = 1, STAT_ROWS do
 		local row = stats:FindFirstChild(`Stat{index}`) :: Frame?
@@ -1671,6 +1695,14 @@ local function paintStats(card: Frame, entry, track: string, dear: boolean)
 		end
 		fill.Size = UDim2.fromScale(shown, 1)
 		fill.BackgroundColor3 = colour
+
+		local ghost = bar.StatGhost :: Frame
+		local heldCell = heldByKey[cell.key]
+		ghost.Visible = heldCell ~= nil and cell.kind ~= "flag"
+		if ghost.Visible then
+			local was = math.max(math.clamp(heldCell.fraction, 0, 1), BAR_FLOOR)
+			ghost.Size = UDim2.fromScale(math.min(was, shown), 1)
+		end
 		-- An unlit flag is the one cell that should read as absent rather than as low:
 		-- dimming the value keeps "NO" from being mistaken for a small amount.
 		value.TextColor3 = if cell.kind == "flag" and not cell.on then FIELD.muted else FIELD.text
@@ -1803,7 +1835,7 @@ end
 --- NEED $x   buyable, unaffordable. The flag carries the SHORTFALL against your wallet
 ---           rather than the price, because the price is already on the button and the
 ---           gap is the thing you do not know.
-local function paintShopCard(card: Frame, entry, track: string, cash: number)
+local function paintShopCard(card: Frame, entry, track: string, cash: number, held)
 	local nameLabel = card.CardStrip.CardName :: TextLabel
 	local flag = card.CardStrip.CardFlag :: TextLabel
 	local buy = card.CardBuy :: TextButton
@@ -1818,7 +1850,7 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 	local affordable = entry.affordable == true
 	local dear = entry.buyable == true and not affordable
 
-	paintStats(card, entry, track, dear)
+	paintStats(card, entry, track, dear, held)
 
 	nameLabel.TextColor3 = FIELD.text
 
@@ -2376,12 +2408,20 @@ local function render()
 		ui.shopPager.Visible = count > 0 and not single
 		ui.shopEmpty.Visible = count == 0
 
+		-- The equipped tier, for the ghost bars on every card above it.
+		local held = nil
+		for _, entry in tiers or {} do
+			if entry.current then
+				held = entry
+			end
+		end
+
 		for index, card in ui.shopCards do
 			local entry = if tiers then tiers[index] else nil
 			-- A rack card shows its own tier and nothing either side of it.
 			card.Visible = entry ~= nil and (not single or index == rackIndex)
 			if entry then
-				paintShopCard(card, entry, track, cash)
+				paintShopCard(card, entry, track, cash, held)
 			end
 		end
 
