@@ -1191,6 +1191,7 @@ local function build(): ScreenGui
 	flagRow(row("GRAPHICS", "Flashing"), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
 	flagRow(row("GRAPHICS", "Auras"), "auras", "Show auras", "The auras around you and other players")
 	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Fast mode", "Hides other bases' nukes and stops their effects")
+	flagRow(row("GRAPHICS", "SuperFast"), "superFast", "Super fast mode", "Also hides your own nukes (names stay). Needs Fast mode on")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
 	buildSoundRow(row("AUDIO", "Sound"))

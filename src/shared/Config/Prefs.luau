@@ -81,6 +81,10 @@ Prefs.DEFS = {
 	-- server. Your own base is untouched.
 	fastMode = { kind = "flag", default = true },
 
+	-- SUPER FAST MODE (client FastModeController): an add-on to FAST MODE. While both are
+	-- on, YOUR OWN nukes are hidden too (their name cards stay). Does nothing by itself.
+	superFast = { kind = "flag", default = false },
+
 	-- SHOW AURAS (client AuraController). Off = no aura is drawn, yours or anyone's, so
 	-- none of their rings, trails and sparkles move or cost a frame. On by default.
 	auras = { kind = "flag", default = true },
