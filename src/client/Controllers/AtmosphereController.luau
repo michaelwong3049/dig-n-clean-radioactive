@@ -196,6 +196,7 @@ local function refreshAurora()
 end
 
 function AtmosphereController.init()
+	Lighting.ExposureCompensation = SkyConfig.EXPOSURE
 	Lighting.FogColor = BASE.fogColor
 	Lighting.FogEnd = BASE.fogEnd
 	Lighting.FogStart = BASE.fogStart
