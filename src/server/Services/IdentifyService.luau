@@ -294,13 +294,22 @@ function IdentifyService.start()
 		indexRemote:FireClient(player, { discovered = data.discovered, stats = data.indexStats })
 	end)
 
-	-- The NEW badge comes off when the player opens the entry. Only ever clears a flag
-	-- this service set, so a made-up id finds no entry and does nothing.
+	-- The NEW badge comes off when the player opens the entry ("*", the index's CLEAR NEW
+	-- button, takes them all off). Only ever clears a flag this service set, so a made-up
+	-- id finds no entry and does nothing.
 	seenRemote.OnServerEvent:Connect(function(player: Player, itemId: any)
 		if type(itemId) ~= "string" then
 			return
 		end
 		local data = DataService.data(player)
+		if itemId == "*" then
+			for _, entry in if data then data.indexStats else {} do
+				if type(entry) == "table" then
+					entry.new = false
+				end
+			end
+			return
+		end
 		local entry = if data then data.indexStats[itemId] else nil
 		if type(entry) == "table" then
 			entry.new = false
