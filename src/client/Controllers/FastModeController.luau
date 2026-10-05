@@ -19,6 +19,13 @@
 	DescendantAdded is watched for as long as it is hidden. Every value is saved first and
 	put back when FAST MODE is turned off or the model turns out to be ours.
 
+	THE BASES' OWN LIGHTS GO TOO. Every plot carries a set of lights of its own (and the
+	Apron beside the plots a bigger set), none of them inside an ItemModel. Each lit light
+	is paid for every frame, and a warp loads dozens at once, so while FAST MODE is on
+	every light under Workspace.Plots that is not on YOUR plot is switched off (the Apron
+	belongs to no plot, so its lights go off too), and put back exactly as they were
+	when it is turned off or the plot turns out to be ours.
+
 	StreamingEnabled: bases stream in and out, so models are picked up as they arrive and
 	forgotten as they leave.
 ]]
@@ -45,6 +52,10 @@ local myPlot: number? = nil
 -- ItemModel -> the plot it stands on, for every one we are tracking.
 local models: { [Model]: number } = {}
 local hidden: { [Model]: Hidden } = {}
+
+type PlotLight = { plot: number?, wasOn: boolean, guard: RBXScriptConnection? }
+-- Every base/Apron light that is not inside an ItemModel (those are hidden with it).
+local lights: { [Light]: PlotLight } = {}
 
 --- Classes whose `Enabled` is the whole effect.
 local SWITCHED = {
@@ -163,15 +174,59 @@ local function track(row: Instance, model: Model)
 	refresh(model)
 end
 
+--- Switch one base light off (FAST MODE, not ours) or put it back.
+local function refreshLight(light: Light)
+	local record = lights[light]
+	if record == nil then
+		return
+	end
+	if enabled and record.plot ~= myPlot then
+		if record.guard == nil then
+			record.wasOn = light.Enabled
+			light.Enabled = false
+			-- Something else turning it back on is turned off again.
+			record.guard = light:GetPropertyChangedSignal("Enabled"):Connect(function()
+				if light.Enabled then
+					light.Enabled = false
+				end
+			end)
+		end
+	elseif record.guard then
+		record.guard:Disconnect()
+		record.guard = nil
+		light.Enabled = record.wasOn
+	end
+end
+
+local function trackLight(row: Instance, light: Light)
+	if lights[light] ~= nil or light:FindFirstAncestor("ItemModel") then
+		return
+	end
+	lights[light] = { plot = plotIndexOf(row, light), wasOn = light.Enabled, guard = nil }
+	light.Destroying:Connect(function()
+		local record = lights[light]
+		if record and record.guard then
+			record.guard:Disconnect()
+		end
+		lights[light] = nil
+	end)
+	refreshLight(light)
+end
+
 local function onDescendant(row: Instance, inst: Instance)
 	if inst:IsA("Model") and inst.Name == "ItemModel" then
 		track(row, inst)
+	elseif inst:IsA("Light") then
+		trackLight(row, inst)
 	end
 end
 
 local function refreshAll()
 	for model in models do
 		refresh(model)
+	end
+	for light in lights do
+		refreshLight(light)
 	end
 end
 
