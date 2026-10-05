@@ -15,8 +15,8 @@
 	roll, the sale, the stand payout, the haul, the wash and the walk speed all read
 	the same answer:
 
-	            (luckMultiplier). The same x2 as the Clover, and it stacks on top of it.
-	            better buy; it stacks on top of it.
+	  luck      x2   on `luckBoost`, so the dig roll's Rare+ weights AND the wash pad
+	            (luckMultiplier). The same x2 as the Clover; it stacks on top of it.
 	  cash      x2   on every sale and every stand's income (sell + yield multipliers).
 	  speed     x1.25 walk speed, on the same footing as the aura's speed bonus: after
 	            the picker and the haul penalty (StatResolver.walkBonus), and shown on
