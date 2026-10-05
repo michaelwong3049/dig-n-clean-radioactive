@@ -4360,12 +4360,16 @@ local function buildPlot(parent: Instance, index: number)
 	-- turned 180 about their own centre onto the -X fence and the locker onto the +X one
 	-- (each still backed onto its fence, still facing the aisle), the treadmill slid
 	-- across to +X (not turned: its runner faces out of the base either way).
+	-- THE BOTTLE TURNS WITH THE STATION, about the tub's centre, not its own: the pump
+	-- tank stands off the tub's +Z face and the bottle off its -Z face, so turning only
+	-- the station swung the tank straight onto the bottle's table. Turned as one, the
+	-- bottle lands on the tub's other face and keeps the same reach to the wash spot.
 	local stripFlip = math.cos(math.rad(center.facing)) < 0
 	local stationAt, lockerAt, bottleAt = plusIn, minusIn, plusIn
 	if stripFlip then
 		stationAt = flipAbout(STATION_CENTER.x - STRIP_INSET, STATION_CENTER.z) * plusIn
 		lockerAt = flipAbout(LOCKER.x + STRIP_INSET, LOCKER.z) * minusIn
-		bottleAt = flipAbout(BOTTLE.x - STRIP_INSET, BOTTLE.z) * plusIn
+		bottleAt = stationAt
 		treadmillAt = CFrame.new(-2 * TREADMILL.cx - STRIP_INSET, 0, 0)
 	end
 	buildCleansingStation(m, ground * stationAt, accent)
