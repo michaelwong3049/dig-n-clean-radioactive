@@ -60,6 +60,14 @@ Codes.LIST = {
 			{ id = "cash", count = 1 },
 		},
 	},
+	-- FAST MODE code: three Luck and three Cash potions.
+	{
+		code = "FAST!",
+		potions = {
+			{ id = "luck", count = 3 },
+			{ id = "cash", count = 3 },
+		},
+	},
 } :: { Code }
 
 local byCode: { [string]: Code } = {}
