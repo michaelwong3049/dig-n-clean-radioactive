@@ -1045,7 +1045,7 @@ local function build(): ScreenGui
 	y += step
 	flagRow(row(graphics, "ConfirmDrop", y), "confirmDrop", "Confirm rare drops", "Ask before bombing a Rare+ nuke")
 	y += step
-	flagRow(row(graphics, "FastMode", y), "fastMode", "FAST MODE", "Hides other players' nukes and names; stops auras and nuke effects")
+	flagRow(row(graphics, "FastMode", y), "fastMode", "FAST MODE", "Hides others' nukes, stops auras and effects")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
 	local audio = pages.AUDIO
