@@ -46,7 +46,10 @@ Prefs.DEFS = {
 	-- radiation camera wobble (HudController).
 	shake = { kind = "flag", default = true },
 
-	-- RADIATION SCREEN EFFECTS (client RadFx). "reduced" softens every layer and drops
+	-- RADIATION SCREEN EFFECTS (client RadFx). NO LONGER SHOWN IN SETTINGS: the Graphics
+	-- setting drives them now (HudController: Low and Med reduced, High full), so this pref is
+	-- unused and kept only so old saves still load.
+	-- (Original note:) "reduced" softens every layer and drops
 	-- the snow, scanlines, dust and blur. No "off" on purpose: the over-tier keyhole is
 	-- the soft gate that warns you are too deep, so reduced still narrows the view.
 	radFx = { kind = "choice", default = "reduced", options = { "full", "reduced" } },

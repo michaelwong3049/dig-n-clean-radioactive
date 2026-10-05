@@ -3,7 +3,7 @@
 	down the left (General / Graphics / Audio) and the chosen page on the right.
 
 	  GENERAL   base colour, rare drop alerts, confirm rare drops
-	  GRAPHICS  graphics level, radiation effects, screen shake, reduce flashing, show auras, fast mode
+	  GRAPHICS  graphics level (also the radiation effects), screen shake, reduce flashing, show auras, fast mode
 	  AUDIO     sound effects (the mute) and the master / effects / UI / Geiger / music sliders
 
 	THE LOOK (on request, mockup "2 Sidebar"): House slate, ink outlines, rows split by
@@ -1178,14 +1178,10 @@ local function build(): ScreenGui
 	flagRow(row("GENERAL", "ConfirmDrop"), "confirmDrop", "Confirm rare drops", "Ask before bombing a Rare+ nuke")
 
 	-- GRAPHICS
-	choiceRow(row("GRAPHICS", "Graphics"), "graphics", "Graphics", "Low helps slower devices", {
+	choiceRow(row("GRAPHICS", "Graphics"), "graphics", "Graphics", "Low helps slower devices. Also sets radiation effects: less on Low and Med, full on High", {
 		{ "low", "Low" },
 		{ "med", "Med" },
 		{ "high", "High" },
-	})
-	choiceRow(row("GRAPHICS", "RadFx"), "radFx", "Radiation effects", "On-screen only; damage is unchanged", {
-		{ "reduced", "Less" },
-		{ "full", "Full" },
 	})
 	flagRow(row("GRAPHICS", "Shake"), "shake", "Screen shake", "Blasts and radiation wobble")
 	flagRow(row("GRAPHICS", "Flashing"), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
