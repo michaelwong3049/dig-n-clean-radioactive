@@ -89,7 +89,7 @@ function Daylight.apply()
 	-- Brightness past ~2.5 blows the ground out to near-white and takes the colour
 	-- with it, which is the opposite of the goal. Sunny, not overexposed.
 	Lighting.Brightness = base.brightness
-	Lighting.ExposureCompensation = -0.05
+	Lighting.ExposureCompensation = SkyConfig.EXPOSURE
 
 	-- Ambient is where "colourful" is actually won or lost. Default grey ambient
 	-- desaturates every surface in the world; a warm-mint ambient lets the plaza

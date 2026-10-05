@@ -122,6 +122,14 @@ export type SkyLook = {
 
 local Sky = {}
 
+--- Lighting.ExposureCompensation, the whole game. Brightness only lights GEOMETRY;
+--- the procedural sky dome ignores it, so exposure is the one knob that dims the
+--- sky itself too. Was -0.05 and the base-camp day read as glaring white; -0.5
+--- (measured in Studio) deepens the blue and takes the glare off the white floors
+--- while still reading as a sunny day. Daylight writes it into the place file and
+--- AtmosphereController re-asserts it on join, so a retune ships without a Publish.
+Sky.EXPOSURE = -0.5
+
 --- Base camp, the plaza, and anywhere the client has no stage for. A normal day.
 --- These values MUST match build/Daylight.apply()'s own — the server writes this
 --- look into Lighting at build time and it is what the client tweens back TO when
@@ -138,7 +146,7 @@ Sky.BASE = {
 	cloudCover = 0.38,
 	cloudDensity = 0.28,
 
-	brightness = 2.4,
+	brightness = 1.9,
 	outdoorAmbient = Color3.fromHex("7E9488"),
 	colorShiftTop = Color3.fromHex("FFF3D6"),
 	sunRays = 0.08,
@@ -163,7 +171,7 @@ Sky.LOOKS = {
 		cloudCover = 0.44,
 		cloudDensity = 0.33,
 
-		brightness = 2.35,
+		brightness = 1.88,
 		outdoorAmbient = Color3.fromHex("7E9488"),
 		colorShiftTop = Color3.fromHex("FFF1D0"),
 		sunRays = 0.12,
@@ -186,7 +194,7 @@ Sky.LOOKS = {
 		cloudCover = 0.52,
 		cloudDensity = 0.42,
 
-		brightness = 2.25,
+		brightness = 1.8,
 		outdoorAmbient = Color3.fromHex("8B8A70"),
 		colorShiftTop = Color3.fromHex("FFEDC0"),
 		sunRays = 0.18,
@@ -208,7 +216,7 @@ Sky.LOOKS = {
 		cloudCover = 0.58,
 		cloudDensity = 0.50,
 
-		brightness = 2.15,
+		brightness = 1.72,
 		outdoorAmbient = Color3.fromHex("8C8163"),
 		colorShiftTop = Color3.fromHex("FFE4AC"),
 		sunRays = 0.24,
@@ -235,7 +243,7 @@ Sky.LOOKS = {
 		cloudCover = 0.66,
 		cloudDensity = 0.60,
 
-		brightness = 2.05,
+		brightness = 1.64,
 		outdoorAmbient = Color3.fromHex("6F8F5C"),
 		colorShiftTop = Color3.fromHex("E8FFC4"),
 		sunRays = 0.34,
@@ -257,7 +265,7 @@ Sky.LOOKS = {
 		cloudCover = 0.72,
 		cloudDensity = 0.68,
 
-		brightness = 1.92,
+		brightness = 1.54,
 		outdoorAmbient = Color3.fromHex("8A9152"),
 		colorShiftTop = Color3.fromHex("F4FFA8"),
 		sunRays = 0.44,
@@ -288,7 +296,7 @@ Sky.LOOKS = {
 		cloudCover = 0.78,
 		cloudDensity = 0.74,
 
-		brightness = 1.78,
+		brightness = 1.42,
 		outdoorAmbient = Color3.fromHex("9A7A48"),
 		colorShiftTop = Color3.fromHex("FFD98A"),
 		sunRays = 0.56,
