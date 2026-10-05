@@ -112,12 +112,15 @@ end
 --- chosen from what the gift holds (see PlaytimeGifts.iconFor).
 PlaytimeGifts.ICONS = {
 	clock = "rbxassetid://121521903989041",
-	crate = "rbxassetid://114554882287772",
-	cash = "rbxassetid://94764570856165",
+	crate = "rbxassetid://122031242563436", -- orange nuke crate
+	crateBump = "rbxassetid://88945006415547", -- blue launcher crate, a crate above your stage's
+	crateLiquid = "rbxassetid://102011390361638", -- pink energy cube, the liquid crate
+	cash = "rbxassetid://137557419546476",
+	cashSpeed = "rbxassetid://75832495525149", -- notes + lightning bolt
 	speed = "rbxassetid://96907544325270",
-	potionCash = "rbxassetid://72828901922259",
-	potionSpeed = "rbxassetid://138408490003291",
-	potionLuck = "rbxassetid://98809831712632",
+	potionCash = "rbxassetid://136999519715348",
+	potionSpeed = "rbxassetid://83258439102132",
+	potionLuck = "rbxassetid://82349702544877",
 } :: { [string]: string }
 
 local POTION_ICON: { [string]: string } = {
@@ -126,12 +129,22 @@ local POTION_ICON: { [string]: string } = {
 	luck = "potionLuck",
 }
 
---- The picture for a gift's card: its crate if it has one, else its first potion (a
---- potion with no picture of its own here gives the spot to the next prize), else Speed,
---- else cash. nil when the gift holds none of those.
+--- The picture for a gift's card: its best crate if it has one (a bumped crate, else a
+--- nuke crate, else the liquid crate), else its first potion (a potion with no picture of
+--- its own here gives the spot to the next prize), else Speed, cash and Speed together, or
+--- cash. nil when the gift holds none of those.
 function PlaytimeGifts.iconFor(gift: Gift): string?
 	if gift.crates and #gift.crates > 0 then
-		return PlaytimeGifts.ICONS.crate
+		local best = "crateLiquid"
+		for _, crate in gift.crates do
+			if (crate.bump or 0) > 0 then
+				best = "crateBump"
+				break
+			elseif crate.kind == "nuke" then
+				best = "crate"
+			end
+		end
+		return PlaytimeGifts.ICONS[best]
 	end
 	for _, potion in gift.potions or {} do
 		local key = POTION_ICON[potion.id]
@@ -139,8 +152,8 @@ function PlaytimeGifts.iconFor(gift: Gift): string?
 			return PlaytimeGifts.ICONS[key]
 		end
 	end
-	if gift.speed and gift.speed > 0 and (gift.cashMinutes or 0) <= 0 then
-		return PlaytimeGifts.ICONS.speed
+	if gift.speed and gift.speed > 0 then
+		return if (gift.cashMinutes or 0) > 0 then PlaytimeGifts.ICONS.cashSpeed else PlaytimeGifts.ICONS.speed
 	end
 	if (gift.cashMinutes or 0) > 0 then
 		return PlaytimeGifts.ICONS.cash
