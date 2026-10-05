@@ -80,6 +80,10 @@ Prefs.DEFS = {
 	-- bases are hidden from you, along with their effects: far less to draw on a busy
 	-- server. Your own base is untouched.
 	fastMode = { kind = "flag", default = false },
+
+	-- SHOW AURAS (client AuraController). Off = no aura is drawn, yours or anyone's, so
+	-- none of their rings, trails and sparkles move or cost a frame. On by default.
+	auras = { kind = "flag", default = true },
 } :: { [string]: Def }
 
 --- A fresh table of every default, for the profile template and a client that has not

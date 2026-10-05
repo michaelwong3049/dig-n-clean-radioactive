@@ -2,8 +2,8 @@
 	FastModeController — FAST MODE (Settings > Graphics, the `fastMode` pref): while it
 	is on, the nukes standing on OTHER players' bases are hidden from you, along with
 	their effects, so a busy server has far less to draw. Your own base is untouched.
-	(Their name cards are StandCardController's, and every aura -- AuraController -- is
-	switched off, so nothing there moves; both read the same pref.)
+	(Their name cards are StandCardController's and every nuke's effects ItemFxController's;
+	both read the same pref. Auras have their own SHOW AURAS setting, AuraController's.)
 
 	WHAT COUNTS AS A NUKE ON A BASE is any Model named "ItemModel" under Workspace.Plots
 	(ExhibitService puts one on each Display stand and each locker slot). Which base it
