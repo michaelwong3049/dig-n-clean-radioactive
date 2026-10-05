@@ -517,6 +517,27 @@ local function buildHeader(panel: Frame)
 		color = UIKit.C.dim,
 	})
 
+	-- CLEAR NEW: takes every NEW badge off at once (shown only while there are any).
+	local clearNew = UIKit.button(header, {
+		name = "ClearNew",
+		anchorPoint = Vector2.new(0, 0.5),
+		position = UDim2.new(0, 548, 0.5, 0),
+		size = UDim2.fromOffset(120, 30),
+		text = "CLEAR NEW",
+		font = UIKit.House.font,
+		textSize = 13,
+		color = COL.white,
+		fillColor = COL.newTag,
+		fillTransparency = 0,
+		strokeColor = UIKit.House.ink,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 8),
+		outline = false,
+		shadow = false,
+	})
+	clearNew.Visible = false
+	ui.clearNew = clearNew
+
 	-- THE HEAVIEST HAUL: the single heaviest record anywhere in the catalogue.
 	local record = box(header, "HeaviestHaul", UDim2.fromOffset(0, 44), UDim2.new(1, -48, 0.5, 0), COL.record)
 	glass(record, GLASS.well)
@@ -1165,6 +1186,7 @@ local function renderBadge()
 	local n = newCount()
 	ui.badge.Visible = n > 0
 	ui.badgeText.Text = tostring(n)
+	ui.clearNew.Visible = n > 0
 end
 
 local function renderHeader()
@@ -1648,6 +1670,22 @@ function Index.select(id: string?, quiet: boolean?)
 	end
 end
 
+--- Take every NEW badge off at once, and tell the server so they stay off.
+function Index.clearAllNew()
+	for _, entry in stats do
+		if entry.new then
+			entry.new = false
+		end
+	end
+	if seenRemote then
+		seenRemote:FireServer("*")
+	end
+	renderBadge()
+	if ui.panel.Visible then
+		Index.render()
+	end
+end
+
 function Index.showStage(stageId: number)
 	currentStage = stageId
 	selectedId = nil
@@ -1676,6 +1714,7 @@ function Index.start()
 	gui.Parent = playerGui
 	buttonGui.Parent = playerGui
 	seenRemote = Net.get("IndexSeen")
+	ui.clearNew.MouseButton1Click:Connect(Index.clearAllNew)
 
 	Net.get("IndexState").OnClientEvent:Connect(function(payload)
 		if type(payload) ~= "table" then
