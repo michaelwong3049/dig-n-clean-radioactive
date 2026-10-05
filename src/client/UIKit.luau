@@ -777,6 +777,35 @@ function Dock.sideColumnTop(height: number): number
 	return math.max(-Dock.SIDE_GRID_HEIGHT / 2 + Dock.SIDE_GRID_DROP, underGear)
 end
 
+--- The LEFT grid's top edge, like sideColumnTop (design px from the canvas's vertical
+--- centre). Off touch it IS sideColumnTop. ON A PHONE the speed/cash pair is lifted over
+--- the thumbstick (sideLift) and ran up into the grid's bottom row, so the grid rises
+--- until its bottom clears the pair by GAP, on request ("speed and money overlap").
+--- The right-edge cards keep reading sideColumnTop, so they don't move with it.
+function Dock.leftGridTop(height: number): number
+	local top = Dock.sideColumnTop(height)
+	local lift = Dock.sideLift()
+	if lift <= 0 then
+		return top
+	end
+	local pairTop = height / 2 - Dock.SIDE_COLUMN_TOP - lift
+	local clear = pairTop - Dock.GAP - Dock.SIDE_GRID_HEIGHT
+	-- Never up into Roblox's topbar band (screen px there, so divided by the scale).
+	local band = GuiService.TopbarInset.Max.Y / UIKit.scale() + Dock.GAP + Dock.SIDE_GRID_POKE - height / 2
+	return math.max(math.min(top, clear), band)
+end
+
+--- True when Masteries' medal has no room over the raised grid (its head would reach
+--- Roblox's topbar band), so it stands beside the grid's top row instead (HudTile).
+--- Only ever on a short touch screen.
+function Dock.soloBeside(height: number): boolean
+	if Dock.sideLift() <= 0 then
+		return false
+	end
+	local head = height / 2 + Dock.leftGridTop(height) - Dock.SIDE_GRID_POKE - Dock.SIDE_SOLO_GAP - Dock.SIDE_SOLO_HEIGHT
+	return head < GuiService.TopbarInset.Max.Y / UIKit.scale() + Dock.GAP
+end
+
 --- The CENTRE of grid tile `slot` (1-6, left to right, top to bottom), as a position on
 --- a canvas `height` design px tall: offset in from the LEFT edge, and down from the
 --- vertical centre. Centred so a tile's hover UIScale grows it evenly on every side.
@@ -785,14 +814,14 @@ function Dock.sideTileCentre(slot: number, height: number): UDim2
 	local row = (slot - 1) // Dock.SIDE_GRID_COLUMNS
 	local step = Dock.SIDE_GRID_TILE + Dock.SIDE_TILE_GAP
 	local fromLeft = Dock.ROW_SIDE_MARGIN + column * step + Dock.SIDE_GRID_TILE / 2
-	local down = Dock.sideColumnTop(height) + row * step + Dock.SIDE_GRID_TILE / 2
+	local down = Dock.leftGridTop(height) + row * step + Dock.SIDE_GRID_TILE / 2
 	return UDim2.new(0, fromLeft, 0.5, down)
 end
 
 --- Where the tile grid ends: its bottom row's bottom edge, in design px from the canvas
 --- TOP. LuckBoostController keeps the 2x-luck clover below it.
 function Dock.sideColumnBottom(height: number): number
-	return height / 2 + Dock.sideColumnTop(height) + Dock.SIDE_GRID_HEIGHT
+	return height / 2 + Dock.leftGridTop(height) + Dock.SIDE_GRID_HEIGHT
 end
 
 -- The dock's total reserved height with no card open. Nothing anchors against it today
