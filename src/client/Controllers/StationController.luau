@@ -310,7 +310,9 @@ local STUDDED = {
 	header = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
 	cash = UIKit.House.cash,
 	-- Buttons are white under a UIGradient, so one gradient per state is the fill.
-	lime = ColorSequence.new(Color3.fromHex("D9F51C"), Color3.fromHex("33D23F")),
+	-- A deeper green, not the old neon lime (on request, 2026-10-04: "darker green
+	-- instead of super bright"); the key keeps its name so the paint states don't move.
+	lime = ColorSequence.new(Color3.fromHex("3FA534"), Color3.fromHex("1E7A28")),
 	equipped = ColorSequence.new(Color3.fromHex("43474F"), Color3.fromHex("33363C")),
 	dear = ColorSequence.new(Color3.fromHex("9AA3B0"), Color3.fromHex("7C8594")),
 	locked = ColorSequence.new(Color3.fromHex("5A6272"), Color3.fromHex("454C5A")),
