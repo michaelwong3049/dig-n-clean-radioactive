@@ -108,10 +108,10 @@ local CASH_CARD = {
 	top = Color3.fromHex("5BD63E"),
 	middle = Color3.fromHex("8CF06A"),
 	edge = Color3.fromHex("2B2B33"),
-	-- A deeper green to match the gear shop's buttons (on request, 2026-10-04: "darker
-	-- green instead of super bright"); hover lifts to that button's top colour.
-	buy = Color3.fromHex("2E8A2B"),
-	buyHover = Color3.fromHex("3FA534"),
+	-- The gear shop buttons' pure green (a reference button the user sent, 2026-10-04):
+	-- its gradient's middle, lifting to its top on hover.
+	buy = Color3.fromHex("5CFE01"),
+	buyHover = Color3.fromHex("85FF01"),
 	buyEdge = Color3.fromHex("1F6E12"),
 }
 -- The SPEED cards: the cash cards' build in the speed badge's blue.
