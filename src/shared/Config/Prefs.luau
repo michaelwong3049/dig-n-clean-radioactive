@@ -46,7 +46,10 @@ Prefs.DEFS = {
 	-- radiation camera wobble (HudController).
 	shake = { kind = "flag", default = true },
 
-	-- RADIATION SCREEN EFFECTS (client RadFx). "reduced" softens every layer and drops
+	-- RADIATION SCREEN EFFECTS (client RadFx). NO LONGER SHOWN IN SETTINGS: the Graphics
+	-- setting drives them now (HudController: Low and Med reduced, High full), so this pref is
+	-- unused and kept only so old saves still load.
+	-- (Original note:) "reduced" softens every layer and drops
 	-- the snow, scanlines, dust and blur. No "off" on purpose: the over-tier keyhole is
 	-- the soft gate that warns you are too deep, so reduced still narrows the view.
 	radFx = { kind = "choice", default = "reduced", options = { "full", "reduced" } },
@@ -80,6 +83,10 @@ Prefs.DEFS = {
 	-- bases are hidden from you, along with their effects: far less to draw on a busy
 	-- server. Your own base is untouched.
 	fastMode = { kind = "flag", default = true },
+
+	-- SUPER FAST MODE (client FastModeController): an add-on to FAST MODE. While both are
+	-- on, YOUR OWN nukes are hidden too (their name cards stay). Does nothing by itself.
+	superFast = { kind = "flag", default = false },
 
 	-- SHOW AURAS (client AuraController). Off = no aura is drawn, yours or anyone's, so
 	-- none of their rings, trails and sparkles move or cost a frame. On by default.

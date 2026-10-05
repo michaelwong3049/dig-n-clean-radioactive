@@ -352,8 +352,10 @@ local function build(): ScreenGui
 	-- The damage overlay. Not part of the dock — it is the whole screen, under every
 	-- panel (ZIndex 2). The death screen covers it from its own gui (DeathScreen).
 	RadFx.build(gui)
-	Prefs.observe("radFx", function(level)
-		RadFx.setReduced(level == "reduced")
+	-- The Graphics setting drives the radiation screen effects: Low and Med are the reduced
+	-- look, High is the full one (there is no separate Radiation effects setting).
+	Prefs.observe("graphics", function(level)
+		RadFx.setReduced(level ~= "high")
 	end)
 
 	-- Everything else goes on the scaled canvas (UIKit.canvas). RadFx stays beside it,
