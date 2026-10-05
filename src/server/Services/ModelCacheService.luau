@@ -58,10 +58,26 @@ local function hideTemplates()
 	folder:Destroy()
 end
 
+--- Nukes never cast shadows. A full server shows ~140 of them at ~76 parts each, and
+--- every shadow caster is drawn a second time into the shadow map. Flipping the
+--- templates once covers every clone: server copies and each player's cache.
+local function stripShadows()
+	local templates = ServerStorage:FindFirstChild(ItemModels.SERVER_FOLDER)
+	if templates == nil then
+		return
+	end
+	for _, part in templates:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CastShadow = false
+		end
+	end
+end
+
 -- At require time, not init(): the earlier the folder leaves ReplicatedStorage, the
 -- smaller the window in which a joining client could still be sent it. ORDER lists
 -- this service first.
 hideTemplates()
+stripShadows()
 
 local function cacheFor(player: Player): Instance?
 	local playerGui = player:FindFirstChildOfClass("PlayerGui")
