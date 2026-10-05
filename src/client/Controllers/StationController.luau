@@ -295,21 +295,20 @@ local STALL_ACCENT: { [string]: Color3 } = {
 --- "make the background relevant to the color and aesthetic of the gear"), so a gold
 --- detector stands on gold and a violet hose on violet. Where you stand with the rung
 --- is the button's job: dark EQUIPPED, lime EQUIP or price, grey NEED $x. Only a rung
---- sold in another zone keeps a state colour, dark slate. The studs and the header's
---- stripes are two uploaded tiles (art/ui).
+--- sold in another zone keeps a state colour, dark slate. Since 2026-10-05 the cards,
+--- the purple title bar and the dark backdrop all wear Studded.pattern (glossy L-studs).
 local STUDDED = {
-	studs = Studded.STUDS,
-	stripes = Studded.STRIPES,
-	studTile = 26,
-	cardEdge = Color3.fromHex("B9BFC8"),
+	-- Inked like the title bar and the X (2026-10-05, the glossy L-stud pattern pass).
+	cardEdge = Studded.INK,
 	cardPlain = Color3.fromHex("48D63A"), -- a track with no tint (GearArt.tint is nil)
 	cardLocked = Color3.fromHex("3D4452"), -- sold in another zone (entry.lockedZone)
-	-- The panel the cards sit on: a light cool grey, not the field kit's near-black
-	-- (on request, 2026-10-04: "make the backgrounds brighter"), so the bright cards
-	-- read as a row on a lit shelf rather than as holes in a dark box.
+	-- The panel's own fill, see-through at the shop since 2026-10-05 (the dark
+	-- studded backdrop under it is the colour now); kept for anything read off it.
 	panel = Color3.fromHex("E4E9F2"),
-	panelEdge = Color3.fromHex("B9BFC8"),
-	header = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
+	-- The purple of the shop background the user sent (2026-10-05), under the pattern.
+	header = ColorSequence.new(Color3.fromHex("D63BFF"), Color3.fromHex("B406E6")),
+	-- The panel behind the cards: dark grey with the L-studs (2026-10-05, on request).
+	backdrop = Color3.fromHex("2B2F36"),
 	cash = UIKit.House.cash,
 	-- Buttons are white under a UIGradient, so one gradient per state is the fill.
 	-- A pure, saturated green sampled off a reference button the user sent (2026-10-04),
@@ -760,21 +759,10 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	})
 	card.LayoutOrder = order
 
-	-- The studs: one tiled tile of soft light and shadow over whatever colour the card
-	-- is painted (paintShopCard), first child so everything else sits on top of it.
-	local studs = Instance.new("ImageLabel")
-	studs.Name = "CardStuds"
-	studs.Size = UDim2.fromScale(1, 1)
-	studs.BackgroundTransparency = 1
-	studs.Image = STUDDED.studs
-	studs.ScaleType = Enum.ScaleType.Tile
-	studs.TileSize = UDim2.fromOffset(STUDDED.studTile, STUDDED.studTile)
-	studs.ImageTransparency = 0.35 -- soft, like moulded plastic, not a grid
-	studs.ZIndex = 0
-	studs.Parent = card
-	local studCorner = Instance.new("UICorner")
-	studCorner.CornerRadius = UDim.new(0, 12)
-	studCorner.Parent = studs
+	-- The glossy L-stud pattern over whatever colour the card is painted
+	-- (paintShopCard), under everything else on it. The glow is kept faint so the
+	-- gear's colour still reads at full strength.
+	Studded.pattern(card, { radius = 12, zIndex = 0, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.55, glowTransparency = 0.72 })
 
 	local scale = Instance.new("UIScale")
 	scale.Name = "FocusScale"
@@ -1034,6 +1022,31 @@ local function build(): ScreenGui
 	local closeFit = Instance.new("UIScale")
 	closeFit.Parent = closeButton
 
+	-- THE SHOP'S DARK STUDDED BACKDROP (2026-10-05, on request: "make the background a
+	-- dark grey stud version" of the pattern). Another sibling for the same reason as the
+	-- close badge -- the panel's UIListLayout would make it a row -- so it tracks the
+	-- panel's box by hand under the panel, which goes see-through over it at the shop.
+	local backdrop = Instance.new("Frame")
+	backdrop.Name = "ShopBackdrop"
+	backdrop.BackgroundColor3 = STUDDED.backdrop
+	backdrop.BorderSizePixel = 0
+	backdrop.ZIndex = panel.ZIndex - 1
+	backdrop.Visible = false
+	backdrop.Parent = canvas
+	local backdropCorner = Instance.new("UICorner")
+	backdropCorner.CornerRadius = UIKit.Radius.panel
+	backdropCorner.Parent = backdrop
+	local backdropFit = Instance.new("UIScale")
+	backdropFit.Parent = backdrop
+	Studded.pattern(backdrop, {
+		radius = UIKit.Radius.panel.Offset,
+		bands = { 0.15, 0.42, 0.52, 0.58 },
+		bandTransparency = 0.93,
+		studTransparency = 0.1,
+		glow = false,
+	})
+	ui.shopBackdrop = backdrop
+
 	local function repositionClose()
 		-- AbsolutePosition / AbsoluteSize are SCREEN pixels and the button's Offset is a
 		-- design pixel on the same UIKit canvas, so measure from the canvas's own corner
@@ -1043,6 +1056,11 @@ local function build(): ScreenGui
 		local corner = (panel.AbsolutePosition - canvas.AbsolutePosition) / s
 		closeButton.Position = UDim2.fromOffset(corner.X + panel.AbsoluteSize.X / s - inset, corner.Y + inset)
 		closeFit.Scale = fitScale.Scale
+		-- Unscaled size under the same UIScale, so its corners round like the panel's.
+		local fit = math.max(fitScale.Scale, 0.01)
+		backdrop.Position = UDim2.fromOffset(corner.X, corner.Y)
+		backdrop.Size = UDim2.fromOffset(panel.AbsoluteSize.X / (s * fit), panel.AbsoluteSize.Y / (s * fit))
+		backdropFit.Scale = fit
 	end
 	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(repositionClose)
 	panel:GetPropertyChangedSignal("AbsolutePosition"):Connect(repositionClose)
@@ -1121,8 +1139,8 @@ local function build(): ScreenGui
 	header.Name = "ShopHeader"
 	header.LayoutOrder = 0
 	header.Size = UDim2.new(1, 0, 0, 64)
-	-- The reference's purple title bar: a vertical purple fade with pale diagonal
-	-- stripes tiled over it, inked round the edge (STUDDED).
+	-- The purple title bar: a vertical purple fade with the glossy L-stud pattern
+	-- over it (Studded.pattern, below), inked round the edge (STUDDED).
 	header.BackgroundColor3 = Color3.new(1, 1, 1)
 	header.BackgroundTransparency = 0
 	header.Parent = shop
@@ -1139,17 +1157,9 @@ local function build(): ScreenGui
 	headerInk.Thickness = 3
 	headerInk.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	headerInk.Parent = header
-	local stripes = Instance.new("ImageLabel")
-	stripes.Name = "Stripes"
-	stripes.Size = UDim2.fromScale(1, 1)
-	stripes.BackgroundTransparency = 1
-	stripes.Image = STUDDED.stripes
-	stripes.ScaleType = Enum.ScaleType.Tile
-	stripes.TileSize = UDim2.fromOffset(64, 64)
-	stripes.Parent = header
-	local stripeCorner = Instance.new("UICorner")
-	stripeCorner.CornerRadius = UDim.new(0, 12)
-	stripeCorner.Parent = stripes
+	-- The glossy L-stud pattern in purple (2026-10-05), reshaped for a thin bar: smaller
+	-- studs, and bands that land mid-bar, clear of the title and the wallet.
+	Studded.pattern(header, { radius = 12, tile = 22, bands = { 0.28, 0.5, 0.58, 0.64 } })
 
 	local headerRule = Instance.new("Frame")
 	headerRule.Name = "HeaderRule"
@@ -2274,6 +2284,7 @@ local function render()
 	end
 	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
+		ui.shopBackdrop.Visible = false
 		ui.closeButton.Visible = false
 		for _, tip in statTips do
 			tip.Visible = false
@@ -2328,6 +2339,7 @@ local function render()
 	-- Still set on every render, because the stroke is repainted per stall below.
 	ui.panel.BackgroundColor3 = FIELD.panel
 	ui.panel.BackgroundTransparency = 0 -- solid: it sits over the depth readout and vitals bars now
+	ui.shopBackdrop.Visible = atShop
 
 	if atShop then
 		local offer = state.offer
@@ -2337,7 +2349,8 @@ local function render()
 		local cash = state.cash or 0
 
 		ui.panel.BackgroundColor3 = STUDDED.panel
-		ui.panelStroke.Color = STUDDED.panelEdge
+		ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
+		ui.panelStroke.Color = STUDDED.cardEdge
 		ui.shopAccent.BackgroundColor3 = accent
 		ui.shopTitle.Text = track
 
