@@ -32,8 +32,8 @@ export type Def = {
 Prefs.VOLUME_STEP = 0.05
 
 Prefs.DEFS = {
-	-- NEW PLAYERS START ON THE LIGHT SETTINGS: graphics "low", radFx "reduced",
-	-- reduceFlashing and fastMode on. Profiles snapshot these defaults, so a change here
+	-- NEW PLAYERS START ON THE LIGHT SETTINGS: graphics "low", radFx "reduced"
+	-- and reduceFlashing on. Profiles snapshot these defaults, so a change here
 	-- reaches new saves only; existing players keep what they chose.
 
 	-- GRAPHICS. "high" is the game as built. "med" pulls nuke detail in closer and
@@ -79,7 +79,7 @@ Prefs.DEFS = {
 	-- FAST MODE (client FastModeController). On = the nukes standing on OTHER players'
 	-- bases are hidden from you, along with their effects: far less to draw on a busy
 	-- server. Your own base is untouched.
-	fastMode = { kind = "flag", default = true },
+	fastMode = { kind = "flag", default = false },
 } :: { [string]: Def }
 
 --- A fresh table of every default, for the profile template and a client that has not
