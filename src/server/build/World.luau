@@ -49,6 +49,7 @@ local CampSite = require(script.Parent.CampSite)
 local MergeReactor = require(script.Parent.MergeReactor)
 local ReforgeStation = require(script.Parent.ReforgeStation)
 local Scenery = require(script.Parent.Scenery)
+local GearTierShowcase = require(script.Parent.GearTierShowcase)
 local Daylight = require(script.Parent.Daylight)
 
 local World = {}
@@ -70,6 +71,7 @@ function World.rebuild()
 	Plots.rebuild()
 	CampSite.rebuild()
 	Scenery.rebuild()
+	GearTierShowcase.rebuild()
 	Daylight.apply()
 
 	local elapsed = (os.clock() - started) * 1000
