@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 75
+local BUILDER_VERSION = 76
 
 local C = Kit.C
 local build = Kit.build
@@ -1339,7 +1339,9 @@ end
 --- loud"; the quieter per-detector effects that replaced them want only a nudge.
 local RACK_FX_SCALE = 1.5
 
-local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x: number, track: string, tier: number, rank: number): number?
+--- `stand` (the booth displays) seats a RACK_HANG track on the deck too, poles down,
+--- since a booth plinth has no hook over it to hang from.
+local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x: number, track: string, tier: number, rank: number, stand: boolean?): number?
 	local template = tierTemplate(track, tier)
 	if template == nil then
 		return nil
@@ -1445,7 +1447,7 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x:
 	-- centred across the rack and on the shopfront line.
 	lo, hi = localBox()
 	local height = hi.Y - lo.Y
-	local topY = if hang then RACK_DROP_TOP - hang.drop else RACK_DROP_BASE + height
+	local topY = if hang and not stand then RACK_DROP_TOP - hang.drop else RACK_DROP_BASE + height
 	local haveCentre = (lo + hi) / 2
 	local wantCentre = Vector3.new(x, topY - height / 2, SHOPFRONT_Z)
 	clone:PivotTo(clone:GetPivot() + origin:VectorToWorldSpace(wantCentre - haveCentre))
@@ -2004,6 +2006,84 @@ local function boardText(label: string): string
 	return if name then name .. "s" else label
 end
 
+--- TWO OF THE SHOP'S GEAR STAND IN EACH BOOTH ON DISPLAY (2026-10-04, on request: "put
+--- two models of the gear in the shop as display"): its cheapest rung and its dearest, the
+--- span of what the booth sells. One on each half of the booth, the cheap one facing the
+--- front stand and the dear one the back, so whichever side you walk up to shows you one
+--- front-on. Look only: no prompt, no SellsTrack -- the stand's E is still the shop.
+---
+--- The tools stand on a plinth as tall as the booth wall (BOOTH_WALL_HEIGHT), so they
+--- clear it, via hangTierModel (the racks' own fitting, magnets seated poles-down). The
+--- Aura shop shows two mannequins wearing their rung's aura instead (ShopThemes'
+--- dressOutfitter), standing on the floor: their torsos already clear the wall.
+local BOOTH_DISPLAY_X = 6.5 -- each display's distance from the booth's centre line
+local BOOTH_PLINTH = 2.4 -- the plinth's width and depth
+-- The racks' sizes read as specks from the plaza (a magnet came out ~1 stud), so a
+-- booth tool is grown to this tall, or this wide, whichever is reached first.
+local BOOTH_DISPLAY_HEIGHT = 4
+local BOOTH_DISPLAY_WIDTH = 4
+local BOOTH_MANNEQUIN_SCALE = 1.2 -- the racks' 0.8 left only the head over the wall
+local function buildBoothDisplays(parent: Instance, origin: CFrame, track: string, color: string)
+	local stall: StallSpec? = nil
+	for _, row in STALLS do
+		if row.track == track then
+			stall = row
+		end
+	end
+	local tiers = stallTiers({ track = track, hideTiers = if stall then stall.hideTiers else nil })
+	local picks = { tiers[1], tiers[#tiers] }
+
+	local displays = Instance.new("Model")
+	displays.Name = "Displays"
+	displays.Parent = parent
+	for index, tier in picks do
+		-- The cheap one on the front frame, the dear one on the back (see backFrame):
+		-- the same local x lands them on opposite halves of the booth.
+		local frame = if index == 1 then origin else backFrame(origin, 0)
+		local x = -BOOTH_DISPLAY_X
+		if track == "Aura" then
+			ShopThemes.dressOutfitter(displays, frame, { { x = x, tier = tier } }, BOOTH_MANNEQUIN_SCALE)
+			continue
+		end
+		build(displays, frame, {
+			name = "DisplayPlinth",
+			pos = { x, BOOTH_WALL_HEIGHT / 2, ISLAND_Z },
+			size = { BOOTH_PLINTH, BOOTH_WALL_HEIGHT, BOOTH_PLINTH },
+			color = BOOTH_FRAME,
+			material = "Plastic",
+			studs = true,
+		})
+		build(displays, frame, {
+			name = "DisplayPlinthTop",
+			pos = { x, BOOTH_WALL_HEIGHT + 0.05, ISLAND_Z },
+			size = { BOOTH_PLINTH + BOOTH_WALL_LIP * 2, 0.3, BOOTH_PLINTH + BOOTH_WALL_LIP * 2 },
+			color = color,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+		-- hangTierModel stands its model on RACK_DROP_BASE at z = SHOPFRONT_Z; shift the
+		-- frame so that lands on the plinth top, on the island's centre line.
+		local deck = frame * CFrame.new(0, BOOTH_WALL_HEIGHT + 0.2 - RACK_DROP_BASE, ISLAND_Z - SHOPFRONT_Z)
+		local present = stall and stall.present
+		local hand = if present then deck * Kit.ang(0, present.yaw, 0) * Kit.ang(present.pitch, 0, 0) else nil
+		local gear = Instance.new("Model")
+		gear.Name = "Gear"
+		gear.Parent = displays
+		if hangTierModel(gear, deck, hand, x, track, tier, index - 1, true) == nil then
+			gear:Destroy()
+			continue
+		end
+		-- Grown about its base's centre, so it stays standing on the plinth. The pivot
+		-- is reset first: GetBoundingBox measures in the pivot's axes, and this one
+		-- came in tilted with the tool's HoldCFrame.
+		gear.WorldPivot = CFrame.new()
+		local box, size = gear:GetBoundingBox()
+		gear.WorldPivot = CFrame.new(box.Position - Vector3.new(0, size.Y / 2, 0))
+		gear:ScaleTo(math.min(BOOTH_DISPLAY_HEIGHT / size.Y, BOOTH_DISPLAY_WIDTH / math.max(size.X, size.Z)))
+	end
+end
+
 --- One booth. `isShop` false (the Trader) leaves the desks without a ViewShop prompt or a
 --- shop station: the Trader sells on its own radius (buildTraderBooth).
 local function buildBooth(parent: Instance, spec: { track: string, at: { number }, faceYaw: number, color: string, label: string }, isShop: boolean?)
@@ -2070,6 +2150,9 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 
 	buildPlainRoof(m, origin, spec.color, width, BOOTH_FRAME)
 	buildRoofTop(m, origin, width, spec.color, spec.label)
+	if shop then
+		buildBoothDisplays(m, origin, spec.track, spec.color)
+	end
 
 	-- A studded pad in the shop's colour in front of each stand, rimmed in glowing Neon,
 	-- so you can see where to stand to buy (2026-10-04, on request).
