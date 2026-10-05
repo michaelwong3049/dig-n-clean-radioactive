@@ -51,6 +51,8 @@ local CLOSE = 30
 -- Never smaller than this on a short screen, where the card must squeeze in above the
 -- right-edge tile column.
 local MIN_FIT = 0.6
+-- Extra gap under the corner row, so the card sits a little below the corner tiles.
+local DROP = 30
 
 local COLOR = {
 	ink = Color3.fromHex("1A1A1A"),
@@ -544,11 +546,12 @@ function StarterOfferController.start()
 		TweenService:Create(close, HOVER, { BackgroundColor3 = COLOR.close }):Play()
 	end)
 
-	-- Under the corner row, hard right; shrunk on a short screen so it stays clear of
+	-- Under the corner row, hard right, dropped a little (DROP) so its rays clear the
+	-- Daily and Potions tiles in the corner above it; shrunk on a short screen so it stays clear of
 	-- the tile column below it (Dock.sideColumnTop).
 	local function place()
 		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		local top = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + 6
+		local top = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + DROP
 		local ceiling = height / 2 + Dock.sideColumnTop(height) - Dock.GAP
 		fit.Scale = math.clamp((ceiling - top) / CARD_H, MIN_FIT, 1)
 		holder.Position = UDim2.new(1, -(Dock.CORNER_SIDE + 4), 0, top)

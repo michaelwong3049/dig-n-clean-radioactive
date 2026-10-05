@@ -731,22 +731,16 @@ Dock.CORNER_TILE_SIZE = 40
 Dock.CORNER_TOP = 14
 Dock.CORNER_SIDE = 12
 Dock.CORNER_GAP = 8
--- NEXT TO ROBLOX'S PLAYER LIST, on request: the leaderboard hangs in the top-right
--- corner from y 4, 320 screen px wide plus a 4px margin (measured with this game's
--- leaderstats), and Roblox draws it over everything, so on a keyboard screen the row
--- starts just left of it. In SCREEN px, not design px: CoreGui doesn't scale with the
--- canvas. On a phone or tablet the list starts collapsed, so the row goes in the corner.
-Dock.PLAYERLIST_CLEAR = 324
+-- HARD IN THE TOP-RIGHT CORNER on every screen, on request (2026-10-04); it used to
+-- start left of Roblox's player list on a keyboard screen.
 -- The corner row's bottom edge, from the screen top.
 Dock.CORNER_BUTTON_BOTTOM = Dock.CORNER_TOP + Dock.CORNER_TILE_SIZE
 
 --- The centre of corner button `index` (1 = Daily, 2 = Potions left of it),
---- on a canvas that ignores the topbar inset. Depends on the scale (the player list's
---- clearance is in screen px), so re-read it from UIKit.onScaleChanged.
+--- on a canvas that ignores the topbar inset.
 function Dock.cornerButtonCentre(index: number): UDim2
 	local half = Dock.CORNER_TILE_SIZE / 2
-	local side = if UIKit.isTouch() then Dock.CORNER_SIDE else Dock.PLAYERLIST_CLEAR / UIKit.scale() + Dock.CORNER_GAP
-	local fromRight = side + half + (index - 1) * (Dock.CORNER_TILE_SIZE + Dock.CORNER_GAP)
+	local fromRight = Dock.CORNER_SIDE + half + (index - 1) * (Dock.CORNER_TILE_SIZE + Dock.CORNER_GAP)
 	return UDim2.new(1, -fromRight, 0, Dock.CORNER_TOP + half)
 end
 
