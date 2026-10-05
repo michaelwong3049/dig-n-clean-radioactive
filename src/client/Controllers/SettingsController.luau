@@ -1,14 +1,20 @@
 --[[
-	SettingsController.lua — the player Settings panel, in three tabs:
+	SettingsController.lua — the player Settings panel: a wide panel with a tab rail
+	down the left (General / Graphics / Audio) and the chosen page on the right.
 
-	  GENERAL   base colour, HIDE MY AURA, rare drop announcements
-	  GRAPHICS  graphics level, radiation effects, screen shake, reduce flashing, show auras, FAST MODE
-	  AUDIO     SOUND EFFECTS (the mute) and the master / effects / UI / Geiger sliders
+	  GENERAL   base colour, hide my aura, rare drop alerts, confirm rare drops
+	  GRAPHICS  graphics level, radiation effects, screen shake, reduce flashing, show auras, fast mode
+	  AUDIO     sound effects (the mute) and the master / effects / UI / Geiger / music sliders
 
-	EVERYTHING BUT THE FIRST THREE IS A PREF (Config/Prefs, client/Prefs). The rows here
-	only show and set them; each one is applied by the file that owns the effect
-	(ItemFxController, RadFx, DetonationController, Sfx...), off Prefs.observe, so it
-	holds even if this panel never builds. Prefs apply the same frame and save behind;
+	THE LOOK (on request, mockup "2 Sidebar"): House slate, ink outlines, rows split by
+	thin lines rather than boxed, pill switches for flags, a segmented picker for
+	choices. Landscape (720x470) so it fits short phone screens; each page scrolls if
+	it outgrows the panel. No green on the chrome (#651 still holds) — "on" is steel.
+
+	EVERYTHING BUT THE COLOUR, AURA AND MUTE IS A PREF (Config/Prefs, client/Prefs). The
+	rows here only show and set them; each one is applied by the file that owns the
+	effect (ItemFxController, RadFx, DetonationController, Sfx...), off Prefs.observe, so
+	it holds even if this panel never builds. Prefs apply the same frame and save behind;
 	the colour, aura and mute keep their older wait-for-the-echo shape.
 
 	SOUND EFFECTS is the same shape as HIDE MY AURA below: a profile setting
@@ -31,7 +37,8 @@
 	(`data.plotColor`) and repaints via `Plots.setPlotAccent`. Until a player picks, a
 	claimed plot wears its own default hue (build/Plots' `DEFAULT_ACCENTS`), which the
 	server sends alongside every echo so the swatch shows it. This file is the other
-	end of that remote — a full RGB picker, and nothing else.
+	end of that remote: a row of preset swatches, and behind the rainbow one a full
+	SV square + hue strip for anything else.
 
 	THE CLIENT NEVER PAINTS THE WORLD. Picking a colour fires `Net.PlotColor` and waits;
 	the plot repaints when the server's own render runs. The only thing this file
@@ -46,11 +53,14 @@
 
 	SHAPE MIRRORS IndexController: a ScreenGui with a corner button and a centred
 	`UIKit.panel` that toggles. `start()` only — nothing to build in `init()`.
+	Instance names tests drive: Panel.Tabs.<GENERAL|GRAPHICS|AUDIO> (the rail's
+	buttons) and Panel.<GENERAL|GRAPHICS|AUDIO> (the pages).
 ]]
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
@@ -69,49 +79,59 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
--- THE PANEL'S OWN PALETTE: neutral greys, no green, on request — the near-black and
--- edge of the right-edge tiles (UIKit.C.nav*), with a light steel for whatever is on
--- (the chosen tab, an On switch, the chosen option, a slider's fill). UIKit.C's
--- olive panel/selected greens stay for the rest of the HUD.
+-- THE PANEL'S PALETTE: UIKit.House's slate and ink, plus a steel blue for whatever is
+-- on (the chosen tab, an On switch, the chosen option, a slider's fill). No green.
+local House = UIKit.House
 local C = {
-	panel = UIKit.C.navFill,
-	stroke = UIKit.C.navEdge,
-	empty = Color3.fromRGB(32, 35, 41),
-	selected = Color3.fromRGB(74, 82, 96),
-	fill = Color3.fromRGB(205, 214, 226), -- a slider's filled part
-	text = UIKit.C.navIcon,
-	dim = Color3.fromRGB(138, 146, 158),
+	panel = House.panel,
+	rail = Color3.fromHex("15181C"), -- the tab rail, and the wells behind switches/sliders
+	card = House.card, -- the chosen tab
+	chip = Color3.fromHex("2B3036"), -- an off switch, a tab's icon chip at rest
+	divider = Color3.fromHex("2A2F35"),
+	ink = House.ink,
+	on = Color3.fromHex("7E93AE"),
+	knobOff = Color3.fromHex("7A838D"),
+	text = House.white,
+	dim = House.dim,
 }
 
-local PANEL_SIZE = Vector2.new(560, 668)
--- Where a tab's rows start (under the title and the tab strip), and a row's height.
-local TABS_Y = 60
-local TABS_H = 42
-local CONTENT_Y = TABS_Y + TABS_H + 18
-local ROW_H = 54
-local ROW_GAP = 12
+local PANEL_SIZE = Vector2.new(720, 470)
+local RAIL_W = 190
+-- The page column: inset from the rail's divider and the panel's right edge.
+local PAGE_X = RAIL_W + 3 + 24
+local PAGE_RIGHT = 24
+local PAGE_TOP = 20
+local HEADER_H = 62 -- the page's title + subtitle, above its scrolling rows
+local ROW_H = 62
+local SLIDER_H = 56
 
--- THE PANEL'S TYPE: Gotham Black throughout, in normal (sentence) case, on request —
--- one weight at four sizes rather than UIKit's three-weight scale.
-local FONT = Enum.Font.GothamBlack
+-- THE PANEL'S TYPE: Gotham Black throughout, in sentence case (#650).
+local FONT = House.font
 local SIZE = {
-	title = 36, -- "Settings"
-	row = 22, -- a row's name
-	button = 18, -- switches, tabs, values
-	option = 16, -- the narrower option buttons
-	hint = 15, -- the line under a row's name
+	title = 28, -- "Settings" on the rail
+	page = 26, -- a page's own heading
+	tab = 18,
+	row = 20, -- a row's name
+	button = 16, -- values, the reset button
+	option = 15, -- a segmented picker's options
+	hint = 14, -- the line under a row's name
 }
--- A row's switch, and each button of an option row.
-local SWITCH_W, SWITCH_H = 120, 40
-local OPTION_W, OPTION_GAP = 76, 6
+-- A flag's pill switch, and one option of a segmented picker.
+local PILL_W, PILL_H, KNOB = 64, 34, 24
+local OPTION_W, OPTION_H = 64, 30
 -- Settings' REDUCE FLASHING slows the Anomaly colour cycle by this much (every reader
 -- takes Rarity.ANOMALY_CYCLE fresh each frame).
 local ANOMALY_SLOW = 4
--- The base colour section's height; the aura row sits under it.
-local COLOUR_SECTION_H = 340
-local SV_SIZE = Vector2.new(300, 190)
-local HUE_W = 32
-local GAP = 16
+
+-- Base colour: the preset swatches (a lime among them — it is the player's base, not
+-- the panel's chrome), then the rainbow one that opens the full picker.
+local PRESETS = { "E5484D", "F5A524", "F2D543", "7CF25A", "3FB3E0", "4C6FFF", "9B5CF6", "F06FC4", "E8ECF0" }
+local SWATCH, SWATCH_GAP = 30, 7
+local COLOUR_H = 106 -- the colour row with the picker closed
+local SV_SIZE = Vector2.new(300, 130)
+local HUE_W = 28
+local GAP = 14
+local PICKER_H = SV_SIZE.Y + 16
 
 -- The picker's live HSV, plus whether the COMMITTED base colour is a real hue or the
 -- neutral (never-picked / reset) state. `dragging` (any track) makes the preview show
@@ -142,7 +162,14 @@ local sound = {
 	pending = false,
 }
 
-local ui = {}
+local ui = {
+	-- Every page's ScrollingFrame: a drag on a slider or the picker locks them so a
+	-- touch drag moves the handle, not the page.
+	scrollers = {} :: { ScrollingFrame },
+	-- Preset hex -> its swatch's UIStroke, plus the rainbow swatch's, lit to match the
+	-- committed colour.
+	presetStrokes = {} :: { [string]: UIStroke },
+}
 
 -- ── Colour helpers ──────────────────────────────────────────────────
 
@@ -154,11 +181,35 @@ local function hexOf(color: Color3): string
 	return string.upper(color:ToHex())
 end
 
+local function lockScroll(locked: boolean)
+	for _, scroller in ui.scrollers do
+		scroller.ScrollingEnabled = not locked
+	end
+end
+
 -- ── Render ──────────────────────────────────────────────────────────
 
 local function setStatus(text: string)
 	if ui.status then
 		ui.status.Text = text
+	end
+end
+
+--- Light the swatch that matches the committed colour: a preset, else the rainbow
+--- one for a custom hue, else none (the base is on its default).
+local function paintPresets()
+	local committed = if state.committed then hexOf(currentColor()) else nil
+	local matched = false
+	for hex, stroke in ui.presetStrokes do
+		if hex ~= "CUSTOM" then
+			local on = committed ~= nil and hexOf(Color3.fromHex(hex)) == committed
+			matched = matched or on
+			stroke.Color = if on then C.text else C.ink
+		end
+	end
+	local custom = ui.presetStrokes.CUSTOM
+	if custom then
+		custom.Color = if committed ~= nil and not matched then C.text else C.ink
 	end
 end
 
@@ -174,6 +225,9 @@ local function applyPreview()
 	local live = state.committed or state.dragging
 	ui.swatch.BackgroundColor3 = if live then picked else (state.fallback or NEUTRAL)
 	ui.hexLabel.Text = if live then "#" .. hexOf(picked) elseif state.fallback then "Auto" else "Not set"
+	if not state.dragging then
+		paintPresets()
+	end
 end
 
 -- ── Commit ──────────────────────────────────────────────────────────
@@ -210,16 +264,97 @@ local function onServerColor(hex: any, fallback: any)
 	applyPreview()
 end
 
+-- ── Controls ────────────────────────────────────────────────────────
+
+local function corner(parent: Instance, radius: UDim)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = radius
+	c.Parent = parent
+end
+
+--- An ink edge round a frame or button (Border mode, so a button's text keeps its own).
+local function inkEdge(parent: Instance, thickness: number?): UIStroke
+	local stroke = Instance.new("UIStroke")
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color = C.ink
+	stroke.Thickness = thickness or 3
+	stroke.Parent = parent
+	return stroke
+end
+
+--- A sliding pill switch, right-aligned and vertically centred in `row`. Returns the
+--- button and its painter: paint(on, busy) — busy greys the knob while the server has
+--- not answered yet.
+local function pillSwitch(row: Instance, name: string): (TextButton, (boolean, boolean?) -> ())
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.AnchorPoint = Vector2.new(1, 0.5)
+	button.Position = UDim2.new(1, -4, 0.5, 0)
+	button.Size = UDim2.fromOffset(PILL_W, PILL_H)
+	button.BackgroundColor3 = C.chip
+	button.BorderSizePixel = 0
+	button.ZIndex = 12
+	button.Parent = row
+	corner(button, UDim.new(1, 0))
+	inkEdge(button)
+
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.AnchorPoint = Vector2.new(0, 0.5)
+	knob.Size = UDim2.fromOffset(KNOB, KNOB)
+	knob.Position = UDim2.new(0, 5, 0.5, 0)
+	knob.BackgroundColor3 = C.knobOff
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 13
+	knob.Parent = button
+	corner(knob, UDim.new(1, 0))
+
+	local info = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local function paint(on: boolean, busy: boolean?)
+		button.BackgroundColor3 = if on then C.on else C.chip
+		knob.BackgroundColor3 = if on then C.text else C.knobOff
+		knob.BackgroundTransparency = if busy then 0.55 else 0
+		local x = if on then PILL_W - 5 - KNOB else 5
+		TweenService:Create(knob, info, { Position = UDim2.new(0, x, 0.5, 0) }):Play()
+	end
+	return button, paint
+end
+
+--- A row's title and hint, on the left, leaving `rightW` for its control.
+local function rowText(row: Instance, title: string, hint: string, rightW: number)
+	UIKit.label(row, {
+		name = "SectionTitle",
+		position = UDim2.fromOffset(0, 7),
+		size = UDim2.new(1, -rightW - 14, 0, 24),
+		font = FONT,
+		textSize = SIZE.row,
+		color = C.text,
+		text = title,
+		zIndex = 12,
+	})
+	UIKit.label(row, {
+		name = "SectionHint",
+		position = UDim2.fromOffset(0, 32),
+		-- Tall enough for two lines: a long hint wraps instead of running under the control.
+		size = UDim2.new(1, -rightW - 14, 0, 30),
+		font = FONT,
+		textSize = SIZE.hint,
+		color = C.dim,
+		text = hint,
+		yAlign = Enum.TextYAlignment.Top,
+		wrapped = true,
+		zIndex = 12,
+	})
+end
+
 -- ── Hide my aura ────────────────────────────────────────────────────
 
 local function applyAura()
-	local switch = ui.auraSwitch
-	if switch == nil then
-		return
+	if ui.paintAura then
+		ui.paintAura(aura.hidden, aura.pending or not aura.known)
 	end
-	switch.Text = if aura.pending or not aura.known then "\u{2026}" elseif aura.hidden then "On" else "Off"
-	switch.BackgroundColor3 = if aura.hidden then C.selected else C.empty
-	switch.TextColor3 = if aura.hidden then C.text else C.dim
 end
 
 --- The server's confirmed value: once on load, then after every toggle.
@@ -239,58 +374,20 @@ local function toggleAura()
 	Net.get("HideAura"):FireServer(not aura.hidden)
 end
 
-local function buildAuraRow(section: Instance)
-	UIKit.label(section, {
-		name = "SectionTitle",
-		size = UDim2.new(1, -SWITCH_W - 12, 0, 28),
-		font = FONT,
-		textSize = SIZE.row,
-		color = C.text,
-		text = "Hide my aura",
-		zIndex = 12,
-	})
-
-	UIKit.label(section, {
-		name = "SectionHint",
-		position = UDim2.fromOffset(0, 28),
-		size = UDim2.new(1, -SWITCH_W - 12, 0, 20),
-		font = FONT,
-		textSize = SIZE.hint,
-		color = C.dim,
-		text = "Off for everyone \u{2014} it still protects you",
-		zIndex = 12,
-	})
-
-	local switch = UIKit.button(section, {
-		name = "AuraSwitch",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 6),
-		size = UDim2.fromOffset(SWITCH_W, SWITCH_H),
-		text = "\u{2026}",
-		font = FONT,
-		textSize = SIZE.button,
-		color = C.dim,
-		fillColor = C.empty,
-		fillTransparency = 0,
-		cornerRadius = UIKit.Radius.button,
-		zIndex = 12,
-	})
+local function buildAuraRow(row: Instance)
+	rowText(row, "Hide my aura", "Off for everyone, it still protects you", PILL_W)
+	local switch, paint = pillSwitch(row, "AuraSwitch")
 	switch.MouseButton1Click:Connect(toggleAura)
-	ui.auraSwitch = switch
+	ui.paintAura = paint
 	applyAura()
 end
 
 -- ── Sound effects ───────────────────────────────────────────────────
 
 local function applySound()
-	local switch = ui.soundSwitch
-	if switch == nil then
-		return
+	if ui.paintSound then
+		ui.paintSound(not sound.muted, sound.pending or not sound.known)
 	end
-	local on = not sound.muted
-	switch.Text = if sound.pending or not sound.known then "\u{2026}" elseif on then "On" else "Off"
-	switch.BackgroundColor3 = if on then C.selected else C.empty
-	switch.TextColor3 = if on then C.text else C.dim
 end
 
 --- The server's confirmed value: once on load, then after every toggle.
@@ -310,130 +407,72 @@ local function toggleSound()
 	Net.get("SfxMuted"):FireServer(not sound.muted)
 end
 
-local function buildSoundRow(section: Instance)
-	UIKit.label(section, {
-		name = "SectionTitle",
-		size = UDim2.new(1, -SWITCH_W - 12, 0, 28),
-		font = FONT,
-		textSize = SIZE.row,
-		color = C.text,
-		text = "Sound effects",
-		zIndex = 12,
-	})
-
-	UIKit.label(section, {
-		name = "SectionHint",
-		position = UDim2.fromOffset(0, 28),
-		size = UDim2.new(1, -SWITCH_W - 12, 0, 20),
-		font = FONT,
-		textSize = SIZE.hint,
-		color = C.dim,
-		text = "Every sound in the game, for you only",
-		zIndex = 12,
-	})
-
-	local switch = UIKit.button(section, {
-		name = "SoundSwitch",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 6),
-		size = UDim2.fromOffset(SWITCH_W, SWITCH_H),
-		text = "\u{2026}",
-		font = FONT,
-		textSize = SIZE.button,
-		color = C.dim,
-		fillColor = C.empty,
-		fillTransparency = 0,
-		cornerRadius = UIKit.Radius.button,
-		zIndex = 12,
-	})
+local function buildSoundRow(row: Instance)
+	rowText(row, "Sound effects", "Every sound in the game, for you only", PILL_W)
+	local switch, paint = pillSwitch(row, "SoundSwitch")
 	switch.MouseButton1Click:Connect(toggleSound)
-	ui.soundSwitch = switch
+	ui.paintSound = paint
 	applySound()
 end
 
 -- ── Pref rows ───────────────────────────────────────────────────────
 
---- A row's title and hint, on the left, leaving `rightW` for its control.
-local function rowText(row: Instance, title: string, hint: string, rightW: number)
-	UIKit.label(row, {
-		name = "SectionTitle",
-		size = UDim2.new(1, -rightW - 12, 0, 28),
-		font = FONT,
-		textSize = SIZE.row,
-		color = C.text,
-		text = title,
-		zIndex = 12,
-	})
-	UIKit.label(row, {
-		name = "SectionHint",
-		position = UDim2.fromOffset(0, 30),
-		-- Tall enough for two lines: a long hint wraps instead of running under the control.
-		size = UDim2.new(1, -rightW - 12, 0, 36),
-		font = FONT,
-		textSize = SIZE.hint,
-		color = C.dim,
-		text = hint,
-		yAlign = Enum.TextYAlignment.Top,
-		wrapped = true,
-		zIndex = 12,
-	})
-end
-
-local function paintSwitch(button: TextButton, on: boolean, text: string)
-	button.Text = text
-	button.BackgroundColor3 = if on then C.selected else C.empty
-	button.TextColor3 = if on then C.text else C.dim
-end
-
-local function switchButton(row: Instance, name: string, width: number, x: UDim): TextButton
-	local button = UIKit.button(row, {
-		name = name,
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(x, UDim.new(0, 6)),
-		size = UDim2.fromOffset(width, SWITCH_H),
-		text = "",
-		font = FONT,
-		textSize = SIZE.button,
-		color = C.dim,
-		fillColor = C.empty,
-		fillTransparency = 0,
-		cornerRadius = UIKit.Radius.button,
-		zIndex = 12,
-	})
-	return button
-end
-
---- ON / OFF for a flag pref.
+--- A pill switch for a flag pref.
 local function flagRow(row: Instance, key: string, title: string, hint: string)
-	rowText(row, title, hint, SWITCH_W)
-	local button = switchButton(row, "Switch", SWITCH_W, UDim.new(1, 0))
+	rowText(row, title, hint, PILL_W)
+	local button, paint = pillSwitch(row, "Switch")
 	button.MouseButton1Click:Connect(function()
 		Prefs.set(key, not Prefs.get(key))
 	end)
 	Prefs.observe(key, function(on)
-		paintSwitch(button, on == true, if on then "On" else "Off")
+		paint(on == true)
 	end)
 end
 
---- One button per option, side by side; the chosen one lit.
+--- A segmented picker: one well, one button per option, the chosen one lit.
 local function choiceRow(row: Instance, key: string, title: string, hint: string, options: { { string } })
-	local each, gap = OPTION_W, OPTION_GAP
-	local width = #options * each + (#options - 1) * gap
+	local pad = 3
+	local width = #options * OPTION_W + (#options - 1) * pad + pad * 2
 	rowText(row, title, hint, width)
+
+	local well = Instance.new("Frame")
+	well.Name = "Options"
+	well.AnchorPoint = Vector2.new(1, 0.5)
+	well.Position = UDim2.new(1, -4, 0.5, 0)
+	well.Size = UDim2.fromOffset(width, OPTION_H + pad * 2)
+	well.BackgroundColor3 = C.rail
+	well.BorderSizePixel = 0
+	well.ZIndex = 12
+	well.Parent = row
+	corner(well, UDim.new(0, 12))
+	inkEdge(well)
+
 	local buttons = {}
 	for i, option in options do
 		local value, label = option[1], option[2]
-		local right = (#options - i) * (each + gap)
-		local button = switchButton(row, "Option_" .. value, each, UDim.new(1, -right))
-		button.TextSize = SIZE.option
+		local button = UIKit.button(well, {
+			name = "Option_" .. value,
+			position = UDim2.fromOffset(pad + (i - 1) * (OPTION_W + pad), pad),
+			size = UDim2.fromOffset(OPTION_W, OPTION_H),
+			text = label,
+			font = FONT,
+			textSize = SIZE.option,
+			color = C.dim,
+			fillColor = C.on,
+			fillTransparency = 1,
+			cornerRadius = UDim.new(0, 9),
+			zIndex = 13,
+		})
 		button.MouseButton1Click:Connect(function()
 			Prefs.set(key, value)
 		end)
-		buttons[value] = { button = button, label = label }
+		buttons[value] = button
 	end
 	Prefs.observe(key, function(current)
-		for value, entry in buttons do
-			paintSwitch(entry.button, value == current, entry.label)
+		for value, button in buttons do
+			local on = value == current
+			button.BackgroundTransparency = if on then 0 else 1
+			button.TextColor3 = if on then C.text else C.dim
 		end
 	end)
 end
@@ -441,11 +480,12 @@ end
 --- A 0..100% slider for a volume pref. Drags apply live (the sound moves under your
 --- finger) and save once, on release.
 local function volumeRow(row: Instance, key: string, title: string)
-	local labelW, valueW = 150, 64
+	local labelW, valueW = 130, 56
 
 	UIKit.label(row, {
 		name = "SectionTitle",
-		position = UDim2.fromOffset(0, 13),
+		anchorPoint = Vector2.new(0, 0.5),
+		position = UDim2.fromScale(0, 0.5),
 		size = UDim2.fromOffset(labelW, 28),
 		font = FONT,
 		textSize = SIZE.row,
@@ -455,62 +495,57 @@ local function volumeRow(row: Instance, key: string, title: string)
 	})
 	local value = UIKit.label(row, {
 		name = "Value",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 13),
+		anchorPoint = Vector2.new(1, 0.5),
+		position = UDim2.new(1, -4, 0.5, 0),
 		size = UDim2.fromOffset(valueW, 28),
 		font = FONT,
 		textSize = SIZE.button,
-		color = C.dim,
+		color = C.text,
+		xAlign = Enum.TextXAlignment.Right,
 		text = "",
 		zIndex = 12,
 	})
-	value.TextXAlignment = Enum.TextXAlignment.Right
 
 	-- The hit box is the full row height so a thumb can grab it; the track is thin.
 	local hit = Instance.new("Frame")
 	hit.Name = "Slider"
 	hit.BackgroundTransparency = 1
 	hit.Position = UDim2.fromOffset(labelW + 8, 0)
-	hit.Size = UDim2.new(1, -(labelW + 8 + valueW + 10), 1, 0)
+	hit.Size = UDim2.new(1, -(labelW + 8 + valueW + 18), 1, 0)
 	hit.ZIndex = 12
+	hit.Active = true
 	hit.Parent = row
 
 	local track = Instance.new("Frame")
 	track.Name = "Track"
 	track.AnchorPoint = Vector2.new(0, 0.5)
 	track.Position = UDim2.fromScale(0, 0.5)
-	track.Size = UDim2.new(1, 0, 0, 12)
-	track.BackgroundColor3 = C.empty
+	track.Size = UDim2.new(1, 0, 0, 14)
+	track.BackgroundColor3 = C.rail
 	track.BorderSizePixel = 0
 	track.ZIndex = 12
 	track.Parent = hit
-	Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
-	local trackStroke = Instance.new("UIStroke")
-	trackStroke.Color = UIKit.C.outline
-	trackStroke.Thickness = 1.5
-	trackStroke.Parent = track
+	corner(track, UDim.new(1, 0))
+	inkEdge(track)
 
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
-	fill.BackgroundColor3 = C.fill
+	fill.BackgroundColor3 = C.on
 	fill.BorderSizePixel = 0
 	fill.ZIndex = 13
 	fill.Parent = track
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+	corner(fill, UDim.new(1, 0))
 
 	local knob = Instance.new("Frame")
 	knob.Name = "Knob"
 	knob.AnchorPoint = Vector2.new(0.5, 0.5)
-	knob.Size = UDim2.fromOffset(24, 24)
+	knob.Size = UDim2.fromOffset(KNOB, KNOB)
 	knob.BackgroundColor3 = C.text
 	knob.BorderSizePixel = 0
 	knob.ZIndex = 14
 	knob.Parent = track
-	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
-	local knobStroke = Instance.new("UIStroke")
-	knobStroke.Color = UIKit.C.outline
-	knobStroke.Thickness = 2
-	knobStroke.Parent = knob
+	corner(knob, UDim.new(1, 0))
+	inkEdge(knob)
 
 	local function paint(alpha: number)
 		fill.Size = UDim2.fromScale(alpha, 1)
@@ -528,6 +563,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 			return
 		end
 		dragging = true
+		lockScroll(true)
 		local alpha = at(input.Position)
 		paint(alpha)
 		Prefs.preview(key, alpha)
@@ -551,6 +587,7 @@ local function volumeRow(row: Instance, key: string, title: string)
 			return
 		end
 		dragging = false
+		lockScroll(false)
 		Prefs.set(key, at(input.Position))
 	end)
 
@@ -589,6 +626,7 @@ local function makeDraggable(catcher: GuiObject, onMove: (number, number) -> (),
 		end
 		dragging = true
 		state.dragging = true
+		lockScroll(true)
 		onMove(fractionFrom(input.Position))
 	end)
 
@@ -611,11 +649,12 @@ local function makeDraggable(catcher: GuiObject, onMove: (number, number) -> (),
 		end
 		dragging = false
 		state.dragging = false
+		lockScroll(false)
 		onRelease()
 	end)
 end
 
--- ── Build ───────────────────────────────────────────────────────────
+-- ── Base colour ─────────────────────────────────────────────────────
 
 local function gradientFrame(parent: Instance, name: string, color: Color3, transparency: NumberSequence, rotation: number): Frame
 	local frame = Instance.new("Frame")
@@ -643,10 +682,7 @@ local function handleDot(parent: Instance): Frame
 	dot.BorderSizePixel = 0
 	dot.ZIndex = 13
 	dot.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = dot
+	corner(dot, UDim.new(1, 0))
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.new(0, 0, 0)
@@ -656,6 +692,7 @@ local function handleDot(parent: Instance): Frame
 	return dot
 end
 
+--- The full picker (SV square + hue strip), shown behind the rainbow swatch.
 local function buildColorPicker(section: Instance)
 	-- Saturation / value square. Hue-coloured base, a white gradient across for
 	-- saturation and a black gradient down for value; a transparent catcher on top
@@ -663,20 +700,13 @@ local function buildColorPicker(section: Instance)
 	local svArea = Instance.new("Frame")
 	svArea.Name = "SVArea"
 	svArea.Size = UDim2.fromOffset(SV_SIZE.X, SV_SIZE.Y)
-	svArea.Position = UDim2.fromOffset(0, 0)
 	svArea.BackgroundColor3 = Color3.fromHSV(state.h, 1, 1)
 	svArea.BorderSizePixel = 0
 	svArea.ZIndex = 11
-	svArea.Parent = section
-	ui.svArea = svArea
-
-	local svCorner = Instance.new("UICorner")
-	svCorner.CornerRadius = UDim.new(0, 8)
-	svCorner.Parent = svArea
-	local svClip = Instance.new("UICorner") -- clip the gradient children to the rounded box
-	svClip.CornerRadius = UDim.new(0, 8)
-	svClip.Parent = svArea
 	svArea.ClipsDescendants = true
+	svArea.Parent = section
+	corner(svArea, UDim.new(0, 8))
+	ui.svArea = svArea
 
 	gradientFrame(
 		svArea,
@@ -721,10 +751,7 @@ local function buildColorPicker(section: Instance)
 	hue.ZIndex = 11
 	hue.ClipsDescendants = true
 	hue.Parent = section
-
-	local hueCorner = Instance.new("UICorner")
-	hueCorner.CornerRadius = UDim.new(0, 6)
-	hueCorner.Parent = hue
+	corner(hue, UDim.new(0, 6))
 
 	local hueGrad = Instance.new("UIGradient")
 	hueGrad.Rotation = 90
@@ -768,82 +795,176 @@ local function buildColorPicker(section: Instance)
 	end, function()
 		commit(hexOf(currentColor()))
 	end)
+end
 
-	-- Preview swatch + hex, and the two commit buttons, in the strip under the square.
-	local footerY = SV_SIZE.Y + 20
+--- The base colour row: title + the live swatch and hex, the preset swatches with
+--- Reset, and the full picker folded under them until the rainbow swatch opens it.
+local function buildColourRow(row: Frame)
+	rowText(row, "Base colour", "Trim, nameplate, station signs", 170)
 
-	local swatch = Instance.new("Frame")
-	swatch.Name = "Swatch"
-	swatch.Size = UDim2.fromOffset(54, 54)
-	swatch.Position = UDim2.fromOffset(0, footerY)
-	swatch.BackgroundColor3 = NEUTRAL
-	swatch.BorderSizePixel = 0
-	swatch.ZIndex = 12
-	swatch.Parent = section
-	local swCorner = Instance.new("UICorner")
-	swCorner.CornerRadius = UDim.new(0, 8)
-	swCorner.Parent = swatch
-	local swStroke = Instance.new("UIStroke")
-	swStroke.Color = C.stroke
-	swStroke.Thickness = 2
-	swStroke.Parent = swatch
-	ui.swatch = swatch
-
-	ui.hexLabel = UIKit.label(section, {
+	ui.hexLabel = UIKit.label(row, {
 		name = "Hex",
-		position = UDim2.fromOffset(66, footerY + 2),
-		size = UDim2.fromOffset(140, 24),
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -48, 0, 7),
+		size = UDim2.fromOffset(120, 24),
 		font = FONT,
 		textSize = SIZE.button,
 		color = C.text,
+		xAlign = Enum.TextXAlignment.Right,
 		text = "Not set",
 		zIndex = 12,
 	})
-
-	ui.status = UIKit.label(section, {
+	ui.status = UIKit.label(row, {
 		name = "Status",
-		position = UDim2.fromOffset(66, footerY + 30),
-		size = UDim2.fromOffset(200, 20),
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -48, 0, 32),
+		size = UDim2.fromOffset(120, 18),
 		font = FONT,
 		textSize = SIZE.hint,
 		color = C.dim,
+		xAlign = Enum.TextXAlignment.Right,
 		text = "",
 		zIndex = 12,
 	})
 
-	local apply = UIKit.button(section, {
-		name = "Apply",
-		position = UDim2.fromOffset(SV_SIZE.X + GAP + HUE_W - 170, footerY),
-		size = UDim2.fromOffset(170, SWITCH_H),
-		text = "Apply",
-		font = FONT,
-		textSize = SIZE.row,
-		color = C.text,
-		fillColor = C.selected,
-		fillTransparency = 0,
-		cornerRadius = UIKit.Radius.button,
-		zIndex = 12,
-	})
-	apply.MouseButton1Click:Connect(function()
-		commit(hexOf(currentColor()))
-	end)
+	local swatch = Instance.new("Frame")
+	swatch.Name = "Swatch"
+	swatch.AnchorPoint = Vector2.new(1, 0)
+	swatch.Position = UDim2.new(1, -4, 0, 7)
+	swatch.Size = UDim2.fromOffset(36, 36)
+	swatch.BackgroundColor3 = NEUTRAL
+	swatch.BorderSizePixel = 0
+	swatch.ZIndex = 12
+	swatch.Parent = row
+	corner(swatch, UDim.new(0, 10))
+	inkEdge(swatch)
+	ui.swatch = swatch
 
-	local reset = UIKit.button(section, {
+	-- The swatch strip.
+	local strip = Instance.new("Frame")
+	strip.Name = "Presets"
+	strip.Position = UDim2.fromOffset(3, 60)
+	strip.Size = UDim2.new(1, -6, 0, SWATCH)
+	strip.BackgroundTransparency = 1
+	strip.ZIndex = 12
+	strip.Parent = row
+
+	local function swatchButton(name: string, x: number): (TextButton, UIStroke)
+		local button = Instance.new("TextButton")
+		button.Name = name
+		button.Text = ""
+		button.AutoButtonColor = false
+		button.Position = UDim2.fromOffset(x, 0)
+		button.Size = UDim2.fromOffset(SWATCH, SWATCH)
+		button.BorderSizePixel = 0
+		button.ZIndex = 12
+		button.Parent = strip
+		corner(button, UDim.new(0, 9))
+		return button, inkEdge(button)
+	end
+
+	for i, hex in PRESETS do
+		local button, stroke = swatchButton("Preset_" .. hex, (i - 1) * (SWATCH + SWATCH_GAP))
+		button.BackgroundColor3 = Color3.fromHex(hex)
+		button.MouseButton1Click:Connect(function()
+			state.h, state.s, state.v = Color3.fromHex(hex):ToHSV()
+			commit(hexOf(Color3.fromHex(hex)))
+		end)
+		ui.presetStrokes[hex] = stroke
+	end
+
+	-- The rainbow swatch opens (and closes) the full picker under the strip.
+	local customX = #PRESETS * (SWATCH + SWATCH_GAP)
+	local custom, customStroke = swatchButton("Custom", customX)
+	custom.BackgroundColor3 = Color3.new(1, 1, 1)
+	local rainbow = Instance.new("UIGradient")
+	rainbow.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0.0, Color3.fromHSV(0.00, 1, 1)),
+		ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33, 1, 1)),
+		ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67, 1, 1)),
+		ColorSequenceKeypoint.new(1.0, Color3.fromHSV(0.95, 1, 1)),
+	})
+	rainbow.Rotation = 45
+	rainbow.Parent = custom
+	ui.presetStrokes.CUSTOM = customStroke
+
+	local reset = UIKit.button(strip, {
 		name = "Reset",
-		position = UDim2.fromOffset(SV_SIZE.X + GAP + HUE_W - 170, footerY + SWITCH_H + 8),
-		size = UDim2.fromOffset(170, 32),
-		text = "Reset to default",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.fromScale(1, 0),
+		size = UDim2.new(1, -(customX + SWATCH + 12), 0, SWATCH),
+		text = "Reset",
 		font = FONT,
-		textSize = SIZE.hint,
+		textSize = SIZE.option,
 		color = C.dim,
-		fillColor = C.empty,
-		fillTransparency = 0.2,
-		cornerRadius = UIKit.Radius.slot,
+		fillColor = C.chip,
+		fillTransparency = 0,
+		cornerRadius = UDim.new(0, 9),
 		zIndex = 12,
 	})
 	reset.MouseButton1Click:Connect(function()
 		commit("")
 	end)
+
+	local pickerHost = Instance.new("Frame")
+	pickerHost.Name = "Picker"
+	pickerHost.Position = UDim2.fromOffset(3, COLOUR_H)
+	pickerHost.Size = UDim2.new(1, -6, 0, SV_SIZE.Y)
+	pickerHost.BackgroundTransparency = 1
+	pickerHost.ZIndex = 11
+	pickerHost.Visible = false
+	pickerHost.Parent = row
+	buildColorPicker(pickerHost)
+
+	custom.MouseButton1Click:Connect(function()
+		pickerHost.Visible = not pickerHost.Visible
+		row.Size = UDim2.new(1, 0, 0, if pickerHost.Visible then COLOUR_H + PICKER_H else COLOUR_H)
+	end)
+end
+
+-- ── Build ───────────────────────────────────────────────────────────
+
+-- A tab's icon, drawn from frames so it needs no upload: the gear art for General, a
+-- little screen on a stand for Graphics, equaliser bars for Audio.
+local function tabIcon(chip: Frame, tab: string)
+	if tab == "GENERAL" then
+		local image = Instance.new("ImageLabel")
+		image.Name = "Icon"
+		image.BackgroundTransparency = 1
+		image.AnchorPoint = Vector2.new(0.5, 0.5)
+		image.Position = UDim2.fromScale(0.5, 0.5)
+		image.Size = UDim2.fromOffset(22, 22)
+		image.Image = Artwork.IMAGE.settingsGear
+		image.ZIndex = 15
+		image.Parent = chip
+		return
+	end
+	local function bar(x: number, y: number, w: number, h: number, hollow: boolean?)
+		local f = Instance.new("Frame")
+		f.Position = UDim2.fromOffset(x, y)
+		f.Size = UDim2.fromOffset(w, h)
+		f.BackgroundColor3 = C.text
+		f.BackgroundTransparency = if hollow then 1 else 0
+		f.BorderSizePixel = 0
+		f.ZIndex = 15
+		f.Parent = chip
+		if hollow then
+			local s = Instance.new("UIStroke")
+			s.Color = C.text
+			s.Thickness = 2
+			s.Parent = f
+			corner(f, UDim.new(0, 2))
+		end
+	end
+	if tab == "GRAPHICS" then
+		bar(6, 7, 18, 12, true)
+		bar(13, 20, 4, 3)
+		bar(10, 23, 10, 2)
+	else
+		bar(6, 14, 4, 10)
+		bar(13, 7, 4, 17)
+		bar(20, 11, 4, 13)
+	end
 end
 
 local function build(): ScreenGui
@@ -879,7 +1000,7 @@ local function build(): ScreenGui
 		anchorPoint = Vector2.new(0.5, 0.5),
 		color = C.panel,
 		transparency = 0,
-		strokeColor = C.stroke,
+		strokeColor = C.ink,
 		cornerRadius = UIKit.Radius.panel,
 		strokeThickness = UIKit.Stroke.thick,
 		zIndex = 10,
@@ -887,185 +1008,248 @@ local function build(): ScreenGui
 	})
 	ui.panel = panel
 
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 24)
-	padding.PaddingBottom = UDim.new(0, 24)
-	padding.PaddingLeft = UDim.new(0, 28)
-	padding.PaddingRight = UDim.new(0, 28)
-	padding.Parent = panel
+	-- THE RAIL: rounded on the panel's left corners, squared where it meets the page,
+	-- with an ink line between the two.
+	local rail = Instance.new("Frame")
+	rail.Name = "Tabs"
+	rail.Size = UDim2.new(0, RAIL_W, 1, 0)
+	rail.BackgroundColor3 = C.rail
+	rail.BorderSizePixel = 0
+	rail.ZIndex = 11
+	rail.Parent = panel
+	corner(rail, UIKit.Radius.panel)
+	local square = Instance.new("Frame")
+	square.Name = "Square"
+	square.AnchorPoint = Vector2.new(1, 0)
+	square.Position = UDim2.fromScale(1, 0)
+	square.Size = UDim2.new(0, 24, 1, 0)
+	square.BackgroundColor3 = C.rail
+	square.BorderSizePixel = 0
+	square.ZIndex = 11
+	square.Parent = rail
+	local divider = Instance.new("Frame")
+	divider.Name = "Divider"
+	divider.Position = UDim2.fromOffset(RAIL_W, 0)
+	divider.Size = UDim2.new(0, 3, 1, 0)
+	divider.BackgroundColor3 = C.ink
+	divider.BorderSizePixel = 0
+	divider.ZIndex = 11
+	divider.Parent = panel
 
-	UIKit.label(panel, {
+	UIKit.label(rail, {
 		name = "Title",
-		size = UDim2.new(1, -50, 0, 46),
+		position = UDim2.fromOffset(18, 18),
+		size = UDim2.new(1, -36, 0, 36),
 		font = FONT,
 		textSize = SIZE.title,
 		color = C.text,
 		text = "Settings",
-		zIndex = 11,
+		zIndex = 12,
 	})
 
 	local close = UIKit.button(panel, {
 		name = "Close",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.fromScale(1, 0),
+		position = UDim2.new(1, -16, 0, 16),
 		size = UDim2.fromOffset(40, 40),
 		text = "X",
 		font = FONT,
 		textSize = SIZE.row,
-		color = UIKit.House.white,
-		fillColor = UIKit.House.close,
+		color = House.white,
+		fillColor = House.close,
 		fillTransparency = 0,
-		strokeColor = UIKit.House.ink,
+		strokeColor = House.ink,
 		strokeThickness = 3,
 		cornerRadius = UIKit.Radius.slot,
-		zIndex = 12,
+		zIndex = 14,
 	})
-
-	-- The tab strip, then one page per tab; only the chosen page is visible.
-	local strip = Instance.new("Frame")
-	strip.Name = "Tabs"
-	strip.Position = UDim2.fromOffset(0, TABS_Y)
-	strip.Size = UDim2.new(1, 0, 0, TABS_H)
-	strip.BackgroundTransparency = 1
-	strip.ZIndex = 11
-	strip.Parent = panel
 
 	local TABS = { "GENERAL", "GRAPHICS", "AUDIO" }
 	local TAB_LABEL = { GENERAL = "General", GRAPHICS = "Graphics", AUDIO = "Audio" }
+	local TAB_SUB = {
+		GENERAL = "Your base and alerts",
+		GRAPHICS = "Lower is smoother on slow devices",
+		AUDIO = "Only changes what you hear",
+	}
 	local pages: { [string]: Frame } = {}
-	local tabButtons: { [string]: TextButton } = {}
+	local scrollers: { [string]: ScrollingFrame } = {}
+	local tabs: { [string]: { button: TextButton, back: Frame, chip: Frame } } = {}
 	local function choose(name: string)
 		for tab, page in pages do
-			page.Visible = tab == name
-			paintSwitch(tabButtons[tab], tab == name, TAB_LABEL[tab])
+			local on = tab == name
+			page.Visible = on
+			local t = tabs[tab]
+			t.back.Visible = on
+			t.button.TextColor3 = if on then C.text else C.dim
+			t.chip.BackgroundColor3 = if on then C.on else C.chip
 		end
 	end
 	for i, name in TABS do
-		local tabButton = UIKit.button(strip, {
+		-- The chosen tab's card sits behind its button: a button's own UIStroke is its
+		-- text outline, so the ink edge lives on this frame instead.
+		local back = Instance.new("Frame")
+		back.Name = name .. "Back"
+		back.Position = UDim2.fromOffset(12, 70 + (i - 1) * 56)
+		back.Size = UDim2.new(1, -24, 0, 48)
+		back.BackgroundColor3 = C.card
+		back.BorderSizePixel = 0
+		back.ZIndex = 12
+		back.Visible = false
+		back.Parent = rail
+		corner(back, UDim.new(0, 12))
+		inkEdge(back)
+
+		local tabButton = UIKit.button(rail, {
 			name = name,
-			-- Three equal tabs with a 6px gap between them, flush to both edges.
-			position = UDim2.new((i - 1) / #TABS, (i - 1) * 2, 0, 0),
-			size = UDim2.new(1 / #TABS, -4, 1, 0),
+			position = UDim2.fromOffset(12, 70 + (i - 1) * 56),
+			size = UDim2.new(1, -24, 0, 48),
 			text = TAB_LABEL[name],
 			font = FONT,
-			textSize = SIZE.button,
+			textSize = SIZE.tab,
 			color = C.dim,
-			fillColor = C.empty,
-			fillTransparency = 0,
-			cornerRadius = UIKit.Radius.button,
-			zIndex = 12,
+			fillTransparency = 1,
+			cornerRadius = UDim.new(0, 12),
+			-- The drop-shadow child would sit inside the icon padding and draw a ghost copy.
+			shadow = false,
+			zIndex = 13,
 		})
+		tabButton.TextXAlignment = Enum.TextXAlignment.Left
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft = UDim.new(0, 48)
+		pad.Parent = tabButton
+
+		local chip = Instance.new("Frame")
+		chip.Name = "Chip"
+		chip.AnchorPoint = Vector2.new(0, 0.5)
+		chip.Position = UDim2.new(0, -38, 0.5, 0) -- back out of the padding
+		chip.Size = UDim2.fromOffset(30, 30)
+		chip.BackgroundColor3 = C.chip
+		chip.BorderSizePixel = 0
+		chip.ZIndex = 14
+		chip.Parent = tabButton
+		corner(chip, UDim.new(0, 8))
+		tabIcon(chip, name)
+
 		tabButton.MouseButton1Click:Connect(function()
 			choose(name)
 		end)
-		tabButtons[name] = tabButton
+		tabs[name] = { button = tabButton, back = back, chip = chip }
 
+		-- The page: its heading, then its rows in a scroller.
 		local page = Instance.new("Frame")
 		page.Name = name
-		page.Position = UDim2.fromOffset(0, CONTENT_Y)
-		page.Size = UDim2.new(1, 0, 1, -CONTENT_Y)
+		page.Position = UDim2.fromOffset(PAGE_X, PAGE_TOP)
+		page.Size = UDim2.new(1, -(PAGE_X + PAGE_RIGHT), 1, -(PAGE_TOP + 12))
 		page.BackgroundTransparency = 1
 		page.ZIndex = 11
 		page.Visible = false
 		page.Parent = panel
 		pages[name] = page
+
+		UIKit.label(page, {
+			name = "Heading",
+			size = UDim2.new(1, -56, 0, 32),
+			font = FONT,
+			textSize = SIZE.page,
+			color = C.text,
+			text = TAB_LABEL[name],
+			zIndex = 12,
+		})
+		UIKit.label(page, {
+			name = "Subtitle",
+			position = UDim2.fromOffset(0, 34),
+			size = UDim2.new(1, -56, 0, 18),
+			font = FONT,
+			textSize = SIZE.hint,
+			color = C.dim,
+			text = TAB_SUB[name],
+			zIndex = 12,
+		})
+
+		local scroller = Instance.new("ScrollingFrame")
+		scroller.Name = "Rows"
+		scroller.Position = UDim2.fromOffset(0, HEADER_H)
+		scroller.Size = UDim2.new(1, 0, 1, -HEADER_H)
+		scroller.BackgroundTransparency = 1
+		scroller.BorderSizePixel = 0
+		scroller.CanvasSize = UDim2.new()
+		scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		scroller.ScrollingDirection = Enum.ScrollingDirection.Y
+		scroller.ScrollBarThickness = 6
+		scroller.ScrollBarImageColor3 = C.on
+		scroller.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+		scroller.ZIndex = 11
+		scroller.Parent = page
+		local list = Instance.new("UIListLayout")
+		list.SortOrder = Enum.SortOrder.LayoutOrder
+		list.Parent = scroller
+		scrollers[name] = scroller
+		table.insert(ui.scrollers, scroller)
 	end
 
-	-- Rows stack down a page from `y`; returns the row frame.
-	local function row(page: Frame, name: string, y: number, height: number?): Frame
+	-- Rows stack down a page's scroller in build order, a thin line under each but the
+	-- last; returns the row frame.
+	local lastRow: { [string]: Frame } = {}
+	local function row(tab: string, name: string, height: number?): Frame
+		local scroller = scrollers[tab]
 		local frame = Instance.new("Frame")
 		frame.Name = name
-		frame.Position = UDim2.fromOffset(0, y)
 		frame.Size = UDim2.new(1, 0, 0, height or ROW_H)
 		frame.BackgroundTransparency = 1
+		frame.LayoutOrder = #scroller:GetChildren()
 		frame.ZIndex = 11
-		frame.Parent = page
+		frame.Parent = scroller
+
+		local line = Instance.new("Frame")
+		line.Name = "Line"
+		line.AnchorPoint = Vector2.new(0, 1)
+		line.Position = UDim2.fromScale(0, 1)
+		line.Size = UDim2.new(1, 0, 0, 2)
+		line.BackgroundColor3 = C.divider
+		line.BorderSizePixel = 0
+		line.ZIndex = 11
+		line.Parent = frame
+
+		lastRow[tab] = frame
 		return frame
 	end
-	local step = ROW_H + ROW_GAP
 
-	-- GENERAL: the base colour, then the aura and rare drop rows under it.
-	local general = pages.GENERAL
-	local section = row(general, "BaseColour", 0, COLOUR_SECTION_H)
-
-	UIKit.label(section, {
-		name = "SectionTitle",
-		size = UDim2.new(1, 0, 0, 28),
-		font = FONT,
-		textSize = SIZE.row,
-		color = C.text,
-		text = "Base colour",
-		zIndex = 12,
-	})
-
-	UIKit.label(section, {
-		name = "SectionHint",
-		position = UDim2.fromOffset(0, 28),
-		size = UDim2.new(1, 0, 0, 20),
-		font = FONT,
-		textSize = SIZE.hint,
-		color = C.dim,
-		text = "The accent on your base: trim, nameplate, station signs",
-		zIndex = 12,
-	})
-
-	local pickerHost = Instance.new("Frame")
-	pickerHost.Name = "Picker"
-	pickerHost.Position = UDim2.fromOffset(0, 60)
-	pickerHost.Size = UDim2.new(1, 0, 1, -60)
-	pickerHost.BackgroundTransparency = 1
-	pickerHost.ZIndex = 11
-	pickerHost.Parent = section
-
-	buildColorPicker(pickerHost)
-
-	local y = COLOUR_SECTION_H + 8
-	buildAuraRow(row(general, "Aura", y))
-	y += step
-	choiceRow(row(general, "RareDrops", y), "rareDrops", "Rare drops", "Which drop alerts you see", {
+	-- GENERAL
+	buildColourRow(row("GENERAL", "BaseColour", COLOUR_H))
+	buildAuraRow(row("GENERAL", "Aura"))
+	choiceRow(row("GENERAL", "RareDrops"), "rareDrops", "Rare drops", "Which drop alerts you see", {
 		{ "all", "All" },
 		{ "mine", "Mine" },
 		{ "off", "Off" },
 	})
+	flagRow(row("GENERAL", "ConfirmDrop"), "confirmDrop", "Confirm rare drops", "Ask before bombing a Rare+ nuke")
 
 	-- GRAPHICS
-	local graphics = pages.GRAPHICS
-	y = 0
-	choiceRow(row(graphics, "Graphics", y), "graphics", "Graphics", "Low helps slower devices", {
+	choiceRow(row("GRAPHICS", "Graphics"), "graphics", "Graphics", "Low helps slower devices", {
 		{ "low", "Low" },
 		{ "med", "Med" },
 		{ "high", "High" },
 	})
-	y += step
-	choiceRow(row(graphics, "RadFx", y), "radFx", "Radiation effects", "On-screen only; damage is unchanged", {
+	choiceRow(row("GRAPHICS", "RadFx"), "radFx", "Radiation effects", "On-screen only; damage is unchanged", {
 		{ "reduced", "Less" },
 		{ "full", "Full" },
 	})
-	y += step
-	flagRow(row(graphics, "Shake", y), "shake", "Screen shake", "Blasts and radiation wobble")
-	y += step
-	flagRow(row(graphics, "Flashing", y), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
-	y += step
-	flagRow(row(graphics, "ConfirmDrop", y), "confirmDrop", "Confirm rare drops", "Ask before bombing a Rare+ nuke")
-	y += step
-	flagRow(row(graphics, "Auras", y), "auras", "Show auras", "Draw the auras around you and other players")
-	y += step
-	flagRow(row(graphics, "FastMode", y), "fastMode", "FAST MODE", "Hides other players' nukes and names; stops nuke effects")
+	flagRow(row("GRAPHICS", "Shake"), "shake", "Screen shake", "Blasts and radiation wobble")
+	flagRow(row("GRAPHICS", "Flashing"), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
+	flagRow(row("GRAPHICS", "Auras"), "auras", "Show auras", "The auras around you and other players")
+	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Fast mode", "Hides other bases' nukes and stops their effects")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
-	local audio = pages.AUDIO
-	y = 0
-	buildSoundRow(row(audio, "Sound", y))
-	y += step
-	volumeRow(row(audio, "Master", y), "volMaster", "Master")
-	y += step
-	volumeRow(row(audio, "Effects", y), "volSfx", "Effects")
-	y += step
-	volumeRow(row(audio, "Interface", y), "volUi", "Interface")
-	y += step
-	volumeRow(row(audio, "Geiger", y), "volGeiger", "Geiger")
-	y += step
-	volumeRow(row(audio, "Music", y), "musicLevel", "Music")
+	buildSoundRow(row("AUDIO", "Sound"))
+	volumeRow(row("AUDIO", "Master", SLIDER_H), "volMaster", "Master")
+	volumeRow(row("AUDIO", "Effects", SLIDER_H), "volSfx", "Effects")
+	volumeRow(row("AUDIO", "Interface", SLIDER_H), "volUi", "Interface")
+	volumeRow(row("AUDIO", "Geiger", SLIDER_H), "volGeiger", "Geiger")
+	volumeRow(row("AUDIO", "Music", SLIDER_H), "musicLevel", "Music")
+
+	for _, frame in lastRow do
+		frame.Line.Visible = false
+	end
 
 	choose("GENERAL")
 
