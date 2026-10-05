@@ -41,6 +41,7 @@ local StarLine = require(script.Parent.Parent.StarLine)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local ItemArt = require(script.Parent.Parent.ItemArt)
+local Studded = require(script.Parent.Parent.Studded)
 
 local Nukes = {}
 
@@ -54,8 +55,10 @@ local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 -- rows with a grey well behind each model, chunky red / green buttons, every word in
 -- the house Gotham Black (UIKit.House) with a black outline.
 local PANEL = {
-	tray = Color3.fromHex("17191C"),
-	header = Color3.fromHex("3A3E45"),
+	-- The shop's glossy L-stud look (2026-10-05, on request: "apply the same pattern to
+	-- the nukes gui"): a dark grey studded tray under a purple patterned header.
+	tray = Color3.fromHex("2B2F36"),
+	header = ColorSequence.new(Color3.fromHex("D63BFF"), Color3.fromHex("B406E6")),
 	row = Color3.fromHex("0C0D0F"),
 	well = Color3.fromHex("4A4F57"),
 	dim = UIKit.House.dim,
@@ -532,17 +535,27 @@ local function buildPanel(): ScreenGui
 	padding.PaddingLeft = UDim.new(0, PAD)
 	padding.PaddingRight = UDim.new(0, PAD)
 	padding.Parent = tray
+	-- Under the tray's padding like every other child, so pushed back out to its edges.
+	local trayPattern = Studded.pattern(tray, {
+		bands = { 0.15, 0.42, 0.52, 0.58 },
+		bandTransparency = 0.93,
+		studTransparency = 0.1,
+		glow = false,
+	})
+	trayPattern.Position = UDim2.fromOffset(-PAD, -PAD)
+	trayPattern.Size = UDim2.new(1, 2 * PAD, 1, 2 * PAD)
 
-	-- The header box: a lighter grey plate over the list. The title with what the
-	-- stands pay beside it on the left; how full they are, on its own, on the right.
+	-- The header box: the shop's purple patterned title bar over the list. The title
+	-- with what the stands pay beside it on the left; how full they are on the right.
 	local header = Instance.new("Frame")
 	header.Name = "Header"
 	header.Size = UDim2.new(1, 0, 0, HEADER_H)
-	header.BackgroundColor3 = PANEL.header
 	header.BorderSizePixel = 0
 	header.ZIndex = 3
 	header.Parent = tray
+	Studded.fill(header, PANEL.header)
 	edge(header, PANEL.ink, 2)
+	Studded.pattern(header, { tile = 22, bands = { 0.28, 0.5, 0.58, 0.64 } })
 
 	local title = inked(header, {
 		Name = "Title",
