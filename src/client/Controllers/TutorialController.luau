@@ -151,11 +151,15 @@ local CHEVRON_GAP = 4
 local CHEVRON_SPEED = 7 -- studs/sec along the ribbon
 local CHEVRON_MAX = 28
 -- ON REQUEST (from a reference shot): fat, flat, glowing white chevrons, like arrow
--- decals lit from below. Neon is the exception to "guidance, not an effect" here.
+-- decals lit from below. (They were Neon until the "less bright" pass below.)
 -- ON REQUEST (stronger): bigger and fully opaque, with a dark outline (one Highlight
 -- over all of them) so they read on pale floors too.
-local CHEVRON_ARM = 2.6
-local CHEVRON_THICK = 1
+-- ON REQUEST (less bright, smaller): matte off-white, not Neon, a touch see-through,
+-- and about two-thirds the old size. The outline still carries them on pale floors.
+local CHEVRON_ARM = 1.8
+local CHEVRON_THICK = 0.7
+local CHEVRON_COLOR = Color3.fromHex("DDE3D6")
+local CHEVRON_OPACITY = 0.85
 local CHEVRON_ANGLE = math.rad(45)
 local CHEVRON_PARK = CFrame.new(0, -5000, 0) -- where unused arrows wait, out of the outline
 -- ON REQUEST: the arrows run at the height of your body, not on the ground. They float
@@ -1253,8 +1257,7 @@ local function stepGuide(dt: number)
 		local arms = {}
 		for _ = 1, 2 do
 			local arm = localPart("Chevron", arrows or folder)
-			arm.Color = Color3.fromHex("F4FFE8")
-			arm.Material = Enum.Material.Neon
+			arm.Color = CHEVRON_COLOR
 			arm.Size = Vector3.new(CHEVRON_THICK, 0.07, CHEVRON_ARM)
 			arm.Transparency = 1
 			table.insert(arms, arm)
@@ -1266,7 +1269,7 @@ local function stepGuide(dt: number)
 	local cframes: { CFrame } = {}
 	local sa, ca = math.sin(CHEVRON_ANGLE), math.cos(CHEVRON_ANGLE)
 	local back = CHEVRON_ARM / 2
-	local tip = CFrame.new(0, 0, -0.5)
+	local tip = CFrame.new(0, 0, -CHEVRON_THICK / 2)
 	for i, arms in chevrons do
 		local d = total - CHEVRON_END_PAD - (i - 1) * CHEVRON_GAP - (CHEVRON_GAP - phase)
 		if i > wanted or d < start then
@@ -1288,8 +1291,8 @@ local function stepGuide(dt: number)
 		table.insert(cframes, base * tip * CFrame.new(-sa * back, 0, ca * back) * CFrame.Angles(0, -CHEVRON_ANGLE, 0))
 		table.insert(parts, arms[2])
 		table.insert(cframes, base * tip * CFrame.new(sa * back, 0, ca * back) * CFrame.Angles(0, CHEVRON_ANGLE, 0))
-		arms[1].Transparency = 1 - fade
-		arms[2].Transparency = 1 - fade
+		arms[1].Transparency = 1 - fade * CHEVRON_OPACITY
+		arms[2].Transparency = 1 - fade * CHEVRON_OPACITY
 	end
 	if #parts > 0 then
 		Workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
