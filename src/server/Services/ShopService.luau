@@ -347,6 +347,21 @@ end
 --- ever reordered there, this comes out reordered too — which is correct, since the
 --- tier NUMBER is the thing the profile stores. `entry.tier` is that number, and it is
 --- NOT the entry's index in the list any more: a stall that sells 10-15 lists six entries.
+--- Has this player reached `camp` on foot (CampService's `data.camps[key]`)? Base Camp
+--- always. A reached camp's rungs are sold at EVERY stall of the track (2026-10-05, on
+--- request: "when you unlock an area it can be shown in any shop"), so the stall you
+--- stand at only decides what is on sale before you have got there.
+local function campUnlocked(data: any, camp: string): boolean
+	return camp == Camps.BASE or (type(data.camps) == "table" and data.camps[camp] == true)
+end
+
+--- Does the stall at `camp` sell `track`'s `tier` to this player: its own rungs, plus
+--- every rung of a camp the player has unlocked.
+local function sellsHere(data: any, track: string, tier: number, camp: string): boolean
+	local sellsAt = Gear.campOf(track, tier)
+	return sellsAt == camp or campUnlocked(data, sellsAt)
+end
+
 local function catalogFor(data: any, track: string, camp: string): { CatalogEntry }
 	local equipped = data.gear[Gear.profileKey(track)] or 1
 	local entries = {}
@@ -357,8 +372,9 @@ local function catalogFor(data: any, track: string, camp: string): { CatalogEntr
 		-- EVERY TIER IS LISTED NOW (2026-10-04, on request: "show all items but says
 		-- unlocked in zone 2 or 3"). One sold at another camp, and not owned, is shown
 		-- locked with that camp's zone; `buy` still refuses it here.
+		-- Once that camp is unlocked the lock comes off here too (`sellsHere`).
 		local sellsAt = Gear.campOf(track, tier)
-		local locked = not owned and sellsAt ~= camp
+		local locked = not owned and not sellsHere(data, track, tier, camp)
 		local zone = Camps.get(sellsAt)
 		local current = tier == equipped
 		local buyable = not owned and not locked
@@ -639,10 +655,12 @@ function ShopService.buy(player: Player, track: string, tier: number?): (boolean
 	-- AND THE STALL SELLS WHAT IS BEING ASKED FOR. Being at a Detector shop is not being
 	-- at the one that sells tier 12: Toxic Twilight's stall sells 10-15 and Base Camp's
 	-- 1-9, and a crafted request from one naming the other's tier would otherwise buy it.
+	-- A rung of a camp the player has unlocked is sold at every stall (`sellsHere`).
 	-- Only a real tier is judged here; a malformed one falls through to buyTier's own
 	-- "no such tier" so its message does not change.
 	if type(tier) == "number" and tier == math.floor(tier) and tier >= 1 and tier <= Gear.maxTier(track) then
-		if Gear.campOf(track, tier) ~= ShopService.campAt(player) then
+		local data = DataService.data(player)
+		if data == nil or not sellsHere(data, track, tier, ShopService.campAt(player)) then
 			return false, "this shop doesn't sell that one"
 		end
 	end
