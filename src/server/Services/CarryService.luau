@@ -63,6 +63,12 @@ local UNKNOWN_NAME = "???"
 
 local carryRemote: any = nil
 local holdRemote: any = nil
+local slotOrderRemote: any = nil
+
+-- The longest arrangement SlotOrder will store, and the longest uid in it. Well past
+-- any real bag; it only stops a client from writing junk into the profile.
+local MAX_SLOT_ORDER = 200
+local MAX_UID_LENGTH = 64
 local lastSignature: { [Player]: string } = {}
 
 --- The cheapest hose that can shift a patch of this hardness. Lives here rather
@@ -342,6 +348,9 @@ local function stepPlayer(player: Player)
 		capacity = stats.capacity,
 		items = described,
 		crates = crates,
+		-- The saved arrangement. The client adopts it once, on the first payload, and
+		-- owns it after that (it is the one dragging), so it is not in the signature.
+		order = if type(data.slotOrder) == "table" then data.slotOrder else {},
 	})
 end
 
@@ -350,6 +359,25 @@ end
 function CarryService.init()
 	carryRemote = Net.get("CarryState")
 	holdRemote = Net.get("HoldInput")
+	slotOrderRemote = Net.get("SlotOrder")
+end
+
+--- Store the client's hotbar/bag arrangement. Display order only, so it is sanitised
+--- rather than validated against the bag: a uid that is not in it is an empty slot.
+local function setSlotOrder(player: Player, order: any)
+	local data = DataService.data(player)
+	if data == nil or type(order) ~= "table" then
+		return
+	end
+	local clean = {}
+	for index = 1, math.min(#order, MAX_SLOT_ORDER) do
+		local uid = order[index]
+		table.insert(clean, if type(uid) == "string" and #uid <= MAX_UID_LENGTH then uid else "")
+	end
+	while #clean > 0 and clean[#clean] == "" do
+		table.remove(clean)
+	end
+	data.slotOrder = clean
 end
 
 function CarryService.start()
@@ -358,6 +386,7 @@ function CarryService.start()
 		-- an empty-hands request has to be expressible, and it is `nil` or "".
 		CarryService.hold(player, if type(uid) == "string" then uid else nil)
 	end)
+	slotOrderRemote.OnServerEvent:Connect(setSlotOrder)
 
 	Ticker.every(Tuning.TICK_RATE, function()
 		for _, player in Players:GetPlayers() do

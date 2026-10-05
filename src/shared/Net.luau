@@ -96,6 +96,10 @@ local REMOTES: { [string]: string } = {
 	-- anything you are not holding, so this had to become real state rather than the
 	-- client-only hotbar selection it used to be.
 	HoldInput = "RemoteEvent", -- client -> server, "hold this uid" (or nil for nothing)
+	-- Where each item sits in the hotbar/bag after a drag-to-swap (InventoryController).
+	-- Client -> server { uid or "" } by slot; saved as data.slotOrder and handed back
+	-- on CarryState (`order`) so the arrangement survives a rejoin.
+	SlotOrder = "RemoteEvent",
 
 	-- Supply crates (Config/Crates). CrateOpen asks to open the crate in your hands; a
 	-- nuke crate answers on CrateOpened (the reel popup), a liquid crate on FluidSpin.

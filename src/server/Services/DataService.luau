@@ -77,6 +77,10 @@ local TEMPLATE = {
 	-- Supply crates (Config/Crates), { uid, crateId }. Their own list, NOT in `carry`,
 	-- but they share its slots -- Shared/Bag.used counts both.
 	crates = {},
+	-- The hotbar/bag arrangement (InventoryController's drag-to-swap): the uid in each
+	-- slot by index, "" for an empty one -- never nil, so the array has no gaps. Only
+	-- display order; nothing server-side reads it. Stale uids are just empty slots.
+	slotOrder = {},
 
 	exhibit = {
 		-- How many floors this base has been built up to (Config/Floors): 1 is the free

@@ -44,6 +44,13 @@
 	stars, damage, radius, fuse and cooldown, out of Shared/Bombing -- the same
 	function the server detonates with. While the drop cooldown runs, every clean nuke
 	slot wears a draining shade and the seconds left.
+
+	DRAG A SLOT ONTO ANOTHER TO SWAP THEM (onto an empty one to move it), across the
+	hotbar and the bag panel alike. Mouse: press and pull past DRAG_THRESHOLD. Touch:
+	hold for TOUCH_HOLD first, so a quick swipe still scrolls the row. Items keep their
+	slot from then on -- selling slot 2 leaves a gap rather than shuffling 3-10 down a
+	key -- and a new find takes the first empty slot. The arrangement is saved
+	(Net.SlotOrder -> data.slotOrder) and adopted again from the first CarryState.
 ]]
 
 local Players = game:GetService("Players")
@@ -110,6 +117,13 @@ local KEYS = {
 	[Enum.KeyCode.Zero] = 10,
 }
 local BAG_KEY = Enum.KeyCode.Backquote
+-- Drag-to-swap: how far (screen px) a mouse press travels before it is a drag rather
+-- than a click, and how long a touch holds still before it picks the slot up.
+local DRAG_THRESHOLD = 8
+local TOUCH_HOLD = 0.35
+-- A held finger may wander this far (screen px) before it counts as a swipe instead.
+local TOUCH_SLOP = 12
+local DRAG_TARGET = Color3.fromRGB(255, 255, 255)
 local BOMB_KEY = Enum.KeyCode.G
 
 -- The bomb card over a hovered slot (Shared/Bombing's stats).
@@ -164,6 +178,13 @@ local state = {
 	capacity = 0,
 	limit = 0,
 	items = {} :: { any },
+	-- What sits in each slot, by index (sparse: nil is an empty slot). Built from
+	-- `items` and `order` by layoutSlots; everything that asks "what is in slot N"
+	-- reads this, never `items[N]`.
+	slots = {} :: { [number]: any },
+	-- The uid in each slot, "" for empty. nil until the first CarryState hands over
+	-- the saved one; owned by this client after that.
+	order = nil :: { string }?,
 }
 
 local ui = {}
@@ -180,8 +201,15 @@ local bombCooldown = 0 -- the full length of the running cooldown, for the shade
 local coolConnection: RBXScriptConnection? = nil
 local cardSlot: any = nil -- the slot the bomb card is showing for
 local confirmUid: string? = nil -- the Rare+ nuke the "are you sure?" is asking about
+local slotOrderRemote: any = nil
+-- The press that may become a drag: { entry, from, start, input, touch, active }.
+local drag: any = nil
+-- A drag that ends over its own slot still fires that slot's click; this eats it.
+local suppressClickUntil = 0
 -- Assigned below, once itemByUid exists; the slots' hover handlers call through it.
 local showCard: (slot: any?) -> () = function() end
+-- Assigned with the rest of the drag code; makeSlot's press handler calls through it.
+local beginPress: (entry: any, input: InputObject) -> () = function() end
 
 --- Is this bag entry something G can drop? Clean nukes only (Shared/Bombing).
 local function droppable(item: any): boolean
@@ -393,9 +421,15 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	coolText.Visible = false
 	coolText.ZIndex = 11
 
-	slot.MouseButton1Click:Connect(onClick)
+	slot.MouseButton1Click:Connect(function()
+		if os.clock() < suppressClickUntil then
+			return
+		end
+		onClick()
+	end)
 
 	local entry = {
+		index = index,
 		button = slot,
 		stroke = stroke,
 		key = key,
@@ -406,8 +440,13 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		coolText = coolText,
 		uid = nil :: string?,
 	}
+	slot.InputBegan:Connect(function(input)
+		beginPress(entry, input)
+	end)
 	slot.MouseEnter:Connect(function()
-		showCard(entry)
+		if drag == nil or not drag.active then
+			showCard(entry)
+		end
 	end)
 	slot.MouseLeave:Connect(function()
 		if cardSlot == entry then
@@ -1002,6 +1041,43 @@ local function itemByUid(uid: string?): any
 	return nil
 end
 
+--- Seat every item in a slot: first wherever `order` already has it (inside the bag's
+--- capacity), then anything new into the first empty slots, in bag order. Rewrites
+--- `order` to match, so a find keeps the slot it landed in and a sale leaves a gap.
+local function layoutSlots()
+	local byUid = {}
+	for _, item in state.items do
+		byUid[item.uid] = item
+	end
+	local slotsNow = {}
+	local seated = {}
+	for index, uid in state.order or {} do
+		local item = byUid[uid]
+		if index <= state.capacity and item and not seated[uid] then
+			slotsNow[index] = item
+			seated[uid] = true
+		end
+	end
+	local nextFree = 1
+	for _, item in state.items do
+		if not seated[item.uid] then
+			while slotsNow[nextFree] do
+				nextFree += 1
+			end
+			slotsNow[nextFree] = item
+			seated[item.uid] = true
+		end
+	end
+	state.slots = slotsNow
+
+	local order = {}
+	for index = 1, state.capacity do
+		local item = slotsNow[index]
+		order[index] = if item then item.uid else ""
+	end
+	state.order = order
+end
+
 -- ── Bomb card + cooldown ────────────────────────────────────────────
 
 --- Fill the card's footer: how to drop it, or how long until you can.
@@ -1254,7 +1330,7 @@ end
 local function paintSlot(slot: any, index: number)
 	slot.key.Text = keyText(index)
 
-	local item = state.items[index]
+	local item = state.slots[index]
 	slot.uid = if item then item.uid else nil
 
 	if item == nil then
@@ -1286,14 +1362,21 @@ local function renderBagTile()
 	end
 	tile.Size = UDim2.fromOffset(slotWidth(), slotWidth())
 
-	local overflow = math.max(0, #state.items - HOTBAR_SLOTS)
+	-- Items past the hotbar, counted by slot: with gaps in the row that is not
+	-- simply #items - 10.
+	local overflow = 0
+	for index, _ in state.slots do
+		if index > HOTBAR_SLOTS then
+			overflow += 1
+		end
+	end
 	ui.bagTileCount.Text = if overflow > 0 then `+{overflow}` else `{#state.items}/{state.limit}`
 	ui.bagTileCount.TextColor3 = if overflow > 0 then COLOR.amber else COLOR.dim
 
 	-- Holding something that lives in the bag: the tile wears its colour, so the
 	-- selection is never invisible just because its slot is off the row.
 	local heldIndex = nil
-	for index, item in state.items do
+	for index, item in state.slots do
 		if item.uid == selected then
 			heldIndex = index
 			break
@@ -1301,7 +1384,7 @@ local function renderBagTile()
 	end
 	if heldIndex and heldIndex > HOTBAR_SLOTS then
 		tile.BackgroundColor3 = SLOT_SELECTED
-		local held = state.items[heldIndex]
+		local held = state.slots[heldIndex]
 		tint(ui.bagTileStroke, "Color", itemColour(held), itemRarity(held))
 		ui.bagTileStroke.Thickness = 3
 	else
@@ -1440,6 +1523,253 @@ local function renderSlots()
 	end
 end
 
+-- ── Drag to swap ────────────────────────────────────────────────────
+
+--- An input's spot in the same space as AbsolutePosition. Both start under the
+--- topbar whatever a gui's IgnoreGuiInset says, so no inset goes on here (adding it
+--- put every hit-test a topbar's height low).
+local function pointerOf(input: InputObject): Vector2
+	return Vector2.new(input.Position.X, input.Position.Y)
+end
+
+--- An AbsolutePosition-space point as an Offset inside the drag gui, which (being
+--- IgnoreGuiInset) has its origin a topbar higher.
+local function dragOffset(point: Vector2): UDim2
+	local origin = ui.dragGui.AbsolutePosition
+	return UDim2.fromOffset(point.X - origin.X, point.Y - origin.Y)
+end
+
+local function inside(gui: GuiObject, point: Vector2): boolean
+	local min = gui.AbsolutePosition
+	local max = min + gui.AbsoluteSize
+	return point.X >= min.X and point.X <= max.X and point.Y >= min.Y and point.Y <= max.Y
+end
+
+--- The slot under `point`: the hotbar row, or (open) the bag panel. A bag cell
+--- scrolled out of its scroller's window does not count.
+local function slotAt(point: Vector2): any
+	for _, entry in slots do
+		if entry.button.Visible and inside(ui.row, point) and inside(entry.button, point) then
+			return entry
+		end
+	end
+	if bagOpen then
+		for _, entry in bagCells do
+			if entry.button.Visible and inside(entry.button, point) then
+				local clipped = entry.index > HOTBAR_SLOTS and not inside(ui.bagScroller, point)
+				if not clipped then
+					return entry
+				end
+			end
+		end
+	end
+	return nil
+end
+
+--- Swap slots `a` and `b` (either may be empty), redraw, and save the arrangement.
+local function swapSlots(a: number, b: number)
+	local order = state.order
+	if order == nil or a == b or a > state.capacity or b > state.capacity then
+		return
+	end
+	order[a], order[b] = order[b], order[a]
+	layoutSlots()
+	renderSlots()
+	Sfx.play("click")
+	if slotOrderRemote then
+		slotOrderRemote:FireServer(state.order)
+	end
+end
+
+local function setScrolling(enabled: boolean)
+	for _, frame in { ui.row, ui.bagScroller } do
+		if frame and frame:IsA("ScrollingFrame") then
+			frame.ScrollingEnabled = enabled
+		end
+	end
+end
+
+local function moveGhost(point: Vector2)
+	ui.dragGhost.Position = dragOffset(point - ui.dragGhost.AbsoluteSize / 2)
+	local target = slotAt(point)
+	local highlight = ui.dragTarget
+	if target and target.index ~= drag.from then
+		local button = target.button
+		highlight.Size = UDim2.fromOffset(button.AbsoluteSize.X, button.AbsoluteSize.Y)
+		highlight.Position = dragOffset(button.AbsolutePosition)
+		highlight.Visible = true
+	else
+		highlight.Visible = false
+	end
+end
+
+--- The press turns into a drag: lift a copy of the slot onto the cursor.
+local function startDrag(point: Vector2)
+	local item = state.slots[drag.from]
+	if item == nil then
+		drag = nil
+		return
+	end
+	drag.active = true
+	showCard(nil)
+	setScrolling(false)
+
+	local source = drag.entry.button
+	local ghost = ui.dragGhost
+	ghost.Size = UDim2.fromOffset(source.AbsoluteSize.X, source.AbsoluteSize.Y)
+	tint(ui.dragGhostStroke, "Color", itemColour(item), itemRarity(item))
+	ItemArt.paint(ui.dragGhostViewport, item, 1)
+	ui.dragGui.Enabled = true
+	source.BackgroundTransparency = 0.6
+	moveGhost(point)
+end
+
+local function endDrag(point: Vector2?)
+	local current = drag
+	drag = nil
+	if current == nil or not current.active then
+		return
+	end
+	ui.dragGui.Enabled = false
+	ui.dragTarget.Visible = false
+	ItemArt.clear(ui.dragGhostViewport)
+	setScrolling(true)
+	-- Released over its own slot: MouseButton1Click is still on its way. Eat it.
+	suppressClickUntil = os.clock() + 0.2
+	local target = if point then slotAt(point) else nil
+	if target and target.index ~= current.from then
+		swapSlots(current.from, target.index)
+	else
+		renderSlots() -- puts the faded source slot back
+	end
+end
+
+beginPress = function(entry: any, input: InputObject)
+	local touch = input.UserInputType == Enum.UserInputType.Touch
+	if not touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		return
+	end
+	if drag ~= nil or state.slots[entry.index] == nil then
+		return
+	end
+	local press = {
+		entry = entry,
+		from = entry.index,
+		start = pointerOf(input),
+		input = input,
+		touch = touch,
+		active = false,
+	}
+	drag = press
+	if touch then
+		-- A finger has no hover-then-press: it holds still to pick up, so a swipe
+		-- along the row still scrolls it.
+		task.delay(TOUCH_HOLD, function()
+			if drag == press and not press.active then
+				startDrag(press.start)
+			end
+		end)
+	end
+end
+
+local function buildDragGui(): ScreenGui
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "SlotDrag"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	-- Over the hotbar (60), the bag panel (108) and its card.
+	gui.DisplayOrder = 115
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Enabled = false
+
+	-- Where it will land: a white ring over the target slot.
+	local target = Instance.new("Frame")
+	target.Name = "Target"
+	target.BackgroundColor3 = DRAG_TARGET
+	target.BackgroundTransparency = 0.85
+	target.BorderSizePixel = 0
+	target.Visible = false
+	target.Parent = gui
+	local targetCorner = Instance.new("UICorner")
+	targetCorner.CornerRadius = UDim.new(0, 7)
+	targetCorner.Parent = target
+	local targetStroke = Instance.new("UIStroke")
+	targetStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	targetStroke.Color = DRAG_TARGET
+	targetStroke.Thickness = 3
+	targetStroke.Parent = target
+	ui.dragTarget = target
+
+	-- The lifted item, under the cursor.
+	local ghost = Instance.new("Frame")
+	ghost.Name = "Ghost"
+	ghost.BackgroundColor3 = SLOT_SELECTED
+	ghost.BackgroundTransparency = 0.15
+	ghost.BorderSizePixel = 0
+	ghost.ZIndex = 2
+	ghost.Parent = gui
+	local ghostCorner = Instance.new("UICorner")
+	ghostCorner.CornerRadius = UDim.new(0, 7)
+	ghostCorner.Parent = ghost
+	local ghostStroke = Instance.new("UIStroke")
+	ghostStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	ghostStroke.Thickness = RARITY_STROKE_SELECTED
+	ghostStroke.Parent = ghost
+	local art = Instance.new("Frame")
+	art.Name = "Art"
+	art.BackgroundTransparency = 1
+	art.AnchorPoint = Vector2.new(0.5, 0.5)
+	art.Position = UDim2.fromScale(0.5, 0.5)
+	art.Size = UDim2.new(1, -8, 1, -8)
+	art.ZIndex = 3
+	art.Parent = ghost
+	ui.dragGhost = ghost
+	ui.dragGhostStroke = ghostStroke
+	ui.dragGhostViewport = ItemArt.newViewport(art)
+	return gui
+end
+
+local function watchDrag()
+	UserInputService.InputChanged:Connect(function(input)
+		local press = drag
+		if press == nil then
+			return
+		end
+		local moved = if press.touch
+			then input == press.input
+			else input.UserInputType == Enum.UserInputType.MouseMovement
+		if not moved then
+			return
+		end
+		local point = pointerOf(input)
+		if press.active then
+			moveGhost(point)
+		elseif press.touch then
+			if (point - press.start).Magnitude > TOUCH_SLOP then
+				drag = nil -- a swipe: the row scrolls, nothing is picked up
+			end
+		elseif (point - press.start).Magnitude > DRAG_THRESHOLD then
+			startDrag(point)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		local press = drag
+		if press == nil then
+			return
+		end
+		local released = if press.touch
+			then input == press.input
+			else input.UserInputType == Enum.UserInputType.MouseButton1
+		if released then
+			endDrag(pointerOf(input))
+		end
+	end)
+	-- A drag left hanging when the window loses focus mid-press: put it back.
+	UserInputService.WindowFocusReleased:Connect(function()
+		endDrag(nil)
+	end)
+end
+
 -- ── Notice popup ────────────────────────────────────────────────────
 
 --- Pop a refusal up over the hotbar ("inventory full"). A new one restarts the
@@ -1502,7 +1832,7 @@ end
 --- Fires even when the selection clears, because empty-handed is a state the tub
 --- checks for, not the absence of one.
 function Inventory.select(index: number)
-	local item = state.items[index]
+	local item = state.slots[index]
 	-- selene: allow(if_same_then_else)
 	-- The empty-slot and same-key-again cases both clear the selection, but they are
 	-- distinct player intents and read better kept apart than merged behind an `or`.
@@ -1618,6 +1948,9 @@ function Inventory.start()
 	ui.cardGui = buildBombCard()
 	ui.cardGui.Parent = playerGui
 	buildRateTag(playerGui)
+	ui.dragGui = buildDragGui()
+	ui.dragGui.Parent = playerGui
+	watchDrag()
 
 	-- ROBLOX'S OWN BACKPACK HAS TO GO, AND NOT JUST BECAUSE IT IS REDUNDANT.
 	-- CoreGui binds the number row to its hotbar slots (and ` to its inventory).
@@ -1636,6 +1969,7 @@ function Inventory.start()
 
 	holdRemote = Net.get("HoldInput")
 	bombRemote = Net.get("BombDrop")
+	slotOrderRemote = Net.get("SlotOrder")
 
 	Net.get("Notice").OnClientEvent:Connect(function(message)
 		Inventory.notice(tostring(message))
@@ -1678,6 +2012,20 @@ function Inventory.start()
 			end
 		end
 		state.capacity = math.max(state.limit, #state.items)
+
+		-- The saved arrangement, once: after that this client is the one moving
+		-- things, and a payload that crossed a drag in flight must not undo it.
+		if state.order == nil then
+			state.order = {}
+			for _, uid in payload.order or {} do
+				table.insert(state.order, if type(uid) == "string" then uid else "")
+			end
+		end
+		layoutSlots()
+		-- Whatever was being dragged may have just left the bag.
+		if drag and drag.active and state.slots[drag.from] == nil then
+			endDrag(nil)
+		end
 
 		-- A selection whose item just left the bag — sold, racked, slagged — must not
 		-- keep a stale card on screen. Keyed by uid rather than index precisely so
