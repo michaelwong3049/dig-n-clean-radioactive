@@ -106,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 65
+local BUILDER_VERSION = 66
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -2067,9 +2067,11 @@ end
 ---   * leave barrels, ooze pools and every un-reworked `prop()` kind on the shelf.
 
 --- Stage 2 -- on request (2026-10-04, "put all the trees in the top left corner,
---- spaced out"): the dead trees stand as one loose grove in the field's NEAR-LEFT
---- corner -- the Stage 1 seam end (-X), on the -Z wall, left of the walk in from camp
+--- spaced out"): the dead trees stand as one loose grove in the field's FAR-LEFT
+--- corner -- the Stage 3 seam end (+X), on the -Z wall, left of the walk in from camp
 --- -- instead of lining both long edges (the old scatterFieldTrees, in git history).
+--- "Top left" is as you walk in: top = the far end, left = the -Z wall. The first
+--- pass read it as the near end, which the user called the bottom left.
 --- Staggered offsets off that corner rather than a grid, every pair 38+ studs apart
 --- so the canopies never touch, each nudged a few studs by the stage rng so the grove
 --- doesn't read as planted rows. More trees than offsets just stop at the list's end.
@@ -2079,7 +2081,7 @@ local function scatterCornerTrees(folder: Instance, origin: CFrame, count: numbe
 	local CORNER_GROVE_JITTER = 3
 	for i = 1, math.min(count, #CORNER_GROVE) do
 		local o = CORNER_GROVE[i]
-		local x = -hx + o[1] + rng:NextNumber(-CORNER_GROVE_JITTER, CORNER_GROVE_JITTER)
+		local x = hx - o[1] + rng:NextNumber(-CORNER_GROVE_JITTER, CORNER_GROVE_JITTER)
 		local z = -hz + o[2] + rng:NextNumber(-CORNER_GROVE_JITTER, CORNER_GROVE_JITTER)
 		deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
 	end
@@ -3075,10 +3077,14 @@ local function scatterOozePools(
 	hz: number,
 	ooze: { bright: string, deep: string, glow: string }
 ): (number, number, number)
+	-- Every pool sits in the LEFT half as you walk in (the -Z side), on request
+	-- (2026-10-04, "move the pools in ooze marsh to the left"): the lake against the
+	-- -Z wall, the rest dealt over z in [zLo, zHi] instead of the full width.
+	local zLo, zHi = -hz, 0
 	-- The lake: one per field.
 	local lakeR = rng:NextNumber(26, 33)
 	local lakeX = rng:NextNumber(-hx * 0.3, hx * 0.45)
-	local lakeZ = rng:NextNumber(-hz + lakeR, hz - lakeR)
+	local lakeZ = -hz + lakeR + rng:NextNumber(2, 8)
 	oozePool(folder, origin, lakeX, lakeZ, lakeR, rng, ooze, hx, hz)
 
 	-- The rest, as a size ladder: broad pools, mid ones, then spills. Dealt from a
@@ -3114,11 +3120,11 @@ local function scatterOozePools(
 	local mateR = table.remove(sizes, big)
 	local mateDir = if lakeX > 0 then -1 else 1
 	local mateX = math.clamp(lakeX + mateDir * (lakeR + mateR + rng:NextNumber(4, 8)), -hx + mateR, hx - mateR)
-	local mateZ = math.clamp(lakeZ + rng:NextNumber(-0.4, 0.4) * lakeR, -hz + mateR, hz - mateR)
+	local mateZ = math.clamp(lakeZ + rng:NextNumber(-0.4, 0.4) * lakeR, zLo + mateR, zHi - mateR)
 	oozePool(folder, origin, mateX, mateZ, mateR, rng, ooze, hx, hz)
 	rest -= 1
 
-	local cols = math.ceil(math.sqrt(rest * (hx / hz)))
+	local cols = math.ceil(math.sqrt(rest * (2 * hx / (zHi - zLo))))
 	local rows = math.ceil(rest / cols)
 
 	-- COLUMN COUNTS ARE ASSIGNED, NOT ROLLED -- found live, on report ("space them out
@@ -3173,9 +3179,9 @@ local function scatterOozePools(
 	-- the lake, reading as a single clump in the middle of an otherwise sparse
 	-- field. Marking the covered cells unavailable BEFORE the deal spreads the same
 	-- eleven pools over the cells that are actually open, out toward the edges.
-	local cellW, cellH = 2 * hx / cols, 2 * hz / rows
+	local cellW, cellH = 2 * hx / cols, (zHi - zLo) / rows
 	local function cellCenter(col: number, row: number): (number, number)
-		return -hx + (col - 0.5) * cellW, -hz + (row - 0.5) * cellH
+		return -hx + (col - 0.5) * cellW, zLo + (row - 0.5) * cellH
 	end
 	local blocked: { [number]: { [number]: boolean } } = {}
 	local blockRadiusSq = (lakeR + math.max(cellW, cellH) * 0.5) ^ 2
@@ -3298,7 +3304,7 @@ local function scatterOozePools(
 			dealt += 1
 			local r = sizes[dealt]
 			local px = -hx + (col - 0.5 + rng:NextNumber(-0.34, 0.34)) * cellW
-			local pz = -hz + (row - 0.5 + rng:NextNumber(-0.34, 0.34)) * cellH
+			local pz = zLo + (row - 0.5 + rng:NextNumber(-0.34, 0.34)) * cellH
 
 			-- BACKSTOP ONLY -- the lake's cells are already out of the deal, so this
 			-- almost never fires; it just catches a pool whose cell-jitter nudged it
@@ -3322,7 +3328,7 @@ local function scatterOozePools(
 				px, pz = mateX + ux * need, mateZ + uz * need
 			end
 
-			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, -hz, hz), r, rng, ooze, hx, hz)
+			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, zLo, zHi), r, rng, ooze, hx, hz)
 		end
 	end
 	-- Where the lake landed (stage-local), for the cordon strung round it.
