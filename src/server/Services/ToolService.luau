@@ -51,6 +51,7 @@ local Payload = require(Shared.Config.Payload)
 local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
+local Contamination = require(Shared.Contamination)
 local ToolModels = require(Shared.ToolModels)
 local CrateModels = require(Shared.CrateModels)
 local Crates = require(Shared.Config.Crates)
@@ -83,6 +84,10 @@ local HELD_ITEM_SIZE = 5.94
 --- equipItem) -- just enough that the underside reads as resting ON the hands
 --- instead of poking through them.
 local HELD_ITEM_LIFT = 0.15
+
+--- How many rocks the crust on a held item is tiled from (Shared/ItemCrust), against
+--- the wash tub's hundred: it rides on a character every nearby player is drawing.
+local HELD_CRUST_ROCKS = 48
 
 --- A held supply crate's FOOTPRINT (width/depth, CrateModels.FOOTPRINT_OF), in studs.
 --- Not scaled by Config/Payload, and measured across rather than by longest side so
@@ -685,7 +690,14 @@ local function equipItem(character: Model, item: any?): boolean
 	-- pointed at.
 	held:SetAttribute("Crust", wantedChunks)
 	if wantedChunks > 0 then
-		ItemCrust.encase(held, wantedChunks, item.rarity, item.uid)
+		-- Laid out for every chunk it started with, so the washed sides are bare rather
+		-- than the rocks that are left spreading back over the whole item. Fewer, bigger
+		-- rocks than the tub's: this one is on a character other players can see.
+		local ok, started = pcall(Contamination.initialCount, item.rarity, item.modifier or "None")
+		ItemCrust.encase(held, wantedChunks, item.rarity, item.uid, {
+			total = if ok then started else wantedChunks,
+			rocks = HELD_CRUST_ROCKS,
+		})
 	end
 
 	held.Parent = character

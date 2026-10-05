@@ -343,6 +343,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
+local ItemCrust = require(Shared.ItemCrust)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local WashFluidBar = require(script.Parent.Parent.WashFluidBar)
@@ -730,6 +731,12 @@ local sprayEmitters: { ParticleEmitter } = {}
 local jetShown = false
 local spraying = false
 local aimedZone: number? = nil
+-- WHICH ROCK of the aimed chunk the water is landing on (ItemCrust.rockOf). The server
+-- breaks that chunk's rocks off nearest it first. Re-sent on its own at most every
+-- ROCK_REPORT seconds, since a stream swept across a chunk crosses a rock every frame.
+local aimedRock: number? = nil
+local rockSentAt = 0
+local ROCK_REPORT = 0.1
 local renderBound = false
 
 -- The first-person view, as a thing that is either on or off. `viewActive` is what
@@ -1417,7 +1424,7 @@ local sprayTouch: InputObject? = nil
 local function setSpraying(on: boolean)
 	spraying = on
 	if inputRemote and state ~= nil then
-		inputRemote:FireServer({ spraying = on, zone = aimedZone, weak = WashWeakSpots.aimed })
+		inputRemote:FireServer({ spraying = on, zone = aimedZone, weak = WashWeakSpots.aimed, rock = aimedRock })
 	end
 end
 
@@ -2306,10 +2313,22 @@ local function onRender(dt: number)
 	-- the slate-grey rock eroding at a crawl is what says how slowly.
 	paintReticle(dt, target ~= nil, weakId ~= nil)
 
-	if target ~= aimedZone or weakChanged then
+	-- The rock under the water, only when it belongs to the chunk being worked: a hit
+	-- across a seam, or a near miss rounded onto a chunk, says nothing about which of
+	-- its rocks to break.
+	local rock: number? = nil
+	if landingPart and target and landingPart:GetAttribute("WashZone") == target then
+		rock = ItemCrust.rockOf(landingPart)
+	end
+	local now = os.clock()
+	local rockDue = rock ~= nil and rock ~= aimedRock and now - rockSentAt >= ROCK_REPORT
+
+	if target ~= aimedZone or weakChanged or rockDue then
 		aimedZone = target
+		aimedRock = rock
+		rockSentAt = now
 		if inputRemote then
-			inputRemote:FireServer({ spraying = spraying, zone = aimedZone, weak = WashWeakSpots.aimed })
+			inputRemote:FireServer({ spraying = spraying, zone = aimedZone, weak = WashWeakSpots.aimed, rock = aimedRock })
 		end
 	end
 end
@@ -2410,6 +2429,7 @@ local function teardown()
 	state = nil
 	spraying = false
 	aimedZone = nil
+	aimedRock = nil
 	leaving = false
 	lookYaw, lookPitch = 0, 0
 	padLook = Vector2.zero
