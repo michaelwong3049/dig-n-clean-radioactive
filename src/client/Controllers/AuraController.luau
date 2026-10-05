@@ -610,7 +610,13 @@ local wrapped: { Trail } = {}
 --- Shop card atoms (AuraLook.ICON_TAG) -> the pose their card's camera was framed at,
 --- captured the first frame the card is on screen (StationController frames the
 --- camera as it parents the model, so by then the framing is final).
-local icons: { [Model]: { base: CFrame? } } = {}
+local icons: { [Model]: { base: CFrame?, still: boolean? } } = {}
+
+--- FAST MODE's still card: the atom is turned this far from the card's own framing and
+--- its electrons are put where they are at STILL_TIME, once, instead of turning every
+--- frame. Chosen by eye: a three-quarter view with the electrons spread round the rings.
+local STILL_ANGLE = 0.55
+local STILL_TIME = 1.7
 
 --- True while `gui` is drawn and at least partly inside the screen: every ancestor
 --- Visible, its ScreenGui Enabled, and its rect not wholly off either side. The shop
@@ -634,6 +640,26 @@ local function onScreen(gui: GuiObject, screenWidth: number): boolean
 	return false
 end
 
+--- Hold every on-screen shop atom on its still pose (once; it stays put after that).
+local function stillIcons(screenWidth: number)
+	for model, entry in icons do
+		local viewport = model.Parent
+		if entry.still or viewport == nil or not viewport:IsA("ViewportFrame") or not onScreen(viewport, screenWidth) then
+			continue
+		end
+		local camera = viewport.CurrentCamera
+		if camera == nil then
+			continue
+		end
+		if entry.base == nil then
+			entry.base = camera.CFrame
+		end
+		camera.CFrame = CFrame.fromAxisAngle(Vector3.yAxis, -STILL_ANGLE) * (entry.base :: CFrame)
+		AuraLook.poseIcon(model, STILL_TIME)
+		entry.still = true
+	end
+end
+
 local function stepIcons(now: number, screenWidth: number)
 	for model, entry in icons do
 		local viewport = model.Parent
@@ -647,6 +673,7 @@ local function stepIcons(now: number, screenWidth: number)
 		if entry.base == nil then
 			entry.base = camera.CFrame
 		end
+		entry.still = false
 		-- The atom's pivot is the origin (StationController pivots it there), so turning
 		-- the camera about the world Y circles it. Backwards, so the atom turns forwards.
 		camera.CFrame = CFrame.fromAxisAngle(Vector3.yAxis, -now * AuraLook.PRECESS) * (entry.base :: CFrame)
@@ -669,7 +696,12 @@ local function step(dt: number)
 	local now = os.clock()
 	-- SHOW AURAS (Settings > Graphics) off: no aura is drawn.
 	local hideAll = Prefs.get("auras") == false
-	stepIcons(now, camera.ViewportSize.X)
+	-- FAST MODE: the shop cards' atoms stay a still picture instead of turning.
+	if Prefs.get("fastMode") ~= true then
+		stepIcons(now, camera.ViewportSize.X)
+	else
+		stillIcons(camera.ViewportSize.X)
+	end
 	table.clear(movedParts)
 	table.clear(movedFrames)
 

@@ -112,12 +112,14 @@ local GearProducts = require(Shared.Config.GearProducts)
 local Camps = require(Shared.Config.Camps) -- a locked card's zone number
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial)
+local AuraLook = require(Shared.AuraLook)
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
 local GearArt = require(script.Parent.Parent.GearArt)
+local Prefs = require(script.Parent.Parent.Prefs)
 local Studded = require(script.Parent.Parent.Studded) -- the studded look's shared tiles
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
@@ -1721,6 +1723,64 @@ local function robuxText(productId: number): string
 	return ROBUX
 end
 
+--- FAST MODE's still aura card: AuraController holds the atom on a chosen pose, and this
+--- makes the card worth looking at without drawing a frame more. A soft glow in the
+--- aura's colour behind the atom (a few stacked circles, static), the card's edge and
+--- the name in that colour, and a locked rung dimmed less so its shape still reads. All
+--- of it is painted once per refresh. Anything else (not FAST MODE, not the Aura track)
+--- has the glow taken away again.
+local GLOW_RINGS = {
+	{ size = 0.95, transparency = 0.93 },
+	{ size = 0.78, transparency = 0.88 },
+	{ size = 0.6, transparency = 0.8 },
+	{ size = 0.42, transparency = 0.7 },
+}
+
+local function paintStillAura(card: Frame, tier: number, locked: boolean, nameLabel: TextLabel, cardStroke: UIStroke, on: boolean)
+	local art = card.CardArt :: ImageLabel
+	local glow = art:FindFirstChild("StillGlow") :: Frame?
+	if not on then
+		if glow then
+			glow:Destroy()
+		end
+		return
+	end
+
+	local color = AuraLook.get(tier).color
+	if glow == nil then
+		glow = Instance.new("Frame")
+		glow.Name = "StillGlow"
+		glow.BackgroundTransparency = 1
+		glow.Size = UDim2.fromScale(1, 1)
+		glow.ZIndex = 0
+		glow.Parent = art
+		for index, ring in GLOW_RINGS do
+			local disc = Instance.new("Frame")
+			disc.Name = `Disc{index}`
+			disc.AnchorPoint = Vector2.new(0.5, 0.5)
+			disc.Position = UDim2.fromScale(0.5, 0.5)
+			-- Square on the art's HEIGHT, so each disc is a circle.
+			disc.SizeConstraint = Enum.SizeConstraint.RelativeYY
+			disc.Size = UDim2.fromScale(ring.size, ring.size)
+			disc.BorderSizePixel = 0
+			disc.ZIndex = 0
+			disc.Parent = glow
+			local round = Instance.new("UICorner")
+			round.CornerRadius = UDim.new(0.5, 0)
+			round.Parent = disc
+		end
+	end
+	local fade = if locked then 0.55 else 0
+	for index, ring in GLOW_RINGS do
+		local disc = (glow :: Frame):FindFirstChild(`Disc{index}`) :: Frame
+		disc.BackgroundColor3 = color
+		disc.BackgroundTransparency = 1 - (1 - ring.transparency) * (1 - fade)
+	end
+
+	cardStroke.Color = if locked then cardStroke.Color:Lerp(color, 0.4) else color
+	nameLabel.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.45)
+end
+
 --- Four states, and all four are drawn on the same card rather than on four layouts.
 ---
 --- ISSUED    the one in your hands. Amber edge, a ghost button that says so: IN HAND,
@@ -1792,6 +1852,14 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 	end
 	-- A locked rung's item is shown dimmed, a hint of what is waiting further on.
 	(card.CardArt.CardModel :: ViewportFrame).ImageColor3 = if entry.lockedZone then Color3.fromRGB(80, 84, 96) else Color3.new(1, 1, 1)
+
+	if track == "Aura" then
+		local still = Prefs.get("fastMode") == true
+		if still and entry.lockedZone then
+			(card.CardArt.CardModel :: ViewportFrame).ImageColor3 = Color3.fromRGB(150, 154, 166)
+		end
+		paintStillAura(card, entry.tier, entry.lockedZone ~= nil, nameLabel, cardStroke, still)
+	end
 
 	-- current, owned and buyable are exhaustive over every tier: `current` is checked
 	-- first and `owned` second, so the equipped tier takes the ISSUED branch even
@@ -2392,6 +2460,12 @@ end
 -- ── Lifecycle ────────────────────────────────────────────────────────
 
 function Station.start()
+	-- FAST MODE changes how the aura cards look: repaint an open panel straight away.
+	Prefs.observe("fastMode", function()
+		if ui.panel and ui.panel.Visible then
+			render()
+		end
+	end)
 	local player = Players.LocalPlayer
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")
