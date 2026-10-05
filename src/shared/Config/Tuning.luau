@@ -302,7 +302,10 @@ end
 --
 -- 22 -> 28 WITH THE BACK-TO-170 PASS (2026-10-04: FOOTPRINT_Z 136 -> 170, area x1.25;
 -- 27.5 rounded up).
-Tuning.SIGNALS_PER_STAGE = 28
+--
+-- 28 -> 25 WITH THE 10%-THINNER PASS (2026-10-04: FOOTPRINT_Z 170 -> 153, area x0.9;
+-- 25.2 rounded down).
+Tuning.SIGNALS_PER_STAGE = 25
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
