@@ -34,24 +34,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Rarity = require(Shared.Config.Rarity)
 
 local UIKit = require(script.Parent.UIKit)
 local ItemArt = require(script.Parent.ItemArt)
 
 local LockerPanel = {}
-
---- Cash as a short price tag for the upgrade button: $50K, $3M, $1B.
-local function shortMoney(amount: number): string
-	for _, unit in { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } do
-		if amount >= unit[1] then
-			local s = string.format("%.1f", amount / unit[1])
-			s = (string.gsub(s, "%.0$", ""))
-			return `${s}{unit[2]}`
-		end
-	end
-	return `${math.floor(amount)}`
-end
 
 -- TraderPanel's field palette, plus the tube glass and the gauge's two states.
 local SKIN = {
@@ -859,7 +848,7 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 		if type(price) == "number" then
 			local cash = if type(state.cash) == "number" then state.cash else 0
 			local affordable = cash >= price
-			upgrade.Text = `+{step} TUBES \u{00B7} {shortMoney(price)}`
+			upgrade.Text = `+{step} TUBES \u{00B7} {Format.moneyT(price)}`
 			upgrade.BackgroundColor3 = if affordable then SKIN.take else SKIN.off
 			upgrade.TextColor3 = if affordable then SKIN.text else SKIN.muted
 		end

@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Crates = require(Shared.Config.Crates)
 local DailyRewards = require(Shared.Config.DailyRewards)
 local Net = require(Shared.Net)
@@ -149,18 +150,6 @@ local function frame(parent: Instance, name: string, size: UDim2, position: UDim
 	return f
 end
 
---- Cash as a short tag: $50K, $3M, $1.2B.
-local function shortMoney(amount: number): string
-	for _, unit in { { 1e15, "Qa" }, { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } do
-		if amount >= unit[1] then
-			local s = string.format("%.1f", amount / unit[1])
-			s = (string.gsub(s, "%.0$", ""))
-			return `${s}{unit[2]}`
-		end
-	end
-	return `${math.floor(amount)}`
-end
-
 local function minutes(seconds: number): string
 	return `{math.floor(seconds / 60 + 0.5)}m`
 end
@@ -262,7 +251,7 @@ local function fillLines(card: Card, reward: any, big: boolean)
 	end
 
 	if (tonumber(reward.cash) or 0) > 0 then
-		line(shortMoney(reward.cash), PANEL.cash)
+		line(Format.moneyQa(reward.cash), PANEL.cash)
 	end
 	-- Fold repeats: { "nuke3", "nuke3" } -> "2x Void Crate".
 	local counts, seen = {}, {}

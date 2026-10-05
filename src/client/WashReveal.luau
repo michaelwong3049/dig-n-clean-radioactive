@@ -38,6 +38,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
@@ -193,33 +194,6 @@ local function money(amount: number): string
 		end
 	end
 	return `${grouped}`
-end
-
---- "$2.00/s", "$236/s", "$6.1K/s", "$1.2M/s" -- StandCardController's ladder, so the
---- rate printed here is the one the stand card shows once it is placed.
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000 then
-		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
-	elseif perSecond >= 1_000_000 then
-		return string.format("$%.1fM/s", perSecond / 1_000_000)
-	elseif perSecond >= 100_000 then
-		return string.format("$%.0fK/s", perSecond / 1000)
-	elseif perSecond >= 1000 then
-		return string.format("$%.1fK/s", perSecond / 1000)
-	elseif perSecond >= 100 then
-		return string.format("$%.0f/s", perSecond)
-	elseif perSecond >= 10 then
-		return string.format("$%.1f/s", perSecond)
-	end
-	return string.format("$%.2f/s", perSecond)
-end
-
---- Same ladder as DetectorController's banner: two sig figs under a kilo.
-local function formatWeight(kg: number): string
-	if kg < 1 then
-		return string.format("%.2g kg", kg)
-	end
-	return string.format("%d kg", math.floor(kg + 0.5))
 end
 
 --- "x2", "x0.4", "x1.8": a value multiplier, to one decimal place at most.
@@ -703,7 +677,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			size = UDim2.fromOffset(600, 62),
 			position = UDim2.fromScale(0.5, 0.772),
 			anchorPoint = Vector2.new(0.5, 0.5),
-			text = string.upper(formatWeight(found.weight)),
+			text = string.upper(Format.weight(found.weight)),
 			font = UIKit.Font.hero,
 			textSize = 56,
 			xAlign = Enum.TextXAlignment.Center,
@@ -796,7 +770,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			size = UDim2.fromOffset(600, 38),
 			position = UDim2.fromScale(0.5, 0.972),
 			anchorPoint = Vector2.new(0.5, 0.5),
-			text = "+" .. formatRate(0),
+			text = "+" .. Format.rate(0),
 			font = UIKit.Font.hero,
 			textSize = 32,
 			xAlign = Enum.TextXAlignment.Center,
@@ -1095,7 +1069,7 @@ function WashReveal.drive(camera: Camera, eye: Vector3, center: Vector3)
 	local rateLabel = current.rateLabel
 	if rateLabel and current.rate then
 		local countK = math.clamp((t - T.VALUE_AT) / T.COUNT_TIME, 0, 1)
-		rateLabel.Text = "+" .. formatRate(current.rate * (1 - (1 - countK) ^ 3))
+		rateLabel.Text = "+" .. Format.rate(current.rate * (1 - (1 - countK) ^ 3))
 	end
 end
 

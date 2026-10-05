@@ -43,6 +43,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
 local Rarity = require(Shared.Config.Rarity)
@@ -205,33 +206,6 @@ local function applyVisible(card: Card)
 end
 
 -- ── Formatting ────────────────────────────────────────────────────────────────
-
---- "$2.00/s", "$48.6/s", "$236/s", "$6.1K/s", "$118K/s", "$1.2M/s" -- the cash
---- badge's ladder, carried on so a six-figure rate stops printing "$118.0K/s".
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000 then
-		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
-	elseif perSecond >= 1_000_000 then
-		return string.format("$%.1fM/s", perSecond / 1_000_000)
-	elseif perSecond >= 100_000 then
-		return string.format("$%.0fK/s", perSecond / 1000)
-	elseif perSecond >= 1000 then
-		return string.format("$%.1fK/s", perSecond / 1000)
-	elseif perSecond >= 100 then
-		return string.format("$%.0f/s", perSecond)
-	elseif perSecond >= 10 then
-		return string.format("$%.1f/s", perSecond)
-	end
-	return string.format("$%.2f/s", perSecond)
-end
-
---- Same ladder as IndexController and the wash reveal: two sig figs under a kilo.
-local function formatWeight(kg: number): string
-	if kg < 1 then
-		return string.format("%.2g kg", kg)
-	end
-	return string.format("%d kg", math.floor(kg + 0.5))
-end
 
 local function formatClock(seconds: number): string
 	local whole = math.max(0, math.ceil(seconds))
@@ -652,7 +626,7 @@ local function draw(card: Card)
 	end
 
 	-- The pill row: what it pays, and what it weighs.
-	local rateText = formatRate(if type(rate) == "number" then rate else 0)
+	local rateText = Format.rate(if type(rate) == "number" then rate else 0)
 	local rateW = textWidth(rateText, L.rateSize, STYLE.font)
 	local rateLeft = L.bundleLeft + L.bundle + 3
 	local ratePillW = rateLeft + rateW + 12
@@ -663,7 +637,7 @@ local function draw(card: Card)
 	-- "GIGA x2.3" sticker over a kg number that never moved -- fold the same roll in
 	-- so what the card says it weighs matches what it says it pays and how big the
 	-- sticker says it rolled.
-	local kgText = formatWeight(Weight.shownKg(def.weight, if type(payload) == "number" then payload else 1))
+	local kgText = Format.weight(Weight.shownKg(def.weight, if type(payload) == "number" then payload else 1))
 	local kgW = textWidth(kgText, L.kgSize, STYLE.font) + 22
 	local rowLeft = mid - (ratePillW + L.pillGap + kgW) / 2
 

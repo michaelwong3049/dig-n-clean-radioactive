@@ -76,6 +76,7 @@ local CollectionService = game:GetService("CollectionService")
 local ContentProvider = game:GetService("ContentProvider")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Crates = require(Shared.Config.Crates)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
@@ -172,18 +173,6 @@ end
 
 local function tween(instance: Instance, seconds: number, style: Enum.EasingStyle, direction: Enum.EasingDirection, goal: { [string]: any })
 	TweenService:Create(instance, TweenInfo.new(seconds, style, direction), goal):Play()
-end
-
---- CashController.formatCash's ladder: $340, $5.2K, $1.4M, $2.1B.
-local function formatCash(amount: number): string
-	if amount >= 1_000_000_000 then
-		return string.format("$%.1fB", amount / 1_000_000_000)
-	elseif amount >= 1_000_000 then
-		return string.format("$%.1fM", amount / 1_000_000)
-	elseif amount >= 1_000 then
-		return string.format("$%.1fK", amount / 1_000)
-	end
-	return string.format("$%d", math.floor(amount))
 end
 
 local function rarityColour(name: string?): (Color3, number)
@@ -987,24 +976,6 @@ local function fillChips(payload: any, colour: Color3): { Frame }
 	return made
 end
 
---- "$2.00/s" up to "$1.2T/s", the hotbar card's ladder (InventoryController.formatRate).
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000_000 then
-		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)
-	elseif perSecond >= 1_000_000_000 then
-		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
-	elseif perSecond >= 1_000_000 then
-		return string.format("$%.1fM/s", perSecond / 1_000_000)
-	elseif perSecond >= 1000 then
-		return string.format("$%.1fK/s", perSecond / 1000)
-	elseif perSecond >= 100 then
-		return string.format("$%.0f/s", perSecond)
-	elseif perSecond >= 10 then
-		return string.format("$%.1f/s", perSecond)
-	end
-	return string.format("$%.2f/s", perSecond)
-end
-
 --- How far along each bar runs: the stat against the best a nuke from this one's home
 --- stage can roll (top-power row x the stage's multiplier x the biggest size roll x the
 --- top of the variance). Fuse is the other way round: shorter is better.
@@ -1071,13 +1042,13 @@ local function paintSheet(payload: any, colour: Color3)
 	end
 
 	if type(item.perSecond) == "number" then
-		ui.sheetEarns.Text = formatRate(item.perSecond)
+		ui.sheetEarns.Text = Format.rateWithT(item.perSecond)
 		ui.sheetEarns.TextColor3 = MONEY
 	else
 		ui.sheetEarns.Text = "NOTHING"
 		ui.sheetEarns.TextColor3 = UIKit.C.dim
 	end
-	ui.sheetWorth.Text = if type(payload.value) == "number" then formatCash(payload.value) else "?"
+	ui.sheetWorth.Text = if type(payload.value) == "number" then Format.cashShort(payload.value) else "?"
 
 	local damage, radius, fuse = barFractions(item.itemId, stats)
 	local rows = {

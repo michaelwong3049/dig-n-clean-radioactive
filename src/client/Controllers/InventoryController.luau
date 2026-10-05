@@ -63,6 +63,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Rarity = require(Shared.Config.Rarity)
 local Crates = require(Shared.Config.Crates)
 local Bombing = require(Shared.Bombing)
@@ -236,24 +237,6 @@ end
 
 local function hasBag(): boolean
 	return state.capacity > HOTBAR_SLOTS
-end
-
---- "$2.00/s" up to "$1.2M/s" -- the Nukes panel's ladder (NukesController.formatRate).
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000_000 then
-		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)
-	elseif perSecond >= 1_000_000_000 then
-		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
-	elseif perSecond >= 1_000_000 then
-		return string.format("$%.1fM/s", perSecond / 1_000_000)
-	elseif perSecond >= 1000 then
-		return string.format("$%.1fK/s", perSecond / 1000)
-	elseif perSecond >= 100 then
-		return string.format("$%.0f/s", perSecond)
-	elseif perSecond >= 10 then
-		return string.format("$%.1f/s", perSecond)
-	end
-	return string.format("$%.2f/s", perSecond)
 end
 
 local function itemColour(item: any): Color3
@@ -1124,7 +1107,7 @@ showCard = function(slot: any?)
 	-- still crusted (worth "???" like its name) or Slagged (a stand won't take it).
 	local perSecond = item.perSecond
 	if type(perSecond) == "number" then
-		ui.cardRows[1].Text = formatRate(perSecond)
+		ui.cardRows[1].Text = Format.rateWithT(perSecond)
 		ui.cardRows[1].TextColor3 = COLOR.green
 	else
 		ui.cardRows[1].Text = if unknown then "???" else "NOTHING"
@@ -1879,7 +1862,7 @@ local function refreshRateTag()
 	local top = box.Position.Y + size.Y / 2
 	tag.Adornee = anchor
 	tag.StudsOffsetWorldSpace = Vector3.new(0, top - anchor.Position.Y + RATE_TAG_LIFT, 0)
-	ui.rateTagText.Text = `+{formatRate(item.perSecond)}`
+	ui.rateTagText.Text = `+{Format.rateWithT(item.perSecond)}`
 	StarLine.set(ui.rateTagStars, Bombing.statsFor(item).stars)
 	tag.Enabled = true
 end

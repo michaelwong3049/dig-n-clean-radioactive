@@ -22,6 +22,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Format = require(ReplicatedStorage.Shared.Util.Format)
 local TweenService = game:GetService("TweenService")
 
 local Packs = require(ReplicatedStorage.Shared.Config.Packs)
@@ -143,27 +144,6 @@ local function rays(parent: Instance, name: string, size: number, color: Color3,
 	TweenService:Create(image, TweenInfo.new(math.abs(period), Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), { Rotation = turn }):Play()
 end
 
---- $200K / $5M, like the Shop's pack card.
-local function shortCash(amount: number): string
-	local function trim(n: number): string
-		return (string.format("%.1f", n):gsub("%.0$", ""))
-	end
-	if amount >= 1_000_000 then
-		return `${trim(amount / 1_000_000)}M`
-	elseif amount >= 1_000 then
-		return `${trim(amount / 1_000)}K`
-	end
-	return `${amount}`
-end
-
---- "30 min" / "1 hr".
-local function duration(seconds: number): string
-	if seconds >= 3600 and seconds % 3600 == 0 then
-		return `{seconds // 3600} hr`
-	end
-	return `{math.floor(seconds / 60)} min`
-end
-
 type Reward = { title: string, caption: string, draw: (Frame) -> () }
 
 local function picture(well: Frame, image: string)
@@ -182,7 +162,7 @@ local function rewardsOf(pack: Packs.Pack): { Reward }
 	local out: { Reward } = {}
 	if pack.cash > 0 then
 		table.insert(out, {
-			title = shortCash(pack.cash),
+			title = Format.cashMK(pack.cash),
 			caption = "Cash",
 			draw = function(well)
 				picture(well, Artwork.IMAGE.cashBundle)
@@ -217,7 +197,7 @@ local function rewardsOf(pack: Packs.Pack): { Reward }
 	end
 	if pack.luckSeconds > 0 then
 		table.insert(out, {
-			title = duration(pack.luckSeconds),
+			title = Format.hoursOrMinutes(pack.luckSeconds),
 			caption = `{LuckBoost.MULT}x Luck`,
 			draw = function(well)
 				local clover = CloverArt.build(well, TILE_ART - 8, 14)
@@ -228,7 +208,7 @@ local function rewardsOf(pack: Packs.Pack): { Reward }
 	end
 	if pack.cashBoostSeconds > 0 then
 		table.insert(out, {
-			title = duration(pack.cashBoostSeconds),
+			title = Format.hoursOrMinutes(pack.cashBoostSeconds),
 			caption = `{CashBoost.MULT}x Cash`,
 			draw = function(well)
 				picture(well, Artwork.IMAGE.cashBundle)

@@ -36,6 +36,7 @@ local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
@@ -1414,15 +1415,6 @@ end
 
 local bannerToken = 0
 
---- "5 kg" / "12 kg" / "470 kg" — two sig figs under a kilo, whole numbers above.
---- Small dup of IndexController.formatWeight (the 2nd caller); lift to UIKit on a 3rd.
-local function formatWeight(kg: number): string
-	if kg < 1 then
-		return string.format("%.2g kg", kg)
-	end
-	return string.format("%d kg", math.floor(kg + 0.5))
-end
-
 --- THE REVEAL BANNER. Fired only straight out of the ground for a sealed find with no
 --- crust to wash (onUnearthed below). The wash bay stages its own reveal, a blind sale
 --- shows none, and a crusted dig no longer raises it with a "???".
@@ -1432,7 +1424,7 @@ local function showFind(found)
 
 	local qualities = Rarity.qualities(found.modifier, found.bonus)
 	local modifier = if #qualities == 0 then "" else table.concat(qualities, " ") .. " "
-	local heft = if type(found.weight) == "number" then `  \u{00B7}  {formatWeight(found.weight)}` else ""
+	local heft = if type(found.weight) == "number" then `  \u{00B7}  {Format.weight(found.weight)}` else ""
 	ui.bannerRarity.Text = string.upper(modifier .. found.rarity) .. heft
 	ui.bannerRarity.TextColor3 = colour
 	ui.bannerName.Text = found.name

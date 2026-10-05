@@ -30,6 +30,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Net = require(Shared.Net)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
@@ -125,24 +126,6 @@ local askQueued = false
 local slideToken = 0
 
 -- ── Helpers ─────────────────────────────────────────────────────────
-
---- "$2.00/s" up to "$1.2M/s" -- ExhibitService.formatRate's ladder, carried into millions and billions.
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000_000 then
-		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)
-	elseif perSecond >= 1_000_000_000 then
-		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
-	elseif perSecond >= 1_000_000 then
-		return string.format("$%.1fM/s", perSecond / 1_000_000)
-	elseif perSecond >= 1000 then
-		return string.format("$%.1fK/s", perSecond / 1000)
-	elseif perSecond >= 100 then
-		return string.format("$%.0f/s", perSecond)
-	elseif perSecond >= 10 then
-		return string.format("$%.1f/s", perSecond)
-	end
-	return string.format("$%.2f/s", perSecond)
-end
 
 local function edge(parent: Instance, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
@@ -414,7 +397,7 @@ local function render()
 	local scroll: ScrollingFrame = ui.scroll
 
 	ui.count.Text = `{list.used}/{list.slots} on display`
-	ui.rate.Text = `+{formatRate(list.rate)}`
+	ui.rate.Text = `+{Format.rateWithT(list.rate)}`
 
 	local displayed = table.clone(list.displayed)
 	table.sort(displayed, function(a, b)
@@ -432,7 +415,7 @@ local function render()
 		row.entry = entry
 		row.pending = false
 		row.frame.LayoutOrder = order
-		row.name.Text = `{entry.name} ({formatRate(entry.rate)})`
+		row.name.Text = `{entry.name} ({Format.rateWithT(entry.rate)})`
 		paintStarLine(row.stars, entry)
 		tint(row, os.clock())
 		paintUnequip(row)

@@ -27,6 +27,7 @@ local GroupService = game:GetService("GroupService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Format = require(ReplicatedStorage.Shared.Util.Format)
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -565,41 +566,20 @@ local function tile(parent: Instance, order: number, name: string, productId: nu
 	return card
 end
 
---- $200K / $5M: the Shop's own short money, matching the cash packs' labels.
-local function shortCash(amount: number): string
-	local function trim(n: number): string
-		return (string.format("%.1f", n):gsub("%.0$", ""))
-	end
-	if amount >= 1_000_000 then
-		return `${trim(amount / 1_000_000)}M`
-	elseif amount >= 1_000 then
-		return `${trim(amount / 1_000)}K`
-	end
-	return `${amount}`
-end
-
---- "30 min" / "1 hr".
-local function duration(seconds: number): string
-	if seconds >= 3600 and seconds % 3600 == 0 then
-		return `{seconds // 3600} hr`
-	end
-	return `{math.floor(seconds / 60)} min`
-end
-
 --- What is inside a pack, one line each, in the order the user listed them.
 local function packLines(pack: Packs.Pack): { string }
 	local lines = {}
 	if pack.cash > 0 then
-		table.insert(lines, `{shortCash(pack.cash)} Cash`)
+		table.insert(lines, `{Format.cashMK(pack.cash)} Cash`)
 	end
 	for _, entry in Packs.crateCounts(pack) do
 		table.insert(lines, `{entry.count}x {Crates.get(entry.crateId).name}`)
 	end
 	if pack.luckSeconds > 0 then
-		table.insert(lines, `{duration(pack.luckSeconds)} {LuckBoost.MULT}x Luck`)
+		table.insert(lines, `{Format.hoursOrMinutes(pack.luckSeconds)} {LuckBoost.MULT}x Luck`)
 	end
 	if pack.cashBoostSeconds > 0 then
-		table.insert(lines, `{duration(pack.cashBoostSeconds)} {CashBoost.MULT}x Cash`)
+		table.insert(lines, `{Format.hoursOrMinutes(pack.cashBoostSeconds)} {CashBoost.MULT}x Cash`)
 	end
 	return lines
 end

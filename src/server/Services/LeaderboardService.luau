@@ -27,6 +27,7 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Format = require(ReplicatedStorage.Shared.Util.Format)
 local UserService = game:GetService("UserService")
 local Workspace = game:GetService("Workspace")
 
@@ -75,18 +76,6 @@ local PODIUM = { Color3.fromHex("FFD24A"), Color3.fromHex("D9E2EC"), Color3.from
 
 local FONT = Enum.Font.GothamBlack
 
---- $340, $5.2K, $1.4M, $2.1B -- the HUD's own short form.
-local function shortCash(amount: number): string
-	for _, unit in { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } do
-		if amount >= unit[1] then
-			local s = string.format("%.1f", amount / unit[1])
-			s = (string.gsub(s, "%.0$", ""))
-			return `${s}{unit[2]}`
-		end
-	end
-	return `${math.floor(amount)}`
-end
-
 type Board = {
 	key: string,
 	storeName: string,
@@ -109,7 +98,7 @@ local BOARDS: { Board } = {
 		title = "Top Cash",
 		subtitle = "Lifetime cash earned",
 		color = CASH,
-		format = shortCash,
+		format = Format.moneyT,
 		global = {},
 		globalOk = false,
 		rows = {},

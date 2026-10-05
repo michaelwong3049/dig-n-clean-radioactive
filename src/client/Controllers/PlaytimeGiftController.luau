@@ -19,6 +19,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Net = require(Shared.Net)
 local Potions = require(Shared.Config.Potions)
 local PlaytimeGifts = require(Shared.Config.PlaytimeGifts)
@@ -158,20 +159,8 @@ local function inked(parent: Instance, props: { [string]: any }): TextLabel
 	return label
 end
 
---- Cash as a short tag: $50K, $3M, $1.2B.
-local function shortMoney(amount: number): string
-	for _, unit in { { 1e15, "Qa" }, { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } do
-		if amount >= unit[1] then
-			local s = string.format("%.1f", amount / unit[1])
-			s = (string.gsub(s, "%.0$", ""))
-			return `${s}{unit[2]}`
-		end
-	end
-	return `${math.floor(amount)}`
-end
-
 local function shortCount(amount: number): string
-	return (string.gsub(shortMoney(amount), "%$", ""))
+	return (string.gsub(Format.moneyQa(amount), "%$", ""))
 end
 
 local function clock(seconds: number): string

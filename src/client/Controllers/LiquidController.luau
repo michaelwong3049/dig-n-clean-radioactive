@@ -47,6 +47,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Liquids = require(Shared.Config.Liquids)
 local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
@@ -86,18 +87,6 @@ local function tierOf(def: any): (string, Color3, number)
 		return "BASIC", UIKit.C.dim, 0
 	end
 	return string.upper(def.tier), rarity.color, rarity.order
-end
-
---- CashController.formatCash's ladder: $340, $5.2K, $1.4M, $2.1B.
-local function formatCash(amount: number): string
-	if amount >= 1_000_000_000 then
-		return string.format("$%.1fB", amount / 1_000_000_000)
-	elseif amount >= 1_000_000 then
-		return string.format("$%.1fM", amount / 1_000_000)
-	elseif amount >= 1_000 then
-		return string.format("$%.1fK", amount / 1_000)
-	end
-	return string.format("$%d", math.floor(amount))
 end
 
 --- "41%" for the common end, "1 in 814" once a chance is small enough that a
@@ -1771,7 +1760,7 @@ local function paintLuck()
 		row.now.Text = oneIn(now[row.id] or 0)
 		row.after.Text = oneIn(after[row.id] or 0)
 	end
-	panel.upPrice.Text = formatCash(tonumber(state.luckPrice) or 0)
+	panel.upPrice.Text = Format.cashShort(tonumber(state.luckPrice) or 0)
 
 	local jackpot = Liquids.ORDER[#Liquids.ORDER]
 	panel.brewOdds.Text = string.format("LUCK %gx  ·  %s %s", luck, Liquids.get(jackpot).name, oneIn(now[jackpot] or 0))

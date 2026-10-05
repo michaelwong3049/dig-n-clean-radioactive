@@ -36,6 +36,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local LuckBoost = require(Shared.Config.LuckBoost)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -119,18 +120,6 @@ end
 local function personalEndsAt(): number
 	local value = Players.LocalPlayer:GetAttribute(LuckBoost.PERSONAL_ATTR)
 	return if type(value) == "number" then value else 0
-end
-
---- "9:42", or "1:04:10" past an hour.
-local function clock(seconds: number): string
-	local s = math.max(0, math.ceil(seconds))
-	local h = s // 3600
-	local m = (s % 3600) // 60
-	local r = s % 60
-	if h > 0 then
-		return string.format("%d:%02d:%02d", h, m, r)
-	end
-	return string.format("%d:%02d", m, r)
 end
 
 local function ink(label: TextLabel, thickness: number)
@@ -465,7 +454,7 @@ local function refresh(t: number)
 	if personalOn then
 		left = math.min(left, personal)
 	end
-	local shownText = clock(left)
+	local shownText = Format.clock(left)
 	if shownText ~= lastText then
 		lastText = shownText
 		ui.time.Text = shownText
@@ -478,10 +467,10 @@ local function refresh(t: number)
 	if hovering then
 		local lines = {}
 		if eventOn then
-			table.insert(lines, `{LuckBoost.EVENT_NAME}  <b>{clock(event)}</b>`)
+			table.insert(lines, `{LuckBoost.EVENT_NAME}  <b>{Format.clock(event)}</b>`)
 		end
 		if personalOn then
-			table.insert(lines, `Lucky Clover  <b>{clock(personal)}</b>`)
+			table.insert(lines, `Lucky Clover  <b>{Format.clock(personal)}</b>`)
 		end
 		ui.tipText.Text = table.concat(lines, "\n")
 	end
@@ -495,7 +484,7 @@ local function onEventChanged()
 	-- sky and the clover; being told it "arrived" ten minutes late would be wrong.
 	if ends > t and type(started) == "number" and t - started < 5 then
 		Sfx.play("aurora")
-		showBanner(string.upper(LuckBoost.EVENT_NAME), `{LuckBoost.MULT}x LUCK for {clock(ends - started)}!`)
+		showBanner(string.upper(LuckBoost.EVENT_NAME), `{LuckBoost.MULT}x LUCK for {Format.clock(ends - started)}!`)
 	end
 end
 
@@ -508,7 +497,7 @@ local function onPersonalChanged()
 	if seenPersonal then
 		local before = math.max(lastPersonal, now())
 		if value > before + 5 then
-			showBanner("LUCKY CLOVER", `{LuckBoost.MULT}x LUCK  +{clock(value - before)}`)
+			showBanner("LUCKY CLOVER", `{LuckBoost.MULT}x LUCK  +{Format.clock(value - before)}`)
 		end
 	end
 	seenPersonal = true

@@ -18,6 +18,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Util.Format)
 local Potions = require(Shared.Config.Potions)
 local Net = require(Shared.Net)
 
@@ -144,18 +145,6 @@ local function leftOf(id: string): number
 	return if type(value) == "number" then math.max(0, value - now()) else 0
 end
 
---- "9:42", or "1:04:10" past an hour.
-local function clock(seconds: number): string
-	local s = math.max(0, math.ceil(seconds))
-	local h = s // 3600
-	local m = (s % 3600) // 60
-	local r = s % 60
-	if h > 0 then
-		return string.format("%d:%02d:%02d", h, m, r)
-	end
-	return string.format("%d:%02d", m, r)
-end
-
 -- ── The panel ───────────────────────────────────────────────────────
 
 local function paint()
@@ -168,7 +157,7 @@ local function paint()
 			row.count.Text = `x{have}`
 			row.count.TextColor3 = if have > 0 then PANEL.white else PANEL.dim
 			local left = leftOf(id)
-			row.time.Text = if left > 0 then `ACTIVE  {clock(left)}` else ""
+			row.time.Text = if left > 0 then `ACTIVE  {Format.clock(left)}` else ""
 			local can = have > 0
 			row.button.Active = can
 			row.button.AutoButtonColor = can
@@ -450,7 +439,7 @@ local function paintChips()
 			shown[entry.id] = true
 			chip.frame.Visible = true
 			chip.frame.Position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX + index) + UDim2.fromOffset(0, -4)
-			chip.time.Text = clock(entry.left)
+			chip.time.Text = Format.clock(entry.left)
 			local warn = entry.left <= WARN_SECONDS
 			chip.pill.BackgroundColor3 = if warn
 				then PANEL.warn
