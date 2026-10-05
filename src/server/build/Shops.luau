@@ -1037,7 +1037,9 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 	gui.Size = UDim2.fromOffset(plateW + 10, plateH + headerH + SIGN_SHADOW + 8)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY or 11.5, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 60
+	-- Drawn across the whole shop square (~170 wide) so every stall's sign reads from
+	-- anywhere on the plaza, not just the 60 studs nearest it.
+	gui.MaxDistance = 200
 	gui.Parent = adornee
 
 	local function plate(frameName: string, y: number, color: Color3): Frame
