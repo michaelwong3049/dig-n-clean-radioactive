@@ -221,6 +221,9 @@ type Session = {
 	-- WHICH WEAK POINT the client says the water is on (its id, as sent in `push`), or
 	-- nil. Only counts when it names the live blister on `aimZone`'s own chunk.
 	aimWeak: number?,
+	-- WHICH ROCK of `aimZone`'s chunk the water hit (ItemCrust.rockOf), or nil. Cosmetic
+	-- only: it picks which of the chunk's rocks break off first, never how many.
+	aimRock: number?,
 	-- ONE BLISTER PER ZONE (Tuning.WASH_WEAK_*). `dir` is a world direction off the
 	-- chunk's anchor at the pose the item was placed in -- the client spins it round the
 	-- turntable the same way it spins the anchor. `on` is seconds of water this blister
@@ -682,7 +685,15 @@ local function push(player: Player, session: Session?, data: any)
 		if math.abs((session.painted[zoneId] or -1) - level) > 0.01 or session.walled[zoneId] ~= tough then
 			session.painted[zoneId] = level
 			session.walled[zoneId] = tough
-			ItemCrust.erode(session.zones[zoneId] or {}, level, tough)
+			-- The rocks under the stream go first; any other chunk eroding (a tough flag
+			-- flipping) sheds in its own order.
+			local parts = session.zones[zoneId] or {}
+			local near: Vector3? = nil
+			if zoneId == session.aimZone and session.aimRock then
+				local rock = ItemCrust.findRock(parts, session.aimRock)
+				near = if rock then rock.Position else nil
+			end
+			ItemCrust.erode(parts, level, tough, near)
 		end
 	end
 
@@ -966,6 +977,7 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		spraying = false,
 		aimZone = nil,
 		aimWeak = nil,
+		aimRock = nil,
 		weak = {},
 		weakSerial = 0,
 		centre = stand.Position,
@@ -1267,6 +1279,7 @@ function WashService.start()
 		session.spraying = request.spraying == true
 		session.aimZone = if type(request.zone) == "number" then request.zone else nil
 		session.aimWeak = if type(request.weak) == "number" then request.weak else nil
+		session.aimRock = if type(request.rock) == "number" then request.rock else nil
 		setSprayAttr(player, session.spraying and not session.revealing)
 	end)
 

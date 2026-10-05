@@ -14,13 +14,16 @@
 	identity. So the item is wrapped in real geometry instead — chunks of rock big enough
 	to swallow its outline, which the water then takes off a piece at a time.
 
-	ONE CHUNK, ONE PATCH. `encase` builds exactly as many chunks as the item has
-	contamination patches (Shared/Contamination), spread around it on the golden-angle
-	spiral so each one owns a different side. That is what makes the wash bay's aim game
-	work on a crusted object: the thing you point the hose at is a real lump on a real
-	side of the item, it visibly erodes as it soaks, and when its patch finally pops the
-	chunk comes off and the item shows through the gap. Six patches is six chunks and six
-	stages of reveal; one patch is one shell that breaks all at once.
+	ONE CHUNK, ONE PATCH -- AND A CHUNK IS A PILE OF ROCKS. `encase` tiles the item's
+	box with about ROCK_BUDGET small rocks and deals them out to as many chunks as the
+	item has contamination patches (Shared/Contamination), each chunk owning the side of
+	the item nearest its own golden-angle direction. The patch is still the unit of
+	balance -- one clock, one charge, one weak point -- but the rock is the unit you
+	SEE: as a chunk soaks, its rocks break off one at a time starting from wherever the
+	water is landing (`erode`'s `near`), so washing is sweeping the stream across the
+	item picking off pebbles, not staring at one boulder until it vanishes. The last
+	CORE_SHARE of a chunk's rocks stay on until its patch pops, so there is always
+	something left to aim at.
 
 	IT IS ALSO WHAT YOU CARRY. ToolService encases the model in your off hand with a
 	chunk per REMAINING patch, so an item you half-cleaned and walked away from is half
@@ -67,79 +70,58 @@ local RARITY_TINT = 0.13
 --- one colour repeated.
 local SHADE_JITTER = 0.26
 
---- Pieces per chunk. One box reads as a crate; three overlapping boxes at broken
---- angles read as rubble, which is the whole difference between "this is encrusted"
---- and "this is in a box".
-local PIECES = 3
+--- ROCKS. Roughly how many small rocks a whole crust is tiled from, shared out over
+--- however many chunks it has. It used to be 3 big blocks and 6 flakes per chunk --
+--- two to six boulders in all -- and the wash read as "hold the trigger on a lump until
+--- it pops". A hundred-odd pebbles is a shell you can watch come apart under the
+--- stream, and still a small number of parts for the one item on the tub.
+local ROCK_BUDGET = 100
 
---- How far off the item's centre a chunk sits, as a fraction of the item's own half
---- extent. Small on purpose: chunks have to OVERLAP into a shell, and a spread wide
---- enough to give each one its own clean territory leaves gaps you can read the item
---- through on the first tick.
-local REACH = 0.42
+--- A dug lump in the field, a bag icon or an exhibit pedestal: fewer, bigger rocks,
+--- because there can be a lot of those about and nobody is washing them.
+local LUMP_ROCKS = 32
 
---- Chunk size as a fraction of the item's own extent ON EACH AXIS: a floor plus a share
---- that shrinks as the count rises, so two chunks are each most of a shell and six are
---- each a patch of one.
----
---- PER AXIS, NOT OFF THE LARGEST ONE, and the first build got that wrong. Sizing every
---- piece off the biggest dimension turns a flat object into a cube of rubble twice the
---- width of the thing inside it — a Gold Ring came up wearing a four-stud boulder. Taken
---- per axis the crust HUGS what it is hiding: a flat item grows a flat crust, and the
---- lump is recognisably the size and shape of the thing you are about to uncover.
----
---- WHY THE FLOOR IS AS HIGH AS IT IS, and it is the number to be careful with. A chunk
---- sits at most REACH of the way out from the centre, so it reaches the far end of its
---- own axis only if its half-size covers the rest: 1 - REACH of the half extent, before
---- any allowance for a spiral direction that does not point straight down that axis. Cut
---- below that and long items stop being covered end to end — the build that got this
---- wrong put a Steel Rod in a crust that swallowed one end and left three studs of rod
---- hanging out of it, which is the entire feature failing in the most visible way it can.
-local COVER_BASE = 0.76
-local COVER_PER_CHUNK = 0.45
+--- How big a rock is, against the square cell it was tiled into. Over 1 so they
+--- OVERLAP: a shell of rocks exactly cell-sized has hairline gaps the item reads
+--- through at every seam.
+local ROCK_COVER_MIN = 1.3
+local ROCK_COVER_MAX = 1.65
 
---- ...and no axis of a piece may be thinner than this share of the item's mean extent.
---- Pieces cut exactly to a long item's aspect are all the same thin splinter, and a
---- bundle of splinters reads as laminate rather than as rock. This only ever FATTENS a
---- piece — it can never shorten the axis the coverage rule above depends on.
-local MIN_ASPECT = 0.55
+--- How thick a rock is through the shell, as a share of the cell.
+local ROCK_THICK_MIN = 0.65
+local ROCK_THICK_MAX = 1.05
+
+--- How far a rock stands proud of the box surface, as a share of its thickness. Some
+--- sit flush and some stick out, which is what turns a tiled box into a lumpy one.
+local ROCK_PROUD_MAX = 0.35
+
+--- How much the box corners and edges are pulled in toward a rounded shell. The items
+--- under the rock are capsules, not crates, so the corners of their bounding box are
+--- empty air -- and a crust with square corners reads as a crate.
+local ROUNDING = 0.5
+
+--- The share of a chunk's rocks that stay on until its patch pops. The rest break off
+--- one by one across the soak. Never all of them: a chunk with nothing left on it
+--- would have its last second of work land on something invisible.
+local CORE_SHARE = 0.25
+
+--- One in this many rocks is a wedge, for the broken angles.
+local WEDGE_EVERY = 4
 
 --- A thin object (a bottle cap is millimetres through) still has to grow a lump you
 --- can point a hose at, so the body used for all of the above is never smaller than
 --- this in any axis.
 local MIN_BODY = 0.9
 
---- How small a chunk gets before its patch finally pops. Not to nothing: a chunk that
---- faded to zero would have the last second of work land on something invisible.
-local SHRINK_FLOOR = 0.42
+--- How small a rock gets before it breaks off. Not much: the rocks are small now and
+--- coming off one by one IS the erosion, so shrinking hard on top of that just opens
+--- see-through gaps across the whole chunk long before any of it has gone.
+local SHRINK_FLOOR = 0.72
 
---- FLAKES: the loose scale on the OUTSIDE of each chunk, on top of its PIECES. The core
---- pieces are what hide the item and they come off only when the patch pops; the
---- flakes are what makes the soak between those two moments something you can watch.
---- Each one breaks off at its own point in the soak (SHED_AT_ATTR) and the client
---- tumbles it off the item (CrustController), so a chunk under the stream sheds
---- a flake every half second or so instead of shrinking silently and then vanishing
---- in one step. Visual only: the patch -- its clock, its charge, its XP -- is still
---- the whole chunk (Shared/Contamination), so none of this moves balance.
-local FLAKES = 6
-
---- How big a flake is, as a share of its chunk's mean span across its face, and how
---- thick it is through the face. Scale, not boulders: a flake is a bump on the rock's
---- outline, big enough at the wash bay's framing to see go.
-local FLAKE_FACE_MIN = 0.2
-local FLAKE_FACE_MAX = 0.32
-local FLAKE_THICK = 0.55
-
---- How far out a flake sits, as a share of the item's own half extent on each axis.
---- Past 1 so the flakes stand on the outside of the shell rather than buried in it.
-local FLAKE_REACH_MIN = 1.0
-local FLAKE_REACH_MAX = 1.2
-
---- The stretch of the soak the flakes come off across: none at the very first touch
---- of water, none left by the time the patch is nearly through, and the core pieces
---- do the last stretch on their own.
-local SHED_FIRST = 0.08
-local SHED_LAST = 0.85
+--- The stretch of the soak the rocks break off across: none at the very first touch
+--- of water, all but the core by SHED_LAST, and the core goes at the pop.
+local SHED_FIRST = 0.04
+local SHED_LAST = 0.9
 
 --- How see-through a fully soaked chunk goes on its way out. Wet slag, sloughing off.
 local WET_FADE = 0.3
@@ -151,8 +133,12 @@ local WET_DARKEN = 0.35
 local GLOW_NAME = "CrustGlow"
 local SIZE_ATTR = "CrustSize"
 local COLOR_ATTR = "CrustColor"
---- The erode level at or under which a flake breaks off (1 = dry, 0 = about to pop).
-local SHED_AT_ATTR = "CrustShedAt"
+--- A rock's place in its chunk's default shedding order, used when nothing says where
+--- the water is landing (a banked soak re-applied at the start of a session).
+local ORDER_ATTR = "CrustOrder"
+--- A rock's index inside its chunk. The client reports the one its water hit, and the
+--- server breaks rocks off nearest that one first.
+local ROCK_ATTR = "CrustRock"
 --- Set true the moment a piece has come off. The client watches it to throw the
 --- falling copy; the server keeps the (now invisible) part until `shed` sweeps up.
 local SHED_ATTR = "CrustShed"
@@ -235,115 +221,155 @@ local function slagPart(
 	return part
 end
 
---- The shared core: `count` chunks of rubble around `pivot`, sized off `body`.
+local AXES = { Vector3.xAxis, Vector3.yAxis, Vector3.zAxis }
+
+--- Pull a point on the box toward a rounded shell. Face centres stay put; edges and
+--- corners come in by up to ROUNDING of the way a superellipse would take them.
+local function rounded(point: Vector3, half: Vector3): Vector3
+	local n = point / half
+	local norm4 = (n.X ^ 4 + n.Y ^ 4 + n.Z ^ 4) ^ 0.25
+	if norm4 < 1e-3 then
+		return point
+	end
+	return point * (1 - ROUNDING + ROUNDING / norm4)
+end
+
+type Site = { at: Vector3, normal: Vector3, cell: number, chunk: number }
+
+--- The shared core: about `budget` rocks tiled over a box of `body` around `pivot`,
+--- dealt out to `total` chunks by which chunk direction each one faces most. Only
+--- chunks 1 to `count` are built: a held item with some patches already washed off
+--- keeps the same layout as the full lump, with the cleaned sides simply bare.
 local function buildChunks(
 	parent: Instance,
 	count: number,
+	total: number,
+	budget: number,
 	pivot: CFrame,
 	body: Vector3,
 	accent: Color3,
 	rng: Random
 ): ({ [number]: { BasePart } }, { [number]: Vector3 })
-	local cover = COVER_BASE + COVER_PER_CHUNK / math.max(count, 1)
-	local floor = ((body.X + body.Y + body.Z) / 3) * MIN_ASPECT
-	local span = Vector3.new(
-		math.max(body.X, floor),
-		math.max(body.Y, floor),
-		math.max(body.Z, floor)
-	) * cover
-	local reach = body * 0.5 * REACH
-	local wobble = body * 0.09
+	local half = body * 0.5
+	local area = 2 * (body.X * body.Y + body.Y * body.Z + body.Z * body.X)
+	local step = math.sqrt(area / math.max(budget, 6))
+
+	local dirs: { Vector3 } = {}
+	for index = 1, total do
+		dirs[index] = spiralDir(index, total)
+	end
+
+	-- Every site first, so the chunk deal below sees the whole shell. Each face of the
+	-- box is cut into near-square cells about `step` across, one rock per cell.
+	local sites: { Site } = {}
+	for axis = 1, 3 do
+		local normalAxis = AXES[axis]
+		local uAxis = AXES[axis % 3 + 1]
+		local vAxis = AXES[(axis + 1) % 3 + 1]
+		local uSpan = body:Dot(uAxis)
+		local vSpan = body:Dot(vAxis)
+		local uCells = math.max(1, math.floor(uSpan / step + 0.5))
+		local vCells = math.max(1, math.floor(vSpan / step + 0.5))
+		local cell = math.sqrt((uSpan / uCells) * (vSpan / vCells))
+		for _, side in { -1, 1 } do
+			local normal = normalAxis * side
+			for u = 1, uCells do
+				for v = 1, vCells do
+					local du = ((u - 0.5 + rng:NextNumber(-0.18, 0.18)) / uCells - 0.5) * uSpan
+					local dv = ((v - 0.5 + rng:NextNumber(-0.18, 0.18)) / vCells - 0.5) * vSpan
+					local at = rounded(normal * half:Dot(normalAxis) + uAxis * du + vAxis * dv, half)
+					-- Which chunk owns this rock: the one whose direction it faces most,
+					-- measured on the box-normalised point so a long item's ends are not
+					-- all handed to whichever chunk points along its length.
+					local facing = at / half
+					facing = if facing.Magnitude > 1e-3 then facing.Unit else normal
+					local best, bestDot = 1, -math.huge
+					for index, dir in dirs do
+						local dot = facing:Dot(dir)
+						if dot > bestDot then
+							best, bestDot = index, dot
+						end
+					end
+					table.insert(sites, { at = at, normal = normal, cell = cell, chunk = best })
+				end
+			end
+		end
+	end
 
 	local zones: { [number]: { BasePart } } = {}
-	local anchors: { [number]: Vector3 } = {}
-
+	local sums: { [number]: Vector3 } = {}
 	for index = 1, count do
-		local centre = pivot * CFrame.new(spiralDir(index, count) * reach)
-		local zone: { BasePart } = {}
+		zones[index] = {}
+		sums[index] = Vector3.zero
+	end
 
-		for piece = 1, PIECES do
-			-- Each piece is its own box, nudged off the chunk's centre and turned to a
-			-- broken angle. Kept under 40 degrees: a cube rotated to 45 spans half again
-			-- its own width on the diagonal, and three of those turn a crust into a
-			-- spiky star.
-			local offset = CFrame.new(
-				rng:NextNumber(-wobble.X, wobble.X),
-				rng:NextNumber(-wobble.Y, wobble.Y),
-				rng:NextNumber(-wobble.Z, wobble.Z)
+	for _, site in sites do
+		-- Every draw happens for every site, built or not, so a held item with chunks
+		-- washed off grows the SAME rocks on the sides it still has.
+		local thick = site.cell * rng:NextNumber(ROCK_THICK_MIN, ROCK_THICK_MAX)
+		local size = Vector3.new(
+			site.cell * rng:NextNumber(ROCK_COVER_MIN, ROCK_COVER_MAX),
+			site.cell * rng:NextNumber(ROCK_COVER_MIN, ROCK_COVER_MAX),
+			thick
+		)
+		local spot = site.at + site.normal * thick * rng:NextNumber(0, ROCK_PROUD_MAX)
+		local up = if math.abs(site.normal.Y) > 0.9 then Vector3.xAxis else Vector3.yAxis
+		-- Face-on to its side of the box, then tipped and turned so neighbours do not
+		-- line up into tiles. Kept under 25 degrees of tip: more swings a rock's corner
+		-- clean out of the shell it is supposed to be filling.
+		local lay = CFrame.lookAt(spot, spot + site.normal, up)
+			* CFrame.Angles(
+				math.rad(rng:NextNumber(-22, 22)),
+				math.rad(rng:NextNumber(-22, 22)),
+				math.rad(rng:NextNumber(-35, 35))
 			)
-			-- Kept under 25 degrees now that pieces are shaped like the item rather than
-			-- cubed: a flat slab turned as far as a cube can be swings its corners clean
-			-- out of the silhouette it is supposed to be filling.
-			local turn = CFrame.Angles(
-				math.rad(rng:NextNumber(-24, 24)),
-				math.rad(rng:NextNumber(-24, 24)),
-				math.rad(rng:NextNumber(-24, 24))
-			)
-			-- Jitter UP more than down, for the same coverage reason the floor above exists:
-			-- the span is already close to the smallest piece that reaches the ends, so a
-			-- generous shrink on the wrong axis is a gap.
-			local size = Vector3.new(
-				span.X * rng:NextNumber(0.92, 1.16),
-				span.Y * rng:NextNumber(0.92, 1.16),
-				span.Z * rng:NextNumber(0.92, 1.16)
-			)
-			table.insert(
-				zone,
-				slagPart(`Crust{index}_{piece}`, size, centre * offset * turn, rockShade(rng, accent), parent)
-			)
-		end
+		local shade = rockShade(rng, accent)
+		local wedge = rng:NextInteger(1, WEDGE_EVERY) == 1
+		local order = rng:NextNumber()
 
-		-- THE FLAKES, laid flat on the outside of the shell round this chunk's side of
-		-- the item. Pointed off the chunk's own spiral direction with a generous scatter,
-		-- so each chunk's scale covers its own side and neighbours overlap a little.
-		-- Every draw comes off the same seeded `rng` after the core pieces, so the lump,
-		-- the hand and the tub still grow identical rubble.
-		local outward = spiralDir(index, count)
-		local faceSpan = (span.X + span.Y + span.Z) / 3
-		-- A shuffled shedding order, so flakes do not peel off in the order they were
-		-- laid (which is spatially clustered by the scatter above).
-		local order = {}
-		for flake = 1, FLAKES do
-			order[flake] = flake
+		local zone = zones[site.chunk]
+		if zone == nil then
+			continue
 		end
-		for flake = FLAKES, 2, -1 do
-			local swap = rng:NextInteger(1, flake)
-			order[flake], order[swap] = order[swap], order[flake]
-		end
-		for flake = 1, FLAKES do
-			local scatter = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1), rng:NextNumber(-1, 1))
-			local aim = outward + scatter * 0.8
-			local dir = if aim.Magnitude > 1e-3 then aim.Unit else outward
-			local spot = dir * body * 0.5 * rng:NextNumber(FLAKE_REACH_MIN, FLAKE_REACH_MAX)
-			local face = faceSpan * rng:NextNumber(FLAKE_FACE_MIN, FLAKE_FACE_MAX)
-			local size = Vector3.new(
-				face * rng:NextNumber(0.8, 1.2),
-				face * rng:NextNumber(0.8, 1.2),
-				face * FLAKE_THICK * rng:NextNumber(0.8, 1.2)
-			)
-			-- Face-on to the direction it sits in, tipped and rolled so it reads as a
-			-- broken scale and not a tile. Every other flake is a wedge, for the angles.
-			local lay = CFrame.lookAt(spot, spot + dir)
-				* CFrame.Angles(
-					math.rad(rng:NextNumber(-20, 20)),
-					math.rad(rng:NextNumber(-20, 20)),
-					math.rad(rng:NextNumber(0, 360))
-				)
+		local rock = #zone + 1
+		local part = slagPart(
+			`Crust{site.chunk}_{rock}`,
+			size,
+			pivot * lay,
+			shade,
+			parent,
+			if wedge then "WedgePart" else "Part"
+		)
+		part:SetAttribute(ROCK_ATTR, rock)
+		part:SetAttribute(ORDER_ATTR, order)
+		table.insert(zone, part)
+		sums[site.chunk] += site.at
+	end
+
+	local anchors: { [number]: Vector3 } = {}
+	for index = 1, count do
+		local zone = zones[index]
+		-- A chunk the deal left empty (a tiny budget on a long item can do it) still
+		-- needs something to aim at: one rock where its direction meets the box.
+		if #zone == 0 then
+			local dir = dirs[index]
+			local at = dir / math.max(math.abs(dir.X) / half.X, math.abs(dir.Y) / half.Y, math.abs(dir.Z) / half.Z)
 			local part = slagPart(
-				`Crust{index}_flake{flake}`,
-				size,
-				pivot * lay,
+				`Crust{index}_1`,
+				Vector3.one * step * ROCK_COVER_MAX,
+				pivot * CFrame.new(at),
 				rockShade(rng, accent),
-				parent,
-				if flake % 2 == 0 then "WedgePart" else "Part"
+				parent
 			)
-			local share = (order[flake] - rng:NextNumber()) / FLAKES
-			part:SetAttribute(SHED_AT_ATTR, 1 - (SHED_FIRST + (SHED_LAST - SHED_FIRST) * share))
+			part:SetAttribute(ROCK_ATTR, 1)
+			part:SetAttribute(ORDER_ATTR, 0)
 			table.insert(zone, part)
+			sums[index] = at
 		end
-
-		zones[index] = zone
-		anchors[index] = centre.Position
+		-- The anchor sits a little inside the chunk's own rocks: the wash bay's weak
+		-- point rays back toward it from outside, and the near-miss rounding measures
+		-- from it.
+		anchors[index] = (pivot * CFrame.new(sums[index] / #zone * 0.6)).Position
 	end
 
 	return zones, anchors
@@ -387,11 +413,16 @@ end
 --- Returns one list of parts per chunk (the wash bay's zones, in the order the patches
 --- were rolled) and the world point each chunk was built around (its ball's anchor, and
 --- the fallback the aim raycast rounds to).
+---
+--- `options.total` is how many chunks the item started with, when that is more than
+--- `count` (a held item partly washed): the shell is laid out for the full set and only
+--- the first `count` chunks are built. `options.rocks` overrides ROCK_BUDGET.
 function ItemCrust.encase(
 	model: Model,
 	count: number,
 	rarityName: string?,
-	seed: (string | number)?
+	seed: (string | number)?,
+	options: { total: number?, rocks: number? }?
 ): ({ [number]: { BasePart } }, { [number]: Vector3 })
 	local accent = if rarityName then Rarity.get(rarityName).color else NEUTRAL
 	local pivot, size = model:GetBoundingBox()
@@ -401,7 +432,12 @@ function ItemCrust.encase(
 		math.max(size.Z, MIN_BODY)
 	)
 
-	local zones, anchors = buildChunks(model, math.max(count, 1), pivot, body, accent, Random.new(seedOf(seed)))
+	local chunks = math.max(count, 1)
+	local total = math.max(chunks, options and options.total or 0)
+	-- The budget is for the WHOLE shell, so a part-washed lump has fewer rocks, not
+	-- the same number crammed onto what is left.
+	local budget = options and options.rocks or ROCK_BUDGET
+	local zones, anchors = buildChunks(model, chunks, total, budget, pivot, body, accent, Random.new(seedOf(seed)))
 	glow(model, accent, math.max(body.X, body.Y, body.Z))
 
 	return zones, anchors
@@ -416,7 +452,7 @@ function ItemCrust.lump(rarityName: string?, seed: (string | number)?): Model
 
 	local accent = if rarityName then Rarity.get(rarityName).color else NEUTRAL
 	local body = Vector3.new(1.3, 1.3, 1.3)
-	local zones = buildChunks(model, 4, CFrame.new(), body, accent, Random.new(seedOf(seed)))
+	local zones = buildChunks(model, 4, 4, LUMP_ROCKS, CFrame.new(), body, accent, Random.new(seedOf(seed)))
 
 	-- SOMETHING TO PIVOT AND WELD BY. ToolService welds every other part to the
 	-- primary before it lets go of the anchor, and a model with no PrimaryPart makes
@@ -450,20 +486,66 @@ end
 --- whether the rock is tough) as attributes, and CrustController eases each part
 --- toward them every frame and draws the look with `paint`. Shedding stays here: when a
 --- piece comes off is the server's call.
-function ItemCrust.erode(parts: { BasePart }, level: number, tough: boolean)
+---
+--- HOW MANY ROCKS ARE OFF follows the level; WHICH ones follows the water. `near` is
+--- where the stream is landing on this chunk (the rock the client says it hit), and
+--- the rocks closest to it go first, so the hole opens under the hose. With no `near`
+--- -- a banked soak put back at the start of a session -- they go in the chunk's own
+--- shuffled order.
+function ItemCrust.erode(parts: { BasePart }, level: number, tough: boolean, near: Vector3?)
 	local amount = math.clamp(level, 0, 1)
+	local live: { BasePart } = {}
 	for _, part in parts do
-		if part:GetAttribute(SHED_ATTR) then
-			continue
+		if part.Parent and not part:GetAttribute(SHED_ATTR) then
+			table.insert(live, part)
 		end
-		local shedAt = part:GetAttribute(SHED_AT_ATTR)
-		if type(shedAt) == "number" and amount <= shedAt then
-			shedOne(part)
-			continue
+	end
+
+	local core = math.max(1, math.ceil(#parts * CORE_SHARE))
+	local progress = math.clamp(((1 - amount) - SHED_FIRST) / (SHED_LAST - SHED_FIRST), 0, 1)
+	local wanted = math.floor(progress * math.max(#parts - core, 0) + 1e-6)
+	local toShed = math.min(wanted - (#parts - #live), #live - 1)
+
+	if toShed > 0 then
+		local rank: { [BasePart]: number } = {}
+		for _, part in live do
+			if near then
+				rank[part] = (part.Position - near).Magnitude
+			else
+				local order = part:GetAttribute(ORDER_ATTR)
+				rank[part] = if type(order) == "number" then order else 0
+			end
 		end
+		table.sort(live, function(a, b)
+			return rank[a] < rank[b]
+		end)
+		for index = 1, toShed do
+			shedOne(live[index])
+		end
+		live = table.move(live, toShed + 1, #live, 1, {})
+	end
+
+	for _, part in live do
 		part:SetAttribute(LEVEL_ATTR, amount)
 		part:SetAttribute(TOUGH_ATTR, tough)
 	end
+end
+
+--- Which rock of its chunk a crust part is, for the client to report what its water
+--- hit. Nil for anything that is not crust.
+function ItemCrust.rockOf(part: Instance): number?
+	local rock = part:GetAttribute(ROCK_ATTR)
+	return if type(rock) == "number" then rock else nil
+end
+
+--- The rock with this index in a chunk, or nil.
+function ItemCrust.findRock(parts: { BasePart }, rock: number): BasePart?
+	for _, part in parts do
+		if part:GetAttribute(ROCK_ATTR) == rock then
+			return part
+		end
+	end
+	return nil
 end
 
 --- Draw one piece of crust at `level` (1 dry and whole, 0 about to come off). Client
