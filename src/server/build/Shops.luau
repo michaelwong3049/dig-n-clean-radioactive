@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 71
+local BUILDER_VERSION = 72
 
 local C = Kit.C
 local build = Kit.build
@@ -1195,6 +1195,8 @@ export type CounterSpec = {
 	promptReach: number?,
 	material: string?,
 	studded: boolean?,
+	-- The desk's own colour; nil keeps the grey storefront lumber (C.shopWood).
+	bodyColor: string?,
 }
 
 --- The counter desk — the interactive part — in grey storefront lumber
@@ -1223,7 +1225,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		name = name,
 		pos = { 0, 1.1, z },
 		size = { w, 2.2, d },
-		color = C.shopWood,
+		color = spec.bodyColor or C.shopWood,
 		material = spec.material or "Wood",
 		studs = spec.studded,
 		attributes = attrs,
@@ -1921,6 +1923,16 @@ local TRADER_RADIUS = 16
 --- Its outer edge is BOOTH_PAD_FRONT, which assertNoShopOverlap reads.
 local BOOTH_PAD_DEPTH = 2.5 -- 4 -> 5.5 -> 2.5: a thin strip now it spans the booth
 local BOOTH_PAD_FRONT = SHOPFRONT_Z + 1.25 + 0.4 + BOOTH_PAD_DEPTH
+
+--- THE DESKS ARE A BLACK WALL ROUND THE BOOTH NOW (2026-10-04, on request: "take the
+--- little tables in the stands, make it black, and surround the whole stand with it like a
+--- mini wall"). Desk height, BOOTH_WALL_THICK thick, running post centre to post centre
+--- on all four sides. Its outer face on the front and back is where the old desk's trim
+--- edge was, so the step pad and BOOTH_PAD_FRONT do not move. The front and back runs
+--- are still the Stand / StandBack counters (station attributes + ViewShop prompt).
+local BOOTH_WALL_THICK = 1
+local BOOTH_WALL_Z = SHOPFRONT_Z + 1.25 + 0.2 - BOOTH_WALL_THICK / 2 -- 1.55: outer face 2.05
+local BOOTH_POST_X = BOOTH_WIDTH / 2 - 1.5 / 2 -- buildStorefrontPosts' post centres
 local function buildStepPad(parent: Instance, frame: CFrame, color: string)
 	local w, d = BOOTH_WIDTH, BOOTH_PAD_DEPTH
 	local cz = BOOTH_PAD_FRONT - d / 2
@@ -2004,20 +2016,42 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 	buildStorefrontPosts(m, origin, width, C.hazardBlack)
 	-- No spine between the two stands (2026-10-04, on request: "remove the wall in between").
 
-	-- The stand, front and back, exactly a plaza stall's: see buildStall.
+	-- The stand, front and back: the black wall's long runs (see BOOTH_WALL_Z).
 	for _, side in { { name = "Stand", frame = origin }, { name = "StandBack", frame = backFrame(origin, 0) } } do
 		buildCounter(m, side.frame, {
 			name = side.name,
-			color = C.steel,
-			width = STAND_WIDTH,
-			depth = 2.5,
-			z = SHOPFRONT_Z,
+			color = C.hazardBlack,
+			bodyColor = C.hazardBlack,
+			width = BOOTH_POST_X * 2,
+			depth = BOOTH_WALL_THICK,
+			z = BOOTH_WALL_Z,
 			stationKind = if shop then "shop" else nil,
 			stationId = if shop then spec.track else nil,
 			radius = if shop then STAND_RADIUS else nil,
 			promptText = if shop then spec.label else nil,
 			material = "Plastic",
 			studded = true,
+		})
+	end
+	-- The wall's two ends, joining the runs through the posts.
+	local endLength = BOOTH_WALL_Z - mirrorZ(BOOTH_WALL_Z)
+	for _, x in { -BOOTH_POST_X, BOOTH_POST_X } do
+		build(m, origin, {
+			name = "BoothWall",
+			pos = { x, 1.1, ISLAND_Z },
+			size = { BOOTH_WALL_THICK, 2.2, endLength },
+			color = C.hazardBlack,
+			material = "Plastic",
+			studs = true,
+		})
+		build(m, origin, {
+			name = "BoothWallTrim",
+			pos = { x, 2.25, ISLAND_Z },
+			size = { BOOTH_WALL_THICK + 0.4, 0.3, endLength },
+			color = C.hazardBlack,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
 		})
 	end
 
