@@ -204,9 +204,6 @@ function CampService.start()
 				data.camps[camp.key] = true
 				unlocked = camp.key
 				print(`[camp] {player.Name} reached {camp.name} — its warp is unlocked`)
-				-- Its hoses are now for sale on their base's hose sign. Lazy: ExhibitService
-				-- sits above this file in the require chain.
-				require(script.Parent.ExhibitService).refreshHose(player)
 			end
 			if unlocked or worldChanged then
 				push(player, available, unlocked)

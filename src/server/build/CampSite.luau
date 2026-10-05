@@ -17,7 +17,7 @@
 	only where Config/Gear sells something at this camp (a rung's `camp` column): Toxic
 	Twilight's north-west slot is the Detector Shop (Shops.buildCampStall), selling that camp's
 	six detectors, the south-west slot is its Magnet Shop, selling its five magnets, and
-	the south-east slot is empty (the Hose Shop went 2026-10-04; hoses sell at each base), and its Aura Shop (the
+	the south-east slot is its Hose Shop, selling its five hoses, and its Aura Shop (the
 	Outfitter's building, Shops.buildCampOutfitter) stands in the north-east slot, east of
 	the Detector Shop, selling its five auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
 	with NO station attributes -- because the gear they will sell does not exist yet. They
@@ -63,7 +63,7 @@
 	                                  Gear sells detector rungs at this camp
 	    ...<Key>.Stalls.MagnetShop    the same, in the south-west slot, where Gear sells
 	                                  magnet rungs at this camp
-	    (no hose stall since 2026-10-04: hoses are sold off each base's wash-bay sign)
+	    ...<Key>.Stalls.CleanerShop   the same, in the south-east slot, for hose rungs
 	    ...<Key>.Stalls.AuraShop      its Aura counter carries StationId "Aura" and
 	                                  ShopCamp = <Key>; east of the Detector Shop
 	    ...<Key>.MergeReactor         StationKind = "merge", StationId = <Key>, on the
@@ -97,7 +97,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 30
+local BUILDER_VERSION = 31
 
 local C = Kit.C
 local build = Kit.build
@@ -137,10 +137,8 @@ local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 --- the diagonals, each facing the kiosk (buildStalls). Slot order = SLOT_ANGLES order;
 --- angles are compass bearings off +Z (north), clockwise toward +X (east).
 --- Aura and Detector swapped places on request (Detector NW, Aura NE).
-local SLOT_TRACKS = { "Detector", "Aura", "Magnet" }
-local SLOT_ANGLES = { -45, 45, -135 } -- NW, NE, SW
---- No SE slot since 2026-10-04: the Hose Shop is gone, every hose is bought off the
---- upgrade sign at your own base's wash bay (build/Plots.setHoseSign).
+local SLOT_TRACKS = { "Detector", "Aura", "Cleaner", "Magnet" }
+local SLOT_ANGLES = { -45, 45, 135, -135 } -- NW, NE, SE, SW
 --- Ring radius = widest shop's half-width + this, so neighbours' front corners never meet.
 --- Was 28. Trimmed when the Aura Shop grew to six mannequins (Seraph, Crimson Vortex):
 --- at 28 its back corner ran 1.5 past the paver square. The ring still sits ~3 further
