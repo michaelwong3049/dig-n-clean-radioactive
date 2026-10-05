@@ -64,7 +64,7 @@ local PANEL = {
 	redHover = Color3.fromHex("F5433D"),
 	green = Color3.fromHex("33D62F"),
 	greenHover = Color3.fromHex("52E84E"),
-	-- Equip Best wears the Gear panel's EQUIP (GearController): its green, square,
+	-- Equip Best wears the old Gear panel's EQUIP look: green, square,
 	-- a 3px black edge, plain white Gotham Black caps.
 	equip = Color3.fromHex("3FB35A"),
 	equipHover = Color3.fromHex("52C96C"),

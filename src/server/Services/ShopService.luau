@@ -152,7 +152,7 @@ end
 --- THREE COLUMNS IN THE GAME NEED THIS, and every one of them draws a misleading bar
 --- without it:
 ---
----   lowerIsBetter  Aura's haulPenalty. 0.20 beats 1.20; negating is the whole fix.
+---   lowerIsBetter  Aura's haulPenalty (hidden from the card now). 0.20 beats 1.20.
 ---   complement     Aura's reduction. The number is a fraction of dose BLOCKED, so it
 ---                  lives at 0.63..0.9988 and a bar drawn on it straight reads "the
 ---                  Static Veil is 98% as good as the best aura in the game". What
@@ -671,8 +671,8 @@ end
 --- `equipTier` with the same standing-there check `buy` does, for the same reason:
 --- the request names a shop and the server re-derives where the player actually is.
 --- The shop card's EQUIP only ever means "this stall's track", so a request naming a
---- different one is refused rather than honoured. Switching from anywhere is the Gear
---- panel's job (`equipAnywhere` below), which is its own door with its own guards.
+--- different one is refused rather than honoured. (The Gear panel that equipped from
+--- anywhere was removed on request, 2026-10-05.)
 function ShopService.equip(player: Player, track: string, tier: number?): (boolean, string)
 	if not isTrack(track) then
 		return false, "no such shop"
@@ -686,15 +686,14 @@ function ShopService.equip(player: Player, track: string, tier: number?): (boole
 	return ShopService.equipTier(player, track, tier)
 end
 
--- ── The Gear panel ────────────────────────────────────────────────────
+-- ── The loadout list ──────────────────────────────────────────────────
 --
--- THE LOADOUT, FROM ANYWHERE. The right-edge Gear tile (client GearController) lists
--- every tier you own on every track and switches between them without walking to a
--- stall. It was requested outright, and it is the reversal of the old "keep the shop a
--- PLACE" rule for EQUIP only: buying still happens at a stall, and nothing here can
--- grant a tier — `equipTier`'s ownership check is the whole boundary, same as ever.
+-- WHAT YOU OWN, on request ("list" over GearAction, answered on GearList). The Gear
+-- panel that drew this and equipped from anywhere was removed on request (2026-10-05,
+-- replaced by Masteries in its grid slot); PurchaseHintController still reads it for
+-- the "You can afford a new <gear>" lines. Read-only: nothing here equips or grants.
 
---- One owned rung, as the Gear panel draws it.
+--- One owned rung.
 export type LoadoutEntry = {
 	tier: number,
 	name: string,
@@ -710,7 +709,7 @@ export type LoadoutTrack = {
 }
 
 --- Every track in Gear.TRACKS order, each with the tiers you own (worst first) and
---- which one is in your hands. Pure; the panel asks for it, it is never streamed.
+--- which one is in your hands. Pure; asked for, never streamed.
 function ShopService.loadout(data: any): { LoadoutTrack }
 	local tracks = {}
 	for _, track in Gear.TRACKS do
@@ -734,58 +733,27 @@ function ShopService.loadout(data: any): { LoadoutTrack }
 	return tracks
 end
 
---- `equipTier` from anywhere on the map, minus the two moments a swap would pull the
---- rug out from under something already running:
----
----   mid-haul   you are rooted to a signal with the magnet in your hands, and the
----              pull's grip and speed are being read off that magnet every yank.
----   mid-wash   the hose at your bay is spraying, and the Cleaner rung IS that hose;
----              refreshHose would rebuild the rig under the running session.
----
---- Both refuse with a sentence rather than queueing the swap: the panel is right there,
---- and pressing it again afterwards is one click.
-function ShopService.equipAnywhere(player: Player, track: string, tier: number?): (boolean, string)
-	local DigService = require(script.Parent.DigService) :: any
-	if DigService.isLocked(player) then
-		return false, "finish your haul first"
-	end
-	-- Lazy, like ExhibitService's: WashService needs LiquidService, which needs this.
-	local WashService = require(script.Parent.WashService) :: any
-	if WashService.isWashing(player) then
-		return false, "finish washing first"
-	end
-	return ShopService.equipTier(player, track, tier)
-end
-
--- A burst of clicks is harmless (every one is validated) but each answers with a
--- whole loadout, so the panel is held to a few a second.
+-- Each ask answers with a whole loadout, so it is held to a few a second.
 local GEAR_COOLDOWN = 0.2
 local lastGearAction: { [Player]: number } = {}
 
 local function wireGearPanel()
 	local listRemote = Net.get("GearList")
-	Net.get("GearAction").OnServerEvent:Connect(function(player: Player, action, track, tier)
+	Net.get("GearAction").OnServerEvent:Connect(function(player: Player, action)
 		local now = os.clock()
 		if now - (lastGearAction[player] or 0) < GEAR_COOLDOWN then
 			return
 		end
 		lastGearAction[player] = now
 
-		local notice: string? = nil
-		if action == "equip" then
-			if type(track) ~= "string" then
-				return
-			end
-			local _, message = ShopService.equipAnywhere(player, track, tier)
-			notice = message
-		elseif action ~= "list" then
+		if action ~= "list" then
 			return
 		end
 		local data = DataService.data(player)
 		if data == nil then
 			return
 		end
-		listRemote:FireClient(player, { tracks = ShopService.loadout(data), notice = notice })
+		listRemote:FireClient(player, { tracks = ShopService.loadout(data) })
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		lastGearAction[player] = nil

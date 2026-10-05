@@ -204,12 +204,11 @@ local REMOTES: { [string]: string } = {
 	-- stands from the bag). No uid, no slot: the server picks everything.
 	NukeAction = "RemoteEvent", -- client -> server, "list" | "equipBest" | "unequipAll" | "unequip" + uid
 	--
-	-- The Gear panel (client GearController, ShopService.loadout). Every tier you own on
-	-- every track, and which is in your hands. Asked for, never streamed. "equip" names a
-	-- track and a tier; the server checks you own it (ShopService.equipAnywhere) and
-	-- answers with the loadout after it, carrying the outcome as `notice`.
-	GearList = "RemoteEvent", -- server -> client, { tracks = { LoadoutTrack }, notice? }
-	GearAction = "RemoteEvent", -- client -> server, "list" | "equip", track?, tier?
+	-- What gear you own (ShopService.loadout): every tier on every track, and which is in
+	-- your hands. Asked for, never streamed; PurchaseHintController reads it. (The Gear
+	-- panel and its "equip from anywhere" were removed on request, 2026-10-05.)
+	GearList = "RemoteEvent", -- server -> client, { tracks = { LoadoutTrack } }
+	GearAction = "RemoteEvent", -- client -> server, "list"
 
 	-- "Getting around": the top-of-screen HOME / SHOPS portals (client WarpController)
 	-- and the Warp tile's camp list (client CampWarpController). The client sends only
