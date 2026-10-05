@@ -669,7 +669,10 @@ local function step(dt: number)
 	local now = os.clock()
 	-- SHOW AURAS (Settings > Graphics) off: no aura is drawn.
 	local hideAll = Prefs.get("auras") == false
-	stepIcons(now, camera.ViewportSize.X)
+	-- FAST MODE: the shop cards' atoms stay a still picture instead of turning.
+	if Prefs.get("fastMode") ~= true then
+		stepIcons(now, camera.ViewportSize.X)
+	end
 	table.clear(movedParts)
 	table.clear(movedFrames)
 
