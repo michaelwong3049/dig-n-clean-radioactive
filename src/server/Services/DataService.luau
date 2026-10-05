@@ -201,6 +201,11 @@ local TEMPLATE = {
 	-- stores and echoes them. Set via Net.Prefs -> PrefsService.
 	prefs = Prefs.defaults(),
 
+	-- One-time: PrefsService turns FAST MODE on for a save the first time it loads after
+	-- this shipped (new saves already start with it on), then sets this so a player who
+	-- turns it off again keeps it off.
+	fastModeSwitchedOn = false,
+
 	-- The walk-speed picker (the pencil by the HUD's WALK SPEED). 0 = walk at your full
 	-- trained speed; a number caps it there (Treadmill.chosenWalk). Set via Net.WalkCap
 	-- -> TreadmillService.
