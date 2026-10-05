@@ -202,7 +202,7 @@ local REMOTES: { [string]: string } = {
 	NukeList = "RemoteEvent", -- server -> client, { slots, used, rate, raw, displayed, notice? }
 	-- A bare verb: "list" (send me a snapshot) or "equipBest" (fill + upgrade my
 	-- stands from the bag). No uid, no slot: the server picks everything.
-	NukeAction = "RemoteEvent", -- client -> server, "list" | "equipBest"
+	NukeAction = "RemoteEvent", -- client -> server, "list" | "equipBest" | "unequipAll" | "unequip" + uid
 	--
 	-- The Gear panel (client GearController, ShopService.loadout). Every tier you own on
 	-- every track, and which is in your hands. Asked for, never streamed. "equip" names a

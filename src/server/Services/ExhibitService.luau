@@ -1400,6 +1400,57 @@ function ExhibitService.unequip(player: Player, uid: string): (boolean, string)
 	return false, "that nuke isn't on display"
 end
 
+--- The Nukes panel's UNEQUIP ALL: every piece comes off its stand into the bag,
+--- best earner first so a bag that fills part-way keeps the ones worth holding. Each
+--- goes through takeOff, so crating pieces stay up and a full bag stops the run.
+function ExhibitService.unequipAll(player: Player): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	local plot = plotOf[player]
+	if plot == nil then
+		return false, "you don't have a base yet"
+	end
+	if #data.exhibit.pedestals == 0 then
+		return false, "nothing on your stands"
+	end
+
+	local stats = StatResolver.get(data)
+	local order = table.clone(data.exhibit.pedestals)
+	table.sort(order, function(a, b)
+		return entryYieldPerSecond(a, 1, stats) > entryYieldPerSecond(b, 1, stats)
+	end)
+
+	local moved, crating, full = 0, 0, false
+	for _, entry in order do
+		local index = table.find(data.exhibit.pedestals, entry)
+		if index == nil then
+			continue
+		end
+		local ok, message = takeOff(data, plot, index)
+		if ok then
+			moved += 1
+		elseif message == "inventory full" then
+			full = true
+			break
+		else
+			crating += 1
+		end
+	end
+
+	if moved == 0 then
+		return false, if full then "inventory full" else "still crating \u{2014} try again in a moment"
+	end
+	local text = `{moved} nuke{if moved == 1 then "" else "s"} back in your bag`
+	if full then
+		text ..= " \u{2014} bag full"
+	elseif crating > 0 then
+		text ..= ` \u{2014} {crating} still crating`
+	end
+	return true, text
+end
+
 --- Fill every stand with the best set of nukes the player owns, and swap weaker
 --- displayed ones back into the bag. "Best" is what the plot actually earns: the
 --- duplicate damping is counted, so it spreads across different nukes instead of
@@ -1792,7 +1843,7 @@ function ExhibitService.start()
 		colorRemote:FireClient(player, if data then data.plotColor else "", defaultAccentHex(player))
 	end)
 
-	-- The Nukes panel. "list" answers with a snapshot; "equipBest" and "unequip" (+ uid)
+	-- The Nukes panel. "list" answers with a snapshot; "equipBest", "unequipAll" and "unequip" (+ uid)
 	-- do the work and answer with the snapshot after it, carrying the outcome as
 	-- `notice`. Equip Best rewrites a whole plot, so it gets a short cooldown the list
 	-- does not need; Unequip a shorter one against a spammed button.
@@ -1805,6 +1856,14 @@ function ExhibitService.start()
 			end
 			lastEquip[player] = now
 			local _, message = ExhibitService.equipBest(player)
+			notice = message
+		elseif action == "unequipAll" then
+			local now = os.clock()
+			if now - (lastEquip[player] or 0) < EQUIP_COOLDOWN then
+				return
+			end
+			lastEquip[player] = now
+			local _, message = ExhibitService.unequipAll(player)
 			notice = message
 		elseif action == "unequip" then
 			local now = os.clock()

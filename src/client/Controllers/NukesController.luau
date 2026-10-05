@@ -12,7 +12,9 @@
 	deliberately not listed -- the hotbar already shows it.
 
 	EQUIP BEST hangs under the tray (ExhibitService.equipBest): fill every stand with the
-	set that earns the most, swapping weaker pieces back into the bag. It works from
+	set that earns the most, swapping weaker pieces back into the bag. UNEQUIP ALL sits
+	left of it (ExhibitService.unequipAll): everything off the stands into the bag, best
+	first, until the bag is full. It works from
 	anywhere, which is the point of it living on the HUD -- wash a nuke, press it, keep
 	going. The server picks everything; the buttons send bare verbs (+ a uid).
 
@@ -93,6 +95,9 @@ local UNEQUIP_H = 46
 local EQUIP_W = 240
 local EQUIP_H = 58
 local EQUIP_GAP = 18
+-- UNEQUIP ALL: left of Equip Best, the rest of the tray's width less a gap.
+local UNEQUIP_ALL_GAP = 10
+local UNEQUIP_ALL_W = PANEL_W - EQUIP_W - UNEQUIP_ALL_GAP
 local TAB_W = 34
 local TAB_H = 52
 -- Air between the ">" tab and the tray.
@@ -450,6 +455,7 @@ end
 local function setBusy(value: boolean)
 	busy = value
 	setButton(ui.equip, not value, if value then "..." else "EQUIP BEST")
+	setButton(ui.unequipAll, not value, if value then "..." else "UNEQUIP ALL")
 end
 
 -- ── Open / close ────────────────────────────────────────────────────
@@ -634,25 +640,44 @@ local function buildPanel(): ScreenGui
 	if wordStroke then
 		wordStroke:Destroy()
 	end
-	equip.Activated:Connect(function()
-		if busy or not equip.Active or actionRemote == nil then
+	local function send(button: GuiButton, verb: string)
+		if busy or not button.Active or actionRemote == nil then
 			return
 		end
 		setBusy(true)
-		actionRemote:FireServer("equipBest")
+		actionRemote:FireServer(verb)
 		-- The answer is a NukeList carrying `notice`; if it never comes (the server's
-		-- cooldown swallowed a double-press) the button comes back on its own.
+		-- cooldown swallowed a double-press) the buttons come back on their own.
 		task.delay(2, function()
 			if busy then
 				setBusy(false)
 			end
 		end)
+	end
+	equip.Activated:Connect(function()
+		send(equip, "equipBest")
+	end)
+
+	-- UNEQUIP ALL: the rows' red, Equip Best's flat shape, on the left of it.
+	local unequipAll =
+		chunky(panel, "UnequipAll", "UNEQUIP ALL", Vector2.new(UNEQUIP_ALL_W, EQUIP_H), 22, PANEL.red, PANEL.redHover)
+	unequipAll.Position = UDim2.fromOffset(0, PANEL_H + EQUIP_GAP)
+	unequipAll.Lip:Destroy()
+	local unequipLabel = unequipAll.Label :: TextLabel
+	unequipLabel.Font = PANEL.equipFont
+	local unequipStroke = unequipLabel:FindFirstChildOfClass("UIStroke")
+	if unequipStroke then
+		unequipStroke:Destroy()
+	end
+	unequipAll.Activated:Connect(function()
+		send(unequipAll, "unequipAll")
 	end)
 
 	ui.panel = panel
 	ui.count = count
 	ui.rate = rate
 	ui.equip = equip
+	ui.unequipAll = unequipAll
 	ui.notice = notice
 	ui.scroll = scroll
 	ui.empty = empty
