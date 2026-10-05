@@ -699,8 +699,8 @@ end
 -- reference of a 2x3 grid of dark tiles with big 3D pictures and the name across the
 -- foot): Shop | Index, Nukes | Gear, Warp | Free Gifts, slots 1-6 left to right, top to
 -- bottom (HudTile builds them). It was one column of 58px Gear/Nukes/Warp squares on the
--- right, with Shop and Index as bars on the left. Masteries' bare medal stands on top of
--- it (SIDE_SOLO_*).
+-- right, with Shop and Index as bars on the left. Masteries' bare medal stood on top of
+-- it until it took Gear's slot (2026-10-05, the Gear panel removed on request).
 -- 76 -> 66 -> 58, smaller, on request (with the AI pictures).
 Dock.SIDE_GRID_TILE = 58
 Dock.SIDE_GRID_COLUMNS = 2
@@ -708,19 +708,10 @@ Dock.SIDE_GRID_ROWS = 3
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
 Dock.SIDE_TILE_GAP = 9
--- Masteries' bare medal, on top of the grid with its left edge on the grid's (HudTile):
--- its box, and the space between its foot and the tallest picture poking over the grid.
--- 88 tall = HudTile BARE_ICON 78 + BARE_CAPTION_GAP -11 + its caption 17 + 4.
-Dock.SIDE_SOLO_WIDTH = 100
-Dock.SIDE_SOLO_HEIGHT = 88
-Dock.SIDE_SOLO_GAP = 36
 -- How far a tile's picture pokes up over its top edge (HudTile): "barely sticking out", on request.
 Dock.SIDE_GRID_POKE = 4
 -- How far below the canvas's middle the grid's middle sits, on request ("lower them a little").
 Dock.SIDE_GRID_DROP = 28
--- Masteries' medal sits this far left of the grid's left edge, on request: the medal art
--- has clear space either side in its box, so this lines the disc up nearer the edge.
-Dock.SIDE_SOLO_SHIFT = 14
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
 -- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Daily rewards, Potions to
@@ -767,13 +758,7 @@ end
 --- bites on a short window or a phone. Every tile places itself from this one line
 --- (Dock.sideTileCentre).
 function Dock.sideColumnTop(height: number): number
-	-- Masteries stands over the grid, so the clamp leaves room for it too.
-	local underGear = Dock.CORNER_BUTTON_BOTTOM
-		+ Dock.GAP
-		+ Dock.SIDE_SOLO_HEIGHT
-		+ Dock.SIDE_SOLO_GAP
-		+ Dock.SIDE_GRID_POKE
-		- height / 2
+	local underGear = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + Dock.SIDE_GRID_POKE - height / 2
 	return math.max(-Dock.SIDE_GRID_HEIGHT / 2 + Dock.SIDE_GRID_DROP, underGear)
 end
 
@@ -793,17 +778,6 @@ function Dock.leftGridTop(height: number): number
 	-- Never up into Roblox's topbar band (screen px there, so divided by the scale).
 	local band = GuiService.TopbarInset.Max.Y / UIKit.scale() + Dock.GAP + Dock.SIDE_GRID_POKE - height / 2
 	return math.max(math.min(top, clear), band)
-end
-
---- True when Masteries' medal has no room over the raised grid (its head would reach
---- Roblox's topbar band), so it stands beside the grid's top row instead (HudTile).
---- Only ever on a short touch screen.
-function Dock.soloBeside(height: number): boolean
-	if Dock.sideLift() <= 0 then
-		return false
-	end
-	local head = height / 2 + Dock.leftGridTop(height) - Dock.SIDE_GRID_POKE - Dock.SIDE_SOLO_GAP - Dock.SIDE_SOLO_HEIGHT
-	return head < GuiService.TopbarInset.Max.Y / UIKit.scale() + Dock.GAP
 end
 
 --- The CENTRE of grid tile `slot` (1-6, left to right, top to bottom), as a position on

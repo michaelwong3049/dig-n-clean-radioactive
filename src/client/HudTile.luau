@@ -1,7 +1,7 @@
 --[[
 	HudTile — one HUD tile: the 2x3 button grid on the middle left (Shop, Index, Nukes, Gear,
 	Warp, Gifts) in the dark "Grid" look, and the top-right corner buttons (Settings, Daily) in
-	the dark "glow orb" look. Masteries builds a bare picture on top of the grid (spec.bare).
+	the dark "glow orb" look.
 
 	The grid tile, on request (2026-10-03, from a reference picture): a dark navy rounded
 	square with a light rim, a big picture that pokes up over its top edge, and the name in
@@ -76,7 +76,7 @@ local TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 export type Spec = {
 	-- The ScreenGui's and the button's name ("IndexButton").
 	name: string,
-	-- The name under the picture (grid tiles and bare rows; a corner button shows none).
+	-- The name under the picture (grid tiles; a corner button shows none).
 	caption: string,
 	-- Where in the left-edge grid: 1-6, left to right, top to bottom.
 	slot: number,
@@ -102,24 +102,7 @@ export type Spec = {
 	topbarLeft: boolean?,
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
-	-- Optional: no box at all, on request — just the picture, big, with the caption
-	-- centred under it, standing on top of the grid with its left edge on the grid's
-	-- (Masteries' medal). `slot` is then unused.
-	bare: boolean?,
-	-- Optional, with bare: extra design px up from the left edge's middle line.
-	lift: number?,
 }
-
--- A bare row (no box): the picture, the caption under it, and the button's whole size.
-local BARE_ICON = 78
-local BARE_GLOW = 112
--- Negative: the medal art has clear space under its disc, and the name sits right under it.
-local BARE_CAPTION_GAP = -11
--- Just wider than "Masteries" at 20.
-local BARE_W = Dock.SIDE_SOLO_WIDTH
-local BARE_TEXT_SIZE = 28
-local BARE_TEXT_STROKE = 3
-local BARE_TEXT_DROP = Vector2.new(2, 3)
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
 --- the true screen as the left column does). Returns the gui, unparented, and the button,
@@ -136,8 +119,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
-	local bare = spec.bare == true
-	local grid = not bare and spec.position == nil and spec.corner == nil and not spec.topbarLeft
+	local grid = spec.position == nil and spec.corner == nil and not spec.topbarLeft
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
 		size = if grid then UDim2.fromOffset(GRID_SIZE, GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
@@ -169,63 +151,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	scale.Parent = button
 
 	local glow, icon
-	if bare then
-		-- No box, on request: the picture with its name under it, on top of the grid with
-		-- its left edge on the grid's (on request: further left than centring over it) --
-		-- re-run on resize, as the grid is.
-		local captionSize = spec.captionSize or BARE_TEXT_SIZE
-		local height = BARE_ICON + BARE_CAPTION_GAP + captionSize + 4
-		button.Size = UDim2.fromOffset(BARE_W, height)
-		local function place()
-			local canvasHeight = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-			local gridTop = Dock.leftGridTop(canvasHeight)
-			if Dock.soloBeside(canvasHeight) then
-				-- A short phone: no room over the grid, so beside its top row.
-				button.Position = UDim2.new(
-					0,
-					Dock.ROW_SIDE_MARGIN + Dock.SIDE_GRID_WIDTH + Dock.SIDE_TILE_GAP + BARE_W / 2 - Dock.SIDE_SOLO_SHIFT,
-					0.5,
-					gridTop + Dock.SIDE_GRID_TILE / 2 - (spec.lift or 0)
-				)
-				return
-			end
-			local foot = gridTop - Dock.SIDE_GRID_POKE - Dock.SIDE_SOLO_GAP
-			button.Position = UDim2.new(
-				0,
-				Dock.ROW_SIDE_MARGIN + BARE_W / 2 - Dock.SIDE_SOLO_SHIFT,
-				0.5,
-				foot - height / 2 - (spec.lift or 0)
-			)
-		end
-		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-		place()
-		button.BackgroundTransparency = 1
-		edge.Enabled = false
-
-		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BARE_GLOW, spec.color)
-		glow.AnchorPoint = Vector2.new(0.5, 0.5)
-		glow.Position = UDim2.new(0.5, 0, 0, BARE_ICON / 2)
-		glow.ImageTransparency = GLOW_TRANSPARENCY
-		glow.ZIndex = 5
-
-		icon = Artwork.picture(button, "Icon", spec.image, BARE_ICON, Color3.new(1, 1, 1))
-		icon.AnchorPoint = Vector2.new(0.5, 0)
-		icon.Position = UDim2.new(0.5, 0, 0, spec.iconDrop or 0)
-		icon.ZIndex = 6
-
-		UIKit.hudNumber(button, {
-			name = "Caption",
-			anchorPoint = Vector2.new(0.5, 0),
-			position = UDim2.new(0.5, 0, 0, BARE_ICON + BARE_CAPTION_GAP),
-			size = UDim2.new(1, 0, 0, captionSize + 4),
-			text = spec.caption,
-			font = Enum.Font.GothamBlack,
-			textSize = captionSize,
-			color = spec.light,
-			xAlign = Enum.TextXAlignment.Center,
-			zIndex = 8,
-		}, BARE_TEXT_STROKE, BARE_TEXT_DROP)
-	elseif grid then
+	if grid then
 		local function place()
 			local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
 			button.Position = Dock.sideTileCentre(spec.slot, height)

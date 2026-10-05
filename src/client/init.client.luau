@@ -27,12 +27,11 @@ local ORDER = {
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
 	"ShopController", -- the Shop tile, stacked below the Index tile, and the Robux shop panel it opens
-	"MasteriesController", -- the Masteries bar above Shop, its panel and the "Mastery reached" toast; reads MasteryState
+	"MasteriesController", -- the Masteries tile beside Nukes (the Gear tile's old slot), its panel and the "Mastery reached" toast; reads MasteryState
 	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
-	"GearController", -- the Gear tile under Nukes: every owned gear tier, equip from anywhere; reads GearList
 	"DailyRewardsController", -- the Daily tile under Warp and its 7-day calendar; reads DailyRewards
 	"PotionController", -- the Potions tile left of Daily, the stash panel + running-potion chips; reads Potions
-	"PlaytimeGiftController", -- the Free Gifts tile above Masteries and its 12-gift panel; reads PlaytimeGifts
+	"PlaytimeGiftController", -- the Free Gifts tile and its 12-gift panel; reads PlaytimeGifts
 	"StarterOfferController", -- the Starter Pack offer under the top-right corner row, once the tutorial is done; X hides it for the session
 	"PassOfferController", -- the 2x Luck / 2x Speed pass buy cards on the right edge, under the Starter Pack offer; gone once owned
 	"GroupRewardController", -- the group chest on Stage 1: the join-group prompt + claim toast; reads GroupReward

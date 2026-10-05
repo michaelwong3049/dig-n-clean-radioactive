@@ -604,9 +604,8 @@ end
 --- Per-field entries:
 ---   label          what the card prints. Short, uppercase — these sit in a 62px gutter.
 ---   kind           "number" (default, draws a bar) or "flag" (a boolean; draws a chip).
----   lowerIsBetter  the bar fills as the number FALLS. Only Aura's haulPenalty,
----                  which is the one column in the game where 0.20 beats 1.20. (It
----                  was Boots' column, then Satchel's, before both were retired.)
+---   lowerIsBetter  the bar fills as the number FALLS. Unused since Aura's haulPenalty
+---                  (the one column where 0.20 beats 1.20) left the card (2026-10-05).
 ---   complement     the bar measures `1 - value`, not the value. Only Aura's
 ---                  `reduction`, which is the fraction of dose BLOCKED: it sits at
 ---                  0.63..0.9988 and what actually varies between rungs is the sliver
@@ -643,7 +642,7 @@ export type StatMeta = {
 	tip: string?,
 }
 
--- The stat palette. Radius blue, depth red, luck green were asked for by name; the rest
+-- The stat palette. Radius blue, depth red (depth is hidden now), luck green were asked for by name; the rest
 -- of the tracks reuse these seven, never twice on one gear.
 Gear.STAT_COLOR = {
 	blue = Color3.fromHex("4DA6FF"),
@@ -658,10 +657,11 @@ local C = Gear.STAT_COLOR
 
 Gear.STAT_META = {
 	Detector = {
-		order = { "radius", "depth", "luck" },
-		hidden = { clarity = true },
+		order = { "radius", "luck" },
+		-- Depth is off the card on request (2026-10-05, "seems unnecessary"); the column
+		-- still drives the dig.
+		hidden = { clarity = true, depth = true },
 		radius = { label = "Radius", color = C.blue, tip = "How far away it spots nukes." },
-		depth = { label = "Depth", color = C.red, tip = "How deep it finds nukes." },
 		luck = { label = "Luck", color = C.green, tip = "Better odds of rare nukes." },
 	},
 	Magnet = {
@@ -678,17 +678,14 @@ Gear.STAT_META = {
 		volume = { label = "Volume", color = C.blue, tip = "Cleans faster." },
 	},
 	Aura = {
-		order = { "reduction", "tolerance", "capacity", "haulPenalty", "speedBonus" },
-		hidden = {},
+		order = { "reduction", "tolerance", "capacity", "speedBonus" },
+		-- Haul (speed lost per nuke carried) is off the card on request (2026-10-05);
+		-- the column still slows a loaded player.
+		hidden = { haulPenalty = true },
 		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log", tip = "Radiation it blocks." },
 		tolerance = { label = "Tolerance", color = C.green, tip = "Radiation you can take before it hurts." },
 		capacity = { label = "Carry", color = C.yellow, tip = "Nukes you can carry." },
-		-- Right under CARRY because it is the other half of the same question: how
-		-- much you can take, then how much taking it slows you. `lowerIsBetter` is
-		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
-		-- the bar would empty as the aura got better.
-		haulPenalty = { label = "Haul", color = C.purple, lowerIsBetter = true, tip = "Speed lost per nuke carried." },
-		-- LAST, after the two carry stats: it is the reward half of "carry more, move
+		-- LAST, after Carry: it is the reward half of "carry more, move
 		-- slower" and reads as a bonus on top. `percent` prints it as "+3%" (ShopService).
 		speedBonus = { label = "Speed", color = C.orange, format = "percent", tip = "Extra walk speed." },
 	},

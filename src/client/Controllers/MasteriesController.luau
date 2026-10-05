@@ -1,5 +1,5 @@
 --[[
-	MasteriesController — the Masteries bar (left column, above Shop), the panel it
+	MasteriesController — the Masteries tile (left grid, beside Nukes), the panel it
 	opens, and the "Mastery reached" toast. Reads MasteryState (Services/MasteryService).
 
 	Every word and number on it comes out of Shared/Mastery over Config/Masteries, the
@@ -31,12 +31,12 @@ local Sfx = require(script.Parent.Parent.Sfx)
 
 local MasteriesController = {}
 
--- The button: on top of the left-edge button grid (Shop, Index, Nukes, Gear, Warp,
--- Gifts) -- no box, on request, just the medal with its name under it.
+-- The button: a tile in the left-edge button grid (Shop, Index, Nukes, Masteries,
+-- Warp, Gifts), in the slot the Gear tile had.
 local BAR_COLOR = Color3.fromRGB(255, 196, 46)
 local BAR_LIGHT = Color3.fromRGB(255, 236, 170)
--- "Masteries" is twice "Shop"; at the bars' 28 it dwarfs the medal; a little smaller still, on request.
-local CAPTION_SIZE = 17
+-- "Masteries" is twice "Shop", so smaller than the grid's 15 to fit the tile's foot.
+local CAPTION_SIZE = 14
 
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
@@ -554,18 +554,17 @@ function MasteriesController.start()
 	local barGui, button = HudTile.build({
 		name = "MasteriesButton",
 		caption = "Masteries",
-		slot = 0,
+		-- The Gear tile's old slot, middle right of the grid beside Nukes, on request
+		-- (2026-10-05: "remove the gear gui ... and replace it with the masteries").
+		-- It was a bare medal standing over the grid.
+		slot = 4,
 		color = BAR_COLOR,
 		light = BAR_LIGHT,
 		image = Artwork.IMAGE.medal,
 		onActivated = MasteriesController.toggle,
 		captionSize = CAPTION_SIZE,
-		bare = true,
 	})
 	badge, badgeText = HudTile.badge(button, Color3.fromRGB(229, 72, 77), PANEL.ink)
-	-- On the medal's shoulder, not the (invisible) button's far corner.
-	badge.AnchorPoint = Vector2.new(0, 0)
-	badge.Position = UDim2.new(0.5, 22, 0, -2)
 	barGui.Parent = playerGui
 	buildPanel().Parent = playerGui
 	buildToast().Parent = playerGui
