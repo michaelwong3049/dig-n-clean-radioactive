@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 72
+local BUILDER_VERSION = 73
 
 local C = Kit.C
 local build = Kit.build
@@ -1197,6 +1197,10 @@ export type CounterSpec = {
 	studded: boolean?,
 	-- The desk's own colour; nil keeps the grey storefront lumber (C.shopWood).
 	bodyColor: string?,
+	-- How far the trim cap sticks out past the desk on each side; nil is 0.2.
+	trimOverhang: number?,
+	-- The desk's height; nil is 2.2.
+	height: number?,
 }
 
 --- The counter desk — the interactive part — in grey storefront lumber
@@ -1220,18 +1224,20 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		attrs = { StationKind = spec.stationKind, StationId = spec.stationId, Radius = spec.radius, ShopCamp = spec.stationCamp }
 	end
 
+	local h = spec.height or 2.2
 	local name = spec.name or "Counter"
 	local desk = build(parent, origin, {
 		name = name,
-		pos = { 0, 1.1, z },
-		size = { w, 2.2, d },
+		pos = { 0, h / 2, z },
+		size = { w, h, d },
 		color = spec.bodyColor or C.shopWood,
 		material = spec.material or "Wood",
 		studs = spec.studded,
 		attributes = attrs,
 	})
 
-	build(parent, origin, { name = `{name}Trim`, pos = { 0, 2.25, z }, size = { w + 0.4, 0.3, d + 0.4 }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
+	local lip = (spec.trimOverhang or 0.2) * 2
+	build(parent, origin, { name = `{name}Trim`, pos = { 0, h + 0.05, z }, size = { w + lip, 0.3, d + lip }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
 
 	if spec.promptText then
 		local prompt = Instance.new("ProximityPrompt")
@@ -1926,13 +1932,15 @@ local BOOTH_PAD_FRONT = SHOPFRONT_Z + 1.25 + 0.4 + BOOTH_PAD_DEPTH
 
 --- THE DESKS ARE A BLACK WALL ROUND THE BOOTH NOW (2026-10-04, on request: "take the
 --- little tables in the stands, make it black, and surround the whole stand with it like a
---- mini wall"). Desk height, BOOTH_WALL_THICK thick, running post centre to post centre
+--- mini wall"). BOOTH_WALL_HEIGHT tall, BOOTH_WALL_THICK thick, running post centre to post centre
 --- on all four sides. Its outer face on the front and back is where the old desk's trim
 --- edge was, so the step pad and BOOTH_PAD_FRONT do not move. The front and back runs
 --- are still the Stand / StandBack counters (station attributes + ViewShop prompt).
 local BOOTH_WALL_THICK = 1
 local BOOTH_WALL_Z = SHOPFRONT_Z + 1.25 + 0.2 - BOOTH_WALL_THICK / 2 -- 1.55: outer face 2.05
 local BOOTH_POST_X = BOOTH_WIDTH / 2 - 1.5 / 2 -- buildStorefrontPosts' post centres
+local BOOTH_WALL_HEIGHT = 2.7 -- 2.2 -> 2.7 on request: "slightly taller"
+local BOOTH_WALL_LIP = 0.5 -- the top cap's overhang each side (0.2 -> 0.5 on request: "a little longer")
 local function buildStepPad(parent: Instance, frame: CFrame, color: string)
 	local w, d = BOOTH_WIDTH, BOOTH_PAD_DEPTH
 	local cz = BOOTH_PAD_FRONT - d / 2
@@ -2022,6 +2030,8 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 			name = side.name,
 			color = C.hazardBlack,
 			bodyColor = C.hazardBlack,
+			trimOverhang = BOOTH_WALL_LIP,
+			height = BOOTH_WALL_HEIGHT,
 			width = BOOTH_POST_X * 2,
 			depth = BOOTH_WALL_THICK,
 			z = BOOTH_WALL_Z,
@@ -2038,16 +2048,16 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 	for _, x in { -BOOTH_POST_X, BOOTH_POST_X } do
 		build(m, origin, {
 			name = "BoothWall",
-			pos = { x, 1.1, ISLAND_Z },
-			size = { BOOTH_WALL_THICK, 2.2, endLength },
+			pos = { x, BOOTH_WALL_HEIGHT / 2, ISLAND_Z },
+			size = { BOOTH_WALL_THICK, BOOTH_WALL_HEIGHT, endLength },
 			color = C.hazardBlack,
 			material = "Plastic",
 			studs = true,
 		})
 		build(m, origin, {
 			name = "BoothWallTrim",
-			pos = { x, 2.25, ISLAND_Z },
-			size = { BOOTH_WALL_THICK + 0.4, 0.3, endLength },
+			pos = { x, BOOTH_WALL_HEIGHT + 0.05, ISLAND_Z },
+			size = { BOOTH_WALL_THICK + BOOTH_WALL_LIP * 2, 0.3, endLength },
 			color = C.hazardBlack,
 			material = "Plastic",
 			studs = true,
