@@ -71,7 +71,14 @@ end
 
 function PrefsService.start()
 	Net.get("Prefs").OnServerEvent:Connect(onChange)
-	DataService.onLoaded(function(player, _data)
+	DataService.onLoaded(function(player, data)
+		if not data.fastModeSwitchedOn then
+			data.fastModeSwitchedOn = true
+			if type(data.prefs) ~= "table" then
+				data.prefs = Prefs.defaults()
+			end
+			data.prefs.fastMode = true
+		end
 		echo(player)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
