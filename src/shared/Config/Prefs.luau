@@ -33,7 +33,7 @@ Prefs.VOLUME_STEP = 0.05
 
 Prefs.DEFS = {
 	-- NEW PLAYERS START ON THE LIGHT SETTINGS: graphics "low", radFx "reduced"
-	-- and reduceFlashing on. Profiles snapshot these defaults, so a change here
+	-- reduceFlashing and fastMode on. Profiles snapshot these defaults, so a change here
 	-- reaches new saves only; existing players keep what they chose.
 
 	-- GRAPHICS. "high" is the game as built. "med" pulls nuke detail in closer and
@@ -79,7 +79,7 @@ Prefs.DEFS = {
 	-- FAST MODE (client FastModeController). On = the nukes standing on OTHER players'
 	-- bases are hidden from you, along with their effects: far less to draw on a busy
 	-- server. Your own base is untouched.
-	fastMode = { kind = "flag", default = false },
+	fastMode = { kind = "flag", default = true },
 
 	-- SHOW AURAS (client AuraController). Off = no aura is drawn, yours or anyone's, so
 	-- none of their rings, trails and sparkles move or cost a frame. On by default.
