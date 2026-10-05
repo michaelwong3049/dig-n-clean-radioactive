@@ -178,7 +178,18 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		button.Size = UDim2.fromOffset(BARE_W, height)
 		local function place()
 			local canvasHeight = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-			local foot = Dock.sideColumnTop(canvasHeight) - Dock.SIDE_GRID_POKE - Dock.SIDE_SOLO_GAP
+			local gridTop = Dock.leftGridTop(canvasHeight)
+			if Dock.soloBeside(canvasHeight) then
+				-- A short phone: no room over the grid, so beside its top row.
+				button.Position = UDim2.new(
+					0,
+					Dock.ROW_SIDE_MARGIN + Dock.SIDE_GRID_WIDTH + Dock.SIDE_TILE_GAP + BARE_W / 2 - Dock.SIDE_SOLO_SHIFT,
+					0.5,
+					gridTop + Dock.SIDE_GRID_TILE / 2 - (spec.lift or 0)
+				)
+				return
+			end
+			local foot = gridTop - Dock.SIDE_GRID_POKE - Dock.SIDE_SOLO_GAP
 			button.Position = UDim2.new(
 				0,
 				Dock.ROW_SIDE_MARGIN + BARE_W / 2 - Dock.SIDE_SOLO_SHIFT,
