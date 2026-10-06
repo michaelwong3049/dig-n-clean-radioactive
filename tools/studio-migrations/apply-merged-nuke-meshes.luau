@@ -68,20 +68,24 @@ local function run(): string
 	local meshes: { [string]: MeshPart } = {}
 	local byItem: { [string]: { Entry } } = {}
 	local batches = 0
+	-- A batch imported twice shows up as two models; read its manifest once.
+	local seen: { [string]: boolean } = {}
 	for _, model in Workspace:GetChildren() do
-		local batch = string.match(model.Name, "^batch_%d%d$")
-		if batch then
-			batches += 1
+		if string.match(model.Name, "^batch_%d%d$") then
 			for _, d in model:GetDescendants() do
 				if d:IsA("MeshPart") then
 					meshes[d.Name] = d
 				end
 			end
-			local manifest = HttpService:JSONDecode(HttpService:GetAsync(URL .. model.Name .. ".json"))
-			for _, entry in manifest do
-				if not entry.superseded then
-					byItem[entry.item] = byItem[entry.item] or {}
-					table.insert(byItem[entry.item], entry)
+			if not seen[model.Name] then
+				seen[model.Name] = true
+				batches += 1
+				local manifest = HttpService:JSONDecode(HttpService:GetAsync(URL .. model.Name .. ".json"))
+				for _, entry in manifest do
+					if not entry.superseded then
+						byItem[entry.item] = byItem[entry.item] or {}
+						table.insert(byItem[entry.item], entry)
+					end
 				end
 			end
 		end
