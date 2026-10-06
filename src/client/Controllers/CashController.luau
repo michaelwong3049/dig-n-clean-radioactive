@@ -12,7 +12,7 @@
 	POSITION IS A FORMULA OVER Dock, NOT A FRESH NUMBER (UIKit.luau's own rule) --
 	same left edge (Dock.SIDE_CORNER_X) and width as the speed row, sitting directly below it
 	(Dock.CASH_BOTTOM / Dock.SPEED_BOTTOM stack the pair up from the bottom edge, lifted
-	clear of a phone's thumbstick by Dock.sideLift), so the two read as one instrument
+	drawn smaller on a phone or tablet by Dock.pairScale), so the two read as one instrument
 	cluster in the corner rather than two unrelated floating panels.
 
 	SIZE IS Dock.CASH_SIZE, NOT A LOCAL HERE. It moved into the shared table the moment
@@ -200,6 +200,7 @@ local function build(): ScreenGui
 	local badge = Instance.new("Frame")
 	badge.Name = "CashBadge"
 	badge.Size = BADGE_SIZE
+	badge.AnchorPoint = Vector2.new(0, 1)
 	badge.BackgroundTransparency = 1
 	badge.ZIndex = 2
 	badge.Parent = canvas
@@ -209,10 +210,9 @@ local function build(): ScreenGui
 
 	local L = LAYOUT
 	-- Re-placed on every viewport change: the touch corners grow and shrink with the
-	-- screen. Bottom-left with a mouse, smaller on the jump button on touch (Dock.pairOnRight).
+	-- screen. Bottom-left corner, smaller on touch (Dock.pairScale).
 	UIKit.onScaleChanged(function()
 		bottom = Dock.cashBottom()
-		badge.AnchorPoint = Dock.pairAnchor()
 		badge.Position = Dock.pairPosition(bottom)
 		ui.punch.Scale = Dock.pairScale()
 	end)
@@ -306,11 +306,9 @@ local function placeSparkles(record: any)
 	end
 	local width = textWidth(record.label.Text, record.label.TextSize, STYLE.valueFont)
 	local mid = POPUP.height / 2
-	-- Where the text starts in the label: a right-aligned popup (touch) ends at its right edge.
-	local x = if record.label.TextXAlignment == Enum.TextXAlignment.Right then record.label.Size.X.Offset - width else 0
-	record.sparkles[1].Position = UDim2.fromOffset(x + width + 12, mid - 16)
-	record.sparkles[2].Position = UDim2.fromOffset(x - 10, mid - 12)
-	record.sparkles[3].Position = UDim2.fromOffset(x + width + 22, mid + 14)
+	record.sparkles[1].Position = UDim2.fromOffset(width + 12, mid - 16)
+	record.sparkles[2].Position = UDim2.fromOffset(-10, mid - 12)
+	record.sparkles[3].Position = UDim2.fromOffset(width + 22, mid + 14)
 end
 
 local function fadeOut(record: any)
@@ -357,22 +355,17 @@ local function popup(delta: number, quiet: boolean)
 	local k = Dock.pairScale()
 	local textEnd = (source.Position.X.Offset + textWidth(source.Text, source.TextSize, source.Font)) * k
 	local middle = (source.Position.Y.Offset + source.Size.Y.Offset / 2) * k
-	local left = Dock.pairLeft(ui.canvas.AbsoluteSize.X / UIKit.canvasScale(ui.canvas))
-	local y = middle - BADGE_H * k - bottom
-	-- Off the end of the number on the left; on the right, with the screen edge just
-	-- past the number, it flares out to the LEFT of the bundle instead.
-	local onRight = Dock.pairOnRight()
-	local start = if onRight then UDim2.new(0, left - POPUP.gap, 1, y) else UDim2.new(0, left + textEnd + POPUP.gap, 1, y)
+	local start = UDim2.new(0, Dock.SIDE_CORNER_X + textEnd + POPUP.gap, 1, middle - BADGE_H * k - bottom)
 
 	local label = UIKit.label(ui.canvas, {
 		name = "CashPopup",
 		size = UDim2.fromOffset(260, POPUP.height),
 		position = start,
-		anchorPoint = if onRight then Vector2.new(1, 0.5) else Vector2.new(0, 0.5),
+		anchorPoint = Vector2.new(0, 0.5),
 		font = STYLE.valueFont,
 		textSize = style.textSize,
 		color = if positive then STYLE.gain else STYLE.spend,
-		xAlign = if onRight then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left,
+		xAlign = Enum.TextXAlignment.Left,
 		shadow = false,
 		text = popupText(delta),
 		zIndex = 6,

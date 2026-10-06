@@ -30,8 +30,8 @@ local function show()
 
 	local card = Instance.new("Frame")
 	card.Name = "Card"
-	-- Just above the speed/cash column in the bottom-left corner (above the thumbstick
-	-- on touch, where the pair moved right).
+	-- Just above the speed/cash column in the bottom-left corner (or the thumbstick's
+	-- box on touch, if that is taller).
 	card.AnchorPoint = Vector2.new(0, 1)
 	card.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -(Dock.leftCornerTop() + 12))
 	card.Size = UDim2.fromOffset(340, 170)

@@ -350,7 +350,7 @@ end
 
 local function place()
 	local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-	-- On the hotbar's top edge, above the jump button and the speed/cash pair on touch,
+	-- On the hotbar's top edge, above the jump button on touch,
 	-- shrunk on a short canvas (Dock.boostsLayout).
 	local bottom, scale = Dock.boostsLayout(height)
 	local right = Dock.ROW_SIDE_MARGIN

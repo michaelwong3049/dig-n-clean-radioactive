@@ -289,7 +289,7 @@ function PassOfferController.start()
 		local need = ICON_OUT.Y + STEP * #CARDS
 		local top
 		if UIKit.isTouch() then
-			-- ON TOUCH THE RIGHT EDGE STACKS FROM THE BOTTOM: jump button, speed/cash, Boosts,
+			-- ON TOUCH THE RIGHT EDGE STACKS FROM THE BOTTOM: jump button, Boosts,
 			-- then these, standing on the Boosts box, shrunk to fit under the Starter card.
 			local ceiling = Dock.STARTER_TOP + Dock.STARTER_CARD_H * Dock.STARTER_TOUCH_FIT + Dock.GAP
 			fit.Scale = math.clamp((floor - ceiling) / need, MIN_FIT, 1)
