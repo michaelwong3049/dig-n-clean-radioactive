@@ -172,8 +172,8 @@ local PANEL_KINDS: { [string]: boolean } = {
 -- fit the longest track on screen at once but made every card small enough that eight
 -- of them read as a price list. Now one card holds the middle of the panel at hero
 -- size, and its neighbours peek in, dimmed, at either edge — the sliver is what tells
--- you there is more to the left and right. Arrows, the mouse wheel, a drag, the pager
--- dots or a click on a peeking card move along the row; it always settles with one
+-- you there is more to the left and right. Arrows, the mouse wheel, a drag, the
+-- scrollbar or a click on a peeking card move along the row; it always settles with one
 -- card centred.
 --
 -- CARD_SLOTS IS A CEILING OVER EVERY TRACK, READ OFF CONFIG/GEAR. It was typed as 8
@@ -189,7 +189,8 @@ for _, track in Gear.TRACKS do
 	CARD_SLOTS = math.max(CARD_SLOTS, Gear.maxTier(track))
 end
 local CARD_WIDTH = 340
-local CARD_HEIGHT = 470
+-- 470 + the 20px the pager row gave back when the scrollbar replaced it (2026-10-05).
+local CARD_HEIGHT = 490
 local CARD_GAP = 18
 -- How much of each neighbour shows at the panel's edges on a full-width panel. On a
 -- viewport too narrow for the ceiling, the panel narrows and the peeks go first; the
@@ -198,8 +199,13 @@ local CARD_GAP = 18
 local CARD_PEEK = CARD_WIDTH -- THREE WHOLE CARDS ACROSS (2026-10-04, on request: the studded-card shop)
 -- Distance from one card's centre to the next — one "notch" of the carousel.
 local CAROUSEL_STEP = CARD_WIDTH + CARD_GAP
+-- The scrollbar under the cards, inside the carousel window (2026-10-05, on request:
+-- "one complete scroll bar" in place of the pager dots, so the cards could grow).
+local SCROLL_HEIGHT = 12
+local SCROLL_GAP = 6
 -- A few px taller than a card so the focused card's stroke is never clipped.
-local CAROUSEL_HEIGHT = CARD_HEIGHT + 8
+local CARD_BAND = CARD_HEIGHT + 8
+local CAROUSEL_HEIGHT = CARD_BAND + SCROLL_GAP + SCROLL_HEIGHT
 -- Neighbours sit slightly smaller and behind a slate veil, so the focused card is the
 -- only thing on the row that reads as in front of you.
 local NEIGHBOUR_SCALE = 1
@@ -215,9 +221,6 @@ local DRAG_RUBBER = 0.35
 -- One wheel notch is one card. Trackpads fire a burst of small wheel events per swipe,
 -- and without a cooldown one swipe would run the whole ladder.
 local WHEEL_COOLDOWN = 0.15
--- Pager dots: a dot per tier, the focused one stretched into a pill.
-local DOT_SIZE = 9
-local DOT_FOCUS_WIDTH = 26
 -- The close badge's 32px plus the 14px it is inset by, less the panel pad it shares.
 local WALLET_INSET = 58
 
@@ -1262,7 +1265,7 @@ local function build(): ScreenGui
 	local row = Instance.new("Frame")
 	row.Name = "Strip"
 	row.AnchorPoint = Vector2.new(0, 0.5)
-	row.Position = UDim2.new(0.5, -CARD_WIDTH / 2, 0.5, 0)
+	row.Position = UDim2.new(0.5, -CARD_WIDTH / 2, 0, CARD_BAND / 2) -- over the scrollbar
 	row.Size = UDim2.fromOffset(CARD_SLOTS * CAROUSEL_STEP, CARD_HEIGHT)
 	row.BackgroundTransparency = 1
 	row.Parent = carousel
@@ -1280,7 +1283,7 @@ local function build(): ScreenGui
 		local arrow = UIKit.button(carousel, {
 			name = name,
 			anchorPoint = Vector2.new(if side < 0 then 0 else 1, 0.5),
-			position = UDim2.new(if side < 0 then 0 else 1, -side * 6, 0.5, 0),
+			position = UDim2.new(if side < 0 then 0 else 1, -side * 6, 0, CARD_BAND / 2),
 			size = UDim2.fromOffset(42, 76),
 			text = "",
 			textSize = 1,
@@ -1312,63 +1315,38 @@ local function build(): ScreenGui
 	ui.shopPrev = makeArrow("Prev", -1)
 	ui.shopNext = makeArrow("Next", 1)
 
-	-- ── The pager ────────────────────────────────────────────────────
-	-- One dot per tier, the focused one stretched into a pill, and "3 / 8" beside it.
-	-- Each dot is a button straight to that tier. Dots carry ownership as well
-	-- (amber = in hand, light = owned), so the row can be read without paging it.
-	local pager = Instance.new("Frame")
-	pager.Name = "Pager"
-	pager.LayoutOrder = 2
-	pager.Size = UDim2.new(1, 0, 0, 22)
-	pager.BackgroundTransparency = 1
-	pager.Parent = shop
-	ui.shopPager = pager
+	-- ── The scrollbar ────────────────────────────────────────────────
+	-- One full-width track along the bottom of the card window, with a thumb as wide as
+	-- the share of the row on screen. It replaced the pager dots and "3 / 8" counter
+	-- (2026-10-05, on request), whose own row went to taller cards. Press or drag
+	-- anywhere on the track to page there (Station.start); the thumb follows a row drag
+	-- too (paintScroll).
+	local scroll = Instance.new("Frame")
+	scroll.Name = "Scrollbar"
+	scroll.AnchorPoint = Vector2.new(0.5, 1)
+	scroll.Position = UDim2.fromScale(0.5, 1)
+	scroll.Size = UDim2.new(1, -8, 0, SCROLL_HEIGHT)
+	scroll.BackgroundColor3 = Color3.fromHex("1A1D22")
+	scroll.BorderSizePixel = 0
+	scroll.Visible = false
+	scroll.ZIndex = 30
+	scroll.Parent = carousel
+	ui.shopScroll = scroll
+	local scrollCorner = Instance.new("UICorner")
+	scrollCorner.CornerRadius = UDim.new(0.5, 0)
+	scrollCorner.Parent = scroll
 
-	local dots = Instance.new("Frame")
-	dots.Name = "Dots"
-	dots.Size = UDim2.fromScale(1, 1)
-	dots.BackgroundTransparency = 1
-	dots.Parent = pager
-
-	local dotLayout = Instance.new("UIListLayout")
-	dotLayout.FillDirection = Enum.FillDirection.Horizontal
-	dotLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	dotLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	dotLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	dotLayout.Padding = UDim.new(0, 8)
-	dotLayout.Parent = dots
-
-	ui.shopDots = {}
-	for index = 1, CARD_SLOTS do
-		local dot = UIKit.button(dots, {
-			name = `Dot{index}`,
-			size = UDim2.fromOffset(DOT_SIZE, DOT_SIZE),
-			text = "",
-			textSize = 1,
-			fillColor = FIELD.edge,
-			fillTransparency = 0,
-			cornerRadius = UDim.new(0.5, 0),
-			strokeThickness = 0,
-			outline = false,
-			shadow = false,
-		})
-		dot.LayoutOrder = index
-		dot.Visible = false
-		table.insert(ui.shopDots, dot)
-	end
-
-	ui.shopCounter = UIKit.label(pager, {
-		name = "Counter",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.fromScale(1, 0),
-		size = UDim2.new(0, 80, 1, 0),
-		font = FIELD.label,
-		textSize = 15,
-		color = FIELD.text,
-		xAlign = Enum.TextXAlignment.Right,
-		outline = false,
-		shadow = false,
-	})
+	local thumb = Instance.new("Frame")
+	thumb.Name = "Thumb"
+	thumb.Size = UDim2.fromScale(0.25, 1)
+	thumb.BackgroundColor3 = Color3.fromHex("C9CED6")
+	thumb.BorderSizePixel = 0
+	thumb.ZIndex = 31
+	thumb.Parent = scroll
+	ui.shopThumb = thumb
+	local thumbCorner = Instance.new("UICorner")
+	thumbCorner.CornerRadius = UDim.new(0.5, 0)
+	thumbCorner.Parent = thumb
 
 	-- Shown instead of the carousel when a shop has no track behind it at all.
 	ui.shopEmpty = UIKit.label(shop, {
@@ -2095,40 +2073,54 @@ local carousel = {
 	singleFor = nil :: string?,
 }
 local rowTween: Tween? = nil
+local thumbTween: Tween? = nil
+
+-- Cards on screen at once: three across, or the whole row when it is shorter.
+local SCROLL_VISIBLE = 3
+
+--- The scrollbar thumb: as wide as the share of the row on screen, sitting over the
+--- cards that are showing, and following a row drag while it is held.
+local function paintScroll(animate: boolean)
+	local count = carousel.count
+	if thumbTween then
+		thumbTween:Cancel()
+		thumbTween = nil
+	end
+	if count <= SCROLL_VISIBLE then
+		return
+	end
+	local width = SCROLL_VISIBLE / count
+	local first = carousel.focus - 1 - carousel.drag / CAROUSEL_STEP -- 1 short of the leftmost card
+	local left = math.clamp((first - 1) / count, 0, 1 - width)
+	local position = UDim2.fromScale(left, 0)
+	ui.shopThumb.Size = UDim2.fromScale(width, 1)
+	if animate then
+		thumbTween = TweenService:Create(ui.shopThumb, CAROUSEL_TWEEN, { Position = position })
+		thumbTween:Play()
+	else
+		ui.shopThumb.Position = position
+	end
+end
 
 local function placeRow(animate: boolean)
 	if rowTween then
 		rowTween:Cancel()
 		rowTween = nil
 	end
-	local target = UDim2.new(0.5, -CARD_WIDTH / 2 - (carousel.focus - 1) * CAROUSEL_STEP + carousel.drag, 0.5, 0)
+	local target = UDim2.new(0.5, -CARD_WIDTH / 2 - (carousel.focus - 1) * CAROUSEL_STEP + carousel.drag, 0, CARD_BAND / 2)
 	if animate then
 		rowTween = TweenService:Create(ui.shopRow, CAROUSEL_TWEEN, { Position = target })
 		rowTween:Play()
 	else
 		ui.shopRow.Position = target
 	end
+	paintScroll(animate)
 end
 
---- Dots, counter and arrows. Plain property writes with no tweens, so render() can
---- call this on every tick — buying a tier recolours its dot without the focus moving.
+--- The arrows, and whether the scrollbar shows at all. Plain property writes with no
+--- tweens, so render() can call this on every tick.
 local function paintPager()
-	local tiers = carousel.tiers
-	for index, dot in ui.shopDots do
-		local entry = if tiers then tiers[index] else nil
-		dot.Visible = entry ~= nil
-		if entry == nil then
-			continue
-		end
-		local focused = index == carousel.focus
-		dot.Size = UDim2.fromOffset(if focused then DOT_FOCUS_WIDTH else DOT_SIZE, DOT_SIZE)
-		dot.BackgroundColor3 = if focused
-			then carousel.accent
-			elseif entry.current then FIELD.amber
-			elseif entry.owned then FIELD.dim
-			else FIELD.edge
-	end
-	ui.shopCounter.Text = if carousel.count > 0 then `{carousel.focus} / {carousel.count}` else ""
+	ui.shopScroll.Visible = carousel.count > SCROLL_VISIBLE and not carousel.single
 	local edge = if carousel.count >= 3 then 1 else 0 -- three across (setShopFocus)
 	ui.shopPrev.Visible = carousel.focus > 1 + edge
 	ui.shopNext.Visible = carousel.focus < carousel.count - edge
@@ -2405,7 +2397,8 @@ local function render()
 		end
 
 		ui.shopCarousel.Visible = count > 0
-		ui.shopPager.Visible = count > 0 and not single
+		-- A rack card has nothing to scroll, so its window drops the scrollbar's strip.
+		ui.shopCarousel.Size = UDim2.new(1, 0, 0, if single then CARD_BAND else CAROUSEL_HEIGHT)
 		ui.shopEmpty.Visible = count == 0
 
 		-- The equipped tier, for the ghost bars on every card above it.
@@ -2603,10 +2596,31 @@ function Station.start()
 	ui.shopNext.MouseButton1Click:Connect(function()
 		setShopFocus(carousel.focus + 1, true)
 	end)
-	for index, dot in ui.shopDots do
-		dot.MouseButton1Click:Connect(function()
+	-- The scrollbar: a press or drag anywhere on the track centres the thumb under the
+	-- pointer, a card at a time. It sits inside the carousel's rect, so it is tested
+	-- first and a press on it never starts a row drag.
+	local scrollInput: InputObject? = nil
+	local function overScroll(position: Vector3): boolean
+		local bar = ui.shopScroll
+		if not bar.Visible then
+			return false
+		end
+		local corner = bar.AbsolutePosition
+		local size = bar.AbsoluteSize
+		local slop = 6 -- a 12px bar is a small target for a thumb
+		return position.X >= corner.X
+			and position.X <= corner.X + size.X
+			and position.Y >= corner.Y - slop
+			and position.Y <= corner.Y + size.Y + slop
+	end
+	local function scrollTo(position: Vector3)
+		local bar = ui.shopScroll
+		local along = math.clamp((position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+		-- The thumb's centre under the pointer is the middle of the three cards showing.
+		local index = math.floor(along * carousel.count + 1)
+		if index ~= carousel.focus then
 			setShopFocus(index, true)
-		end)
+		end
 	end
 
 	-- A DRAG IS NOT A CLICK. Releasing a drag over a button still fires its
@@ -2635,7 +2649,11 @@ function Station.start()
 			return
 		end
 		local kind = input.UserInputType
-		if (kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch) and overCarousel(input.Position) then
+		local press = kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch
+		if press and overScroll(input.Position) then
+			scrollInput = input
+			scrollTo(input.Position)
+		elseif press and overCarousel(input.Position) then
 			dragInput = input
 			dragStartX = input.Position.X
 			dragMoved = false
@@ -2649,6 +2667,15 @@ function Station.start()
 				lastWheel = os.clock()
 				-- Wheel down (towards you) is next, the way a sideways list scrolls.
 				setShopFocus(carousel.focus + (if input.Position.Z < 0 then 1 else -1), true)
+			end
+			return
+		end
+		if scrollInput ~= nil then
+			local byMouse = scrollInput.UserInputType == Enum.UserInputType.MouseButton1
+			if (byMouse and kind == Enum.UserInputType.MouseMovement) or (not byMouse and input == scrollInput) then
+				if shopShowing() then
+					scrollTo(input.Position)
+				end
 			end
 			return
 		end
@@ -2683,6 +2710,19 @@ function Station.start()
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
+		if
+			scrollInput ~= nil
+			and (
+				input == scrollInput
+				or (
+					scrollInput.UserInputType == Enum.UserInputType.MouseButton1
+					and input.UserInputType == Enum.UserInputType.MouseButton1
+				)
+			)
+		then
+			scrollInput = nil
+			return
+		end
 		if dragInput == nil then
 			return
 		end
