@@ -37,6 +37,7 @@ local Payload = require(Config.Payload)
 local Treadmill = require(Config.Treadmill)
 local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
+local Weather = require(Config.Weather)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
 local GroupReward = require(Config.GroupReward)
@@ -2978,26 +2979,83 @@ function Spec.run(): boolean
 		local function luma(c: Color3): number
 			return 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B
 		end
-		local legal, deck = true, true
-		local looks ={ SkyConfig.blend(SkyConfig.BASE, SkyConfig.AURORA, SkyConfig.AURORA_BLEND) }
-		for _, stage in Stages.DEFS do
-			table.insert(looks, SkyConfig.blend(SkyConfig.get(stage.id), SkyConfig.AURORA, SkyConfig.AURORA_BLEND))
-		end
-		for _, look in looks do
-			if look.cloudCover >= 1 or look.atmoDensity > 0.6 or look.atmoHaze > 3.4 then
-				legal = false
+		-- The same for every weather (Config/Sky.WEATHER), and every weather has a look.
+		local legal, deck, everyWeather = true, true, true
+		for _, id in Weather.ORDER do
+			local weather = SkyConfig.WEATHER[id]
+			if weather == nil then
+				everyWeather = false
+				continue
 			end
-			if look.atmoHaze >= 2 and luma(look.cloudColor) >= luma(look.atmoColor) then
-				deck = false
+			local looks = { SkyConfig.blend(SkyConfig.BASE, weather.look, weather.blend) }
+			for _, stage in Stages.DEFS do
+				table.insert(looks, SkyConfig.blend(SkyConfig.get(stage.id), weather.look, weather.blend))
+			end
+			for _, look in looks do
+				if look.cloudCover >= 1 or look.atmoDensity > 0.6 or look.atmoHaze > 3.4 then
+					legal = false
+				end
+				if look.atmoHaze >= 2 and luma(look.cloudColor) >= luma(look.atmoColor) then
+					deck = false
+				end
 			end
 		end
-		check("§sky the Violet Aurora stays under the sky's ceilings over every stage", legal)
-		check("§sky the Violet Aurora's cloud deck is darker than its air over every stage", deck)
+		check("§sky every weather has a look", everyWeather)
+		check("§sky every weather stays under the sky's ceilings over every stage", legal)
+		check("§sky every weather's cloud deck is darker than its air over every stage", deck)
 		check(
 			"§sky the Violet Aurora is violet (blue over green, red over green)",
 			SkyConfig.AURORA.atmoColor.B > SkyConfig.AURORA.atmoColor.G
 				and SkyConfig.AURORA.atmoColor.R > SkyConfig.AURORA.atmoColor.G
 		)
+	end
+
+	-- ── Weather (Config/Weather) ──────────────────────────────────────
+	do
+		-- The pick covers every weather, in proportion to its weight.
+		local counts: { [string]: number } = {}
+		local steps = 3000
+		for i = 0, steps - 1 do
+			local id = Weather.pick(i / steps)
+			counts[id] = (counts[id] or 0) + 1
+		end
+		local total = 0
+		for _, id in Weather.ORDER do
+			total += Weather.get(id).weight
+		end
+		local fair = true
+		for _, id in Weather.ORDER do
+			local want = steps * Weather.get(id).weight / total
+			if math.abs((counts[id] or 0) - want) > 1 then
+				fair = false
+			end
+		end
+		check("§weather the pick lands on every weather by its weight", fair)
+
+		-- Every meteor of a shower falls inside it, in order, with time left to land.
+		local inside = true
+		for i = 1, Weather.METEOR_COUNT do
+			local at = Weather.meteorAt(i)
+			if at < 0 or at + Weather.METEOR_FALL_SECONDS > Weather.get("meteor").seconds then
+				inside = false
+			end
+			if i > 1 and at <= Weather.meteorAt(i - 1) then
+				inside = false
+			end
+		end
+		check("§weather every meteor falls and lands inside the shower", inside)
+
+		local uniqueAttrs, seen = true, {}
+		for _, id in Weather.ORDER do
+			local def = Weather.get(id)
+			for _, attr in { def.endsAttr, def.startAttr } do
+				if seen[attr] then
+					uniqueAttrs = false
+				end
+				seen[attr] = true
+			end
+		end
+		check("§weather every weather keeps its own clock attributes", uniqueAttrs)
 	end
 
 	-- ── Supply crates (Config/Crates) ─────────────────────────────────

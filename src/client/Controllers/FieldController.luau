@@ -47,6 +47,7 @@ local Workspace = game:GetService("Workspace")
 local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
 local Rarity = require(ReplicatedStorage.Shared.Config.Rarity)
 local RareDrop = require(ReplicatedStorage.Shared.Config.RareDrop)
+local Weather = require(ReplicatedStorage.Shared.Config.Weather)
 local SpotCracks = require(script.Parent.Parent.SpotCracks)
 
 local Field = {}
@@ -161,6 +162,10 @@ type Tracked = {
 	-- The announced drop's rarity, off its aura (Config/RareDrop.AURA_ATTR), else nil.
 	-- Known without a detector reading, so the spot lights for everyone from anywhere.
 	rareDrop: string?,
+	-- A Meteor Shower spot (Config/Weather.METEOR_AURA_ATTR): lit in meteor orange, with
+	-- its own pillar, for everyone from anywhere -- its rarity is still each player's
+	-- own reading, so the cracks only come when the detector reaches it.
+	meteor: boolean,
 	-- The announced drop's pillar of light (buildBeacon): a solid shaft and a wide
 	-- faint glow round it.
 	beacon: { Beam }?,
@@ -490,6 +495,7 @@ local function track(instance: Instance)
 			local rarity = instance:GetAttribute(RareDrop.AURA_ATTR)
 			return if type(rarity) == "string" then rarity else nil
 		end)(),
+		meteor = instance:GetAttribute(Weather.METEOR_AURA_ATTR) == true,
 		beacon = nil,
 	}
 end
@@ -553,6 +559,12 @@ end
 --- for is hidden outright until (if ever) a rarity lands.
 -- How close (flat studs) an aura must be to the tutorial spot to be it.
 local TUTORIAL_SPOT_MATCH = 2
+
+-- A meteor spot's colour until (and its pillar's colour after) a reading lands.
+local METEOR_HUE = Color3.fromHex("FF8A2A")
+-- What build/SignalAura ships every aura's light in (its GLOW); a meteor spot's goes
+-- back to it once a reading lands, like every other spot.
+local AURA_LIGHT = Color3.fromHex("2E9FD8")
 
 local function stepAuras()
 	local player = Players.LocalPlayer
@@ -664,11 +676,19 @@ local function stepAuras()
 			if entry.motes then
 				entry.motes.Color = ColorSequence.new(hue)
 			end
+			if entry.meteor and entry.light then
+				-- Orange while it waited for this reading; the shared aura's own glow now.
+				entry.light.Color = AURA_LIGHT
+			end
 			if entry.rareDrop and entry.beacon == nil then
 				entry.beacon = buildBeacon(entry.core, entry.surface, hue)
 			end
 		end
 		local rarity = entry.rarity
+		-- The meteor's pillar: up from the moment the aura arrives, in meteor orange.
+		if entry.meteor and entry.beacon == nil then
+			entry.beacon = buildBeacon(entry.core, entry.surface, METEOR_HUE)
+		end
 
 		-- IS ANYONE STILL REVEALING THIS? The server's answer, never ours. It flags an
 		-- aura nobody's detector reaches instead of deleting it on the spot, and holds
@@ -693,6 +713,22 @@ local function stepAuras()
 		-- the aura, so draw nothing -- no cracks are built, and the shared core stays
 		-- dark until a rarity lands. The server still owns that the part exists; this
 		-- only ever drives how it looks.
+		if rarity == nil and entry.meteor then
+			-- A meteor spot with no reading yet still glows, in meteor orange: the
+			-- pillar says where, this says "right here" once you are close.
+			local pulse = 0.5 + 0.5 * math.sin(now * 4 + entry.phase)
+			entry.core.Color = METEOR_HUE:Lerp(Color3.new(1, 1, 1), 0.35)
+			entry.core.Transparency = 0.15 + 0.15 * pulse
+			if entry.light then
+				entry.light.Color = METEOR_HUE
+				entry.light.Brightness = 1.6 + 0.8 * pulse
+				entry.light.Range = 16
+			end
+			if entry.motes then
+				entry.motes.Rate = 0
+			end
+			continue
+		end
 		if rarity == nil then
 			entry.core.Transparency = 1
 			if entry.light then

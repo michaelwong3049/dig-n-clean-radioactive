@@ -109,6 +109,7 @@ local StageCraters = require(Shared.Config.StageCraters)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local RareDrop = require(Shared.Config.RareDrop)
+local Weather = require(Shared.Config.Weather)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
 local DetonationConfig = require(Shared.Config.Detonation)
@@ -221,6 +222,10 @@ type Signal = {
 	-- plant time (no per-player luck re-roll), aura lit for everyone, and it is not
 	-- replaced when it goes -- it was one over the stage's SIGNALS_PER_STAGE.
 	rareDrop: boolean?,
+	-- A METEOR SPOT (Config/Weather, the Meteor Shower): an ordinary per-player roll
+	-- with Weather.METEOR_LUCK on top, shallow, lit for everyone, and -- like the
+	-- announced drop -- one over SIGNALS_PER_STAGE, so it is not replaced when it goes.
+	meteor: boolean?,
 	-- A drop's stacked extra qualities (Rarity.qualities), copied onto the dug item.
 	bonus: { string }?,
 	-- THE TUTORIAL SPOT (Config/Tutorial.DIG_SPOT_IN): one fixed shallow Common just
@@ -238,6 +243,8 @@ local signalsByStage: { [number]: { Signal } } = {}
 -- Live announced drops by uid (normally zero or one), and who hears when one goes:
 -- `claimer` is the player who dug it up, nil when it blew up in someone's hands.
 local rareDrops: { [string]: Signal } = {}
+-- Live meteor spots by uid (Config/Weather). Revealed to everyone, like rareDrops.
+local meteors: { [string]: Signal } = {}
 local rareDropGone: { (uid: string, claimer: Player?) -> () } = {}
 
 local function notifyRareDropGone(uid: string, claimer: Player?)
@@ -368,6 +375,10 @@ local function reconcileAuras()
 				-- Exposed to everybody, from anywhere (Config/RareDrop.AURA_ATTR). Set
 				-- before parenting: the streaming mode only counts from then on.
 				model:SetAttribute(RareDrop.AURA_ATTR, signal.rarity)
+				model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+			elseif signal.meteor then
+				-- The same: every client marks it (FieldController) before any reading.
+				model:SetAttribute(Weather.METEOR_AURA_ATTR, true)
 				model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 			end
 			model.Parent = folder
@@ -531,7 +542,8 @@ local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number
 
 	local detectorLuck = (stats.detectorLuck + (IdentifyService.stageLuck(userId)[signal.stageId] or 0))
 		* (IdentifyService.stageLuckMult(userId)[signal.stageId] or 1)
-	local boost = stats.luckBoost
+	-- A meteor spot rolls luckier for everyone (Config/Weather.METEOR_LUCK).
+	local boost = stats.luckBoost * (if signal.meteor then Weather.METEOR_LUCK else 1)
 	if detectorLuck <= 1 and boost <= 1 then
 		return signal.itemId, signal.rarity, signal.modifier, signal.crateId
 	end
@@ -733,6 +745,7 @@ local function removeSignal(stageId: number, uid: string)
 	revealed[uid] = nil
 	hot[uid] = nil
 	rareDrops[uid] = nil
+	meteors[uid] = nil
 
 	local list = signalsByStage[stageId]
 	for index, signal in list do
@@ -816,7 +829,7 @@ end
 local function markFieldStale()
 	for _, list in signalsByStage do
 		for _, signal in list do
-			if not signal.rareDrop and not signal.tutorial then
+			if not signal.rareDrop and not signal.meteor and not signal.tutorial then
 				signal.stale = true
 			end
 		end
@@ -1232,7 +1245,7 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 	removeSignal(signal.stageId, signal.uid)
 	if signal.rareDrop then
 		notifyRareDropGone(signal.uid, player) -- it was an extra; nothing to replace
-	else
+	elseif not signal.meteor then -- a meteor spot is an extra too (Config/Weather)
 		spawnSignal(signal.stageId) -- keep the field populated
 	end
 
@@ -1329,7 +1342,7 @@ local function detonate(signal: Signal)
 	removeSignal(stageId, signal.uid)
 	if signal.rareDrop then
 		notifyRareDropGone(signal.uid, nil)
-	else
+	elseif not signal.meteor then -- a meteor spot is an extra (Config/Weather)
 		spawnSignal(stageId)
 	end
 
@@ -1947,6 +1960,72 @@ function DigService.onRareDropGone(listener: (uid: string, claimer: Player?) -> 
 	table.insert(rareDropGone, listener)
 end
 
+--- Where a meteor could land in `stageId` right now: an open point on the stage (off
+--- the crater rims, clear of every other spot), or nil this tick. WeatherService picks
+--- it when the meteor appears in the sky, so the fall can aim at it.
+function DigService.meteorTarget(stageId: number): Vector3?
+	local part = stagePart(stageId)
+	if part == nil or signalsByStage[stageId] == nil then
+		return nil
+	end
+	return openSpot(stageId, part)
+end
+
+--- A METEOR SPOT (Config/Weather) at `position` (from meteorTarget), shallow so every
+--- detector reaches it, like the announced drop, with a default identity rolled at the
+--- meteor's luck. Returns its uid, or nil when the stage stocks nothing.
+function DigService.plantMeteor(stageId: number, position: Vector3): string?
+	local list = signalsByStage[stageId]
+	if list == nil then
+		return nil
+	end
+	local stage = Stages.get(stageId)
+	local itemId = Items.rollItem(stageId, stage.rarityTilt, 1, Weather.METEOR_LUCK)
+	if itemId == nil then
+		return nil
+	end
+	local item = Items.get(itemId)
+	local signal: Signal = {
+		uid = HttpService:GenerateGUID(false),
+		stageId = stageId,
+		position = position,
+		itemId = itemId,
+		rarity = item.rarity,
+		modifier = rollModifier(),
+		depth = DEPTH_BASE + math.random() * DEPTH_JITTER,
+		soil = stage.soilHardness,
+		weight = item.weight,
+		crateId = nil,
+		rolls = {},
+		heat = 0,
+		armed = false,
+		fuseWindow = 0,
+		fuseRarity = item.rarity,
+		fuseScale = 1,
+		gone = false,
+		meteor = true,
+	}
+	table.insert(list, signal)
+	meteors[signal.uid] = signal
+	return signal.uid
+end
+
+--- Sink a meteor spot nobody dug. Refuses (false) while somebody is locked on to it,
+--- like sinkRareDrop; true when it is gone, or was already.
+function DigService.sinkMeteor(uid: string): boolean
+	local signal = meteors[uid]
+	if signal == nil then
+		return true
+	end
+	for _, locked in lockedTo do
+		if locked == uid then
+			return false
+		end
+	end
+	removeSignal(signal.stageId, uid)
+	return true
+end
+
 --- Kept as a thin delegate so callers written during Phase 1 keep working.
 --- StageService is the authority now.
 function DigService.stageOf(player: Player): number?
@@ -2138,6 +2217,10 @@ function DigService.start()
 		-- The announced drop glows for everyone, detector or not: the banner names the
 		-- stage, the glow is how you find it in there (Config/RareDrop).
 		for uid, signal in rareDrops do
+			revealed[uid] = signal
+		end
+		-- So does a meteor spot (Config/Weather): the impact is the announcement.
+		for uid, signal in meteors do
 			revealed[uid] = signal
 		end
 

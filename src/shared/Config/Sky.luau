@@ -349,6 +349,62 @@ Sky.AURORA_BLEND = 1
 --- one colour rather than a SkyLook field).
 Sky.AURORA_FOG = Color3.fromHex("B9A0EC")
 
+--- GOLDEN HOUR (Config/Weather) -- 2x cash, server-wide. The same idea as the aurora:
+--- a look every stage is pulled WEATHER_BLEND of the way toward. A low sun just above
+--- the horizon (clockTime 17.3 -- past ~17.8 it sets and the gold goes grey), amber
+--- air, a burnt-orange deck kept darker than the air (the §sky rule), long warm rays.
+Sky.GOLDEN = {
+	atmoColor = Color3.fromHex("FFC266"),
+	atmoDecay = Color3.fromHex("D2602A"),
+	atmoDensity = 0.32,
+	atmoGlare = 0.9,
+	atmoHaze = 2.4,
+
+	cloudColor = Color3.fromHex("9A5428"),
+	cloudCover = 0.55,
+	cloudDensity = 0.5,
+
+	brightness = 2.4,
+	outdoorAmbient = Color3.fromHex("B88A55"),
+	colorShiftTop = Color3.fromHex("FFC478"),
+	sunRays = 0.32,
+	sunSize = 28,
+	clockTime = 17.3,
+} :: SkyLook
+Sky.GOLDEN_FOG = Color3.fromHex("F2C27E")
+
+--- METEOR SHOWER (Config/Weather). A clear deep-blue night so the streaks have
+--- something dark to burn against: stars on (WeatherController sets the Sky's
+--- StarCount while it is up -- build/Daylight ships 0), a thin deck, and a cool
+--- moonlit ambient high enough that the field is still plainly playable.
+Sky.METEOR = {
+	atmoColor = Color3.fromHex("5A6FB8"),
+	atmoDecay = Color3.fromHex("1E2A5E"),
+	atmoDensity = 0.28,
+	atmoGlare = 0,
+	atmoHaze = 1.4,
+
+	cloudColor = Color3.fromHex("1C2448"),
+	cloudCover = 0.35,
+	cloudDensity = 0.3,
+
+	brightness = 1.5,
+	outdoorAmbient = Color3.fromHex("7C88B8"),
+	colorShiftTop = Color3.fromHex("9FB4FF"),
+	sunRays = 0,
+	sunSize = 8,
+	clockTime = 20.5,
+} :: SkyLook
+Sky.METEOR_FOG = Color3.fromHex("6A78A8")
+
+--- Every weather's look and fog colour, by Config/Weather id. AtmosphereController
+--- blends whichever is up; Util/Spec checks every one against every stage.
+Sky.WEATHER = {
+	aurora = { look = Sky.AURORA, fog = Sky.AURORA_FOG, blend = Sky.AURORA_BLEND },
+	golden = { look = Sky.GOLDEN, fog = Sky.GOLDEN_FOG, blend = 1 },
+	meteor = { look = Sky.METEOR, fog = Sky.METEOR_FOG, blend = 1 },
+} :: { [string]: { look: SkyLook, fog: Color3, blend: number } }
+
 --- `look` blended `t` of the way toward `toward`, value by value. Shared rather than
 --- private to AtmosphereController so Util/Spec checks the exact look players see.
 function Sky.blend(look: SkyLook, toward: SkyLook, t: number): SkyLook

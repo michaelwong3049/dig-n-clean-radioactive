@@ -49,6 +49,11 @@ local REMOTES: { [string]: string } = {
 	-- is supposed to ask. `identified` is true only for a pull that needed no cleaning
 	-- at all (none rolls today), and only then does an identity ride along.
 	Unearthed = "RemoteEvent", -- server -> client, the slot-machine moment
+	--
+	-- A Meteor Shower meteor (Config/Weather), to every client the moment it appears:
+	-- { position = the impact point, landsAt = server time }. Pure presentation -- the
+	-- spot it plants arrives as an ordinary aura at the impact.
+	MeteorFall = "RemoteEvent", -- server -> all clients
 
 	-- The backpack, as the player sees it. Fires only when the bag actually CHANGES
 	-- (contents, decay condition, value or clean state) rather than on every tick — the
