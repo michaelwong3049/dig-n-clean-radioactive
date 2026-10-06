@@ -25,7 +25,12 @@
 
 	MATTE, LIKE EVERY OTHER PROP (Kit's palette note). The ooze reads violet by colour,
 	not Neon, and there is no standing light; the client lights the core only while a
-	merge is running.
+	merge is running. The ooze's living look (sheen, drifting motes, bubbles, slosh) is
+	the client's too, so it shows on a world built before it existed.
+
+	EVERYTHING IS AUTHORED AT SCALE 1 AND BLOWN UP BY `SCALE` in part(), so the numbers
+	below stay readable. The model carries it as its `Scale` attribute; the client sizes
+	the nukes it drops and lifts by that. No text on the machine: the E prompt names it.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -39,11 +44,16 @@ MergeReactor.STATION_NAME = "MergeStation"
 MergeReactor.PROMPT_NAME = "OpenMerge"
 MergeReactor.TAG = "MergeReactor"
 
+--- How much bigger than its authored size the machine is built. At 1.5 it fills the
+--- deck (CampSite MERGE_DECK_HALF_X 18) to within a couple of studs either side.
+MergeReactor.SCALE = 1.5
+local SCALE = MergeReactor.SCALE
+
 --- How far in front of the machine the panel answers, and the footprint CampSite
 --- sizes the deck to.
 MergeReactor.RADIUS = 9
-MergeReactor.HALF_X = 11
-MergeReactor.HALF_Z = 7
+MergeReactor.HALF_X = 11 * SCALE
+MergeReactor.HALF_Z = 7 * SCALE
 
 local build = Kit.build
 local R = Kit.R
@@ -59,7 +69,6 @@ local COLOR = {
 	hazYellow = "FFC21A",
 	hazBlack = "22252A",
 	plate = "22272C",
-	pink = "FF7AC6",
 	gold = "E8C33C",
 }
 
@@ -94,8 +103,8 @@ local function part(
 ): BasePart
 	local spec: any = {
 		name = name,
-		pos = pos,
-		size = size,
+		pos = { pos[1] * SCALE, pos[2] * SCALE, pos[3] * SCALE },
+		size = { size[1] * SCALE, size[2] * SCALE, size[3] * SCALE },
 		color = color,
 		material = "SmoothPlastic",
 	}
@@ -188,8 +197,9 @@ function MergeReactor.build(parent: Instance, origin: CFrame, campKey: string): 
 	m.Name = MergeReactor.MODEL_NAME
 
 	-- ── Plinth, with hazard tape along its front ──
-	local depth = 2 * MergeReactor.HALF_Z
-	local width = 2 * MergeReactor.HALF_X
+	-- Authored (unscaled) footprint: part() scales it.
+	local depth = 2 * MergeReactor.HALF_Z / SCALE
+	local width = 2 * MergeReactor.HALF_X / SCALE
 	part(m, origin, "Plinth", { 0, PLINTH_H / 2, 0 }, { width, PLINTH_H, depth }, COLOR.trim, { studs = true })
 	local bands = 11
 	for i = 0, bands - 1 do
@@ -203,11 +213,12 @@ function MergeReactor.build(parent: Instance, origin: CFrame, campKey: string): 
 	local body = part(m, origin, "CoreBody", { 0, PLINTH_H + CORE.h / 2, CORE.z }, { CORE.w, CORE.h, CORE.d }, COLOR.body)
 	local front = CORE.z + CORE.d / 2
 	part(m, origin, "CoreBand", { 0, PLINTH_H + 1.4, front + 0.06 }, { CORE.w - 1.5, 0.9, 0.12 }, COLOR.gold, { canCollide = false })
-	local plate = part(m, origin, "NamePlate", { 0, PLINTH_H + 3.3, front + 0.06 }, { CORE.w - 2, 1.4, 0.12 }, COLOR.plate, {
-		canCollide = false,
-	})
-	-- Back is +Z, the face the player walks up to (a part's Front is its -Z).
-	Kit.surfaceText(plate, Enum.NormalId.Back, "MERGE REACTOR", COLOR.pink)
+	-- A vent grille where the name plate was: three dark slats.
+	for i = 0, 2 do
+		part(m, origin, "Vent", { 0, PLINTH_H + 2.8 + i * 0.55, front + 0.06 }, { CORE.w - 3, 0.3, 0.12 }, COLOR.plate, {
+			canCollide = false,
+		})
+	end
 	-- Corner bolts on the front face.
 	for _, sx in { -1, 1 } do
 		for _, sy in { 0.7, CORE.h - 0.7 } do
@@ -244,9 +255,6 @@ function MergeReactor.build(parent: Instance, origin: CFrame, campKey: string): 
 		buildHopper(m, origin, index)
 	end
 
-	-- Clear of the tallest hopper's rim (the back-centre one, ~12.7 up).
-	Kit.billboard(body, 260, CORE.h / 2 + 10, "MERGE REACTOR", "3 of the same nuke = more stars", COLOR.pink, 60)
-
 	-- ── The station, in front, with its E ──
 	local station = part(m, origin, MergeReactor.STATION_NAME, { 0, 2.5, depth / 2 + 1.5 }, { 1, 1, 1 }, COLOR.steel, {
 		transparency = 1,
@@ -268,6 +276,7 @@ function MergeReactor.build(parent: Instance, origin: CFrame, campKey: string): 
 	prompt.Parent = station
 
 	m.PrimaryPart = body
+	m:SetAttribute("Scale", SCALE)
 	-- What client MergeReactorController finds the machine by.
 	CollectionService:AddTag(m, MergeReactor.TAG)
 	m.Parent = parent
