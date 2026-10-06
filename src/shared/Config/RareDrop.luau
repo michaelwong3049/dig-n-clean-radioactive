@@ -57,12 +57,13 @@ RareDrop.MIN_PULL_CPS = 4
 -- a detector reading and stands a pillar of light on it (FieldController).
 RareDrop.AURA_ATTR = "RareDrop"
 
--- Relative weights, before the aurora. ~70 / 24 / 5 / 1 %.
+-- Relative weights, before the aurora: 50 / 34 / 12 / 4 %. Under a 2x aurora that
+-- becomes ~25 / 34 / 24 / 16 %.
 RareDrop.TIER_WEIGHTS = {
-	{ rarity = "Epic", weight = 70 },
-	{ rarity = "Legendary", weight = 24 },
-	{ rarity = "Mythic", weight = 5 },
-	{ rarity = "Anomaly", weight = 1 },
+	{ rarity = "Epic", weight = 50 },
+	{ rarity = "Legendary", weight = 34 },
+	{ rarity = "Mythic", weight = 12 },
+	{ rarity = "Anomaly", weight = 4 },
 }
 
 -- ── Buffs ──────────────────────────────────────────────────────────────────────
