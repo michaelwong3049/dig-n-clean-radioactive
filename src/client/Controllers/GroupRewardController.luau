@@ -6,7 +6,9 @@
 	STEP IN THE RING, SEE THE CARD. Standing inside the gold ring round the chest
 	(GroupReward.inRing, checked a few times a second) opens the rewards card: the
 	four gifts (cash, speed, 2x luck, permanent +10% cash) and a CLAIM button. Walking out closes it. Closing it with X while still
-	inside keeps it shut until you step out and back in.
+	inside keeps it shut until you step out and back in. Stepping in while not in the
+	group also opens Roblox's join-group prompt right away (offerJoin); joining from
+	it claims straight off.
 
 	The server answers a claim on Net GroupReward:
 	  "join"     not in the group yet: open Roblox's own join-group prompt
@@ -367,6 +369,39 @@ local function askToJoin(groupId: number)
 	end
 end
 
+--- Live membership, like the server's: IsInGroup caches its first answer, so it is
+--- only the fallback when the web call fails.
+local function inGroup(): boolean
+	local ok, groups = pcall(GroupService.GetGroupsAsync, GroupService, player.UserId)
+	if ok and type(groups) == "table" then
+		for _, g in groups do
+			if g.Id == GroupReward.GROUP_ID then
+				return true
+			end
+		end
+		return false
+	end
+	local ok2, member = pcall(player.IsInGroup, player, GroupReward.GROUP_ID)
+	return ok2 and member == true
+end
+
+--- Opening the chest (stepping into the ring) puts Roblox's join-group prompt up
+--- straight away for anyone not in the group yet. "Not Now" holds it off for
+--- OFFER_EVERY seconds so walking in and out doesn't nag.
+local OFFER_EVERY = 30
+local lastOffer = -math.huge
+
+local function offerJoin()
+	if prompting or claimed() or os.clock() - lastOffer < OFFER_EVERY then
+		return
+	end
+	lastOffer = os.clock()
+	if inGroup() or not inside or claimed() then
+		return
+	end
+	askToJoin(GroupReward.GROUP_ID)
+end
+
 -- ── Bootstrap ────────────────────────────────────────────────────────────────
 
 function GroupRewardController.start()
@@ -428,6 +463,9 @@ function GroupRewardController.start()
 					dismissed = false
 				end
 				setOpen(now and not dismissed)
+				if now then
+					task.spawn(offerJoin)
+				end
 			end
 		end
 	end)
