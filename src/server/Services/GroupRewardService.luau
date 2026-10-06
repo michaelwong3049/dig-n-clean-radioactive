@@ -44,6 +44,7 @@ local LuckBoostService = require(script.Parent.LuckBoostService)
 local ExhibitService = require(script.Parent.ExhibitService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local GroupRewardChest = require(script.Parent.Parent.build.GroupRewardChest)
+local PrizeSquare = require(script.Parent.Parent.build.PrizeSquare)
 
 local GroupRewardService = {}
 
@@ -142,6 +143,11 @@ end
 --- The chest as the place has it, or built now when the saved place predates the
 --- baked chest (or someone deleted it): it must never just be missing.
 local function ensureChest()
+	-- The raised square the chest and the crate pads stand on, and its path.
+	if Workspace:FindFirstChild(PrizeSquare.MODEL_NAME) == nil then
+		warn("[groupreward] Workspace.PrizeSquare is missing; building it at runtime (rebuild the world + Save to bake it)")
+		PrizeSquare.build().Parent = Workspace
+	end
 	if Workspace:FindFirstChild(GroupRewardChest.MODEL_NAME) then
 		return
 	end

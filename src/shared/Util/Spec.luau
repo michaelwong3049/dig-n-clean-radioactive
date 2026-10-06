@@ -708,9 +708,11 @@ function Spec.run(): boolean
 				local under = rated - 1
 				local entrance = Radiation.zoneSurvival(stageId, 0, under)
 				local past = Radiation.zoneSurvival(stageId, Z.BREAK + 0.01, under)
-				-- The authored 20-30s / under-3s bands, plus the flat UNDER_GRACE on top.
-				local lo = (if stageId >= Z.HARSH_FROM_STAGE then 15 else 20) + Z.UNDER_GRACE
-				if not (entrance >= lo and entrance <= 30 + Z.UNDER_GRACE and past < 3 + Z.UNDER_GRACE) then
+				-- The authored 20-30s / under-3s bands, plus the flat UNDER_GRACE and the
+				-- one-tier-under UNDER_EXTRA on top.
+				local pad = Z.UNDER_GRACE + Z.UNDER_EXTRA
+				local lo = (if stageId >= Z.HARSH_FROM_STAGE then 15 else 20) + pad
+				if not (entrance >= lo and entrance <= 30 + pad and past < 3 + pad) then
 					underOk = false
 				end
 				if stageId >= Z.HARSH_FROM_STAGE then
@@ -748,7 +750,7 @@ function Spec.run(): boolean
 			check(`§zone Stage {stageId}'s dead zone ends at a camp's gate`, table.find(Stages.CAMP_AFTER, stageId) ~= nil)
 		end
 		check(
-			string.format("§zone one tier under: 20-30s at the entrance (15-30s in the harsh stages), under 3s past 60%%, +%ds grace", Z.UNDER_GRACE),
+			string.format("§zone one tier under: 20-30s at the entrance (15-30s in the harsh stages), under 3s past 60%%, +%ds grace +%ds extra", Z.UNDER_GRACE, Z.UNDER_EXTRA),
 			underOk
 		)
 		check("§zone the harsh stages (6-12) are harsher than 1-5 one tier under", harsher)
@@ -757,6 +759,7 @@ function Spec.run(): boolean
 			Radiation.zoneSurvival(5, 0, 3) <= 1.5 + Z.UNDER_GRACE
 		)
 		check("§zone the under-tier grace is about 20s", Z.UNDER_GRACE >= 15 and Z.UNDER_GRACE <= 25)
+		check("§zone one tier under gets about 30s more on top of the grace", Z.UNDER_EXTRA >= 25 and Z.UNDER_EXTRA <= 35)
 		-- Overgeared by one or two tiers still wears, and visibly more with every step
 		-- deeper (the "walked through 6 and 7 with no change" fix). Three over is free.
 		do
