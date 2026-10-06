@@ -35,7 +35,8 @@
 	item comes out of the ground encased in slag and is "???" everywhere until it is
 	cleaned (Services/IdentifyService); a catalogue that lit its card at the moment of the
 	dig would be answering the question the wash bay is there to ask. Unidentified cards
-	say nothing about rarity or odds for the same reason.
+	give away only their rarity, as a faint tint behind the silhouette (2026-10-05, on
+	request), so you know which ??? is worth chasing; never the name, odds or stats.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -105,8 +106,9 @@ local STAT_H = 44
 -- THE LOOK: see-through black glass for every well, rail row, chip and empty card, so
 -- the world shows faintly behind the panel, and SOLID cartoon rarity colour behind every
 -- identified nuke (a flat fill, a top-lit shade and a thick black outline), so a found
--- card reads as its rarity from across the grid. The GLASS numbers are each surface's
--- BackgroundTransparency over that black.
+-- card reads as its rarity from across the grid. An unidentified card is the same glass
+-- tinted FAINTLY toward its rarity (CARD_EMPTY_DARKEN). The GLASS numbers are each
+-- surface's BackgroundTransparency over that black.
 local COL = {
 	well = Color3.new(0, 0, 0),
 	card = Color3.new(0, 0, 0),
@@ -143,6 +145,9 @@ local GLASS = {
 	cell = 0.35,
 	cardEmpty = 0.5,
 }
+-- How far an unidentified card's rarity tint is pulled toward black under that glass:
+-- enough to tell the rarities apart, far too dim to mistake for a found card.
+local CARD_EMPTY_DARKEN = 0.7
 
 -- The nuke renders. Lit like the shop card's art well (StationController's ART_LIGHT):
 -- the ViewportFrame's default grey ambient washes every model to the same pale grey.
@@ -161,7 +166,7 @@ local SPIN_RATE = 0.6 -- rad/s while nobody is dragging
 local DRAG_RATE = 0.012 -- rad per screen px
 
 -- The filter chips. A rarity chip is `rarity:<name>` and shows only the IDENTIFIED
--- nukes of that rarity: an unidentified card never says what rarity it is.
+-- nukes of that rarity (an unidentified card only hints at its rarity with a tint).
 local MODES = {
 	{ id = "all", label = "All" },
 	{ id = "missing", label = "Missing" },
@@ -1370,7 +1375,8 @@ local function buildCard(item: any, order: number)
 	card.LayoutOrder = order
 	card.Parent = ui.grid
 	corner(card, 12)
-	-- Found: SOLID rarity colour under a thick black outline. Unfound: black glass.
+	-- Found: SOLID rarity colour under a thick black outline. Unfound: glass faintly
+	-- tinted with the rarity, so the ??? still says what rarity it is.
 	local edgeColor = if found then COL.black else COL.edge
 	local stroke = edge(card, edgeColor, if found then 3 else 2)
 	if found then
@@ -1382,6 +1388,7 @@ local function buildCard(item: any, order: number)
 		Studded.pattern(card, { radius = 12, tile = 16, glow = false })
 	else
 		glass(card, GLASS.cardEmpty)
+		rarityPaint(card, "BackgroundColor3", item.rarity, CARD_EMPTY_DARKEN)
 	end
 
 	local art = box(card, "Art", UDim2.fromOffset(CARD_ART, CARD_ART), UDim2.new(0.5, 0, 0, 4))
