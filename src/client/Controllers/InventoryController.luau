@@ -170,6 +170,15 @@ local NOTICE_HEIGHT = 50
 local NOTICE_HOLD = 1.6
 local NOTICE_IN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local NOTICE_OUT = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+local NOTICE_CHIP = 30
+local NOTICE_FILL = Color3.fromRGB(22, 24, 28)
+-- White text on a dark pill; the round chip on the left says what kind of notice it
+-- is. Anything not "success" or "info" is a refusal.
+local NOTICE_KINDS = {
+	error = { color = Color3.fromRGB(229, 72, 77), glyph = "X" },
+	success = { color = Color3.fromRGB(48, 164, 108), glyph = "\u{2713}" },
+	info = { color = Color3.fromRGB(245, 165, 36), glyph = "i" },
+}
 
 local state = {
 	-- How many slots to DRAW: the bag's size, or more when it holds more than that (a
@@ -592,38 +601,69 @@ local function buildNotice(canvas: Frame)
 	local scale = Instance.new("UIScale")
 	scale.Parent = group
 
-	-- Inset from the group's edges so the stroke is not clipped by the CanvasGroup.
-	local pill = UIKit.panel(group, {
+	local pill, pillStroke = UIKit.panel(group, {
 		name = "Pill",
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.fromScale(0.5, 0.5),
 		size = UDim2.fromOffset(0, NOTICE_HEIGHT - 8),
-		color = COLOR.panel,
-		transparency = 0.04,
-		strokeColor = COLOR.red,
-		strokeThickness = 2.5,
+		color = NOTICE_FILL,
+		transparency = 0.08,
 		cornerRadius = UDim.new(0.5, 0),
 	})
+	pillStroke.Enabled = false
 	pill.AutomaticSize = Enum.AutomaticSize.X
 	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 22)
+	padding.PaddingLeft = UDim.new(0, 6)
 	padding.PaddingRight = UDim.new(0, 22)
 	padding.Parent = pill
+	local row = Instance.new("UIListLayout")
+	row.FillDirection = Enum.FillDirection.Horizontal
+	row.VerticalAlignment = Enum.VerticalAlignment.Center
+	row.SortOrder = Enum.SortOrder.LayoutOrder
+	row.Padding = UDim.new(0, 10)
+	row.Parent = pill
+
+	local chip = Instance.new("Frame")
+	chip.Name = "Chip"
+	chip.Size = UDim2.fromOffset(NOTICE_CHIP, NOTICE_CHIP)
+	chip.BorderSizePixel = 0
+	chip.LayoutOrder = 1
+	chip.Parent = pill
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = chip
+
+	local glyph = UIKit.label(chip, {
+		name = "Glyph",
+		size = UDim2.fromScale(1, 1),
+		font = House.font,
+		textSize = 18,
+		color = Color3.new(1, 1, 1),
+		xAlign = Enum.TextXAlignment.Center,
+		outline = false,
+		strokeTransparency = 1,
+		shadow = false,
+	})
 
 	local text = UIKit.label(pill, {
 		name = "Text",
 		size = UDim2.fromScale(0, 1),
 		font = House.font,
-		textSize = 22,
-		color = COLOR.red,
+		textSize = 20,
+		color = Color3.new(1, 1, 1),
 		xAlign = Enum.TextXAlignment.Center,
+		outline = false,
+		strokeTransparency = 1,
 		shadow = false,
 	})
 	text.AutomaticSize = Enum.AutomaticSize.X
+	text.LayoutOrder = 2
 
 	ui.notice = group
 	ui.noticeScale = scale
 	ui.noticeText = text
+	ui.noticeChip = chip
+	ui.noticeGlyph = glyph
 end
 
 local function build(): ScreenGui
@@ -1772,9 +1812,10 @@ end
 
 -- ── Notice popup ────────────────────────────────────────────────────
 
---- Pop a refusal up over the hotbar ("inventory full"). A new one restarts the
---- clock rather than queueing behind the last.
-function Inventory.notice(message: string)
+--- Pop a notice up over the hotbar ("inventory full"). `kind` picks the chip:
+--- "error" (default), "success" or "info". A new one restarts the clock rather than
+--- queueing behind the last.
+function Inventory.notice(message: string, kind: string?)
 	-- A full bag gets its thunk here. Other refusals stay silent at this layer: a
 	-- purchase short of cash already buzzes (SfxService's "denied" from the till).
 	if string.find(string.lower(message), "full", 1, true) then
@@ -1784,6 +1825,9 @@ function Inventory.notice(message: string)
 	local token = noticeToken
 	local group = ui.notice
 	ui.noticeText.Text = string.upper(message)
+	local look = NOTICE_KINDS[kind or "error"] or NOTICE_KINDS.error
+	ui.noticeChip.BackgroundColor3 = look.color
+	ui.noticeGlyph.Text = look.glyph
 	group.Visible = true
 	group.GroupTransparency = 0
 	ui.noticeScale.Scale = 0.6
@@ -1971,8 +2015,8 @@ function Inventory.start()
 	bombRemote = Net.get("BombDrop")
 	slotOrderRemote = Net.get("SlotOrder")
 
-	Net.get("Notice").OnClientEvent:Connect(function(message)
-		Inventory.notice(tostring(message))
+	Net.get("Notice").OnClientEvent:Connect(function(message, kind)
+		Inventory.notice(tostring(message), if type(kind) == "string" then kind else nil)
 	end)
 
 	-- The server's answer to a drop: the cooldown it started, or why it refused.

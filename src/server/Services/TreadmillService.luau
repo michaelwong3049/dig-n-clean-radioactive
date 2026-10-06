@@ -318,7 +318,7 @@ local function grantRobuxRung(player: Player, data: any, tier: number)
 		end
 		ExhibitService.refreshTreadmill(player)
 		push(player)
-		noticeRemote:FireClient(player, `{string.upper(bought.name)} INSTALLED`)
+		noticeRemote:FireClient(player, `{string.upper(bought.name)} INSTALLED`, "success")
 	end)
 end
 
@@ -331,7 +331,7 @@ local function grantSpeedPack(player: Player, data: any, amount: number)
 			return
 		end
 		push(player)
-		noticeRemote:FireClient(player, `+{Treadmill.rateText(amount)} SPEED`)
+		noticeRemote:FireClient(player, `+{Treadmill.rateText(amount)} SPEED`, "success")
 	end)
 end
 
@@ -369,12 +369,12 @@ local function onBuy(player: Player)
 		return
 	end
 	if (root.Position - board.Position).Magnitude > SIGN_REACH then
-		noticeRemote:FireClient(player, "WALK UP TO YOUR TREADMILL'S SIGN")
+		noticeRemote:FireClient(player, "WALK UP TO YOUR TREADMILL'S SIGN", "info")
 		return
 	end
 
 	local ok, message = TreadmillService.buy(player)
-	noticeRemote:FireClient(player, string.upper(message))
+	noticeRemote:FireClient(player, string.upper(message), if ok then "success" else "error")
 	if ok then
 		print(`[treadmill] {player.Name}: {message}`)
 	end
@@ -433,7 +433,7 @@ function TreadmillService.start()
 			local data = DataService.data(player)
 			if data and not data.treadmillUnlocked then
 				-- Locked: say how to fix it, once per step-on, and pay nothing.
-				noticeRemote:FireClient(player, `UNLOCK THE TREADMILL AT ITS SIGN · {Treadmill.unlockPriceText()}`)
+				noticeRemote:FireClient(player, `UNLOCK THE TREADMILL AT ITS SIGN · {Treadmill.unlockPriceText()}`, "info")
 				return
 			end
 			training[player] = true
