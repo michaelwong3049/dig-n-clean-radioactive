@@ -11,13 +11,13 @@
 	  * WHAT: three different uids, all yours, in the bag or the Quarantine Locker, all
 	    the same itemId, all washed (identified), none Slagged, none on the tub right now
 	    and not already at Merge.MAX_LEVEL.
-	  * COST: Merge.fee, paid win or lose, through EconomyService.spend.
+	  * COST: Merge.fee (less the Reactor mastery), through EconomyService.spend.
 
-	THE RESULT IS WRITTEN INTO THE BEST COPY'S OWN RECORD, in place, so it stays in the
-	list (bag or locker) and the slot it was in, and the other two are removed. On a
-	success that record takes the biggest payload's uid (Config/Payload derives size
-	from uid), the best-ranked modifier (Merge.MODIFIER_RANK) and the new merge level.
-	On a fail it is left exactly as it was.
+	EVERY MERGE SUCCEEDS (2026-10-06): +1 merge star, or +2 on a luck crit. The result
+	is written into the best copy's own record, in place, so it stays in the list (bag
+	or locker) and the slot it was in, and the other two are removed. That record takes
+	Merge.result: the biggest payload's uid (Config/Payload derives size from uid), the
+	best-ranked modifier (Merge.MODIFIER_RANK) and the new merge level.
 
 	THE MACHINE ANIMATES FOR EVERYONE NEARBY. The server does not move a part: it bumps
 	`MergeSeq` on the reactor model and writes what went in and what came out beside
@@ -31,8 +31,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Items = require(Shared.Config.Items)
 local Merge = require(Shared.Config.Merge)
-local Payload = require(Shared.Config.Payload)
-local Rarity = require(Shared.Config.Rarity)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -135,9 +133,6 @@ function MergeService.merge(player: Player, uids: any): (boolean, string)
 		return false, "the reactor is still cooling down"
 	end
 
-	if type(data.mergePity) ~= "table" then
-		data.mergePity = {}
-	end
 	local inputs, why = gather(player, data, uids)
 	if inputs == nil then
 		return false, why or "can't merge those"
@@ -150,19 +145,19 @@ function MergeService.merge(player: Player, uids: any): (boolean, string)
 		from = math.max(from, Merge.levelOf(input.item))
 	end
 	local stats = StatResolver.get(data)
-	local pity = if type(data.mergePity[itemId]) == "number" then data.mergePity[itemId] else 0
-	local odds = Merge.odds(from, pity, stats.luckMultiplier, stats.mergeBonus)
+	local odds = Merge.odds(from, stats.luckMultiplier)
 	if odds == nil then
 		return false, `that {name} is already at max merge stars`
 	end
 
-	local paid, spendMessage = EconomyService.spend(player, Merge.fee(itemId, from))
+	local paid, spendMessage = EconomyService.spend(player, Merge.fee(itemId, from, stats.mergeFeeMult))
 	if not paid then
 		return false, spendMessage
 	end
 	lastMerge[player] = now
 
-	-- The copy that survives either way: the one worth most as it stands.
+	-- The record that carries the result: the copy worth most as it stands, so it keeps
+	-- its list (bag or locker) and its slot.
 	local best = inputs[1]
 	local bestValue = -math.huge
 	for _, input in inputs do
@@ -172,91 +167,52 @@ function MergeService.merge(player: Player, uids: any): (boolean, string)
 		end
 	end
 	local keep = best.item
-	local keptUid = keep.uid :: string
 	local inputUids: { [string]: boolean } = {}
+	local records: { any } = {}
 	for _, input in inputs do
 		inputUids[input.item.uid] = true
+		table.insert(records, input.item)
 	end
 	local held = inputUids[data.heldUid] == true
 
 	local gain = Merge.gain(odds, rng:NextNumber())
-	local to = math.min(from + gain, Merge.MAX_LEVEL)
-
-	if gain > 0 then
-		-- Best of all three: the biggest size roll's uid, and the best modifier.
-		local bigUid, bigPayload = keptUid, -math.huge
-		local modifier = keep.modifier or "None"
-		for _, input in inputs do
-			local payload = Payload.forUid(input.item.uid)
-			if payload > bigPayload then
-				bigUid, bigPayload = input.item.uid, payload
-			end
-			if Merge.modifierRank(input.item.modifier) < Merge.modifierRank(modifier) then
-				modifier = input.item.modifier or "None"
-			end
+	-- Best of all three: the biggest size roll's uid, the best modifier, every stacked quality.
+	local result = Merge.result(records, gain)
+	for _, input in inputs do
+		if input ~= best then
+			removeUid(input.list, input.item.uid)
 		end
-		for _, input in inputs do
-			if input ~= best then
-				removeUid(input.list, input.item.uid)
-			end
-		end
-		-- An announced drop's stacked qualities survive the merge: every quality of any
-		-- input that carried a `bonus`, best first, minus the one worn as `modifier`.
-		local stacked: { string } = {}
-		for _, input in inputs do
-			if input.item.bonus then
-				for _, quality in Rarity.qualities(input.item.modifier, input.item.bonus) do
-					if quality ~= modifier and not table.find(stacked, quality) then
-						table.insert(stacked, quality)
-					end
-				end
-			end
-		end
-		table.sort(stacked, function(a, b)
-			return Merge.modifierRank(a) < Merge.modifierRank(b)
-		end)
-		keep.uid = bigUid
-		keep.modifier = modifier
-		keep.bonus = if #stacked > 0 then stacked else nil
-		keep.merge = to
-		data.mergePity[itemId] = nil
-		-- The Reactor mastery's counter (Config/Masteries).
-		data.stats.merges = (data.stats.merges or 0) + 1
-	else
-		for _, input in inputs do
-			if input ~= best then
-				removeUid(input.list, input.item.uid)
-			end
-		end
-		data.mergePity[itemId] = pity + 1
 	end
+	keep.uid = result.uid
+	keep.modifier = result.modifier
+	keep.bonus = result.bonus
+	keep.merge = result.level
 	keep.patches = {}
 	Decay.freeze(keep)
+	-- The Reactor mastery's counter (Config/Masteries).
+	data.stats.merges = (data.stats.merges or 0) + 1
 
-	-- Whatever you were holding went into the machine; the survivor comes back to your
+	-- Whatever you were holding went into the machine; the result comes back to your
 	-- hands if it lives in the bag.
 	if held then
 		data.heldUid = if best.list == data.carry then keep.uid else ""
 	end
 	ExhibitService.refreshLocker(player)
 
-	local outcome = if gain >= 2 then "crit" elseif gain == 1 then "success" else "fail"
+	local outcome = if gain >= 2 then "crit" else "success"
 	animate(player, outcome, itemId, keep.modifier or "None", keep.uid, Merge.levelOf(keep))
 	mergeRemote:FireClient(player, {
 		outcome = outcome,
 		from = from,
 		to = Merge.levelOf(keep),
-		pity = data.mergePity[itemId] or 0,
 		item = CarryService.describe(keep, stats),
 	})
 
 	local stars = Merge.text(Merge.levelOf(keep))
 	if outcome == "crit" then
 		return true, `CRITICAL MERGE! {name} jumped to {stars}`
-	elseif outcome == "success" then
-		return true, `Merged! {name} is now {stars}`
 	end
-	return true, `The merge fizzled \u{2014} your best {name} survived (+{math.floor(Merge.PITY_STEP * 100 + 0.5)}% next time)`
+	return true, `Merged! {name} is now {stars}`
 end
 
 function MergeService.init()

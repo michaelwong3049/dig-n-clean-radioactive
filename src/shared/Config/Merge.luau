@@ -1,7 +1,7 @@
 --!strict
 --[[
 	Merge.luau — the Merge Reactor at Toxic Twilight: three copies of one nuke go in,
-	one comes out, maybe with MERGE STARS on it.
+	one comes out with MERGE STARS on it.
 
 	Config/ RULE (Tuning.luau's header): data only, no requires of anything outside
 	Config/. The helpers below are pure maths over these numbers, the same way
@@ -16,26 +16,28 @@
 	by VALUE_STEP (EconomyService.valueOf, CarryService.describe,
 	ExhibitService.entryYieldPerSecond all call `valueMult`).
 
-	THE ROLL (picked by the user, 2026-09-28: "gamble, keep best"):
+	THE ROLL (reworked 2026-10-06, on request: "no fail chance at all, keep 3"):
 	  * The target is one level above the HIGHEST level among the three inputs, so a +2
-	    fed two plain copies tries for +3. Feeders never have to match levels.
-	  * SUCCESS[target] is the chance of +1, plus PITY_STEP for every failed merge of this
-	    nuke since its last success (`data.mergePity[itemId]`), capped at SUCCESS_MAX.
-	  * CRIT is the share of rolls that land +2 instead, grown by the player's luck
-	    multiplier (the Luck button and 2x luck), capped at CRIT_MAX. It is part of the
-	    success chance, never on top of it, and it only exists while +2 still fits
-	    under MAX_LEVEL.
-	  * A FAIL keeps the best of the three untouched and uses up the other two.
-	  * The fee is paid either way.
+	    fed two plain copies goes to +3. Feeders never have to match levels.
+	  * Every merge SUCCEEDS. CRIT is the share of merges that land +2 instead of +1,
+	    grown by the player's luck multiplier (the Luck button and 2x luck), capped at
+	    CRIT_MAX, and only while +2 still fits under MAX_LEVEL.
+	  * With no risk left, the fee is the brake: FEE_SHARE of a plain copy, cut by the
+	    Reactor mastery (StatResolver's mergeFee).
+	  (Until then it was "gamble, keep best": SUCCESS 75/55/35% with pity, a fail
+	  keeping the best copy. `data.mergePity` on old saves is now unread.)
 
-	WHAT COMES OUT ON A SUCCESS is not just the best copy bumped: it wears the best
-	quality modifier among the three (MODIFIER_RANK) and the biggest payload roll
-	among the three (its uid, since Config/Payload derives size from uid). Merging a
-	Pristine with an OVERSIZED copy is how you get a Pristine OVERSIZED.
+	WHAT COMES OUT is not just the best copy bumped: it wears the best quality modifier
+	among the three (MODIFIER_RANK) and the biggest payload roll among the three (its
+	uid, since Config/Payload derives size from uid). Merging a Pristine with an
+	OVERSIZED copy is how you get a Pristine OVERSIZED. Merge.result is that rule, and
+	both MergeService (the write) and the panel (the preview) call it.
 ]]
 
 local Items = require(script.Parent.Items)
 local Weight = require(script.Parent.Weight)
+local Rarity = require(script.Parent.Rarity)
+local Payload = require(script.Parent.Payload)
 
 local Merge = {}
 
@@ -45,15 +47,7 @@ Merge.INPUTS = 3
 --- The most merge stars one copy can carry.
 Merge.MAX_LEVEL = 3
 
---- Chance of success when trying FOR this level (index = the level you would reach).
-Merge.SUCCESS = { 0.75, 0.55, 0.35 }
-
---- Added to the success chance for every failed merge of that nuke since its last
---- success, and the ceiling the two together may reach.
-Merge.PITY_STEP = 0.10
-Merge.SUCCESS_MAX = 0.95
-
---- Share of rolls that crit to +2, before luck; how much each whole 1.0 of luck
+--- Share of merges that crit to +2, before luck; how much each whole 1.0 of luck
 --- multiplier above 1 adds; and the ceiling.
 Merge.CRIT = 0.10
 Merge.CRIT_PER_LUCK = 0.10
@@ -64,7 +58,7 @@ Merge.VALUE_STEP = 1.5
 
 --- The fee, as a share of what one PLAIN copy of the nuke is worth (base value times
 --- its weight multiplier) at the inputs' current merge level. Never under FEE_MIN.
-Merge.FEE_SHARE = 0.15
+Merge.FEE_SHARE = 0.30
 Merge.FEE_MIN = 10
 
 --- Merge stars are drawn as the same star glyph as the rating (the game fonts carry
@@ -107,48 +101,95 @@ function Merge.modifierRank(modifier: string?): number
 end
 
 export type Odds = {
-	target: number, -- the level a success reaches (from + 1)
-	success: number, -- 0..1, every success including crits
-	crit: number, -- 0..1, the part of `success` that lands +2 (0 when +2 does not fit)
+	target: number, -- the level a plain merge reaches (from + 1)
+	crit: number, -- 0..1, the chance it lands +2 instead (0 when +2 does not fit)
 }
 
---- The odds of one merge whose best input sits at `from`, after `pity` failed merges
---- of this nuke, at luck multiplier `luck` (StatResolver's luckMultiplier; 1 = none),
---- plus `bonus` flat success chance (the Reactor mastery, StatResolver's mergeBonus).
---- nil when `from` is already MAX_LEVEL -- nothing left to merge up to.
-function Merge.odds(from: number, pity: number?, luck: number?, bonus: number?): Odds?
+--- The odds of one merge whose best input sits at `from`, at luck multiplier `luck`
+--- (StatResolver's luckMultiplier; 1 = none). nil when `from` is already MAX_LEVEL --
+--- nothing left to merge up to.
+function Merge.odds(from: number, luck: number?): Odds?
 	local target = from + 1
-	local base = Merge.SUCCESS[target]
-	if base == nil then
+	if target > Merge.MAX_LEVEL then
 		return nil
 	end
-	local success = math.min(base + Merge.PITY_STEP * math.max(pity or 0, 0) + math.max(bonus or 0, 0), Merge.SUCCESS_MAX)
 	local crit = 0
 	if target + 1 <= Merge.MAX_LEVEL then
-		crit = math.min(Merge.CRIT + Merge.CRIT_PER_LUCK * math.max((luck or 1) - 1, 0), Merge.CRIT_MAX, success)
+		crit = math.min(Merge.CRIT + Merge.CRIT_PER_LUCK * math.max((luck or 1) - 1, 0), Merge.CRIT_MAX)
 	end
-	return { target = target, success = success, crit = crit }
+	return { target = target, crit = crit }
 end
 
---- How many levels a roll gains under `odds`: 2 (crit), 1 (success) or 0 (fail).
---- `roll` is a uniform [0, 1) draw.
+--- How many levels a merge gains under `odds`: 2 (crit) or 1. `roll` is a uniform
+--- [0, 1) draw.
 function Merge.gain(odds: Odds, roll: number): number
-	if roll < odds.crit then
-		return 2
-	elseif roll < odds.success then
-		return 1
-	end
-	return 0
+	return if roll < odds.crit then 2 else 1
 end
 
---- What merging three copies of `itemId` whose best sits at `from` costs.
-function Merge.fee(itemId: string, from: number): number
+--- What merging three copies of `itemId` whose best sits at `from` costs, times
+--- `discount` (the Reactor mastery's fee multiplier; 1 = none).
+function Merge.fee(itemId: string, from: number, discount: number?): number
 	if not Items.has(itemId) then
 		return Merge.FEE_MIN
 	end
 	local def = Items.get(itemId)
 	local plain = def.baseValue * Weight.valueMult(def.weight) * Merge.valueMult(from)
-	return math.max(Merge.FEE_MIN, math.floor(plain * Merge.FEE_SHARE + 0.5))
+	return math.max(Merge.FEE_MIN, math.floor(plain * Merge.FEE_SHARE * (discount or 1) + 0.5))
+end
+
+export type Result = {
+	uid: string, -- the biggest payload roll's uid
+	modifier: string, -- the best quality among the three
+	bonus: { string }?, -- every other quality any announced input stacked, best first
+	level: number, -- the merge stars it comes out with
+}
+
+--- What three copies (records with uid / modifier / bonus / merge) come out as after
+--- gaining `gain` levels.
+function Merge.result(inputs: { any }, gain: number): Result
+	local from = 0
+	local bigUid, bigPayload = inputs[1].uid, -math.huge
+	local modifier = inputs[1].modifier or "None"
+	for _, item in inputs do
+		from = math.max(from, Merge.levelOf(item))
+		local payload = Payload.forUid(item.uid)
+		if payload > bigPayload then
+			bigUid, bigPayload = item.uid, payload
+		end
+		if Merge.modifierRank(item.modifier) < Merge.modifierRank(modifier) then
+			modifier = item.modifier or "None"
+		end
+	end
+	-- An announced drop's stacked qualities survive the merge: every quality of any
+	-- input that carried a `bonus`, best first, minus the one worn as `modifier`.
+	local stacked: { string } = {}
+	for _, item in inputs do
+		if item.bonus then
+			for _, quality in Rarity.qualities(item.modifier, item.bonus) do
+				if quality ~= modifier and not table.find(stacked, quality) then
+					table.insert(stacked, quality)
+				end
+			end
+		end
+	end
+	table.sort(stacked, function(a, b)
+		return Merge.modifierRank(a) < Merge.modifierRank(b)
+	end)
+	return {
+		uid = bigUid,
+		modifier = modifier,
+		bonus = if #stacked > 0 then stacked else nil,
+		level = math.min(from + gain, Merge.MAX_LEVEL),
+	}
+end
+
+--- How much a copy's value (and stand income) scales when it becomes `result`: the
+--- quality, size and merge-star factors swapped, everything else (decay, sell
+--- multipliers) unchanged.
+function Merge.valueRatio(item: any, result: Result): number
+	local before = Rarity.valueMult(item.modifier, item.bonus) * Payload.forUid(item.uid) * Merge.valueMult(Merge.levelOf(item))
+	local after = Rarity.valueMult(result.modifier, result.bonus) * Payload.forUid(result.uid) * Merge.valueMult(result.level)
+	return after / math.max(before, 1e-6)
 end
 
 return Merge

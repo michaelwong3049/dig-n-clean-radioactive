@@ -123,9 +123,6 @@ local TEMPLATE = {
 	-- that set, and a record is extra detail about a discovery, not the discovery.
 	indexStats = {},
 	perks = {}, -- perkId -> true. Read by StatResolver.
-	-- itemId -> failed Merge Reactor attempts on that nuke since its last success
-	-- (Config/Merge PITY_STEP). Written by MergeService only; a success clears the key.
-	mergePity = {},
 	-- Which one-time walkthroughs this player has finished or skipped, by id ("locker"
 	-- and "treadmill", both run by client/LockerTutorial). An array of strings, not a set, for the
 	-- same no-gaps storage rule as everything else here.

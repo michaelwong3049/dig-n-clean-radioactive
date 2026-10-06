@@ -239,12 +239,10 @@ local function stepPlayer(player: Player, _dt: number)
 		lockerUpgradeStep = Tuning.LOCKER_UPGRADE_STEP,
 		-- Owed the locker's first-visit walkthrough (client/LockerTutorial)?
 		lockerTutorial = kind == "locker" and table.find(data.tutorialsSeen, "locker") == nil,
-		-- The Merge Reactor's odds inputs (Config/Merge.odds), only at the reactor: the
-		-- failed merges per nuke since its last success, the luck multiplier, and the
-		-- Reactor mastery's flat bonus.
-		mergePity = if kind == "merge" then table.clone(data.mergePity or {}) else nil,
+		-- The Merge Reactor's inputs (Config/Merge.odds / .fee), only at the reactor: the
+		-- luck multiplier behind the crit, and the Reactor mastery's fee discount.
 		luck = if kind == "merge" then stats.luckMultiplier else nil,
-		mergeBonus = if kind == "merge" then stats.mergeBonus else nil,
+		mergeFeeMult = if kind == "merge" then stats.mergeFeeMult else nil,
 	})
 end
 

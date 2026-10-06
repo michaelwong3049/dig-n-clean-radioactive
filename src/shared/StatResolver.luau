@@ -143,7 +143,7 @@ export type Stats = {
 	bombDamageMult: number, -- BombService (and the hotbar's card, via MasteryBombDamage)
 	trainingMult: number, -- TreadmillService
 	radDamageMult: number, -- ExposureService: aura wear, aura failure and sickness
-	mergeBonus: number, -- Config/Merge.odds' success chance
+	mergeFeeMult: number, -- Config/Merge.fee's discount (the Reactor mastery)
 	brewCooldownMult: number, -- LiquidService
 	awayRate: number, -- ExhibitService's offline share of $/s
 	-- GAME PASSES (Config/GamePasses) that need a field of their own. The rest fold
@@ -305,7 +305,7 @@ function StatResolver.get(profile: Profile): Stats
 			* (if GamePasses.owns(profile, "bombDamage") then GamePasses.BOMB_DAMAGE else 1),
 		trainingMult = Mastery.value(profile, "training") * (if GamePasses.owns(profile, "speed") then GamePasses.SPEED else 1),
 		radDamageMult = Mastery.value(profile, "radDamage"),
-		mergeBonus = Mastery.value(profile, "mergeChance"),
+		mergeFeeMult = Mastery.value(profile, "mergeFee"),
 		brewCooldownMult = Mastery.value(profile, "brewCooldown"),
 		awayRate = Mastery.value(profile, "awayRate"),
 
