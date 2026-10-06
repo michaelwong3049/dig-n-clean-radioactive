@@ -93,7 +93,7 @@ local BUTTONS: { Spec } = {
 	},
 	{
 		dest = "shops",
-		text = "SHOPS",
+		text = "SELL",
 		image = Artwork.IMAGE.storefront,
 		light = Color3.fromHex("FFE36B"),
 		mid = Color3.fromHex("FFB61C"),

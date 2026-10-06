@@ -51,7 +51,7 @@ Tutorial.STEPS = {
 		holdHint = "Pick your nuke from the hotbar, then hold E at an empty stand",
 	},
 	upgrade = { title = "Upgrade your detector", hint = "Buy the Bent Coil at the Detector Shop" },
-	navigate = { title = "Use Home and Shops to get around", hint = "Tap Home or Shops at the top of the screen" },
+	navigate = { title = "Use Home and Sell to get around", hint = "Tap Home or Sell at the top of the screen" },
 } :: { [StepId]: Step }
 
 --- ON REQUEST, the "navigate" step ends the walkthrough by itself after this long if
