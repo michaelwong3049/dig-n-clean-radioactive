@@ -41,7 +41,7 @@
 
 	UPTIME, written down because it is the balance number. The aurora is now one
 	weather in three (Config/Weather), so a 5-minute aurora comes up about once per
-	three 20-30 minute gaps: ~5-7% of a session spent boosted, down from ~14-20%
+	three 15-20 minute gaps: ~7-8% of a session spent boosted, down from ~14-20%
 	while it was the only weather. Weather.GAP_* and its weights are the knobs, not MULT.
 ]]
 

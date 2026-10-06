@@ -778,7 +778,7 @@ COMMANDS["/field"] = {
 
 COMMANDS["/luckevent"] = {
 	-- The Violet Aurora on demand, so the sky, the clover and the roll can be checked
-	-- without waiting out the 20-30 minute gap. Server-wide, like the real thing.
+	-- without waiting out the 15-20 minute gap. Server-wide, like the real thing.
 	help = "/luckevent [seconds|stop] — start the Violet Aurora now (2x luck, server-wide), or end it",
 	run = function(_player, _sandbox, args)
 		if args[1] == "stop" then
@@ -796,7 +796,7 @@ COMMANDS["/luckevent"] = {
 }
 
 COMMANDS["/weather"] = {
-	-- Any weather on demand (Config/Weather), without waiting out the 20-30 minute gap.
+	-- Any weather on demand (Config/Weather), without waiting out the 15-20 minute gap.
 	-- `meteor now` drops one meteor straight away, shower or not.
 	help = "/weather [aurora|golden|meteor] [seconds] | stop | meteor now [stage] — start a weather, end it, or drop one meteor",
 	run = function(_player, _sandbox, args)
