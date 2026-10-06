@@ -36,7 +36,7 @@ export type Palette = {
 	pathLight: string,
 	paverDark: string, -- the shop square
 	paverLight: string,
-	kerb: string, -- the shop square's one-tile edge
+	kerb: string, -- the shop square's half-tile edge
 	deck: string, -- the cleansing station's raised deck
 	bush: string,
 	bushDark: string,

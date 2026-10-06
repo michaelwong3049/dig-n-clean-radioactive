@@ -97,7 +97,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 31
+local BUILDER_VERSION = 32
 
 local C = Kit.C
 local build = Kit.build
@@ -129,7 +129,7 @@ local OCT_DIAG = 156
 --- wash deck. 10 either side of centre lands both edges on tile lines.
 local PATH_HALF = 10
 
---- The paver square, from the plaza centre. Both edges on tile lines; a one-tile kerb.
+--- The paver square, from the plaza centre. Both edges on tile lines; a half-tile kerb (buildKerb).
 --- Grown from 42 x 38 on request, then trimmed a little from 78.
 local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 
@@ -208,6 +208,129 @@ local GATE_TEXT_PPS = 22
 --- A COMING SOON camp's barricade stands across its ENTRANCE instead (Camps.comingSoon):
 --- just past the tape on the camp's floor, its collider a step behind the rails.
 local ENTRY_GATE_INSET = 2
+
+--- THE PLAZA'S OUTLINE AND THE SHOP KERB ARE PAINT, laid a hair above the paving (like
+--- Hub's FloorEndBorder): not collidable, not queried, studded on top.
+---
+--- The kerb was one whole tile (4 studs) of kerb colour round the shop square; on
+--- request it is half that, so the kerb cells are pavers (pairAt) and four 2-stud strips
+--- cover their outer half. Four parts instead of a tile per cell.
+---
+--- The black border, on request ("a thin black stud border around the hexagons and
+--- path"): a 1-stud line along the inside of every edge where the octagon and its paths
+--- meet the lawn, gapped where a path joins the octagon. Path ends stop at the clip
+--- lines and deck edges, which already draw their own edge.
+local BORDER_W = 1
+local KERB_W = TILE / 2
+local PAINT_RAISE = 0.05
+
+local function paint(parent: Instance, name: string, cx: number, cz: number, len: number, w: number, yaw: number, color: string)
+	local part = build(parent, CFrame.new(0, 0, 0), {
+		name = name,
+		pos = { cx, PLAZA_Y + PAINT_RAISE - Hub.TILE_CAP / 2, cz },
+		size = { len, Hub.TILE_CAP, w },
+		rot = CFrame.Angles(0, yaw, 0),
+		color = color,
+		material = "Plastic",
+		canCollide = false,
+	})
+	part.TopSurface = Enum.SurfaceType.Studs
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+end
+
+local function buildKerb(parent: Instance, L: Layout)
+	local hx, hz = SHOP_HALF_X, SHOP_HALF_Z
+	for _, s in { -1, 1 } do
+		-- North/south strips run the full width; east/west fit between them.
+		paint(parent, "Kerb", L.ox, L.oz + s * (hz - KERB_W / 2), 2 * hx, KERB_W, 0, L.palette.kerb)
+		paint(parent, "Kerb", L.ox + s * (hx - KERB_W / 2), L.oz, 2 * (hz - KERB_W), KERB_W, math.pi / 2, L.palette.kerb)
+	end
+end
+
+local function buildBorder(parent: Instance, L: Layout)
+	local folder = Instance.new("Folder")
+	folder.Name = "PlazaBorder"
+	local w = BORDER_W
+	local black = C.hazardBlack
+
+	-- A line along X (z fixed) from local x0 to x1, its outer edge on `edgeZ`, `inward`
+	-- the sign toward the paving. `alongZ` swaps the axes for a line along Z.
+	local function alongX(x0: number, x1: number, edgeZ: number, inward: number)
+		if x1 - x0 > 1e-3 then
+			paint(folder, "Border", L.ox + (x0 + x1) / 2, L.oz + edgeZ + inward * w / 2, x1 - x0, w, 0, black)
+		end
+	end
+	local function alongZ(z0: number, z1: number, edgeX: number, inward: number)
+		if z1 - z0 > 1e-3 then
+			paint(folder, "Border", L.ox + edgeX + inward * w / 2, L.oz + (z0 + z1) / 2, z1 - z0, w, math.pi / 2, black)
+		end
+	end
+
+	-- Which octagon sides a path leaves through (local axis sign pairs).
+	local west, east = true, L.exitX ~= nil
+	local north, south = true, L.def.mergeReactor == true
+	local t = OCT_DIAG - OCT_HALF -- the axis sides' half-length
+	local function side(open: boolean, run: (number, number) -> ())
+		if open then
+			run(-t, -PATH_HALF)
+			run(PATH_HALF, t)
+		else
+			run(-t, t)
+		end
+	end
+	side(west, function(a, b)
+		alongZ(a, b, -OCT_HALF, 1)
+	end)
+	side(east, function(a, b)
+		alongZ(a, b, OCT_HALF, -1)
+	end)
+	side(north, function(a, b)
+		alongX(a, b, OCT_HALF, -1)
+	end)
+	side(south, function(a, b)
+		alongX(a, b, -OCT_HALF, 1)
+	end)
+
+	-- The four diagonals, inset w/2 along their inward normal and run w * tan(22.5) long
+	-- at each end, so their centre line meets the axis sides' on the corner's bisector.
+	local len = (OCT_HALF - t) * math.sqrt(2) + 2 * w * math.tan(math.pi / 8)
+	local mid = (OCT_HALF + t) / 2 - w / (2 * math.sqrt(2))
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			-- Runs along (sx, -sz): a yaw of θ turns local +X onto (cos θ, -sin θ).
+			paint(folder, "Border", L.ox + sx * mid, L.oz + sz * mid, len, w, math.atan2(sz, sx), black)
+		end
+	end
+
+	-- The paths' long sides, from their far end to one stud inside the octagon edge (to
+	-- fill the inside corner where the octagon's own line stops).
+	local inner = OCT_HALF - w
+	local clipW, exitE = L.clipX - L.ox, if L.exitX then L.exitX - L.ox else nil
+	-- West: broken by the wash-yard spur where there is one.
+	if L.def.reforge then
+		alongX(clipW, SPUR_MIN_X, PATH_HALF, -1)
+		alongX(SPUR_MAX_X, -inner, PATH_HALF, -1)
+		alongZ(PATH_HALF - w, YARD_MIN_Z, SPUR_MIN_X, 1)
+		alongZ(PATH_HALF - w, YARD_MIN_Z, SPUR_MAX_X, -1)
+	else
+		alongX(clipW, -inner, PATH_HALF, -1)
+	end
+	alongX(clipW, -inner, -PATH_HALF, 1)
+	if exitE then
+		alongX(inner, exitE, PATH_HALF, -1)
+		alongX(inner, exitE, -PATH_HALF, 1)
+	end
+	alongZ(inner, DECK_MIN_Z, -PATH_HALF, 1)
+	alongZ(inner, DECK_MIN_Z, PATH_HALF, -1)
+	if south then
+		alongZ(-MERGE_DECK_MIN_Z, -inner, -PATH_HALF, 1)
+		alongZ(-MERGE_DECK_MIN_Z, -inner, PATH_HALF, -1)
+	end
+
+	folder.Parent = parent
+end
 
 --- The hazard line on the seam where the stage chain opens into the camp, the same
 --- tape Scenery.buildStageBorderLines lays between every pair of stages.
@@ -334,15 +457,7 @@ local function buildFloor(parent: Instance, L: Layout)
 			return p.groundDark, p.groundLight, 0
 		end
 		if inShop(L, cx, cz) then
-			local kerb = not (
-				inShop(L, cx - TILE, cz)
-				and inShop(L, cx + TILE, cz)
-				and inShop(L, cx, cz - TILE)
-				and inShop(L, cx, cz + TILE)
-			)
-			if kerb then
-				return p.kerb, p.kerb, Hub.PLAZA_LIFT
-			end
+			-- The kerb ring is paver too; buildKerb lays the half-tile kerb over its outer half.
 			return p.paverDark, p.paverLight, Hub.PLAZA_LIFT
 		end
 		return p.pathDark, p.pathLight, Hub.PLAZA_LIFT
@@ -1090,6 +1205,8 @@ local function buildCamp(parent: Instance, def: Camps.CampDef)
 	m:SetAttribute("CampKey", def.key)
 
 	buildFloor(m, L)
+	buildKerb(m:FindFirstChild("Tiles") :: Instance, L)
+	buildBorder(m, L)
 	buildSeam(m, L, "Seam", L.clipX - SEAM_WIDTH / 2)
 	if L.exitX then
 		buildSeam(m, L, "ExitSeam", if L.nextBuilt then L.exitX - SEAM_WIDTH / 2 else L.exitX - SEAM_WIDTH)
