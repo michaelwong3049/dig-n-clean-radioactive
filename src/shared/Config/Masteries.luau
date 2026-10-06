@@ -63,7 +63,7 @@ Masteries.BASE = {
 	luck = 1, -- x on luck (the wash pad's roll and the merge crit)
 	capacity = 0, -- + bag slots
 	radDamage = 1, -- x on the health radiation takes (aura wear, aura failure, sickness)
-	mergeChance = 0, -- + on the Merge Reactor's success chance
+	mergeFee = 1, -- x on the Merge Reactor's fee
 	haulDrag = 1, -- x on how much each carried item slows you
 	brewCooldown = 1, -- x on the fluid bottle's cooldown
 	awayRate = Tuning.EXHIBIT_OFFLINE_RATE, -- the share of $/s the stands pay offline
@@ -135,11 +135,11 @@ Masteries.LIST = {
 	{
 		id = "reactor",
 		name = "Reactor",
-		counts = "Successful merges",
+		counts = "Merges",
 		source = "merges",
 		goals = { 10, 50, 150 },
-		reward = "mergeChance",
-		values = { 0.05, 0.1, 0.15 },
+		reward = "mergeFee",
+		values = { 0.9, 0.8, 0.7 },
 		color = Color3.fromRGB(255, 120, 200),
 	},
 	{

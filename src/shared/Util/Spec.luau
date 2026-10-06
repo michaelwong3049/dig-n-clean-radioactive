@@ -596,38 +596,32 @@ function Spec.run(): boolean
 				and Rarity.stars("Rare", nil, 0.9) == 3.5
 		)
 
-		-- The Merge Reactor (Config/Merge): harder per level, pity and luck help but
-		-- are capped, a crit is part of a success and only exists while +2 fits, and
-		-- every merge star is worth more than the last.
-		local climbing = #Merge.SUCCESS == Merge.MAX_LEVEL
-		for index = 2, #Merge.SUCCESS do
-			climbing = climbing and Merge.SUCCESS[index] < Merge.SUCCESS[index - 1]
-		end
-		check("§merge success falls level by level, one entry per level", climbing)
-		local plain = Merge.odds(0, 0, 1)
-		local lucky = Merge.odds(0, 0, 100)
-		local pitied = Merge.odds(0, 100, 1)
-		local last = Merge.odds(Merge.MAX_LEVEL - 1, 0, 100)
+		-- The Merge Reactor (Config/Merge): every merge succeeds, luck grows the crit but
+		-- it is capped and only exists while +2 fits, and the result takes the best of
+		-- the three.
+		local plain = Merge.odds(0, 1)
+		local lucky = Merge.odds(0, 100)
+		local last = Merge.odds(Merge.MAX_LEVEL - 1, 100)
 		check(
-			"§merge pity and luck are capped, and a crit never outruns the success",
-			plain ~= nil
-				and lucky ~= nil
-				and pitied ~= nil
-				and plain.crit == Merge.CRIT
-				and lucky.crit == Merge.CRIT_MAX
-				and pitied.success == Merge.SUCCESS_MAX
-				and lucky.crit <= lucky.success
+			"§merge luck grows the crit up to its cap",
+			plain ~= nil and lucky ~= nil and plain.crit == Merge.CRIT and lucky.crit == Merge.CRIT_MAX
 		)
 		check(
 			"§merge no crit where +2 would pass MAX_LEVEL, and nothing past MAX_LEVEL",
-			last ~= nil and last.crit == 0 and Merge.odds(Merge.MAX_LEVEL, 0, 1) == nil
+			last ~= nil and last.crit == 0 and Merge.odds(Merge.MAX_LEVEL, 1) == nil
 		)
 		check(
-			"§merge a roll under the crit is +2, under the success +1, else a fail",
-			plain ~= nil
-				and Merge.gain(plain, 0) == 2
-				and Merge.gain(plain, plain.success - 1e-6) == 1
-				and Merge.gain(plain, plain.success) == 0
+			"§merge never fails: a roll under the crit is +2, anything else +1",
+			plain ~= nil and Merge.gain(plain, 0) == 2 and Merge.gain(plain, plain.crit) == 1 and Merge.gain(plain, 0.999) == 1
+		)
+		local merged = Merge.result({
+			{ uid = "a", modifier = "Cracked", merge = 1 },
+			{ uid = "b", modifier = "Pristine" },
+			{ uid = "c" },
+		}, 1)
+		check(
+			"§merge the result wears the best quality and goes one above the best input",
+			merged.modifier == "Pristine" and merged.level == 2 and Merge.result({ { uid = "a", merge = 3 } }, 2).level == Merge.MAX_LEVEL
 		)
 		check(
 			"§merge each star multiplies value; a missing field is level 0",
@@ -1218,7 +1212,13 @@ function Spec.run(): boolean
 			"§mastery Collector Gold adds its bag slots",
 			StatResolver.get({ level = 1, gear = {}, perks = {}, discovered = all }).capacity - bare.capacity == collector.values[3]
 		)
-		check("§mastery the Reactor bonus raises merge odds", (Merge.odds(0, 0, 1, 0.1) :: any).success > (Merge.odds(0, 0, 1) :: any).success)
+		local dearest = nil
+		for _, def in Items.DEFS do
+			if dearest == nil or def.baseValue > dearest.baseValue then
+				dearest = def
+			end
+		end
+		check("§mastery the Reactor discount lowers the merge fee", dearest ~= nil and Merge.fee(dearest.id, 0, 0.7) < Merge.fee(dearest.id, 0))
 		check("§mastery the Brewer can never brew faster than the spin lasts", Tuning.LIQUID_SPIN_COOLDOWN * (Mastery.get("brewer") :: any).values[3] > Tuning.LIQUID_SPIN_SECONDS)
 		check("§mastery reward text reads like a reward", Mastery.rewardText(scrub, 3) == "x2 cash" and Mastery.rewardText(thief, 3) == "-50% haul drag")
 		check("§mastery goals print short", Mastery.goalText(Mastery.get("tycoon") :: any, 1e9) == "$1B" and Mastery.goalText(Mastery.get("runner") :: any, 50000) == "500K")

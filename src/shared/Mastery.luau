@@ -152,8 +152,8 @@ function Mastery.rewardText(def: Masteries.Def, tier: number): string
 		return `+{v} bag slots`
 	elseif kind == "radDamage" then
 		return `-{percentOff(v)} radiation damage`
-	elseif kind == "mergeChance" then
-		return `+{math.floor(v * 100 + 0.5)}% merge chance`
+	elseif kind == "mergeFee" then
+		return `-{percentOff(v)} merge fee`
 	elseif kind == "haulDrag" then
 		return `-{percentOff(v)} haul drag`
 	elseif kind == "brewCooldown" then

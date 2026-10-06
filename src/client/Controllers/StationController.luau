@@ -2363,9 +2363,9 @@ local function render()
 	-- Still set on every render, because the stroke is repainted per stall below.
 	ui.panel.BackgroundColor3 = FIELD.panel
 	ui.panel.BackgroundTransparency = 0 -- solid: it sits over the depth readout and vitals bars now
-	-- The dark studded backdrop sits under the shop and the trader alike.
+	-- The dark studded backdrop sits under the shop, the trader and the reactor alike.
 	local atTrader = not (atShop or atLocker or atMerge or atReforge)
-	ui.shopBackdrop.Visible = atShop or atTrader
+	ui.shopBackdrop.Visible = atShop or atTrader or atMerge
 
 	if atShop then
 		local offer = state.offer
@@ -2467,7 +2467,8 @@ local function render()
 	end
 
 	if atMerge then
-		ui.panelStroke.Color = FIELD.edge
+		ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
+		ui.panelStroke.Color = STUDDED.cardEdge
 		ui.merge.paint(state)
 		return
 	end
