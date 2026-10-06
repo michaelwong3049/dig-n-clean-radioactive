@@ -109,8 +109,8 @@ local function heldNuke(player: Player, data: any): (any?, number?, string?)
 	return nil, nil, "only nukes can be gifted"
 end
 
-local function notice(player: Player, text: string)
-	noticeRemote:FireClient(player, text)
+local function notice(player: Player, text: string, kind: string?)
+	noticeRemote:FireClient(player, text, kind)
 end
 
 local function clearOffer(receiver: Player)
@@ -198,7 +198,7 @@ local function offer(giver: Player, target: any)
 		seconds = Gift.OFFER_SECONDS,
 		item = cardFor(item, receiverData),
 	})
-	notice(giver, `gift offered to {receiver.DisplayName}`)
+	notice(giver, `gift offered to {receiver.DisplayName}`, "info")
 end
 
 local function decline(receiver: Player)
@@ -209,7 +209,7 @@ local function decline(receiver: Player)
 	clearOffer(receiver)
 	giftRemote:FireClient(receiver, { kind = "closed", reason = "declined" })
 	if open.from.Parent == Players then
-		notice(open.from, `{receiver.DisplayName} declined your gift`)
+		notice(open.from, `{receiver.DisplayName} declined your gift`, "info")
 	end
 end
 
@@ -296,7 +296,7 @@ local function accept(receiver: Player)
 	saveBoth(giver, receiver)
 
 	giftRemote:FireClient(receiver, { kind = "result", ok = true, message = `{name} from {giver.DisplayName}` })
-	notice(giver, `{receiver.DisplayName} accepted your {name}`)
+	notice(giver, `{receiver.DisplayName} accepted your {name}`, "success")
 end
 
 --- Publishes GiftUnlocked / GiftReady and lapses old offers.
@@ -324,7 +324,7 @@ local function step()
 				giftRemote:FireClient(receiver, { kind = "closed", reason = "expired" })
 			end
 			if open.from.Parent == Players and receiver.Parent == Players then
-				notice(open.from, `{receiver.DisplayName} didn't answer your gift`)
+				notice(open.from, `{receiver.DisplayName} didn't answer your gift`, "info")
 			end
 		end
 	end

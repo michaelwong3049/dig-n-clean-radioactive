@@ -623,7 +623,7 @@ local function grantRecover(player: Player, data: any)
 		warn(`[bag] {player.Name} bought Recover Bag with no bag left to recover`)
 		task.defer(function()
 			if player.Parent then
-				noticeRemote:FireClient(player, "your bag was already gone")
+				noticeRemote:FireClient(player, "your bag was already gone", "info")
 			end
 		end)
 		return
@@ -641,7 +641,7 @@ local function grantRecover(player: Player, data: any)
 	bag:Destroy()
 	task.defer(function()
 		if player.Parent then
-			noticeRemote:FireClient(player, `bag recovered: {itemsText(count)} back in your pack`)
+			noticeRemote:FireClient(player, `bag recovered: {itemsText(count)} back in your pack`, "success")
 		end
 	end)
 end
