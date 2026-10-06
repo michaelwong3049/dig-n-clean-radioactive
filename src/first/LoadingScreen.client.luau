@@ -173,14 +173,14 @@ local DEVICES = {
 		id = "mobile",
 		label = "MOBILE",
 		sub = "Low graphics, fast mode on",
-		colors = ColorSequence.new(Color3.fromHex("D9F51C"), Color3.fromHex("33D23F")),
+		colors = ColorSequence.new(Color3.fromHex("4A5058"), Color3.fromHex("2C3036")),
 		prefs = { graphics = "low", fastMode = true },
 	},
 	{
 		id = "pc",
 		label = "PC",
 		sub = "Medium graphics",
-		colors = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
+		colors = ColorSequence.new(Color3.fromHex("4A5058"), Color3.fromHex("2C3036")),
 		prefs = { graphics = "med", fastMode = false },
 	},
 }
@@ -247,6 +247,7 @@ local function showCard(Prefs: any, Studded: any)
 		button.ZIndex = 22
 		button.Parent = panel
 		Studded.fill(button, device.colors)
+		Studded.pattern(button, { radius = 14, tile = 22, glow = false, bandTransparency = 0.88, studTransparency = 0.3 })
 		Studded.edge(button, 14, 4)
 
 		local name = Studded.text(button, "Label", 40, 3.5)
