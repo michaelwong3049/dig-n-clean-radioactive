@@ -4,7 +4,7 @@
 
 	A pack is a bundle of grants the game already has, run in one receipt step through
 	ProductService: cash (EconomyService.award), crates straight into the bag even past
-	capacity (CrateService.give, the Mystery crates' rule), Lucky Clover time
+	capacity (CrateService.give), Lucky Clover time
 	(LuckBoostService.grant) and 2x cash time (CashBoostService.grant). Every one of them
 	only mutates `data` and never yields, which is what makes the whole pack land, or not
 	land, as one.
