@@ -1,10 +1,10 @@
 --!strict
 --[[
-	CrateShopService.luau — the crate pad in Base Camp, beside the group chest
-	(Config/CrateShop). Four crates hover in a ring over a round pad; each has its own
-	E prompt that buys it.
+	CrateShopService.luau — the two crate pads in Base Camp, either side of the group
+	chest (Config/CrateShop): cash crates on one, Robux crates on the other. Two crates
+	hover side by side over each pad; each has its own E prompt that buys it.
 
-	BUILT HERE AT RUNTIME, like the group chest: a pad, and per crate a coloured plinth,
+	BUILT HERE AT RUNTIME, like the group chest: a stadium-shaped pad, and per crate a coloured plinth,
 	the crate itself (Shared/CrateModels, the same model a dig hands you, scaled up) and
 	a price tag. Nothing lives in the place file, so no rebuild or Publish moves it.
 
@@ -14,7 +14,7 @@
 	anchor under each crate, not the crate, so they don't bob.
 
 	ONE PROMPT PER PART (two co-located prompts on one key drop presses), and the
-	default OnePerButton exclusivity shows only the nearest of the four.
+	default OnePerButton exclusivity shows only the nearest one.
 
 	BUYING. A cash crate: EconomyService.spend (check-and-debit in one call), then
 	CrateService.give straight into the bag past capacity. A Robux crate: the server
@@ -43,7 +43,7 @@ local SfxService = require(script.Parent.SfxService)
 local CrateShopService = {}
 
 local BUY_COOLDOWN = 0.5
-local TAG_DISTANCE = 35
+local TAG_DISTANCE = 50
 
 --- Kit.MOTION_TAG. Kit is a build module, so the string is spelled out here.
 local MOTION_TAG = "StationMotion"
@@ -119,11 +119,9 @@ local function fillRobuxPrice(offer: CrateShop.Offer, price: TextLabel, prompt: 
 	end)
 end
 
-local function buildOffer(model: Model, offer: CrateShop.Offer, padTop: number)
+local function buildOffer(model: Model, offer: CrateShop.Offer, base: Vector3, padTop: number)
 	local def = Crates.get(offer.crateId)
-	local angle = math.rad(offer.angle)
-	local ground = CrateShop.PAD_POSITION + Vector3.new(math.cos(angle) * CrateShop.ORBIT_RADIUS, 0, math.sin(angle) * CrateShop.ORBIT_RADIUS)
-	local floor = Vector3.new(ground.X, padTop, ground.Z)
+	local floor = Vector3.new(base.X, padTop, base.Z + offer.offset)
 	local colour = Color3.fromHex(def.color)
 
 	local slot = Instance.new("Model")
@@ -146,8 +144,8 @@ local function buildOffer(model: Model, offer: CrateShop.Offer, padTop: number)
 	crate.Name = "Crate"
 	crate:ScaleTo(crate:GetScale() * CrateShop.CRATE_SCALE)
 	local centre = floor + Vector3.new(0, CrateShop.HOVER_HEIGHT, 0)
-	-- Front (-Z) facing out from the pad.
-	crate:PivotTo(CFrame.lookAt(centre, centre - (ground - CrateShop.PAD_POSITION)))
+	-- Front (-Z) to the shops (+X), the same way the chest faces.
+	crate:PivotTo(CFrame.lookAt(centre, centre + Vector3.xAxis))
 	crate:SetAttribute("Motion", "hover")
 	crate:SetAttribute("MotionRate", 0.6)
 	crate:SetAttribute("MotionAmp", 0.35)
@@ -177,8 +175,8 @@ local function buildOffer(model: Model, offer: CrateShop.Offer, padTop: number)
 
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "PriceTag"
-	-- Sized in studs, not pixels, so from across the camp the four tags shrink with
-	-- their crates instead of piling into one another.
+	-- Sized in studs, not pixels, so from across the camp the tags shrink with their
+	-- crates instead of piling into one another.
 	tag.Size = UDim2.fromScale(4.2, 1.35)
 	tag.StudsOffsetWorldSpace = Vector3.new(0, CrateShop.HOVER_HEIGHT + 1.6, 0)
 	tag.MaxDistance = TAG_DISTANCE
@@ -200,20 +198,35 @@ local function buildOffer(model: Model, offer: CrateShop.Offer, padTop: number)
 	slot.Parent = model
 end
 
-local function buildPad(): Model
+--- A stadium on the floor: a round end under each crate, joined by a slab.
+local function stadium(parent: Instance, name: string, radius: number, height: number, centre: Vector3, color: Color3)
+	local spread = CrateShop.SPREAD
+	disc(parent, name, radius, height, centre + Vector3.new(0, 0, spread), color)
+	disc(parent, name, radius, height, centre - Vector3.new(0, 0, spread), color)
+	local slab = Instance.new("Part")
+	slab.Name = name
+	slab.Anchored = true
+	slab.Size = Vector3.new(radius * 2, height, spread * 2)
+	slab.CFrame = CFrame.new(centre)
+	slab.Color = color
+	studded(slab)
+	slab.Parent = parent
+end
+
+local function buildPad(pad: CrateShop.Pad): Model
 	local model = Instance.new("Model")
-	model.Name = "CratePad"
+	model.Name = pad.name
 	-- Whole or not at all, so a streamed-in pad never arrives without its crates.
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 
-	local base = CrateShop.PAD_POSITION
-	local R = CrateShop.PAD_RADIUS
-	disc(model, "Pad", R, 0.6, base + Vector3.new(0, 0.3, 0), PAD_BLACK)
-	disc(model, "Inner", R - 1.2, 0.3, base + Vector3.new(0, 0.75, 0), PAD_GREY)
+	local base = pad.position
+	local R = CrateShop.END_RADIUS
+	stadium(model, "Pad", R, 0.6, base + Vector3.new(0, 0.3, 0), PAD_BLACK)
+	stadium(model, "Inner", R - 1, 0.3, base + Vector3.new(0, 0.75, 0), PAD_GREY)
 	local padTop = base.Y + 0.9
 
-	for _, offer in CrateShop.OFFERS do
-		buildOffer(model, offer, padTop)
+	for _, offer in pad.offers do
+		buildOffer(model, offer, base, padTop)
 	end
 
 	-- The pad's own sign, over the middle.
@@ -234,7 +247,7 @@ local function buildPad(): Model
 	sign.MaxDistance = 70
 	sign.LightInfluence = 0
 	sign.Adornee = hub
-	label(sign, "Title", "CRATE SHOP", 0, 1, Color3.fromHex("F5C542"))
+	label(sign, "Title", pad.title, 0, 1, Color3.fromHex("F5C542"))
 	sign.Parent = hub
 
 	model.PrimaryPart = hub
@@ -291,17 +304,21 @@ end
 
 function CrateShopService.init()
 	-- In init, not start, so no receipt can land before these are registered.
-	for _, offer in CrateShop.OFFERS do
-		if offer.productId then
-			ProductService.register(offer.productId, function(player, data)
-				grantRobux(player, data, offer.crateId)
-			end)
+	for _, pad in CrateShop.PADS do
+		for _, offer in pad.offers do
+			if offer.productId then
+				ProductService.register(offer.productId, function(player, data)
+					grantRobux(player, data, offer.crateId)
+				end)
+			end
 		end
 	end
 end
 
 function CrateShopService.start()
-	buildPad()
+	for _, pad in CrateShop.PADS do
+		buildPad(pad)
+	end
 	Players.PlayerRemoving:Connect(function(player)
 		lastBuy[player] = nil
 	end)
