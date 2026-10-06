@@ -46,8 +46,8 @@ export type Def = {
 
 -- Clear sky between one weather ending and the next one starting, rolled per gap.
 -- These were LuckBoost.EVENT_GAP_* while the aurora was the only weather.
-Weather.GAP_MIN = 20 * 60
-Weather.GAP_MAX = 30 * 60
+Weather.GAP_MIN = 15 * 60
+Weather.GAP_MAX = 20 * 60
 
 Weather.ORDER = { "aurora", "golden", "meteor" }
 
