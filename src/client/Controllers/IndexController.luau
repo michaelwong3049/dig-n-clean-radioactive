@@ -28,8 +28,9 @@
 	THE RECORDS ARE THE SERVER'S (IdentifyService, `data.indexStats`, one
 	Shared/IndexProgress.Entry per item). This file only ever reads them: one snapshot
 	on load (IndexState) and the item's fresh record riding on every ItemIdentified /
-	sealed Unearthed after that. The one thing it sends back is IndexSeen, when you open
-	an entry still wearing its NEW badge.
+	sealed Unearthed after that. The one thing it sends back is IndexSeen: "*" when you
+	open the panel (which clears every NEW badge), or one id when you open an entry that
+	turned NEW while the panel was already open.
 
 	IT IS STILL WRITTEN WHEN YOU LEARN WHAT SOMETHING IS, NOT WHEN YOU DIG IT UP. An
 	item comes out of the ground encased in slag and is "???" everywhere until it is
@@ -1136,8 +1137,14 @@ local function build(): (ScreenGui, ScreenGui)
 			return
 		end
 		panel.Visible = not panel.Visible
-		if panel.Visible and dirty then
-			Index.render()
+		-- Opening the Index counts as seeing everything in it (2026-10-05, on request):
+		-- every NEW badge, and the number on the button, comes off at once.
+		if panel.Visible then
+			if newCount() > 0 then
+				Index.clearAllNew()
+			elseif dirty then
+				Index.render()
+			end
 		end
 	end
 	ui.button.MouseButton1Click:Connect(toggle)
