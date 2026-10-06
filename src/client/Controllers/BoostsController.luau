@@ -25,7 +25,7 @@
 
 	POSITION is the old clover's formula: hard in the right corner on the hotbar's top
 	edge (above the jump button on touch), and never up into the right-hand tile grid
-	(Dock.sideColumnBottom) -- on a short canvas it slides down, then shrinks (MIN_FIT).
+	(Dock.sideColumnBottom) -- on a short canvas it slides down, then shrinks (Dock.BOOSTS_MIN_FIT).
 ]]
 
 local Players = game:GetService("Players")
@@ -74,7 +74,6 @@ local W = Dock.BOOSTS_WIDTH
 local ROW = Dock.BOOSTS_ROW
 local ICON = 24
 local CARD_W = 270
-local MIN_FIT = 0.6
 local WARN_SECONDS = 30
 local WARN = Color3.fromHex("FF5C8A")
 
@@ -351,17 +350,9 @@ end
 
 local function place()
 	local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-	local corner = UIKit.touchCorner()
-	-- The lowest it may sit: on the hotbar's top edge, and above the jump button on touch.
-	local bottom = math.max(Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP, if corner.Y > 0 then corner.Y + Dock.GAP else 0)
-	local floor = bottom
-	-- The highest its top may reach, measured up from the bottom edge like `bottom`.
-	local ceiling = height - Dock.sideColumnBottom(height) - Dock.GAP
-	local tall = Dock.BOOSTS_HEIGHT
-	if ceiling - bottom < tall then
-		bottom = math.max(floor, ceiling - tall)
-	end
-	local scale = math.clamp((ceiling - bottom) / tall, MIN_FIT, 1)
+	-- On the hotbar's top edge, above the jump button and the speed/cash pair on touch,
+	-- shrunk on a short canvas (Dock.boostsLayout).
+	local bottom, scale = Dock.boostsLayout(height)
 	local right = Dock.ROW_SIDE_MARGIN
 	fit.Scale = scale
 	stack.Position = UDim2.new(1, -right, 1, -bottom)

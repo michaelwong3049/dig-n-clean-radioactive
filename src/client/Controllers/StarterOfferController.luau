@@ -43,7 +43,7 @@ local StarterOfferController = {}
 local PACK_KEY = "starter"
 
 local CARD_W = 168
-local CARD_H = 156
+local CARD_H = Dock.STARTER_CARD_H
 local RAYS = 380
 local ART = 74
 local BUY_H = 34
@@ -51,8 +51,9 @@ local CLOSE = 30
 -- Never smaller than this on a short screen, where the card must squeeze in above the
 -- right-edge tile column.
 local MIN_FIT = 0.6
--- Extra gap under the corner row, so the card sits a little below the corner tiles.
-local DROP = 30
+-- Smaller on a phone or tablet, on request (2026-10-06): it covered too much of a small
+-- screen. Multiplies the fit below.
+local TOUCH_FIT = Dock.STARTER_TOUCH_FIT
 
 local COLOR = {
 	ink = Color3.fromHex("1A1A1A"),
@@ -546,14 +547,15 @@ function StarterOfferController.start()
 		TweenService:Create(close, HOVER, { BackgroundColor3 = COLOR.close }):Play()
 	end)
 
-	-- Under the corner row, hard right, dropped a little (DROP) so its rays clear the
+	-- Under the corner row, hard right, dropped a little (Dock.STARTER_DROP) so its rays clear the
 	-- Daily and Potions tiles in the corner above it; shrunk on a short screen so it stays clear of
 	-- the tile column below it (Dock.sideColumnTop).
 	local function place()
 		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		local top = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + DROP
+		local top = Dock.STARTER_TOP
 		local ceiling = height / 2 + Dock.sideColumnTop(height) - Dock.GAP
-		fit.Scale = math.clamp((ceiling - top) / CARD_H, MIN_FIT, 1)
+		local touch = if UIKit.isTouch() then TOUCH_FIT else 1
+		fit.Scale = math.clamp((ceiling - top) / (CARD_H * touch), MIN_FIT, 1) * touch
 		holder.Position = UDim2.new(1, -(Dock.CORNER_SIDE + 4), 0, top)
 	end
 	UIKit.onScaleChanged(place)
