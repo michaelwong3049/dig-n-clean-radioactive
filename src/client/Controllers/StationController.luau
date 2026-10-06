@@ -2596,10 +2596,16 @@ function Station.start()
 	ui.shopNext.MouseButton1Click:Connect(function()
 		setShopFocus(carousel.focus + 1, true)
 	end)
-	-- The scrollbar: a press or drag anywhere on the track centres the thumb under the
-	-- pointer, a card at a time. It sits inside the carousel's rect, so it is tested
+	-- The scrollbar: a press on the track glides the thumb to the pointer, and a drag
+	-- slides the row with it smoothly, not a card at a time (2026-10-05, on request); it
+	-- snaps to the nearest card on release. Grabbing the thumb itself keeps the point
+	-- you grabbed under the pointer. It sits inside the carousel's rect, so it is tested
 	-- first and a press on it never starts a row drag.
 	local scrollInput: InputObject? = nil
+	-- Track fraction between the pointer and the thumb's centre, held for the drag.
+	local scrollGrab = 0
+	-- Where the row was last slid to, as a fractional focus index.
+	local scrollFocus = 1
 	local function overScroll(position: Vector3): boolean
 		local bar = ui.shopScroll
 		if not bar.Visible then
@@ -2613,14 +2619,29 @@ function Station.start()
 			and position.Y >= corner.Y - slop
 			and position.Y <= corner.Y + size.Y + slop
 	end
-	local function scrollTo(position: Vector3)
+	local function trackFraction(position: Vector3): number
 		local bar = ui.shopScroll
-		local along = math.clamp((position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
-		-- The thumb's centre under the pointer is the middle of the three cards showing.
-		local index = math.floor(along * carousel.count + 1)
-		if index ~= carousel.focus then
-			setShopFocus(index, true)
-		end
+		return (position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1)
+	end
+	--- Slides the row so the thumb's centre sits at `along` (a track fraction), with
+	--- no snapping: carousel.focus stays put and the row rides on carousel.drag.
+	local function scrollTo(along: number, animate: boolean)
+		local count = carousel.count
+		local width = SCROLL_VISIBLE / count
+		local left = math.clamp(along - width / 2, 0, 1 - width)
+		-- The thumb's left edge sits one card short of the focus (see paintScroll).
+		scrollFocus = left * count + 2
+		carousel.drag = -(scrollFocus - carousel.focus) * CAROUSEL_STEP
+		placeRow(animate)
+	end
+	local function scrollPress(position: Vector3)
+		local along = trackFraction(position)
+		local thumb = ui.shopThumb
+		local onThumb = position.X >= thumb.AbsolutePosition.X
+			and position.X <= thumb.AbsolutePosition.X + thumb.AbsoluteSize.X
+		local centre = thumb.Position.X.Scale + thumb.Size.X.Scale / 2
+		scrollGrab = if onThumb then along - centre else 0
+		scrollTo(along - scrollGrab, not onThumb)
 	end
 
 	-- A DRAG IS NOT A CLICK. Releasing a drag over a button still fires its
@@ -2652,7 +2673,7 @@ function Station.start()
 		local press = kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch
 		if press and overScroll(input.Position) then
 			scrollInput = input
-			scrollTo(input.Position)
+			scrollPress(input.Position)
 		elseif press and overCarousel(input.Position) then
 			dragInput = input
 			dragStartX = input.Position.X
@@ -2674,7 +2695,7 @@ function Station.start()
 			local byMouse = scrollInput.UserInputType == Enum.UserInputType.MouseButton1
 			if (byMouse and kind == Enum.UserInputType.MouseMovement) or (not byMouse and input == scrollInput) then
 				if shopShowing() then
-					scrollTo(input.Position)
+					scrollTo(trackFraction(input.Position) - scrollGrab, false)
 				end
 			end
 			return
@@ -2721,6 +2742,10 @@ function Station.start()
 			)
 		then
 			scrollInput = nil
+			-- Settle on the nearest card from wherever the slide left the row.
+			if shopShowing() then
+				setShopFocus(math.floor(scrollFocus + 0.5), true)
+			end
 			return
 		end
 		if dragInput == nil then
