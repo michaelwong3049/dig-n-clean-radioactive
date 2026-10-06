@@ -189,4 +189,25 @@ function Studded.pattern(parent: GuiObject, props: PatternProps?): Frame
 	return holder
 end
 
+-- The dark grey studded backdrop the Shop and Nukes panels wear.
+Studded.DARK = Color3.fromHex("2B2F36")
+
+--- Turn `panel` into the dark grey studded backdrop. `inset` is the panel's own
+--- UIPadding, which the pattern is pushed back out past to reach the edges.
+function Studded.darkPanel(panel: GuiObject, radius: number?, inset: number?): Frame
+	panel.BackgroundColor3 = Studded.DARK
+	local holder = Studded.pattern(panel, {
+		radius = radius,
+		bands = { 0.15, 0.42, 0.52, 0.58 },
+		bandTransparency = 0.93,
+		studTransparency = 0.1,
+		glow = false,
+	})
+	if inset then
+		holder.Position = UDim2.fromOffset(-inset, -inset)
+		holder.Size = UDim2.new(1, 2 * inset, 1, 2 * inset)
+	end
+	return holder
+end
+
 return Studded

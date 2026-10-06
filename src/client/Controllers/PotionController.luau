@@ -22,6 +22,7 @@ local Potions = require(Shared.Config.Potions)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Studded = require(script.Parent.Parent.Studded)
 local HudTile = require(script.Parent.Parent.HudTile)
 local Sfx = require(script.Parent.Parent.Sfx)
 
@@ -325,6 +326,7 @@ local function buildPanel(): ScreenGui
 	panel.Parent = canvas
 	round(panel, 8)
 	edge(panel, PANEL.ink, 4)
+	Studded.darkPanel(panel, 8) -- the Shop's dark grey studded backdrop
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
 
