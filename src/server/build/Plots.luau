@@ -224,7 +224,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 111 -- locker on the treadmill's fence (2026-10-04)
+local BUILDER_VERSION = 112 -- thinner black walkways (2026-10-05)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -3383,7 +3383,8 @@ end
 --- Thin plates a hair proud of the floor (LANE_LIFT), not cut into it: PadFloor stays
 --- one part. CanCollide off — the floor under them is what a player stands on, so a
 --- 0.06 lip never catches a foot.
-local LANE = { aisle = 6, entry = 8, kerb = 0.5, band = 5, lift = 0.06, thick = 0.12 }
+--- Thinned ~0.6x on request (2026-10-05): aisle 6, entry 8, band 5, landing ~4.8.
+local LANE = { aisle = 3.6, entry = 4.8, kerb = 0.5, band = 3, landing = 3, lift = 0.06, thick = 0.12 }
 --- `topY` is the floor the lanes lie on and `entryZ` where the entry lane starts:
 --- the pad's front edge on the ground, the deck's front rail on an upper floor
 --- (buildFloor), which has the same grid and so the same walkways.
@@ -3430,11 +3431,11 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 	local inner, outer = aisleX - LANE.aisle / 2, aisleX + LANE.aisle / 2
 	local entryHalf = LANE.entry / 2
 	-- The cross band stops ~1.5 short of the front row; the landing starts ~1 past the
-	-- back row and runs to the back fence's inner face.
+	-- back row and runs to the back fence's inner face, at most LANE.landing deep.
 	local bandBack = GRID_ROWS[#GRID_ROWS] - standHalf - 1.55
 	local bandFront = bandBack - LANE.band
-	local landingFront = GRID_ROWS[1] + standHalf + 1.05
 	local landingBack = pad.maxZ - 0.5 - RAIL_POST_W
+	local landingFront = math.max(GRID_ROWS[1] + standHalf + 1.05, landingBack - LANE.landing)
 
 	local LANE_BLACK, KERB = C.baseLane, C.baseLaneKerb
 
