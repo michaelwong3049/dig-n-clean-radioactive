@@ -221,21 +221,25 @@ local function linesFor(gift: any): { { text: string, color: Color3 } }
 	if gift.speed > 0 then
 		table.insert(top, `+{shortCount(gift.speed)} Speed`)
 	end
-	if (gift.speedLevels or 0) > 0 then
-		table.insert(top, `+{gift.speedLevels} Walk`)
-	end
 	if #top > 0 then
 		table.insert(out, { text = table.concat(top, "  "), color = if gift.cash > 0 then PANEL.cash else PANEL.speed })
 	end
-	local boosts = {}
-	if gift.luckSeconds > 0 then
-		table.insert(boosts, `Luck {math.floor(gift.luckSeconds / 60)}m`)
-	end
-	if gift.cashBoostSeconds > 0 then
-		table.insert(boosts, `Cash {math.floor(gift.cashBoostSeconds / 60)}m`)
-	end
-	if #boosts > 0 then
-		table.insert(out, { text = `2x {table.concat(boosts, " + 2x ")}`, color = PANEL.boost })
+	-- Boosts: "2x Luck 5m", or "2x Luck & Cash 10m" when both run the same time.
+	local luckMin = math.floor(gift.luckSeconds / 60)
+	local cashMin = math.floor(gift.cashBoostSeconds / 60)
+	if luckMin > 0 and luckMin == cashMin then
+		table.insert(out, { text = `2x Luck & Cash {luckMin}m`, color = PANEL.boost })
+	else
+		local boosts = {}
+		if luckMin > 0 then
+			table.insert(boosts, `2x Luck {luckMin}m`)
+		end
+		if cashMin > 0 then
+			table.insert(boosts, `2x Cash {cashMin}m`)
+		end
+		if #boosts > 0 then
+			table.insert(out, { text = table.concat(boosts, " + "), color = PANEL.boost })
+		end
 	end
 	-- Potions and crates share a line, so the biggest gift still fits in three.
 	local items = {}
@@ -250,7 +254,9 @@ local function linesFor(gift: any): { { text: string, color: Color3 } }
 		table.insert(
 			items,
 			if kinds == 1 and lastId and Potions.has(lastId)
-				then `{Potions.get(lastId).short} Potion x{potionTotal}`
+				then (if potionTotal == 1
+					then `{Potions.get(lastId).short} Potion`
+					else `{potionTotal} {Potions.get(lastId).short} Potions`)
 				else `{potionTotal} Potions`
 		)
 	end
@@ -570,7 +576,7 @@ local function buildPanel(): ScreenGui
 	})
 	inked(panel, {
 		Name = "Subtitle",
-		Text = "Stay in the game: a new gift opens every few minutes, and they get better.",
+		Text = "Keep playing to unlock better gifts!",
 		TextSize = 14,
 		TextColor3 = PANEL.dim,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -609,7 +615,7 @@ local function buildPanel(): ScreenGui
 
 	inked(panel, {
 		Name = "Footer",
-		Text = "Leaving Resets Gifts!",
+		Text = "Leaving resets gifts!",
 		TextSize = 22,
 		TextColor3 = PANEL.gold,
 		TextXAlignment = Enum.TextXAlignment.Left,

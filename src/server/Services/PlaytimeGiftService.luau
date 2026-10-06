@@ -5,7 +5,7 @@
 
 	THE SESSION CLOCK IS NOT SAVED. `startedAt` and the claimed set live in memory,
 	keyed by player, and are made when the profile loads and dropped when the player
-	leaves -- "Leaving Resets Gifts!". Nothing here touches the save except the grants.
+	leaves -- "Leaving resets gifts!". Nothing here touches the save except the grants.
 
 	THE SERVER DECIDES EVERYTHING. The client is sent `startedAt` (server time) and the
 	gifts as worked out for THIS player (cash follows income and stage); it counts down
@@ -37,7 +37,6 @@ local ExhibitService = require(script.Parent.ExhibitService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 local PotionService = require(script.Parent.PotionService)
 local TreadmillService = require(script.Parent.TreadmillService)
-local Treadmill = require(Shared.Config.Treadmill)
 
 local PlaytimeGiftService = {}
 
@@ -74,7 +73,6 @@ local function resolveGifts(data: any): { any }
 			minutes = gift.minutes,
 			cash = PlaytimeGifts.cashFor(gift, stage, rate),
 			speed = gift.speed or 0,
-			speedLevels = gift.speedLevels or 0,
 			luckSeconds = gift.luckSeconds or 0,
 			cashBoostSeconds = gift.cashBoostSeconds or 0,
 			potions = potions,
@@ -112,17 +110,8 @@ local function grant(player: Player, data: any, index: number)
 	if cash > 0 then
 		EconomyService.award(player, cash, "playtime")
 	end
-	if (gift.speed and gift.speed > 0) or (gift.speedLevels and gift.speedLevels > 0) then
-		data.speedPoints = (data.speedPoints or 0) + (gift.speed or 0)
-		if gift.speedLevels and gift.speedLevels > 0 then
-			-- Whole levels: lift the lifetime total to the requirement `speedLevels` above
-			-- the level the points just left the player on.
-			local level = Treadmill.levelFor(data.speedPoints)
-			local target = Treadmill.requirementFor(level + gift.speedLevels)
-			if target then
-				data.speedPoints = math.max(data.speedPoints, target)
-			end
-		end
+	if gift.speed and gift.speed > 0 then
+		data.speedPoints = (data.speedPoints or 0) + gift.speed
 		ExhibitService.refreshTreadmill(player)
 		TreadmillService.refresh(player)
 	end
