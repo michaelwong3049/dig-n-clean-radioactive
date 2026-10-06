@@ -84,6 +84,10 @@ local TILE_H = 134
 local IN_W = 96
 local IN_H = 112
 
+--- Both halves say this when you own no washed nukes at all.
+local EMPTY_TEXT = "No cleaned nukes equipped."
+local PICK_TEXT = `Tap a nuke with a READY chip. Its best {Merge.INPUTS} copies fill in by themselves, and a merge always adds a merge star.`
+
 local POP = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 local function money(amount: number): string
@@ -459,7 +463,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.muted,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = "No washed nukes in your bag or locker. Wash a find at a cleansing station first.",
+		text = EMPTY_TEXT,
 		ink = false,
 	})
 
@@ -605,7 +609,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = `Tap a nuke with a READY chip. Its best {Merge.INPUTS} copies fill in by themselves, and a merge always adds a merge star.`,
+		text = PICK_TEXT,
 		ink = false,
 	})
 
@@ -835,6 +839,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 			ItemArt.clear(tiles[index].viewport)
 		end
 		gridEmpty.Visible = #order == 0
+		sideHint.Text = if #order == 0 then EMPTY_TEXT else PICK_TEXT
 
 		-- The merge side.
 		local full = #picks == Merge.INPUTS
