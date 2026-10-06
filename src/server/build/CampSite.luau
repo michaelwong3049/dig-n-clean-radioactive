@@ -97,7 +97,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 33
+local BUILDER_VERSION = 34
 
 local C = Kit.C
 local build = Kit.build
@@ -222,13 +222,15 @@ local ENTRY_GATE_INSET = 2
 --- lines and deck edges, which already draw their own edge.
 local BORDER_W = 1
 local KERB_W = TILE / 2
-local PAINT_RAISE = 0.05
---- The octagon's diagonal lines sit lower than the straight ones: a smooth underlay the
---- edge's full length, and over it a studded strip a whole number of studs long that
---- stops short of each corner. Their ends tuck under the axis lines, so only one stud
---- texture draws at a joint (at one height they z-fought) and no stud is cut in half.
-local DIAGONAL_DROP = 0.02
-local UNDERLAY_DROP = 0.03
+--- How far the paint stands above the paving. Two faces closer than ~0.05 z-fight at
+--- range, so NO two pieces overlap with less than CAP_DROP between them -- the first cut
+--- had a full-length underlay 0.01 under each diagonal, and its studs flickered.
+local PAINT_RAISE = 0.1
+--- Each octagon diagonal is a studded strip a whole number of studs long, stopping short
+--- of both corners, plus a smooth cap at each end filling the rest of the way to the
+--- vertex. The caps sit this much lower and tuck under the straight lines, so a joint
+--- shows one stud texture and no stud is cut in half.
+local CAP_DROP = 0.05
 
 local function paint(
 	parent: Instance,
@@ -310,20 +312,25 @@ local function buildBorder(parent: Instance, L: Layout)
 		alongX(a, b, -OCT_HALF, 1)
 	end)
 
-	-- The four diagonals, inset w/2 along their inward normal. The underlay is exactly
-	-- the edge's length: each end's outer corner is the octagon's vertex and its inner
-	-- corner falls inside the axis line, which covers it. Any longer and the tip pokes
-	-- out past the vertex onto the lawn. The studded strip on it is the largest even
-	-- stud count that leaves a stud of smooth black at each end.
+	-- The four diagonals, inset w/2 along their inward normal, reaching exactly to each
+	-- vertex: there the outer corner is the vertex and the inner corner falls inside the
+	-- axis line, which covers it. Any longer and the tip pokes out onto the lawn. The
+	-- studded middle is the largest even stud count that clears the axis lines (a stud
+	-- of cap at each end); it abuts its caps rather than overlapping them.
 	local len = (OCT_HALF - t) * math.sqrt(2)
 	local studded = 2 * math.floor((len - 2 * w) / 2)
+	local capLen = (len - studded) / 2
 	local mid = (OCT_HALF + t) / 2 - w / (2 * math.sqrt(2))
 	for _, sx in { -1, 1 } do
 		for _, sz in { -1, 1 } do
 			-- Runs along (sx, -sz): a yaw of θ turns local +X onto (cos θ, -sin θ).
 			local x, z, yaw = L.ox + sx * mid, L.oz + sz * mid, math.atan2(sz, sx)
-			paint(folder, "BorderUnderlay", x, z, len, w, yaw, black, UNDERLAY_DROP, true)
-			paint(folder, "Border", x, z, studded, w, yaw, black, DIAGONAL_DROP)
+			local ux, uz = sx / math.sqrt(2), -sz / math.sqrt(2)
+			paint(folder, "Border", x, z, studded, w, yaw, black)
+			for _, e in { -1, 1 } do
+				local off = e * (studded + capLen) / 2
+				paint(folder, "BorderCap", x + ux * off, z + uz * off, capLen, w, yaw, black, CAP_DROP, true)
+			end
 		end
 	end
 
