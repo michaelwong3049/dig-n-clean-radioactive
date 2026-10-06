@@ -51,10 +51,15 @@
 	carries it to 1. A toe past your rating is a few cracks, not the whole visor, and
 	even a deadly step reads as damage SPREADING rather than arriving whole.
 
-	REDUCED (Settings' RADIATION EFFECTS, Config/Prefs radFx). Every layer runs at
-	REDUCED strength and the busiest ones (snow, scanlines, motes, blur) stay off. The
-	keyhole only eases to REDUCED_BLIND, never off: it is the soft gate that tells you
-	this air is past your aura, so there is deliberately no "off" setting.
+	REDUCED (Graphics Low / Med, HudController). A PERFORMANCE mode, not a dimmer: the
+	cheap screen layers (rot, vignette, cracks, hurt, colour) stay at FULL strength, and
+	only the costly ones go -- the depth-of-field and blur post effects, the fallout
+	particles and the scanlines. Snow runs at half rate. It used to halve every layer as
+	well, and since new players start on Low, most people could barely see radiation at
+	all (on request: "on low effects you can't see radiation"). To make up for the lost
+	snow and dust, the rot and vignette get a floor while the aura fails (REDUCED_FLOOR).
+	The keyhole only eases to REDUCED_BLIND, never off: it is the soft gate that tells
+	you this air is past your aura, so there is deliberately no "off" setting.
 
 	COST: ~125 GUI objects, built once, and the container is Visible = false below
 	EXPOSURE_WARN. The emitter is off while asleep. Nothing allocates per frame.
@@ -92,10 +97,12 @@ local HURT = Color3.fromRGB(14, 14, 16)
 local LIGHT_SPAN = 0.22
 -- How broken the aura reads the instant it starts failing; `over` carries the rest.
 local FAIL_FLOOR = 0.25
--- Settings' "reduced" radiation effects: what is left of each layer, and of the
--- keyhole (kept higher so going too deep still visibly narrows your view).
-local REDUCED = 0.5
+-- Reduced radiation effects (Graphics Low / Med): how much of the keyhole is left (kept
+-- high so going too deep still visibly narrows your view), how much snow, and how far
+-- a failing aura's rot and vignette are pushed in to stand in for the missing dust.
 local REDUCED_BLIND = 0.7
+local REDUCED_SNOW = 0.5
+local REDUCED_FLOOR = 0.6
 
 local SIGNAL_COUNT = 3
 
@@ -510,12 +517,11 @@ function RadFx.update(dt: number, intensity: number, failing: number, healthFrac
 	local light = math.clamp(st.over / LIGHT_SPAN, 0, 1) * (1 - blind)
 	local reduced = st.reduced
 	if reduced then
-		dose *= REDUCED
-		fail *= REDUCED
-		light *= REDUCED
-		hurt *= REDUCED
 		blind *= REDUCED_BLIND
 	end
+	-- What a failing aura is guaranteed to show on reduced once it has built up, even a
+	-- toe past the line where `fail` is still small (0 on full).
+	local floor = if reduced then math.clamp(failing, 0, 1) * REDUCED_FLOOR else 0
 	local breath = 0.5 + 0.5 * math.sin(st.t * (1.1 + dose * 1.6))
 	local rate = 1.0 + dose * 1.9 + fail * 0.8 + light * 0.7 + blind * 1.6
 	local beat = (0.5 + 0.5 * math.sin(st.t * rate * math.pi * 2)) ^ 6
@@ -526,7 +532,7 @@ function RadFx.update(dt: number, intensity: number, failing: number, healthFrac
 	-- Rot -------------------------------------------------------------
 	-- Scaled from well past the frame inward, so the uneven edge CREEPS in rather than
 	-- fading up in place.
-	local rotAppear = math.max(math.clamp((dose - 0.12) / 0.88, 0, 1), fail * 0.55, light * 0.35)
+	local rotAppear = math.max(math.clamp((dose - 0.12) / 0.88, 0, 1), fail * 0.55, light * 0.35, floor)
 	for i, label in rots do
 		if rotAppear <= 0.001 then
 			label.Visible = false
@@ -542,7 +548,7 @@ function RadFx.update(dt: number, intensity: number, failing: number, healthFrac
 
 	-- Vignette --------------------------------------------------------
 	-- The heartbeat lives HERE now: vision pulling in on each beat, not a flash.
-	local vigAlpha = math.clamp(0.35 * dose + 0.2 * fail + 0.18 * light + 0.8 * blind + beat * (0.1 * dose + 0.12 * blind), 0, 0.97)
+	local vigAlpha = math.clamp(0.35 * dose + 0.2 * fail + 0.18 * light + 0.8 * blind + 0.4 * floor + beat * (0.1 * dose + 0.12 * blind), 0, 0.97)
 	local vigColour = SHADE:Lerp(VOID, math.clamp(blind * 1.1, 0, 1))
 	local s = 1.28 - 0.2 * dose - 0.05 * light - 0.62 * blind - beat * 0.035 * (dose + blind)
 	local vw, vh = s * 1.12, s * 1.45
@@ -599,7 +605,7 @@ function RadFx.update(dt: number, intensity: number, failing: number, healthFrac
 	-- Snow ------------------------------------------------------------
 	-- Up to three tile layers a frame, each at a fresh offset: density comes from how
 	-- many layers land, so a low dose is a few hits and the blind grade is a storm.
-	local snowRate = if reduced then 0 else math.clamp((dose - 0.05) * 0.8 + light * 1.1 + fail * 0.45 + blind, 0, 1)
+	local snowRate = math.clamp((dose - 0.05) * 0.8 + light * 1.1 + fail * 0.45 + blind, 0, 1) * (if reduced then REDUCED_SNOW else 1)
 	local tile = ui.snowTile
 	for k, label in snows do
 		if fx:NextNumber() > snowRate * 1.2 - (k - 1) * 0.33 then
@@ -653,6 +659,9 @@ function RadFx.update(dt: number, intensity: number, failing: number, healthFrac
 	-- camera's own subject, so it follows zoom. Blind takes the near field too, and a
 	-- little real blur on top, because DoF alone never gets fully soft.
 	local focus = ui.focus
+	-- Post effects are the costly part on a phone; reduced does without them.
+	focus.Enabled = not reduced
+	ui.blur.Enabled = not reduced
 	focus.FocusDistance = if camera then (camera.CFrame.Position - camera.Focus.Position).Magnitude else 12
 	focus.InFocusRadius = 30 - 22 * blind
 	focus.FarIntensity = math.clamp((1.2 * dose + 2.5 * fail + 1.8 * light + 7 * blind) / 8, 0, 1)
