@@ -12,7 +12,8 @@
 	  * OTHER PLAYERS, HEARD. Three attributes the server stamps on each character --
 	    DigTick (a counter, bumped per accepted yank), Hauling and HoseSpraying -- are
 	    all a client needs to put a dig crunch, a magnet hum or a hose hiss on someone
-	    else, 3D on their root. Your own versions play from your own input instead, a
+	    else, 3D at their root (via an anchor that follows it, so a streamed-out
+	    character goes silent instead of playing 2D map-wide). Your own versions play from your own input instead, a
 	    round trip sooner, so the local character is skipped for those three.
 	  * AURAS, EVERYONE'S. A quiet hum on every character wearing one (AuraTier), louder
 	    and lower the higher the tier, and a whoosh when YOUR aura changes to a new tier.
@@ -27,6 +28,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local AuraLook = require(Shared.AuraLook)
@@ -48,15 +50,22 @@ local HURT_DROP = 8
 local BEAT_SLOW, BEAT_FAST = 1.0, 0.45
 
 type Rig = {
-	character: Model,
-	root: BasePart?,
+	player: Player,
+	-- The 3D sounds hang off this, not off the character: an Attachment on Terrain that
+	-- follows the character's root each frame. StreamingEnabled swaps a far character's
+	-- root out (and a fresh one back in); a Sound left on a streamed-out root is outside
+	-- Workspace, and Roblox plays that as flat 2D -- everybody's magnet hum at full
+	-- volume from anywhere on the map. The anchor never leaves Workspace, and with no
+	-- root in Workspace every loop is simply off.
+	anchor: Attachment,
 	aura: Sfx.Loop?,
 	haul: Sfx.Loop?,
 	hose: Sfx.Loop?,
-	connections: { RBXScriptConnection },
+	auraTier: any,
+	digTick: any,
 }
 
-local rigs: { [Model]: Rig } = {}
+local rigs: { [Player]: Rig } = {}
 local localPlayer = Players.LocalPlayer
 
 -- ── Other characters ───────────────────────────────────────────────
@@ -71,41 +80,67 @@ local function auraLevel(tier: number): (number, number)
 	return volume, pitch
 end
 
-local function unrig(character: Model)
-	local rig = rigs[character]
-	if rig == nil then
+local function unrig(player: Player)
+	local entry = rigs[player]
+	if entry == nil then
 		return
 	end
-	rigs[character] = nil
-	for _, connection in rig.connections do
-		connection:Disconnect()
-	end
-	for _, loop in { rig.aura, rig.haul, rig.hose } do
+	rigs[player] = nil
+	for _, loop in { entry.aura, entry.haul, entry.hose } do
 		if loop then
 			loop:destroy()
 		end
 	end
+	entry.anchor:Destroy()
 end
 
-local function rig(player: Player, character: Model)
-	unrig(character)
-	local root = character:WaitForChild("HumanoidRootPart", 10)
-	if root == nil or not root:IsA("BasePart") or character.Parent == nil then
+local function rig(player: Player)
+	unrig(player)
+	local mine = player == localPlayer
+	local anchor = Instance.new("Attachment")
+	anchor.Name = `Sfx_{player.UserId}`
+	anchor.Parent = Workspace.Terrain
+	rigs[player] = {
+		player = player,
+		anchor = anchor,
+		aura = Sfx.loop("auraHum", anchor),
+		-- Your own haul, hose and dig play off your own input instead, a round trip sooner.
+		haul = if mine then nil else Sfx.loop("haulHum", anchor),
+		hose = if mine then nil else Sfx.loop("hose", anchor),
+		auraTier = nil,
+		digTick = nil,
+	}
+end
+
+--- The character's live root, or nil while it is streamed out / respawning.
+local function liveRoot(player: Player): BasePart?
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") and root:IsDescendantOf(Workspace) then
+		return root
+	end
+	return nil
+end
+
+local function stepRig(entry: Rig)
+	local root = liveRoot(entry.player)
+	if root == nil then
+		for _, loop in { entry.aura, entry.haul, entry.hose } do
+			if loop then
+				loop:set(false)
+			end
+		end
+		entry.auraTier = nil
+		-- Forget the counter, so a character streaming back in does not crunch once.
+		entry.digTick = nil
 		return
 	end
-	local mine = player == localPlayer
-	local entry: Rig = {
-		character = character,
-		root = root,
-		aura = Sfx.loop("auraHum", root),
-		haul = if mine then nil else Sfx.loop("haulHum", root),
-		hose = if mine then nil else Sfx.loop("hose", root),
-		connections = {},
-	}
-	rigs[character] = entry
+	entry.anchor.WorldPosition = root.Position
+	local character = root.Parent :: Model
 
-	local function onAura()
-		local tier = character:GetAttribute(AuraLook.ATTRIBUTE)
+	local tier = character:GetAttribute(AuraLook.ATTRIBUTE)
+	if tier ~= entry.auraTier then
+		entry.auraTier = tier
 		if entry.aura then
 			if type(tier) == "number" then
 				local volume, pitch = auraLevel(tier)
@@ -117,44 +152,33 @@ local function rig(player: Player, character: Model)
 		end
 		-- No whoosh on buying/changing an aura (cut by request).
 	end
-	table.insert(entry.connections, character:GetAttributeChangedSignal(AuraLook.ATTRIBUTE):Connect(onAura))
-	onAura()
 
-	if not mine then
-		local function onHaul()
-			if entry.haul then
-				entry.haul:set(character:GetAttribute("Hauling") == true)
-			end
+	if entry.player ~= localPlayer then
+		if entry.haul then
+			entry.haul:set(character:GetAttribute("Hauling") == true)
 		end
-		local function onHose()
-			if entry.hose then
-				entry.hose:set(character:GetAttribute("HoseSpraying") == true)
-			end
+		if entry.hose then
+			entry.hose:set(character:GetAttribute("HoseSpraying") == true)
 		end
-		table.insert(entry.connections, character:GetAttributeChangedSignal("Hauling"):Connect(onHaul))
-		table.insert(entry.connections, character:GetAttributeChangedSignal("HoseSpraying"):Connect(onHose))
-		table.insert(entry.connections, character:GetAttributeChangedSignal("DigTick"):Connect(function()
-			Sfx.playAt(if math.random() < 0.5 then "dig" else "dig2", root)
-		end))
-		onHaul()
-		onHose()
+		local count = character:GetAttribute("DigTick")
+		if entry.digTick ~= nil and count ~= entry.digTick then
+			Sfx.playAt(if math.random() < 0.5 then "dig" else "dig2", entry.anchor)
+		end
+		entry.digTick = count
 	end
-
-	table.insert(entry.connections, character.AncestryChanged:Connect(function(_, parent)
-		if parent == nil then
-			unrig(character)
-		end
-	end))
 end
 
-local function watchPlayer(player: Player)
-	player.CharacterAdded:Connect(function(character)
-		task.spawn(rig, player, character)
-	end)
-	player.CharacterRemoving:Connect(unrig)
-	if player.Character then
-		task.spawn(rig, player, player.Character)
+local function watchPlayers()
+	for _, player in Players:GetPlayers() do
+		rig(player)
 	end
+	Players.PlayerAdded:Connect(rig)
+	Players.PlayerRemoving:Connect(unrig)
+	RunService.Heartbeat:Connect(function()
+		for _, entry in rigs do
+			stepRig(entry)
+		end
+	end)
 end
 
 -- ── Your own body ───────────────────────────────────────────────────
@@ -260,11 +284,7 @@ function SfxController.start()
 		Prefs.observe(key, applyVolumes)
 	end
 
-	for _, player in Players:GetPlayers() do
-		watchPlayer(player)
-	end
-	Players.PlayerAdded:Connect(watchPlayer)
-
+	watchPlayers()
 	watchVitals()
 	task.spawn(watchButtons)
 end

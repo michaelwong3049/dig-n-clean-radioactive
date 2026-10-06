@@ -268,8 +268,13 @@ function Sfx.playAt(name: string, at: Instance | Vector3, opts: Opts?)
 		sound.Destroying:Once(function()
 			anchor:Destroy()
 		end)
-	elseif at and at.Parent then
+	elseif at and at:IsDescendantOf(Workspace) then
 		sound.Parent = at
+	elseif at then
+		-- A part outside Workspace (streamed out, mid-destroy) would play this flat 2D
+		-- for the whole map; it is out of earshot anyway, so drop it.
+		sound:Destroy()
+		return
 	else
 		sound.Parent = ensure()
 	end
@@ -292,6 +297,8 @@ type LoopState = {
 	level: number,
 	target: number,
 	scale: number,
+	-- 3D: only audible while its part is in Workspace (see `step`).
+	spatial: boolean,
 }
 
 local loops: { [Loop]: LoopState } = {}
@@ -304,6 +311,15 @@ local function step(dt: number)
 			continue
 		end
 		local rate = dt / math.max(st.fade, 0.01)
+		-- A 3D loop whose part has left Workspace (StreamingEnabled swaps far parts out)
+		-- would play as flat 2D, heard map-wide. Hold it silent until the part is back.
+		if st.spatial and not st.sound:IsDescendantOf(Workspace) then
+			st.level = 0
+			if st.sound.IsPlaying then
+				st.sound:Pause()
+			end
+			continue
+		end
 		if st.level < st.target then
 			st.level = math.min(st.target, st.level + rate)
 		elseif st.level > st.target then
@@ -347,6 +363,7 @@ function Sfx.loop(name: string, at: Instance?): Loop?
 		level = 0,
 		target = 0,
 		scale = 1,
+		spatial = at ~= nil,
 	}
 
 	local handle = {} :: any
