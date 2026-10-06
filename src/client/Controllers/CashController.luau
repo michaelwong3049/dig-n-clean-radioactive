@@ -200,7 +200,6 @@ local function build(): ScreenGui
 	local badge = Instance.new("Frame")
 	badge.Name = "CashBadge"
 	badge.Size = BADGE_SIZE
-	badge.AnchorPoint = Vector2.new(0, 1)
 	badge.BackgroundTransparency = 1
 	badge.ZIndex = 2
 	badge.Parent = canvas
@@ -209,11 +208,13 @@ local function build(): ScreenGui
 	ui.punch.Parent = badge
 
 	local L = LAYOUT
-	-- Re-placed on every viewport change: a phone's thumbstick corner grows and shrinks
-	-- with the screen (Dock.sideLift).
+	-- Re-placed on every viewport change: the touch corners grow and shrink with the
+	-- screen. Bottom-left with a mouse, smaller on the jump button on touch (Dock.pairOnRight).
 	UIKit.onScaleChanged(function()
-		bottom = Dock.CASH_BOTTOM + Dock.sideLift()
-		badge.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -bottom)
+		bottom = Dock.cashBottom()
+		badge.AnchorPoint = Dock.pairAnchor()
+		badge.Position = Dock.pairPosition(bottom)
+		ui.punch.Scale = Dock.pairScale()
 	end)
 
 	Artwork.droppedPicture(badge, "Bundle", Artwork.IMAGE.cashBundle, L.icon, L.iconDrop, 3)
@@ -270,8 +271,9 @@ local function build(): ScreenGui
 end
 
 local function punch()
-	ui.punch.Scale = 1.07
-	TweenService:Create(ui.punch, PUNCH_TWEEN, { Scale = 1 }):Play()
+	local rest = Dock.pairScale()
+	ui.punch.Scale = rest * 1.07
+	TweenService:Create(ui.punch, PUNCH_TWEEN, { Scale = rest }):Play()
 end
 
 local function popupText(amount: number): string
@@ -304,9 +306,11 @@ local function placeSparkles(record: any)
 	end
 	local width = textWidth(record.label.Text, record.label.TextSize, STYLE.valueFont)
 	local mid = POPUP.height / 2
-	record.sparkles[1].Position = UDim2.fromOffset(width + 12, mid - 16)
-	record.sparkles[2].Position = UDim2.fromOffset(-10, mid - 12)
-	record.sparkles[3].Position = UDim2.fromOffset(width + 22, mid + 14)
+	-- Where the text starts in the label: a right-aligned popup (touch) ends at its right edge.
+	local x = if record.label.TextXAlignment == Enum.TextXAlignment.Right then record.label.Size.X.Offset - width else 0
+	record.sparkles[1].Position = UDim2.fromOffset(x + width + 12, mid - 16)
+	record.sparkles[2].Position = UDim2.fromOffset(x - 10, mid - 12)
+	record.sparkles[3].Position = UDim2.fromOffset(x + width + 22, mid + 14)
 end
 
 local function fadeOut(record: any)
@@ -349,19 +353,26 @@ local function popup(delta: number, quiet: boolean)
 	-- Everything comes off the end of the balance. A payout landing mid-sale is the
 	-- other kind, so it gets its own popup rather than folding into the sale's.
 	local source: TextLabel = ui.value
-	local textEnd = source.Position.X.Offset + textWidth(source.Text, source.TextSize, source.Font)
-	local middle = source.Position.Y.Offset + source.Size.Y.Offset / 2
-	local start = UDim2.new(0, Dock.SIDE_CORNER_X + textEnd + POPUP.gap, 1, middle - BADGE_H - bottom)
+	-- Footprint px times the row's scale: smaller on touch (Dock.pairScale).
+	local k = Dock.pairScale()
+	local textEnd = (source.Position.X.Offset + textWidth(source.Text, source.TextSize, source.Font)) * k
+	local middle = (source.Position.Y.Offset + source.Size.Y.Offset / 2) * k
+	local left = Dock.pairLeft(ui.canvas.AbsoluteSize.X / UIKit.canvasScale(ui.canvas))
+	local y = middle - BADGE_H * k - bottom
+	-- Off the end of the number on the left; on the right, with the screen edge just
+	-- past the number, it flares out to the LEFT of the bundle instead.
+	local onRight = Dock.pairOnRight()
+	local start = if onRight then UDim2.new(0, left - POPUP.gap, 1, y) else UDim2.new(0, left + textEnd + POPUP.gap, 1, y)
 
 	local label = UIKit.label(ui.canvas, {
 		name = "CashPopup",
 		size = UDim2.fromOffset(260, POPUP.height),
 		position = start,
-		anchorPoint = Vector2.new(0, 0.5),
+		anchorPoint = if onRight then Vector2.new(1, 0.5) else Vector2.new(0, 0.5),
 		font = STYLE.valueFont,
 		textSize = style.textSize,
 		color = if positive then STYLE.gain else STYLE.spend,
-		xAlign = Enum.TextXAlignment.Left,
+		xAlign = if onRight then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left,
 		shadow = false,
 		text = popupText(delta),
 		zIndex = 6,

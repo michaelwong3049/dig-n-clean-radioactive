@@ -185,7 +185,6 @@ local function build(): ScreenGui
 	local badge = Instance.new("Frame")
 	badge.Name = "SpeedBadge"
 	badge.Size = Dock.SPEED_SIZE
-	badge.AnchorPoint = Vector2.new(0, 1)
 	badge.BackgroundTransparency = 1
 	badge.ZIndex = 2
 	badge.Parent = canvas
@@ -194,9 +193,12 @@ local function build(): ScreenGui
 	ui.punch = Instance.new("UIScale")
 	ui.punch.Parent = badge
 
-	-- Stacked on the cash row, and lifted with it clear of a phone's thumbstick.
+	-- Stacked on the cash row: bottom-left with a mouse, smaller on the jump button on
+	-- touch (Dock.pairOnRight).
 	UIKit.onScaleChanged(function()
-		badge.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -(Dock.SPEED_BOTTOM + Dock.sideLift()))
+		badge.AnchorPoint = Dock.pairAnchor()
+		badge.Position = Dock.pairPosition(Dock.speedBottom())
+		ui.punch.Scale = Dock.pairScale()
 	end)
 
 	local L = LAYOUT
@@ -346,8 +348,8 @@ local function buildPicker(canvas: Frame)
 	ui.picker = picker
 
 	UIKit.onScaleChanged(function()
-		local bottom = Dock.SPEED_BOTTOM + Dock.sideLift() + Dock.SPEED_SIZE.Y.Offset + PICKER.gap
-		picker.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -bottom)
+		picker.AnchorPoint = Dock.pairAnchor()
+		picker.Position = Dock.pairPosition(Dock.pairTop() + PICKER.gap)
 	end)
 
 	UIKit.label(picker, {
@@ -499,8 +501,9 @@ local function buildPicker(canvas: Frame)
 end
 
 local function punch()
-	ui.punch.Scale = 1.08
-	TweenService:Create(ui.punch, PUNCH_TWEEN, { Scale = 1 }):Play()
+	local rest = Dock.pairScale()
+	ui.punch.Scale = rest * 1.08
+	TweenService:Create(ui.punch, PUNCH_TWEEN, { Scale = rest }):Play()
 end
 
 local function onState(next: any)

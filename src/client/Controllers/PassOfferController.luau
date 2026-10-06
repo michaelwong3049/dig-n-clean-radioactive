@@ -54,9 +54,6 @@ local PRICE_SIZE = 15
 local PRICE_H = 18
 local STEP = CARD_H + PRICE_H / 2 + 10 -- card top to the next card's top
 local STUD_TILE = 20 -- L-stud tile, px
--- The Boosts widget's box above the hotbar (BoostsController), which the stack stays
--- clear of.
-local LUCK_CLEAR = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP + Dock.BOOSTS_HEIGHT + Dock.GAP
 local MIN_FIT = 0.6
 
 local INK = Color3.fromHex("15130F")
@@ -287,10 +284,20 @@ function PassOfferController.start()
 
 	local function place()
 		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		local top = height / 2 + Dock.sideColumnTop(height)
-		local room = height - LUCK_CLEAR - top
+		-- The Boosts widget's box (BoostsController), which the stack stays clear of.
+		local floor = height - Dock.boostsTop(height) - Dock.GAP
 		local need = ICON_OUT.Y + STEP * #CARDS
-		fit.Scale = math.clamp(room / need, MIN_FIT, 1)
+		local top
+		if UIKit.isTouch() then
+			-- ON TOUCH THE RIGHT EDGE STACKS FROM THE BOTTOM: jump button, speed/cash, Boosts,
+			-- then these, standing on the Boosts box, shrunk to fit under the Starter card.
+			local ceiling = Dock.STARTER_TOP + Dock.STARTER_CARD_H * Dock.STARTER_TOUCH_FIT + Dock.GAP
+			fit.Scale = math.clamp((floor - ceiling) / need, MIN_FIT, 1)
+			top = floor - need * fit.Scale
+		else
+			top = height / 2 + Dock.sideColumnTop(height)
+			fit.Scale = math.clamp((floor - top) / need, MIN_FIT, 1)
+		end
 		stack.Position = UDim2.new(1, -(Dock.ROW_SIDE_MARGIN + 4), 0, top)
 	end
 	UIKit.onScaleChanged(place)
