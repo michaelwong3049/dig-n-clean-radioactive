@@ -38,7 +38,10 @@ GroupReward.CASH_MULT = 1.1
 -- the leaderboards on the back wall (x -147). The grey path's top is PLAZA.topY -1.5 +
 -- PLAZA_LIFT 0.15. 2026-10-05, on request: 12 studs toward the shops (+X, was x -125);
 -- the ring now reaches x ~ -122.5, further still off the boards.
-GroupReward.CHEST_POSITION = Vector3.new(-113, -1.35, 0)
+-- 2026-10-06, on request: 18 nearer the shops (was x -113), on its own raised square
+-- (build/PrizeSquare, centred here) with a path to the shop square; Y is that square's
+-- top, PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35.
+GroupReward.CHEST_POSITION = Vector3.new(-95, -1.15, 0)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.

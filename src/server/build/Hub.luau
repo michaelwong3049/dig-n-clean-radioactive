@@ -142,6 +142,10 @@ local PAVER_DARK = "606569" -- was 83868A
 local PAVER_LIGHT = "6E7378" -- was 95999D
 local KERB_DARK = "44484C" -- was 54595D
 local KERB_LIGHT = "4E5257" -- was 60656A
+--- The shop square's paver and kerb pairs, for floors that should read as the same
+--- raised square (build/PrizeSquare, the crate + chest square and its path).
+Hub.SHOP_PAVER = { dark = PAVER_DARK, light = PAVER_LIGHT }
+Hub.SHOP_KERB = { dark = KERB_DARK, light = KERB_LIGHT }
 --- The darker grey the bases' 2-stud border is laid in (Plots, buildPadBorder). The
 --- shop kerb's old dark tone; it stayed put when the kerb went darker.
 Hub.BORDER_COLOR = "54595D"

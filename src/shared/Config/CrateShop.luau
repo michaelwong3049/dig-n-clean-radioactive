@@ -40,11 +40,12 @@ export type Pad = {
 	offers: { Offer },
 }
 
--- The group chest is at (-113, -1.35, 0) with its gold ring out to ~9.1 studs; the
--- pads line up with it on X and sit just clear of the ring. Same floor top as the
--- chest: PLAZA.topY -1.5 + PLAZA_LIFT 0.15.
-local CHEST_X = -113
-local FLOOR_Y = -1.35
+-- The group chest is at (-95, -1.15, 0) with its gold ring out to ~9.1 studs; the
+-- pads line up with it on X and sit just clear of the ring, all three on the prize
+-- square (build/PrizeSquare, inner half-width 28 > PAD_Z + SPREAD + END_RADIUS 25.5).
+-- Same floor top as the chest: PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35.
+local CHEST_X = -95
+local FLOOR_Y = -1.15
 local PAD_Z = 18
 
 -- Each pad is a stadium: a round end round each crate, joined down the middle.
