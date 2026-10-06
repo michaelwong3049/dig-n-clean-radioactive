@@ -38,6 +38,7 @@ local Stages = require(Shared.Config.Stages)
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
 local Camps = require(Shared.Config.Camps)
+local CrateShop = require(Shared.Config.CrateShop)
 
 local Kit = require(script.Parent.Kit)
 local BaseCamp = require(script.Parent.BaseCamp)
@@ -48,6 +49,8 @@ local Plots = require(script.Parent.Plots)
 local CampSite = require(script.Parent.CampSite)
 local MergeReactor = require(script.Parent.MergeReactor)
 local ReforgeStation = require(script.Parent.ReforgeStation)
+local CrateShopPads = require(script.Parent.CrateShopPads)
+local GroupRewardChest = require(script.Parent.GroupRewardChest)
 local Scenery = require(script.Parent.Scenery)
 local Daylight = require(script.Parent.Daylight)
 
@@ -69,6 +72,8 @@ function World.rebuild()
 	Shops.rebuild()
 	Plots.rebuild()
 	CampSite.rebuild()
+	CrateShopPads.rebuild()
+	GroupRewardChest.rebuild()
 	Scenery.rebuild()
 	Daylight.apply()
 
@@ -741,6 +746,30 @@ function World.verify(): (boolean, { string })
 			end
 		end
 	end
+
+	-- ── Base Camp crate pads + group chest ────────────────────────────────
+	-- Their services build them at runtime when missing, so a miss here is not a
+	-- broken game, only a place that shows nothing in Edit mode.
+	for _, pad in CrateShop.PADS do
+		local model = Workspace:FindFirstChild(pad.name)
+		check(model ~= nil, `Workspace.{pad.name} (crate pad) is missing`)
+		if model then
+			local prompts = 0
+			for _, d in model:GetDescendants() do
+				if d:IsA("ProximityPrompt") and d.Name == CrateShopPads.PROMPT_NAME then
+					prompts += 1
+				end
+			end
+			check(prompts == #pad.offers, `Workspace.{pad.name} has {prompts} {CrateShopPads.PROMPT_NAME}(s) for {#pad.offers} crate(s)`)
+		end
+	end
+	local chest = Workspace:FindFirstChild(GroupRewardChest.MODEL_NAME)
+	local chestBody = chest and chest:FindFirstChild("Body")
+	local chestSign = chestBody and chestBody:FindFirstChild("Sign")
+	check(
+		chestSign ~= nil and chestSign:FindFirstChild("Reward") ~= nil,
+		"Workspace.GroupRewardChest.Body.Sign.Reward is missing -- the client can't mark the chest CLAIMED"
+	)
 
 	-- ── Spawning ─────────────────────────────────────────────────────────
 	check(
