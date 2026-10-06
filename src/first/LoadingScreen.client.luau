@@ -7,7 +7,8 @@
 	(source: art/ui/loading-basecamp.jpg). The title sits bottom-left over a left-dark
 	shade, the bar under it, a rotating tip under that, and the % bottom-right.
 
-	Any click / tap / key / gamepad button skips it.
+	Any click / tap / key / gamepad button skips it. On first join it also asks
+	"Mobile or PC?" and sets graphics to suit (see the device card below).
 ]]
 
 local ContentProvider = game:GetService("ContentProvider")
@@ -162,6 +163,164 @@ skipMax.MaxTextSize = 20
 skipMax.Parent = skip
 stroke(skip, 2)
 
+-- ── "Mobile or PC?" ──────────────────────────────────────────────────────────────
+-- Asked once, on first join (the `device` pref is "unset"), on a studded card in the
+-- middle. The pick sets graphics + fast mode to suit; Settings > Graphics changes them
+-- later. Prefs and Studded live in StarterPlayerScripts.Client, so they're required
+-- from there once it has replicated.
+local DEVICES = {
+	{
+		id = "mobile",
+		label = "MOBILE",
+		sub = "Low graphics, fast mode on",
+		colors = ColorSequence.new(Color3.fromHex("D9F51C"), Color3.fromHex("33D23F")),
+		prefs = { graphics = "low", fastMode = true },
+	},
+	{
+		id = "pc",
+		label = "PC",
+		sub = "Medium graphics",
+		colors = ColorSequence.new(Color3.fromHex("C77BFF"), Color3.fromHex("8C3FE6")),
+		prefs = { graphics = "med", fastMode = false },
+	},
+}
+
+local closing = false
+local prefsKnown = false -- the saved prefs have landed, so we know whether to ask
+local asking = false -- the card is up and waiting for a pick
+local canSkip = false
+
+local function guessDevice(): string
+	if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled then
+		return "mobile"
+	end
+	return "pc"
+end
+
+local function showCard(Prefs: any, Studded: any)
+	asking = true
+	local guess = guessDevice()
+
+	local panel = Instance.new("Frame")
+	panel.Name = "DeviceCard"
+	panel.AnchorPoint = Vector2.new(0.5, 0.5)
+	panel.Position = UDim2.fromScale(0.5, 0.45)
+	panel.Size = UDim2.fromOffset(520, 310)
+	panel.BackgroundColor3 = Color3.fromHex("1B1F23")
+	panel.ZIndex = 20
+	panel.Parent = gui
+	Studded.edge(panel, 18, 4)
+	Studded.tile(panel, Studded.STUDS, 34, 0.82, 18).ZIndex = 20
+
+	-- shrink to fit a phone
+	local scale = Instance.new("UIScale")
+	scale.Parent = panel
+	local function fit()
+		local view = gui.AbsoluteSize
+		scale.Scale = math.min(1, (view.X - 32) / 520, (view.Y - 32) / 310)
+	end
+	fit()
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+
+	local heading = Studded.text(panel, "Heading", 30, 3)
+	heading.Text = "ARE YOU ON MOBILE OR PC?"
+	heading.Position = UDim2.fromOffset(0, 26)
+	heading.Size = UDim2.new(1, 0, 0, 36)
+	heading.ZIndex = 21
+
+	local blurb = Studded.text(panel, "Blurb", 16, 2)
+	blurb.Text = "We'll set your graphics to match. Change it any time in Settings."
+	blurb.TextColor3 = Color3.fromHex("9AA3AD")
+	blurb.Position = UDim2.fromOffset(30, 66)
+	blurb.Size = UDim2.new(1, -60, 0, 40)
+	blurb.TextWrapped = true
+	blurb.ZIndex = 21
+
+	local grow = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	for i, device in DEVICES do
+		local button = Instance.new("TextButton")
+		button.Name = device.label
+		button.Text = ""
+		button.AutoButtonColor = false
+		button.Position = UDim2.fromOffset(if i == 1 then 30 else 270, 144)
+		button.Size = UDim2.fromOffset(220, 124)
+		button.ZIndex = 22
+		button.Parent = panel
+		Studded.fill(button, device.colors)
+		Studded.edge(button, 14, 4)
+
+		local name = Studded.text(button, "Label", 40, 3.5)
+		name.Text = device.label
+		name.Position = UDim2.fromOffset(0, 24)
+		name.Size = UDim2.new(1, 0, 0, 44)
+		name.ZIndex = 23
+
+		local sub = Studded.text(button, "Sub", 15, 2)
+		sub.Text = device.sub
+		sub.Position = UDim2.fromOffset(0, 76)
+		sub.Size = UDim2.new(1, 0, 0, 20)
+		sub.ZIndex = 23
+
+		if device.id == guess then
+			local tag = Instance.new("Frame")
+			tag.Name = "YourDevice"
+			tag.AnchorPoint = Vector2.new(0.5, 0.5)
+			tag.Position = UDim2.fromScale(0.5, 0)
+			tag.Size = UDim2.fromOffset(120, 24)
+			tag.BackgroundColor3 = YELLOW
+			tag.ZIndex = 24
+			tag.Parent = button
+			Studded.edge(tag, 12, 2.5)
+			local tagText = Instance.new("TextLabel")
+			tagText.BackgroundTransparency = 1
+			tagText.Size = UDim2.fromScale(1, 1)
+			tagText.Font = FONT
+			tagText.TextSize = 13
+			tagText.TextColor3 = INK
+			tagText.Text = "YOUR DEVICE"
+			tagText.ZIndex = 25
+			tagText.Parent = tag
+		end
+
+		local buttonScale = Instance.new("UIScale")
+		buttonScale.Parent = button
+		button.MouseEnter:Connect(function()
+			TweenService:Create(buttonScale, grow, { Scale = 1.05 }):Play()
+		end)
+		button.MouseLeave:Connect(function()
+			TweenService:Create(buttonScale, grow, { Scale = 1 }):Play()
+		end)
+		button.Activated:Connect(function()
+			if not asking then
+				return
+			end
+			asking = false
+			local changes = table.clone(device.prefs) :: { [string]: any }
+			changes.device = device.id
+			Prefs.setMany(changes)
+			panel:Destroy()
+			canSkip = true
+		end)
+	end
+end
+
+task.spawn(function()
+	local client = player:WaitForChild("PlayerScripts"):WaitForChild("Client")
+	local Prefs = require(client:WaitForChild("Prefs")) :: any
+	local Studded = require(client:WaitForChild("Studded")) :: any
+	Prefs.onLoaded(function()
+		if closing then
+			return
+		end
+		prefsKnown = true
+		if Prefs.get("device") == "unset" then
+			showCard(Prefs, Studded)
+		else
+			canSkip = true
+		end
+	end)
+end)
+
 gui.Parent = playerGui
 task.spawn(function()
 	ContentProvider:PreloadAsync({ backdrop })
@@ -171,8 +330,6 @@ end)
 -- loaded and the character is in.
 local started = os.clock()
 local shown = 0
-local done = false
-local closing = false
 
 local function ready(): boolean
 	return game:IsLoaded() and player.Character ~= nil
@@ -183,10 +340,11 @@ local function close()
 		return
 	end
 	closing = true
+	asking = false
 	local info = TweenInfo.new(FADE, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	for _, d in ipairs(gui:GetDescendants()) do
-		if d:IsA("TextLabel") then
-			TweenService:Create(d, info, { TextTransparency = 1 }):Play()
+		if d:IsA("TextLabel") or d:IsA("TextButton") then
+			TweenService:Create(d, info, { TextTransparency = 1, BackgroundTransparency = 1 }):Play()
 		elseif d:IsA("ImageLabel") then
 			TweenService:Create(d, info, { ImageTransparency = 1 }):Play()
 		elseif d:IsA("UIStroke") then
@@ -200,6 +358,8 @@ local function close()
 	end)
 end
 
+-- Clicks only skip once we know there's nothing to ask (or it's been answered), so
+-- a first-joiner can't click past the device card before it appears.
 local SKIP_INPUTS = {
 	[Enum.UserInputType.MouseButton1] = true,
 	[Enum.UserInputType.MouseButton2] = true,
@@ -207,6 +367,9 @@ local SKIP_INPUTS = {
 	[Enum.UserInputType.Keyboard] = true,
 }
 local skipConn = UserInputService.InputBegan:Connect(function(input)
+	if not canSkip then
+		return
+	end
 	local isPadButton = input.UserInputType.Name:sub(1, 7) == "Gamepad"
 		and input.KeyCode ~= Enum.KeyCode.Thumbstick1
 		and input.KeyCode ~= Enum.KeyCode.Thumbstick2
@@ -255,10 +418,12 @@ stepConn = RunService.RenderStepped:Connect(function(dt)
 	pct.Text = math.floor(shown * 100) .. "%"
 
 	pulse += dt
+	skip.Visible = canSkip -- (a UIStroke still draws on fully transparent text)
 	skip.TextTransparency = 0.15 + 0.35 * (0.5 + 0.5 * math.sin(pulse * 3))
 
-	if shown >= 1 and not done then
-		done = true
-		task.delay(math.max(0, MIN_SHOW - elapsed), close)
+	-- Done loading: close, unless the device card is waiting for an answer. If the saved
+	-- prefs never arrive, stop waiting at MAX_SHOW (it asks again next join).
+	if shown >= 1 and elapsed >= MIN_SHOW and not asking and (prefsKnown or elapsed > MAX_SHOW) then
+		close()
 	end
 end)

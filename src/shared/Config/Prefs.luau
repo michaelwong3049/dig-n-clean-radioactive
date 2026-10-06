@@ -91,6 +91,12 @@ Prefs.DEFS = {
 	-- SHOW AURAS (client AuraController). Off = no aura is drawn, yours or anyone's, so
 	-- none of their rings, trails and sparkles move or cost a frame. On by default.
 	auras = { kind = "flag", default = true },
+
+	-- DEVICE, picked once on the loading screen's "Mobile or PC?" card (ReplicatedFirst
+	-- LoadingScreen). "unset" = not asked yet, so the card shows. The pick also sets
+	-- graphics + fastMode (mobile: low + on, pc: med + off); this key only remembers
+	-- that it was asked. Not shown in Settings.
+	device = { kind = "choice", default = "unset", options = { "unset", "mobile", "pc" } },
 } :: { [string]: Def }
 
 --- A fresh table of every default, for the profile template and a client that has not
