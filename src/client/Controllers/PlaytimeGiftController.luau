@@ -306,6 +306,8 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 	else
 		button.BackgroundColor3 = tier.bottom
 	end
+	-- The glossy L-stud pattern the pass cards wear, over the plate's colour.
+	Studded.pattern(button, { radius = 14, tile = 20, zIndex = 11, bands = { 0.28, 0.5, 0.58, 0.64 }, glow = false })
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
 
