@@ -28,8 +28,8 @@ local PrizeSquare = {}
 PrizeSquare.MODEL_NAME = "PrizeSquare"
 
 PrizeSquare.HALF = 30 -- the square's half-width, kerb included (60 x 60)
-PrizeSquare.PATH_HALF = 6 -- the path's half-width, kerbs included (12 wide)
-local KERB = 2 -- the kerb band, half a tile like the shop square's
+PrizeSquare.PATH_HALF = Hub.PRIZE_PATH_HALF -- the path's half-width, kerbs included (12 wide)
+local KERB = Hub.PRIZE_PATH_KERB -- the kerb band, half a tile like the shop square's
 
 --- The floor's top face: level with the shop square's pavers. The chest and the
 --- crate pads stand here (Config FLOOR_Y).
@@ -48,7 +48,7 @@ function PrizeSquare.build(): Model
 	local H, P = PrizeSquare.HALF, PrizeSquare.PATH_HALF
 	local x0, x1 = c.X - H, c.X + H -- the square, kerb included
 	local z0, z1 = c.Z - H, c.Z + H
-	local pathEnd = Hub.PLAZA.minX -- the shop square's west kerb
+	local pathEnd = Hub.PLAZA.minX -- the shop square's west edge, its kerb opened here
 
 	-- The square's kerb: west, north and south whole; east split round the path.
 	lay(model, { minX = x0, maxX = x0 + KERB, minZ = z0, maxZ = z1 }, Hub.SHOP_KERB)

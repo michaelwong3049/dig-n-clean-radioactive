@@ -81,6 +81,7 @@ local Kit = require(script.Parent.Kit)
 -- both Hub and Stages together with no cycle. Needed for PLAZA_DARK/PLAZA_LIGHT
 -- below.
 local Stages = require(ReplicatedStorage.Shared.Config.Stages)
+local GroupReward = require(ReplicatedStorage.Shared.Config.GroupReward)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
@@ -146,6 +147,21 @@ local KERB_LIGHT = "4E5257" -- was 60656A
 --- raised square (build/PrizeSquare, the crate + chest square and its path).
 Hub.SHOP_PAVER = { dark = PAVER_DARK, light = PAVER_LIGHT }
 Hub.SHOP_KERB = { dark = KERB_DARK, light = KERB_LIGHT }
+
+--- THE PATH TO THE PRIZE SQUARE (build/PrizeSquare, the chest + crate pads) runs west
+--- from the shop square, centred on the chest's Z. Its full width and kerb bands live
+--- here, not in PrizeSquare, because buildShopKerb needs them too and PrizeSquare
+--- requires Hub. Where its pavers meet the shop square, the west kerb is left out
+--- (on request, 2026-10-06), so the path runs straight onto the square.
+Hub.PRIZE_PATH_HALF = 6 -- kerbs included: 12 wide
+Hub.PRIZE_PATH_KERB = 2
+
+--- The Z span of the path's pavers (between its two kerb bands).
+function Hub.prizePathOpening(): (number, number)
+	local z = GroupReward.CHEST_POSITION.Z
+	local inner = Hub.PRIZE_PATH_HALF - Hub.PRIZE_PATH_KERB
+	return z - inner, z + inner
+end
 --- The darker grey the bases' 2-stud border is laid in (Plots, buildPadBorder). The
 --- shop kerb's old dark tone; it stayed put when the kerb went darker.
 Hub.BORDER_COLOR = "54595D"
@@ -912,7 +928,17 @@ local function buildShopKerb(parent: Instance)
 			local x0, x1, z0, z1 = cx - t / 2, cx + t / 2, cz - t / 2, cz + t / 2
 			-- Kerb bands along the outward X sides take the full cell depth...
 			if not Hub.inShopFloor(cx - t, cz) then
-				piece(x0, x0 + band, z0, z1, kerb)
+				-- ...except across the prize path's pavers on the west edge, where the
+				-- band is laid as paver so the path runs straight onto the square.
+				local o0, o1 = Hub.prizePathOpening()
+				local a, b = math.max(z0, o0), math.min(z1, o1)
+				if math.abs(x0 - p.minX) < 1e-3 and a < b then
+					piece(x0, x0 + band, z0, a, kerb)
+					piece(x0, x0 + band, a, b, paver)
+					piece(x0, x0 + band, b, z1, kerb)
+				else
+					piece(x0, x0 + band, z0, z1, kerb)
+				end
 				x0 += band
 			end
 			if not Hub.inShopFloor(cx + t, cz) then
