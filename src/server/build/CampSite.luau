@@ -97,7 +97,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 32
+local BUILDER_VERSION = 33
 
 local C = Kit.C
 local build = Kit.build
@@ -223,18 +223,35 @@ local ENTRY_GATE_INSET = 2
 local BORDER_W = 1
 local KERB_W = TILE / 2
 local PAINT_RAISE = 0.05
+--- The octagon's diagonal lines sit lower than the straight ones: a smooth underlay the
+--- edge's full length, and over it a studded strip a whole number of studs long that
+--- stops short of each corner. Their ends tuck under the axis lines, so only one stud
+--- texture draws at a joint (at one height they z-fought) and no stud is cut in half.
+local DIAGONAL_DROP = 0.02
+local UNDERLAY_DROP = 0.03
 
-local function paint(parent: Instance, name: string, cx: number, cz: number, len: number, w: number, yaw: number, color: string)
+local function paint(
+	parent: Instance,
+	name: string,
+	cx: number,
+	cz: number,
+	len: number,
+	w: number,
+	yaw: number,
+	color: string,
+	drop: number?,
+	smooth: boolean?
+)
 	local part = build(parent, CFrame.new(0, 0, 0), {
 		name = name,
-		pos = { cx, PLAZA_Y + PAINT_RAISE - Hub.TILE_CAP / 2, cz },
+		pos = { cx, PLAZA_Y + PAINT_RAISE - (drop or 0) - Hub.TILE_CAP / 2, cz },
 		size = { len, Hub.TILE_CAP, w },
 		rot = CFrame.Angles(0, yaw, 0),
 		color = color,
 		material = "Plastic",
 		canCollide = false,
 	})
-	part.TopSurface = Enum.SurfaceType.Studs
+	part.TopSurface = if smooth then Enum.SurfaceType.Smooth else Enum.SurfaceType.Studs
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
@@ -293,14 +310,20 @@ local function buildBorder(parent: Instance, L: Layout)
 		alongX(a, b, -OCT_HALF, 1)
 	end)
 
-	-- The four diagonals, inset w/2 along their inward normal and run w * tan(22.5) long
-	-- at each end, so their centre line meets the axis sides' on the corner's bisector.
-	local len = (OCT_HALF - t) * math.sqrt(2) + 2 * w * math.tan(math.pi / 8)
+	-- The four diagonals, inset w/2 along their inward normal. The underlay is exactly
+	-- the edge's length: each end's outer corner is the octagon's vertex and its inner
+	-- corner falls inside the axis line, which covers it. Any longer and the tip pokes
+	-- out past the vertex onto the lawn. The studded strip on it is the largest even
+	-- stud count that leaves a stud of smooth black at each end.
+	local len = (OCT_HALF - t) * math.sqrt(2)
+	local studded = 2 * math.floor((len - 2 * w) / 2)
 	local mid = (OCT_HALF + t) / 2 - w / (2 * math.sqrt(2))
 	for _, sx in { -1, 1 } do
 		for _, sz in { -1, 1 } do
 			-- Runs along (sx, -sz): a yaw of θ turns local +X onto (cos θ, -sin θ).
-			paint(folder, "Border", L.ox + sx * mid, L.oz + sz * mid, len, w, math.atan2(sz, sx), black)
+			local x, z, yaw = L.ox + sx * mid, L.oz + sz * mid, math.atan2(sz, sx)
+			paint(folder, "BorderUnderlay", x, z, len, w, yaw, black, UNDERLAY_DROP, true)
+			paint(folder, "Border", x, z, studded, w, yaw, black, DIAGONAL_DROP)
 		end
 	end
 
