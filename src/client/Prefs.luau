@@ -5,6 +5,8 @@
 	    Prefs.observe("shake", fn)       -> fn(value) now, and again on every change
 	    Prefs.set("volSfx", 0.4)         -> applies at once, then saves
 	    Prefs.preview("volSfx", 0.4)     -> applies at once, does not save (mid-drag)
+	    Prefs.setMany({ a = 1, b = 2 })  -> several at once, saved as one change
+	    Prefs.onLoaded(fn)               -> fn() once the saved values have landed
 
 	The server owns the saved values (PrefsService). Until its first echo lands every
 	pref reads its default, which is the game as built, so a reader never has to wait.
@@ -31,6 +33,8 @@ local Prefs = {}
 local values: { [string]: any } = PrefsConfig.defaults()
 local listeners: { [string]: { (any) -> () } } = {}
 local outstanding = 0
+local loaded = false
+local loadedWaiters: { () -> () } = {}
 
 local function notify(key: string, value: any)
 	local list = listeners[key]
@@ -84,6 +88,34 @@ function Prefs.set(key: string, value: any)
 	Net.get("Prefs"):FireServer({ key = key, value = clean })
 end
 
+--- Several prefs at once, saved as ONE change: PrefsService's per-player cooldown would
+--- refuse the second of two `set`s sent back to back.
+function Prefs.setMany(changes: { [string]: any })
+	local clean = {}
+	for key, value in changes do
+		local v = PrefsConfig.sanitize(key, value)
+		if v ~= nil then
+			clean[key] = v
+			put(key, v)
+		end
+	end
+	if next(clean) == nil then
+		return
+	end
+	outstanding += 1
+	Net.get("Prefs"):FireServer({ batch = clean })
+end
+
+--- `fn()` once the saved values have landed (now, if they already have). Before that
+--- every pref reads its default, so "still the default" and "not loaded" look the same.
+function Prefs.onLoaded(fn: () -> ())
+	if loaded then
+		task.spawn(fn)
+	else
+		table.insert(loadedWaiters, fn)
+	end
+end
+
 Net.get("Prefs").OnClientEvent:Connect(function(table_: any)
 	outstanding = math.max(0, outstanding - 1)
 	if outstanding > 0 or type(table_) ~= "table" then
@@ -92,6 +124,13 @@ Net.get("Prefs").OnClientEvent:Connect(function(table_: any)
 	for key, def in PrefsConfig.DEFS do
 		local value = PrefsConfig.sanitize(key, table_[key])
 		put(key, if value == nil then def.default else value)
+	end
+	if not loaded then
+		loaded = true
+		for _, fn in loadedWaiters do
+			task.spawn(fn)
+		end
+		table.clear(loadedWaiters)
 	end
 end)
 -- The ask counts as a send: its echo is the one that lands the saved values.

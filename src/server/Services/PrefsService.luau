@@ -53,14 +53,32 @@ local function onChange(player: Player, payload: any)
 	if data == nil then
 		return
 	end
-	local value = Prefs.sanitize(payload.key, payload.value)
+	-- One change ({ key, value }) or several at once ({ batch = { [key] = value } }),
+	-- which counts as ONE change against the cooldown: the loading screen's device pick
+	-- sets three prefs together.
+	local changes: { [string]: any } = {}
+	if type(payload.batch) == "table" then
+		for key, raw in payload.batch do
+			local value = Prefs.sanitize(key, raw)
+			if value ~= nil then
+				changes[key] = value
+			end
+		end
+	else
+		local value = Prefs.sanitize(payload.key, payload.value)
+		if value ~= nil then
+			changes[payload.key] = value
+		end
+	end
 	local now = os.clock()
-	if value ~= nil and now - (lastChange[player] or 0) >= CHANGE_COOLDOWN then
+	if next(changes) ~= nil and now - (lastChange[player] or 0) >= CHANGE_COOLDOWN then
 		lastChange[player] = now
 		if type(data.prefs) ~= "table" then
 			data.prefs = Prefs.defaults()
 		end
-		data.prefs[payload.key] = value
+		for key, value in changes do
+			data.prefs[key] = value
+		end
 	end
 	echo(player)
 end
