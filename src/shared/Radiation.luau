@@ -127,7 +127,7 @@ local function curveSurvival(stageId: number, depthFrac: number, auraTier: numbe
 		return Z.wayUnder + grace
 	end
 	local seconds = along(band[case], depthFrac)
-	return if case == "under" then seconds + grace else seconds
+	return if case == "under" then seconds + grace + Z.UNDER_EXTRA else seconds
 end
 
 --- Seconds a full health bar lasts in the stage's dead zone (Tuning.ZONE_SURVIVAL
@@ -153,11 +153,11 @@ function Radiation.zoneSurvival(stageId: number, depthFrac: number, auraTier: nu
 end
 
 --- 0..1 out-of-depth grade for the HUD/RadFx: 0 at the gentlest under-tier time
---- (~50s with the grace), 1 at the way-under floor (~21s). 0 whenever the aura is
---- not failing.
+--- (~80s with the grace and UNDER_EXTRA), 1 at the way-under floor (~21s). 0 whenever
+--- the aura is not failing.
 local function overGrade(seconds: number): number
 	local Z = Tuning.ZONE_SURVIVAL
-	local top = Z.early.under[1] + Z.UNDER_GRACE
+	local top = Z.early.under[1] + Z.UNDER_GRACE + Z.UNDER_EXTRA
 	local bottom = Z.wayUnder + Z.UNDER_GRACE
 	return math.clamp(math.log(top / seconds) / math.log(top / bottom), 0, 1)
 end

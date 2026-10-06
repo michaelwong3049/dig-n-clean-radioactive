@@ -133,6 +133,16 @@ local state = {
 
 local ui = {}
 local shakeSeed = 0
+-- HOW LONG THE AURA HAS BEEN FAILING, as a 0..1 build-up. Every failure effect (the
+-- overlay, the cracks, the shake) is scaled by it, on request ("the radiation effects
+-- go from nothing to super intense, add a build up"): stepping one stage too deep
+-- used to light the whole visor the same frame. It now creeps in over BUILD_SLOW
+-- seconds at a one-tier-under entrance, BUILD_FAST at a one-second death (so the
+-- deadliest air still reads deadly in time), and drains in BUILD_OUT once you retreat.
+local failBuild = 0
+local BUILD_SLOW = 14
+local BUILD_FAST = 3
+local BUILD_OUT = 1.5
 local heartClock = 0
 local radsClock = 0
 -- The bars' live track width in design px (the vitals frame minus the icon column).
@@ -473,12 +483,19 @@ local function render(dt: number)
 	-- the overlay as hard as a nearly-full meter. Lands back on exactly 0.65 at a
 	-- one-second death (Radiation.resolve's `over`). Same reasoning as RadFx's `failTarget`; the two have to
 	-- agree or the grade reappears through this floor.
+	if state.failing and not state.downed then
+		failBuild = math.min(1, failBuild + dt / lerp(BUILD_SLOW, BUILD_FAST, over))
+	else
+		failBuild = math.max(0, failBuild - dt / BUILD_OUT)
+	end
+	-- Smoothstep: the first seconds are a hint (a tint, a few motes), the last a rush.
+	local build = failBuild * failBuild * (3 - 2 * failBuild)
 	if state.failing then
-		intensity = math.max(intensity, 0.2 + 0.45 * over)
+		intensity = math.max(intensity, build * (0.2 + 0.45 * over))
 	end
 
 	local healthFrac = state.health / math.max(state.maxHealth, 1)
-	RadFx.update(dt, intensity, state.failing, healthFrac, over)
+	RadFx.update(dt, intensity, if state.failing then build else 0, healthFrac, over * build)
 
 	-- Where you are. The payload already names base camp "Base Camp", and camp's depth is 0.
 	ui.place.Text = string.format(
@@ -547,10 +564,11 @@ local function render(dt: number)
 			-- the instant the flag flipped was a large part of what made crossing a
 			-- stage line feel like an explosion. Still 0.3 at three times your rating.
 			if state.failing then
-				amount = math.max(amount, 0.1 + 0.2 * over)
+				amount = math.max(amount, build * (0.1 + 0.2 * over))
 			end
-			-- Out of your depth the camera stops being nudged and starts being shoved.
-			amount = math.max(amount, over * 1.1)
+			-- Out of your depth the camera stops being nudged and starts being shoved,
+			-- once the failure has had time to build.
+			amount = math.max(amount, over * build * 1.1)
 			humanoid.CameraOffset = Vector3.new(
 				math.sin(shakeSeed * 1.7) * amount,
 				math.sin(shakeSeed * 2.3) * amount * 0.6,

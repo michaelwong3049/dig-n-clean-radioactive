@@ -46,9 +46,10 @@
 	  REGULAR   the low half of `blind`. The keyhole starts closing and focus goes.
 	  INTENSE   `blind` at full, ~3x your rating. The keyhole, the dark, the blur.
 
-	THE FAILURE RAMP IS GRADED BY THE SAME NUMBER. `failing` is a boolean, so it only
-	sets the floor (FAIL_FLOOR); `over` carries it to 1. A toe past your rating is a
-	few cracks, not the whole visor.
+	THE FAILURE RAMP IS GRADED BY THE SAME NUMBER. `failing` is HudController's build-up
+	(0..1 over several seconds of failing), scaling the floor (FAIL_FLOOR); `over`
+	carries it to 1. A toe past your rating is a few cracks, not the whole visor, and
+	even a deadly step reads as damage SPREADING rather than arriving whole.
 
 	REDUCED (Settings' RADIATION EFFECTS, Config/Prefs radFx). Every layer runs at
 	REDUCED strength and the busiest ones (snow, scanlines, motes, blur) stay off. The
@@ -450,10 +451,11 @@ function RadFx.setReduced(on: boolean)
 end
 
 --- `intensity` is HudController's own 0..1 escalation ramp (0 below EXPOSURE_WARN),
---- `failing` is the aura-failure flag, `healthFrac` is 0..1 of max HP, and `over` is
+--- `failing` is 0..1 of how far the aura failure has BUILT UP (HudController ramps it
+--- in over several seconds; 0 = holding), `healthFrac` is 0..1 of max HP, and `over` is
 --- 0..1 of "how far past your aura's rating this air is" — 0 anywhere you are rated
 --- for, 1 in a stage that should never have let you in. Nothing else belongs here.
-function RadFx.update(dt: number, intensity: number, failing: boolean, healthFrac: number, over: number)
+function RadFx.update(dt: number, intensity: number, failing: number, healthFrac: number, over: number)
 	if not st.built then
 		return
 	end
@@ -471,7 +473,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 
 	-- How badly the aura is failing, not merely whether it is — see FAIL_FLOOR.
 	-- Ramps in over a couple of seconds and clears fast, so cracks spread.
-	local failTarget = if failing then FAIL_FLOOR + (1 - FAIL_FLOOR) * st.over else 0
+	local failTarget = math.clamp(failing, 0, 1) * (FAIL_FLOOR + (1 - FAIL_FLOOR) * st.over)
 	if failTarget > st.fail then
 		st.fail = math.min(failTarget, st.fail + dt / 2.0)
 	else

@@ -134,6 +134,12 @@ Tuning.ZONE_SURVIVAL = {
 	-- blend, so it is the same 20s at every depth. lastAura (the Stage 12 raid) and the
 	-- rated rows do not get it.
 	UNDER_GRACE = 20,
+	-- Extra flat seconds for ONE tier under only (the stage one above your aura), on
+	-- request ("allow like 30 more seconds in that zone"). On top of the grace above:
+	-- one under is ~80s at a Stage 1-5 entrance (~70s in 6-12), ~53s past BREAK, ~33s
+	-- at a late stage's far edge. Two or more under (wayUnder) does not get it, and the
+	-- dead zones at Stage 4 / 8 still blend down to their `edge`.
+	UNDER_EXTRA = 30,
 	-- OVERGEARED: one / two tiers ABOVE the stage's rating wear at the rated row's times
 	-- multiplied by these, on request ("walked through stages 6 and 7 with no droppage,
 	-- time no change"): before this, any aura over the rating took nothing, so a Stage 8
