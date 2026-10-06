@@ -592,22 +592,47 @@ end
 --- tick, never a signal put somewhere it cannot be seen.
 local SPAWN_TRIES = 8
 
+--- Flat studs every signal keeps from every other one in its stage. Two signals a few
+--- studs apart drew as two overlapping spots, and the client (which matches its
+--- per-player readings to auras by position) could light both in one signal's rarity.
+--- The biggest cracks reach ~6 studs out (Tuning.AURA_CRACK_LENGTH), so 12 keeps two
+--- bursts from touching and keeps DIG_RADIUS (5) from ever covering two spots at once.
+local MIN_SIGNAL_GAP = 12
+
+--- A random open point on the stage: never under a crater rim (the berm would bury the
+--- aura and the haul inside it) and never on top of another signal. Re-rolled rather
+--- than dropped, so a stage keeps its full count; nil only after SPAWN_TRIES misses,
+--- and the caller just tries again next tick.
+local function openSpot(stageId: number, part: BasePart): Vector3?
+	local list = signalsByStage[stageId] or {}
+	for _ = 1, SPAWN_TRIES do
+		local candidate = randomPointOn(part)
+		if StageCraters.blocksDig(stageId, candidate.X, candidate.Z) then
+			continue
+		end
+		local crowded = false
+		for _, other in list do
+			local dx = other.position.X - candidate.X
+			local dz = other.position.Z - candidate.Z
+			if dx * dx + dz * dz < MIN_SIGNAL_GAP * MIN_SIGNAL_GAP then
+				crowded = true
+				break
+			end
+		end
+		if not crowded then
+			return candidate
+		end
+	end
+	return nil
+end
+
 local function spawnSignal(stageId: number)
 	local part = stagePart(stageId)
 	if part == nil then
 		return
 	end
 
-	-- Never under a crater rim: the berm would bury the aura and the haul inside it.
-	-- Re-rolled rather than dropped, so a stage with craters keeps its full count.
-	local position: Vector3? = nil
-	for _ = 1, SPAWN_TRIES do
-		local candidate = randomPointOn(part)
-		if not StageCraters.blocksDig(stageId, candidate.X, candidate.Z) then
-			position = candidate
-			break
-		end
-	end
+	local position = openSpot(stageId, part)
 	if position == nil then
 		return
 	end
@@ -1742,14 +1767,7 @@ function DigService.plantRareDrop(stageId: number, itemId: string, buffs: RareDr
 	if part == nil or list == nil then
 		return nil
 	end
-	local position: Vector3? = nil
-	for _ = 1, SPAWN_TRIES do
-		local candidate = randomPointOn(part)
-		if not StageCraters.blocksDig(stageId, candidate.X, candidate.Z) then
-			position = candidate
-			break
-		end
-	end
+	local position = openSpot(stageId, part)
 	if position == nil then
 		return nil
 	end

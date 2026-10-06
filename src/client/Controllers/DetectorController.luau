@@ -1592,8 +1592,9 @@ end
 ---
 --- Matched by position because the payload deliberately carries no signal id. The
 --- tolerance covers the drift between the server's snapshot of the player (which the
---- offsets are measured from) and where the client has walked since; wells sit tens
---- of studs apart, so it cannot bind the wrong one.
+--- offsets are measured from) and where the client has walked since. Wells are kept
+--- MIN_SIGNAL_GAP apart at spawn (DigService), and the closest contact wins below, so
+--- a neighbour's reading cannot bind to the wrong well.
 local CONTACT_MATCH_TOLERANCE = 4 -- studs
 
 ---
@@ -1604,14 +1605,26 @@ function Detector.contactRarityAt(worldPosition: Vector3): (string?, number?)
 	if origin == nil or not state.inStage then
 		return nil, nil
 	end
+	-- THE CLOSEST CONTACT, NOT THE FIRST ONE IN TOLERANCE. Contacts arrive nearest-the-
+	-- PLAYER first, so with two signals buried a few studs apart the first match for the
+	-- far aura was often its neighbour's contact: both spots lit in the nearer signal's
+	-- rarity, and pulling that one "made the other vanish" (it re-lit as its own rarity).
+	-- Each contact sits exactly on its own aura (same server snapshot), so closest wins.
+	local best: Contact? = nil
+	local bestDistSq = CONTACT_MATCH_TOLERANCE * CONTACT_MATCH_TOLERANCE
 	for _, contact in state.contacts do
 		if contact.rarity ~= nil then
 			local dx = (origin.X + contact.dx) - worldPosition.X
 			local dz = (origin.Z + contact.dz) - worldPosition.Z
-			if dx * dx + dz * dz <= CONTACT_MATCH_TOLERANCE * CONTACT_MATCH_TOLERANCE then
-				return contact.rarity, contact.scale
+			local distSq = dx * dx + dz * dz
+			if distSq <= bestDistSq then
+				best = contact
+				bestDistSq = distSq
 			end
 		end
+	end
+	if best then
+		return best.rarity, best.scale
 	end
 	return nil, nil
 end
