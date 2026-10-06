@@ -35,7 +35,7 @@
 	    Lighting          fog, brightness, ambient tint, clock time
 	    Atmosphere        the sky's own colour, its density and haze
 	    Terrain.Clouds    the deck overhead: colour, cover, thickness
-	    SunRaysEffect     shafts through the muck, stronger the worse it gets
+	    SunRaysEffect     shafts through the muck, stronger the worse it gets (off on Low graphics)
 	    Sky               the sun swelling as you go east
 
 	THE SKY FADES SLOWER THAN THE FOG, deliberately. Fog is a middle-distance cue and
@@ -78,6 +78,7 @@ local Stages = require(Shared.Config.Stages)
 local SkyConfig = require(Shared.Config.Sky)
 local Weather = require(Shared.Config.Weather)
 local Net = require(Shared.Net)
+local Prefs = require(script.Parent.Parent.Prefs)
 
 local AtmosphereController = {}
 
@@ -213,6 +214,28 @@ function AtmosphereController.start()
 	Players.LocalPlayer.CharacterAdded:Connect(function()
 		currentStage = -1
 		applyFor(nil)
+	end)
+
+	-- God rays are a full-screen pass every frame, the kind of cost a phone feels and
+	-- a PC does not. Low graphics (every new player, every "Mobile" pick) goes without;
+	-- the stage tweens above keep driving Intensity either way, so Med/High pick the
+	-- right look straight back up. build/Daylight creates the effect on the server, so
+	-- on a cold join it may not exist yet: ChildAdded catches it.
+	local raysOn = true
+	local function applyRays()
+		local rays = Lighting:FindFirstChildOfClass("SunRaysEffect")
+		if rays then
+			rays.Enabled = raysOn
+		end
+	end
+	Prefs.observe("graphics", function(level)
+		raysOn = level ~= "low"
+		applyRays()
+	end)
+	Lighting.ChildAdded:Connect(function(child)
+		if child:IsA("SunRaysEffect") then
+			applyRays()
+		end
 	end)
 
 	-- The server clears the attributes when a weather ends; the 1s poll is only the
