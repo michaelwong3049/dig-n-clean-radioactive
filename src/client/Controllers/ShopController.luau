@@ -7,8 +7,10 @@
 	sections: the PACKS (Config/Packs) first, two once-per-player bundles that turn to
 	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), eight permanent upgrades on top, which
 	turn to OWNED off the Player attribute GamePassService writes; the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
-	row of four packs; and a CRATES row with the two Mystery crates (Config/ShopProducts,
-	whose grants live in EconomyService and CrateService). Every buy button is the gear
+	row of four packs; and a SPEED row (Config/ShopProducts, whose grants live in
+	EconomyService and TreadmillService). The Mystery crates that used to close the
+	panel were retired 2026-10-05: their two products now sell the Fusion and Plasma
+	crates on Base Camp's PREMIUM CRATES pad (Config/CrateShop). Every buy button is the gear
 	cards' purple R$, so real money always looks the same. The client only ever
 	PROMPTS the purchase -- the grant is ProductService's receipt handler on the server,
 	and the clover in the corner (LuckBoostController) lights up off the attribute that
@@ -123,7 +125,6 @@ local SPEED_CARD = {
 	buyHover = Color3.fromHex("45B2EC"),
 	buyEdge = Color3.fromHex("124A6E"),
 }
-local CRATE_H = 216
 -- Every Robux button: the R$ is Roblox's own Robux glyph (private-use U+E002, which
 -- every Roblox font draws as the hexagon icon), big enough to read across the room.
 local ROBUX = utf8.char(0xE002)
@@ -146,11 +147,6 @@ local CRATE_IMAGE: { [string]: string } = {
 	nuke2 = "rbxassetid://123850927941919", -- Field Nuke Crate
 	nuke3 = "rbxassetid://117104417851806", -- Void Nuke Crate
 	liquid2 = "rbxassetid://107641217252136", -- Isotope Chem Crate
-}
--- The Mystery (random) crates' own pictures.
-local MYSTERY_IMAGE: { [string]: string } = {
-	nuke = "rbxassetid://79316421520511", -- Fusion Core
-	liquid = "rbxassetid://74469368864240", -- Nitro Fuel
 }
 
 --- A crate picture filling `well`, `inset` in from its edges.
@@ -542,27 +538,6 @@ local function row(parent: Instance, order: number, name: string, height: number
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = frame
 	return frame
-end
-
---- One card on a row: the slate tile, with its purple button along the bottom.
-local function tile(parent: Instance, order: number, name: string, productId: number, color: Color3): Frame
-	local card = Instance.new("Frame")
-	card.Name = name
-	card.LayoutOrder = order
-	card.BackgroundColor3 = color
-	darkGlass(card)
-	card.BorderSizePixel = 0
-	card.ZIndex = 12
-	card.Parent = parent
-	round(card, 14)
-	edge(card, PANEL.tileEdge, 3)
-	gloss(card)
-	local buy = robuxButton(card, productId)
-	buy.AnchorPoint = Vector2.new(0.5, 1)
-	buy.Position = UDim2.new(0.5, 0, 1, -10)
-	buy.Size = UDim2.new(1, -16, 0, BUY_H)
-	buy.TextSize = BUY_TEXT
-	return card
 end
 
 --- $200K / $5M: the Shop's own short money, matching the cash packs' labels.
@@ -990,64 +965,6 @@ local function buildSpeed(parent: Instance)
 	end)
 end
 
---- The two Mystery crates. The art is the best crate of the kind: the top of the roll.
-local function buildCrates(parent: Instance)
-	section(parent, 10, "CRATES")
-	local frame = row(parent, 11, "Crates", CRATE_H, #ShopProducts.CRATES)
-	for index, product in ShopProducts.CRATES do
-		local card = tile(frame, index, `Crate{index}`, product.id, if product.kind == "liquid" then PANEL.liquidTile else PANEL.nukeTile)
-		local well = Instance.new("Frame")
-		well.Name = "Art"
-		well.BackgroundTransparency = 1
-		well.Size = UDim2.new(1, -20, 0, 92)
-		well.Position = UDim2.fromOffset(10, 8)
-		well.ZIndex = 13
-		well.Parent = card
-		local best = `{product.kind}{#product.weights}`
-		if MYSTERY_IMAGE[product.kind] then
-			crateImage(well, MYSTERY_IMAGE[product.kind], 0, 13)
-		elseif Crates.has(best) then
-			local viewport = ItemArt.newViewport(well)
-			viewport.ZIndex = 13
-			-- Framed to the well's real aspect, so it is (re)painted whenever the grid
-			-- lays the card out; at build time the well has no width yet.
-			local function paint()
-				local size = well.AbsoluteSize
-				if size.X < 1 or size.Y < 1 then
-					return
-				end
-				ItemArt.clear(viewport)
-				ItemArt.paint(viewport, { uid = `shop-{best}`, crateId = best }, size.X / size.Y)
-			end
-			well:GetPropertyChangedSignal("AbsoluteSize"):Connect(paint)
-			task.defer(paint)
-		end
-		inked(card, {
-			Name = "CrateName",
-			Text = product.name,
-			Font = PANEL.headline,
-			TextSize = 20,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			Size = UDim2.new(1, -12, 0, 24),
-			Position = UDim2.fromOffset(6, 100),
-			ZIndex = 14,
-		})
-		local first = Crates.get(`{product.kind}1`).short
-		local last = if Crates.has(best) then Crates.get(best).short else first
-		inked(card, {
-			Name = "Range",
-			Text = `Random: {first} to {last}`,
-			Font = PANEL.label,
-			TextSize = 14,
-			TextColor3 = PANEL.dim,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			Size = UDim2.new(1, -12, 0, 18),
-			Position = UDim2.fromOffset(6, 124),
-			ZIndex = 14,
-		})
-	end
-end
-
 -- ── Codes ────────────────────────────────────────────────────────────────────
 
 local CODES_H = 138
@@ -1370,7 +1287,6 @@ local function buildPanel(): ScreenGui
 	buildPasses(body)
 	buildCash(body)
 	buildSpeed(body)
-	buildCrates(body)
 	buildCodes(body)
 
 	panelFrame = panel

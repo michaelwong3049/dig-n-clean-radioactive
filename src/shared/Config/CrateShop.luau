@@ -12,12 +12,16 @@
 	(+X), facing the chest (-X), the cash pad is on the RIGHT (-Z) and the Robux pad on
 	the LEFT (+Z). The nuke crate of each pair sits nearest the chest.
 
-	A BOUGHT CRATE ALWAYS FITS, the same rule as the Shop's Mystery crates
-	(Config/ShopProducts): straight into `data.crates` whatever the bag holds.
+	A BOUGHT CRATE ALWAYS FITS, the same rule as the packs (Config/Packs): straight
+	into `data.crates` whatever the bag holds.
 
-	ROBUX PRICES LIVE ON THE PRODUCT. While a `productId` is 0 the crate's tag reads
-	COMING SOON and pressing E says so; create the Developer Product on the Creator
-	Dashboard, paste its id here, and the tag reads its live R$ price.
+	ROBUX PRICES LIVE ON THE PRODUCT, so the tag reads its live R$ price. While a
+	`productId` is 0 the tag reads COMING SOON and pressing E says so.
+
+	THE TWO ROBUX PRODUCTS ARE THE OLD MYSTERY CRATES' (user's call, 2026-10-05): the
+	Shop panel's Mystery Nuke / Mystery Liquid crates were retired and their products
+	reused -- 3716022009 sells the Fusion crate, 3716022046 the Plasma crate. The user
+	renames them on the dashboard.
 ]]
 
 local CrateShop = {}
@@ -69,8 +73,8 @@ CrateShop.PADS = {
 		title = "PREMIUM CRATES",
 		position = Vector3.new(CHEST_X, FLOOR_Y, PAD_Z),
 		offers = {
-			{ crateId = "nuke5", productId = 0, offset = -CrateShop.SPREAD },
-			{ crateId = "liquid5", productId = 0, offset = CrateShop.SPREAD },
+			{ crateId = "nuke5", productId = 3716022009, offset = -CrateShop.SPREAD },
+			{ crateId = "liquid5", productId = 3716022046, offset = CrateShop.SPREAD },
 		},
 	},
 } :: { Pad }
