@@ -361,11 +361,31 @@ local function buildLockPromptGui(adornee: BasePart)
 	keycapFill.AnchorPoint = Vector2.new(0.5, 1)
 	keycapFill.Position = UDim2.fromScale(0.5, 1)
 	keycapFill.Size = UDim2.fromScale(1, 0)
-	keycapFill.BackgroundColor3 = COLOR.scope
 	keycapFill.BackgroundTransparency = 1
 	keycapFill.BorderSizePixel = 0
+	keycapFill.ClipsDescendants = true
 	keycapFill.ZIndex = 2
 	keycapFill.Parent = keycap
+
+	-- The colour itself. ClipsDescendants ignores UICorner, so a bare square fill poked
+	-- its corners out past the keycap's rounded outline. Instead `keycapFill` is only the
+	-- rising (rectangular) clip -- its flat top edge is the liquid level -- and this
+	-- key-sized rounded slab sits pinned to its bottom, so the fill takes the keycap's
+	-- own corners at every height.
+	local keycapLiquid = Instance.new("Frame")
+	keycapLiquid.Name = "Liquid"
+	keycapLiquid.AnchorPoint = Vector2.new(0.5, 1)
+	keycapLiquid.Position = UDim2.fromScale(0.5, 1)
+	keycapLiquid.Size = UDim2.fromOffset(KEYCAP_SIZE, KEYCAP_SIZE)
+	keycapLiquid.BackgroundColor3 = COLOR.scope
+	keycapLiquid.BackgroundTransparency = 1
+	keycapLiquid.BorderSizePixel = 0
+	keycapLiquid.ZIndex = 2
+	keycapLiquid.Parent = keycapFill
+
+	local keycapLiquidCorner = Instance.new("UICorner")
+	keycapLiquidCorner.CornerRadius = KEYCAP_RADIUS
+	keycapLiquidCorner.Parent = keycapLiquid
 
 	local keyLabel = Instance.new("TextLabel")
 	keyLabel.Name = "Key"
@@ -446,7 +466,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	local fades = {
 		{ keycap, "BackgroundTransparency", 0.34 },
 		{ stroke, "Transparency", 0.05 },
-		{ keycapFill, "BackgroundTransparency", 0.2 },
+		{ keycapLiquid, "BackgroundTransparency", 0.2 },
 		{ keyLabel, "TextTransparency", 0 },
 		{ keyStroke, "Transparency", 0 },
 		{ action, "TextTransparency", 0 },
@@ -465,6 +485,7 @@ local function buildLockPromptGui(adornee: BasePart)
 		keycap = keycap,
 		stroke = stroke,
 		keycapFill = keycapFill,
+		keycapLiquid = keycapLiquid,
 		keyLabel = keyLabel,
 		keyStroke = keyStroke,
 		action = action,
@@ -1284,7 +1305,7 @@ local function updateLockPrompt()
 		else "Buried Signal"
 	ui.lockGui.action.TextColor3 = accent
 	ui.lockGui.stroke.Color = accent
-	ui.lockGui.keycapFill.BackgroundColor3 = accent
+	ui.lockGui.keycapLiquid.BackgroundColor3 = accent
 
 	ui.prompt.Enabled = true
 end
