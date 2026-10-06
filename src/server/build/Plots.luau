@@ -214,6 +214,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Shared = ReplicatedStorage.Shared
 local Floors = require(Shared.Config.Floors)
 local Liquids = require(Shared.Config.Liquids)
+local Mastery = require(Shared.Mastery)
 local Treadmill = require(Shared.Config.Treadmill)
 local Tuning = require(Shared.Config.Tuning)
 local ToolModels = require(Shared.ToolModels)
@@ -3870,11 +3871,9 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	m.Parent = parent
 end
 
---- "$75,000" rather than "$75000".
-local function withCommas(n: number): string
-	local digits = tostring(math.floor(n))
-	local grouped = string.reverse((string.gsub(string.reverse(digits), "(%d%d%d)", "%1,")))
-	return (string.gsub(grouped, "^,", ""))
+--- "$40M" rather than "$40,000,000" (on request): K / M / B / T, Mastery.short's ladder.
+local function floorPrice(floor: number): string
+	return "$" .. Mastery.short(Floors.PRICES[floor] or 0)
 end
 
 --- What a floor sign's board reads, painted ON the board (a SurfaceGui named "Sign"
@@ -3884,12 +3883,17 @@ end
 --- capitalised "FLOOR 2" painted text (on request). Idempotent; a board saved with
 --- the old pieces has them taken down, so ExhibitService calls this as it wires each
 --- sign and no world rebuild is needed.
-local FLOOR_SIGN_LOOK = 2
+local FLOOR_SIGN_LOOK = 3
 local FLOOR_SIGN_PRICE_COLOR = "8FE36B"
 function Plots.dressFloorSign(board: BasePart)
 	local floor = board:GetAttribute("BuysFloor")
 	if type(floor) ~= "number" then
 		return
+	end
+	-- A saved board's prompt still carries the old comma'd price.
+	local prompt = board:FindFirstChild("BuyFloor")
+	if prompt and prompt:IsA("ProximityPrompt") then
+		prompt.ObjectText = floorPrice(floor)
 	end
 	local current = board:FindFirstChild("Sign")
 	if current and current:IsA("SurfaceGui") and current:GetAttribute("Look") == FLOOR_SIGN_LOOK then
@@ -3900,7 +3904,7 @@ function Plots.dressFloorSign(board: BasePart)
 			child:Destroy()
 		end
 	end
-	local subtitle = `Purchase floor for ${withCommas(Floors.PRICES[floor] or 0)}`
+	local subtitle = `Purchase floor for {floorPrice(floor)}`
 	board:SetAttribute("SignText", subtitle)
 
 	local gui = Instance.new("SurfaceGui")
@@ -3952,7 +3956,6 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 	local x = sd * (railX - RAIL_BAR_T / 2 - 0.27)
 	local z = (FOOT_GATE.z0 + FOOT_GATE.z1) / 2
 	local face = Kit.ang(0, sd * 90, 0)
-	local price = withCommas(Floors.PRICES[floor] or 0)
 
 	-- The accent stripe along the board's top edge doubles as the bar it hangs from,
 	-- resting on the fence's top rail.
@@ -3981,7 +3984,7 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "BuyFloor"
 	prompt.ActionText = `Build Floor {floor}`
-	prompt.ObjectText = `${price}`
+	prompt.ObjectText = floorPrice(floor)
 	prompt.HoldDuration = 0.5
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
