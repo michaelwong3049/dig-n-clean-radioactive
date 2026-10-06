@@ -185,6 +185,7 @@ local function build(): ScreenGui
 	local badge = Instance.new("Frame")
 	badge.Name = "SpeedBadge"
 	badge.Size = Dock.SPEED_SIZE
+	badge.AnchorPoint = Vector2.new(0, 1)
 	badge.BackgroundTransparency = 1
 	badge.ZIndex = 2
 	badge.Parent = canvas
@@ -193,10 +194,8 @@ local function build(): ScreenGui
 	ui.punch = Instance.new("UIScale")
 	ui.punch.Parent = badge
 
-	-- Stacked on the cash row: bottom-left with a mouse, smaller on the jump button on
-	-- touch (Dock.pairOnRight).
+	-- Stacked on the cash row in the bottom-left corner, smaller on touch (Dock.pairScale).
 	UIKit.onScaleChanged(function()
-		badge.AnchorPoint = Dock.pairAnchor()
 		badge.Position = Dock.pairPosition(Dock.speedBottom())
 		ui.punch.Scale = Dock.pairScale()
 	end)
@@ -348,7 +347,6 @@ local function buildPicker(canvas: Frame)
 	ui.picker = picker
 
 	UIKit.onScaleChanged(function()
-		picker.AnchorPoint = Dock.pairAnchor()
 		picker.Position = Dock.pairPosition(Dock.pairTop() + PICKER.gap)
 	end)
 

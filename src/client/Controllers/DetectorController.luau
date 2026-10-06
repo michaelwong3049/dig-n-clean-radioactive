@@ -760,10 +760,6 @@ local function build(): ScreenGui
 		if jump.Y > Dock.HAULPANEL_BOTTOM then
 			right = math.max(right, jump.X + Dock.GAP)
 		end
-		-- The speed/cash pair stands on the jump button on touch, up past the widget's bottom.
-		if Dock.pairRightClear() > 0 and Dock.pairTop() > Dock.HAULPANEL_BOTTOM then
-			right = math.max(right, Dock.pairRightClear() + Dock.GAP)
-		end
 		local clearOfTiles = width - right - Dock.HAULPANEL_SIZE.X.Offset * fit
 		haul.Position = UDim2.new(0, math.min(nearCentre, clearOfTiles), 1, -Dock.HAULPANEL_BOTTOM)
 	end

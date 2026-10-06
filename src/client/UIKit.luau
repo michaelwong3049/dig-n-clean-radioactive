@@ -695,31 +695,21 @@ function Dock.sideLift(): number
 	return UIKit.touchCorner().Y
 end
 
--- ON A PHONE OR TABLET THE PAIR MOVES TO THE BOTTOM-RIGHT, smaller, on request
--- (2026-10-06): the left corner is where the thumbstick lives. It stands on top of the
--- jump button's corner box (UIKit.touchCorner), right edge TOUCH_PAIR_RIGHT in from the
--- screen edge, drawn TOUCH_PAIR_SCALE times its size (each row's own UIScale) so the
--- Boosts pills and the pass offers still fit above it. The rows keep their inside
--- layout (picture, then number), only the footprint is anchored by its right edge.
--- Mouse and keyboard keep the bottom-left corner.
+-- ON A PHONE OR TABLET THE PAIR SITS HARD IN THE BOTTOM-LEFT CORNER, smaller, on request
+-- (2026-10-06, after a round on the jump button bottom-right): no thumbstick lift, so it
+-- tucks into the corner like the mouse layout, drawn TOUCH_PAIR_SCALE times its size
+-- (each row's own UIScale). The dynamic thumbstick still starts anywhere above it; the
+-- rows are plain labels, so a thumb on them steers (only the pencil takes a tap).
 Dock.TOUCH_PAIR_SCALE = 0.7
-Dock.TOUCH_PAIR_RIGHT = 8
-
-function Dock.pairOnRight(): boolean
-	return UIKit.isTouch()
-end
 
 --- The size the speed/cash rows are drawn at (their UIScale's resting value).
 function Dock.pairScale(): number
-	return if Dock.pairOnRight() then Dock.TOUCH_PAIR_SCALE else 1
+	return if UIKit.isTouch() then Dock.TOUCH_PAIR_SCALE else 1
 end
 
 --- The cash row's bottom edge, design px up from the screen's bottom edge.
 function Dock.cashBottom(): number
-	if Dock.pairOnRight() then
-		return UIKit.touchCorner().Y + Dock.CASH_BOTTOM
-	end
-	return Dock.CASH_BOTTOM + Dock.sideLift()
+	return Dock.CASH_BOTTOM
 end
 
 --- The speed row's bottom edge, stacked on the cash row at the pair's scale.
@@ -732,45 +722,17 @@ function Dock.pairTop(): number
 	return Dock.cashBottom() + (Dock.SIDE_COLUMN_TOP - Dock.CASH_BOTTOM) * Dock.pairScale()
 end
 
---- A pair row's AnchorPoint: bottom-left on the left, bottom-right on the right.
-function Dock.pairAnchor(): Vector2
-	return if Dock.pairOnRight() then Vector2.new(1, 1) else Vector2.new(0, 1)
-end
-
---- Position for a pair row (or anything lined up on the column) whose bottom edge sits
---- `bottom` design px up from the screen's bottom edge. Use with Dock.pairAnchor().
+--- Position for a pair row (or anything lined up on the column, AnchorPoint (0, 1))
+--- whose bottom edge sits `bottom` design px up from the screen's bottom edge.
 function Dock.pairPosition(bottom: number): UDim2
-	if Dock.pairOnRight() then
-		return UDim2.new(1, -Dock.TOUCH_PAIR_RIGHT, 1, -bottom)
-	end
 	return UDim2.new(0, Dock.SIDE_CORNER_X, 1, -bottom)
 end
 
---- The column's LEFT edge in design px from the canvas's left edge, on a canvas
---- `width` design px wide (popups are placed off it).
-function Dock.pairLeft(width: number): number
-	if Dock.pairOnRight() then
-		return width - Dock.TOUCH_PAIR_RIGHT - Dock.SIDE_WIDTH * Dock.pairScale()
-	end
-	return Dock.SIDE_CORNER_X
-end
-
---- How far in from the RIGHT edge the pair reaches (0 when it is on the left), so the
---- haul widget can keep clear of it.
-function Dock.pairRightClear(): number
-	if Dock.pairOnRight() then
-		return Dock.TOUCH_PAIR_RIGHT + Dock.SIDE_WIDTH * Dock.pairScale()
-	end
-	return 0
-end
-
 --- The top of whatever stands in the bottom-LEFT corner, up from the screen's bottom
---- edge: the pair off touch, the thumbstick's box on touch. The aura tip sits on it.
+--- edge: the pair, or the thumbstick's box on touch if that is taller. The aura tip
+--- sits on it.
 function Dock.leftCornerTop(): number
-	if Dock.pairOnRight() then
-		return Dock.sideLift()
-	end
-	return Dock.SIDE_COLUMN_TOP + Dock.sideLift()
+	return math.max(Dock.pairTop(), Dock.sideLift())
 end
 
 -- THE BUTTON GRID on the middle of the LEFT edge, on request (2026-10-03, after a
@@ -851,7 +813,6 @@ function Dock.leftGridTop(height: number): number
 	if lift <= 0 then
 		return top
 	end
-	-- (With the pair moved to the right on touch, this only clears the thumbstick.)
 	local pairTop = height / 2 - Dock.leftCornerTop()
 	local clear = pairTop - Dock.GAP - Dock.SIDE_GRID_HEIGHT
 	-- Never up into Roblox's topbar band (screen px there, so divided by the scale).
@@ -925,16 +886,12 @@ Dock.BOOSTS_ROWS = 4
 Dock.BOOSTS_HEIGHT = Dock.BOOSTS_ROWS * Dock.BOOSTS_ROW + (Dock.BOOSTS_ROWS - 1) * Dock.BOOSTS_ROW_GAP
 
 --- The lowest the Boosts widget's bottom edge may sit, up from the screen's bottom edge:
---- on the hotbar's top edge, above the jump button on touch, and above the speed/cash
---- pair when that stands on the jump button (Dock.pairOnRight). Read on scale changes.
+--- on the hotbar's top edge, and above the jump button on touch. Read on scale changes.
 function Dock.boostsFloor(): number
 	local floor = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
 	local corner = UIKit.touchCorner()
 	if corner.Y > 0 then
 		floor = math.max(floor, corner.Y + Dock.GAP)
-	end
-	if Dock.pairOnRight() then
-		floor = math.max(floor, Dock.pairTop() + Dock.GAP)
 	end
 	return floor
 end
