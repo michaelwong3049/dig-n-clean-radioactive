@@ -60,6 +60,11 @@
 	stage's, so the deep stages still close in. It comes and goes on its own slower
 	AURORA_TWEEN, because a sky changing colour over four seconds reads as something
 	arriving. The ribbons in it are AuroraFx, driven by LuckBoostController.
+
+	── EVERY WEATHER, THE SAME WAY (Config/Weather) ───────────────────────────────
+	Golden Hour and the Meteor Shower are two more looks on the same blend
+	(Config/Sky.WEATHER): whichever weather is up, its look and fog colour, over the
+	stage you are in. Only one is ever up, so there is never a blend of blends.
 ]]
 
 local Players = game:GetService("Players")
@@ -71,7 +76,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local SkyConfig = require(Shared.Config.Sky)
-local LuckBoost = require(Shared.Config.LuckBoost)
+local Weather = require(Shared.Config.Weather)
 local Net = require(Shared.Net)
 
 local AtmosphereController = {}
@@ -93,7 +98,8 @@ local AURORA_TWEEN = TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirectio
 
 local currentStage: number? = -1 -- -1 so the first update always applies
 local activeTweens: { Tween } = {}
-local auroraOn = false
+-- The weather whose look is painted right now (Config/Weather id), or nil.
+local weatherOn: string? = nil
 
 --- Fog for a stage. Unchanged behaviour — pulled out of applyFor only because that
 --- function now has a second, larger job.
@@ -123,19 +129,14 @@ local function tween(instance: Instance?, info: TweenInfo, goal: { [string]: any
 	created:Play()
 end
 
---- Whether the Violet Aurora is up, off the attribute LuckBoostService writes.
-local function auroraActive(): boolean
-	local endsAt = ReplicatedStorage:GetAttribute(LuckBoost.EVENT_ATTR)
-	return type(endsAt) == "number" and endsAt > Workspace:GetServerTimeNow()
-end
-
 local function apply(stageId: number?, skyTween: TweenInfo)
 	local fog = fogFor(stageId)
 	local sky = SkyConfig.get(stageId)
 	local fogColor = fog.fogColor
-	if auroraOn then
-		sky = SkyConfig.blend(sky, SkyConfig.AURORA, SkyConfig.AURORA_BLEND)
-		fogColor = fogColor:Lerp(SkyConfig.AURORA_FOG, SkyConfig.AURORA_BLEND)
+	local weather = if weatherOn then SkyConfig.WEATHER[weatherOn] else nil
+	if weather then
+		sky = SkyConfig.blend(sky, weather.look, weather.blend)
+		fogColor = fogColor:Lerp(weather.fog, weather.blend)
 	end
 
 	for _, active in activeTweens do
@@ -185,13 +186,13 @@ local function applyFor(stageId: number?)
 	apply(stageId, SKY_TWEEN)
 end
 
---- The aurora arrived or cleared: re-apply the stage you are already in, slowly.
-local function refreshAurora()
-	local on = auroraActive()
-	if on == auroraOn then
+--- A weather arrived or cleared: re-apply the stage you are already in, slowly.
+local function refreshWeather()
+	local on = Weather.current()
+	if on == weatherOn then
 		return
 	end
-	auroraOn = on
+	weatherOn = on
 	apply(if currentStage == -1 then nil else currentStage, AURORA_TWEEN)
 end
 
@@ -214,12 +215,14 @@ function AtmosphereController.start()
 		applyFor(nil)
 	end)
 
-	-- The server clears the attribute when the aurora ends; the 1s poll is only the
+	-- The server clears the attributes when a weather ends; the 1s poll is only the
 	-- belt to that brace (a clock that runs past its end with the attribute still set).
-	ReplicatedStorage:GetAttributeChangedSignal(LuckBoost.EVENT_ATTR):Connect(refreshAurora)
+	for _, id in Weather.ORDER do
+		ReplicatedStorage:GetAttributeChangedSignal(Weather.get(id).endsAttr):Connect(refreshWeather)
+	end
 	task.spawn(function()
 		while true do
-			refreshAurora()
+			refreshWeather()
 			task.wait(1)
 		end
 	end)

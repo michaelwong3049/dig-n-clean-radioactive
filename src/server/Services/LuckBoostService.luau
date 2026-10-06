@@ -10,9 +10,12 @@
 	roll, the wash pad and its displayed odds cannot disagree about whether you are
 	lucky -- there is one answer and this file owns it.
 
-	THE EVENT CLOCK. One server-wide schedule: quiet for EVENT_GAP_MIN..MAX seconds,
-	then EVENT_SECONDS of aurora, then quiet again, measured from the END so an event
-	never shortens the gap after it. Live on ReplicatedStorage as two attributes (the
+	THE EVENT CLOCK. The aurora is one of three weathers now, and WHEN it comes is
+	Services/WeatherService's call (Config/Weather: one weather at a time, picked at
+	random after a quiet gap). This file still owns the aurora's own clock -- start,
+	extend, stop, and the bought Server Luck Boost, which waits behind any other
+	weather that is up (`queued`) rather than painting over it. Live on
+	ReplicatedStorage as two attributes (the
 	start and the end, in `workspace:GetServerTimeNow()` seconds): every client sees it
 	the instant it changes, a late joiner sees it on arrival, and the client paints the
 	sky and the clover's countdown straight off them (LuckBoostController).
@@ -32,6 +35,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local LuckBoost = require(Shared.Config.LuckBoost)
+local Weather = require(Shared.Config.Weather)
 local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
@@ -40,22 +44,18 @@ local CrateService = require(script.Parent.CrateService)
 
 local LuckBoostService = {}
 
-local rng = Random.new()
-
 -- The event. `eventEndsAt` mirrors the attribute (0 = no event running) so the tick
 -- does not read an attribute back to find out what it wrote itself.
 local eventEndsAt = 0
-local nextEventAt = 0
+-- Server Luck Boost seconds bought while another weather was up: the aurora starts
+-- with them the moment that weather clears (step).
+local queued = 0
 
 -- Player -> server time their clover runs out. Only players with time left.
 local endsAt: { [Player]: number } = {}
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
-end
-
-local function scheduleNext(from: number)
-	nextEventAt = from + rng:NextInteger(LuckBoost.EVENT_GAP_MIN, LuckBoost.EVENT_GAP_MAX)
 end
 
 -- ── The Violet Aurora ────────────────────────────────────────────────────────
@@ -73,31 +73,36 @@ function LuckBoostService.startEvent(seconds: number?)
 end
 
 --- Add `seconds` to the aurora (starting it if it is down), capped at
---- SERVER_MAX_SECONDS left. The Server Luck Boost product. Never yields.
-function LuckBoostService.extendEvent(seconds: number)
+--- SERVER_MAX_SECONDS left. The Server Luck Boost product. Never yields. While another
+--- weather is up the seconds are queued instead, and true comes back: the aurora
+--- starts with them when that weather clears.
+function LuckBoostService.extendEvent(seconds: number): boolean
 	local t = now()
+	local other = Weather.current()
+	if eventEndsAt <= t and other ~= nil and other ~= "aurora" then
+		queued = math.min(queued + seconds, LuckBoost.SERVER_MAX_SECONDS)
+		return true
+	end
 	if eventEndsAt <= t then
 		LuckBoostService.startEvent(seconds)
-		return
+		return false
 	end
 	eventEndsAt = math.min(eventEndsAt + seconds, t + LuckBoost.SERVER_MAX_SECONDS)
 	ReplicatedStorage:SetAttribute(LuckBoost.EVENT_ATTR, eventEndsAt)
+	return false
 end
 
---- End the aurora now and roll the quiet gap before the next one.
+--- End the aurora now. WeatherService rolls the quiet gap after it.
 function LuckBoostService.stopEvent()
 	eventEndsAt = 0
 	ReplicatedStorage:SetAttribute(LuckBoost.EVENT_ATTR, nil)
-	scheduleNext(now())
-	print(`[luck] {LuckBoost.EVENT_NAME} is over; next in {math.floor(nextEventAt - now())}s`)
+	print(`[luck] {LuckBoost.EVENT_NAME} is over`)
 end
 
---- Seconds until the next aurora, or 0 while one is running. For /luckevent.
-function LuckBoostService.secondsToNext(): number
-	if eventEndsAt > 0 then
-		return 0
-	end
-	return math.max(0, nextEventAt - now())
+--- Is a bought aurora waiting for the sky to clear? WeatherService holds its own roll
+--- while one is, so the buyer's aurora is the next weather.
+function LuckBoostService.hasQueued(): boolean
+	return queued > 0
 end
 
 -- ── The Lucky Clover ─────────────────────────────────────────────────────────
@@ -139,8 +144,10 @@ local function step()
 		if t >= eventEndsAt then
 			LuckBoostService.stopEvent()
 		end
-	elseif t >= nextEventAt then
-		LuckBoostService.startEvent()
+	elseif queued > 0 and Weather.current() == nil then
+		local seconds = queued
+		queued = 0
+		LuckBoostService.startEvent(seconds)
 	end
 
 	for player, ends in endsAt do
@@ -166,19 +173,20 @@ function LuckBoostService.init()
 		LuckBoostService.grant(player, data, LuckBoost.PRODUCT_SECONDS)
 	end)
 	ProductService.register(LuckBoost.SERVER_PRODUCT_ID, function(player)
-		LuckBoostService.extendEvent(LuckBoost.SERVER_SECONDS)
+		local waiting = LuckBoostService.extendEvent(LuckBoost.SERVER_SECONDS)
 		local minutes = math.floor(LuckBoost.SERVER_SECONDS / 60)
+		local current = Weather.current()
+		local after = if waiting and current then ` after the {Weather.get(current).name}` else ""
 		-- Deferred: the grant must not yield, and the notice is not part of the receipt.
 		task.defer(function()
 			for _, other in Players:GetPlayers() do
-				CrateService.notify(other, `{player.DisplayName} boosted the server: {LuckBoost.MULT}x luck for {minutes} min!`)
+				CrateService.notify(other, `{player.DisplayName} boosted the server: {LuckBoost.MULT}x luck for {minutes} min{after}!`)
 			end
 		end)
 	end)
 end
 
 function LuckBoostService.start()
-	scheduleNext(now())
 	DataService.onLoaded(onLoaded)
 	Players.PlayerRemoving:Connect(function(player)
 		endsAt[player] = nil

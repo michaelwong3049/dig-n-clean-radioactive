@@ -36,6 +36,7 @@ local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
 local GroupReward = require(Config.GroupReward)
 local Potions = require(Config.Potions)
+local Weather = require(Config.Weather)
 local IndexProgress = require(script.Parent.IndexProgress)
 local Mastery = require(script.Parent.Mastery)
 
@@ -161,6 +162,12 @@ function StatResolver.luckEventActive(): boolean
 	return type(endsAt) == "number" and endsAt > Workspace:GetServerTimeNow()
 end
 
+--- Golden Hour's cash multiplier right now (Config/Weather): GOLDEN_MULT while it is
+--- up, else 1. Like luckEventActive, a read of a ReplicatedStorage attribute.
+function StatResolver.goldenHourMult(): number
+	return if Weather.active("golden") then Weather.GOLDEN_MULT else 1
+end
+
 local function mult(profile: Profile, key: string): number
 	local m = profile.multipliers
 	return if m and m[key] then m[key] else 1
@@ -216,6 +223,8 @@ function StatResolver.get(profile: Profile): Stats
 		* GroupReward.cashMultiplier(profile.groupRewardClaimed)
 		-- The Cash Potion (Config/Potions), on the same two payouts.
 		* Potions.multiplier(profile.potionLeft, "cash")
+		-- Golden Hour (Config/Weather), server-wide, on the same two payouts.
+		* StatResolver.goldenHourMult()
 	local liquidId, liquid = liquidFor(profile)
 	-- A completed stage's index pays in cash (Tuning.INDEX_COMPLETE_CASH), on every
 	-- sale and every stand's income alike -- both multipliers below take it.
@@ -377,6 +386,7 @@ function StatResolver.boosts(profile: Profile): { Boost }
 		{ name = "2x Cash Pass", mult = pass("cash", GamePasses.CASH) },
 		{ name = "2x Cash Boost", mult = CashBoost.multiplier((profile.cashBoostLeft or 0) > 0), timer = CashBoost.PERSONAL_ATTR },
 		potion("cash"),
+		{ name = Weather.DEFS.golden.name, mult = StatResolver.goldenHourMult(), timer = Weather.DEFS.golden.endsAttr, global = true },
 		{ name = "Group Bonus", mult = GroupReward.cashMultiplier(profile.groupRewardClaimed) },
 		{ name = "Index Complete", mult = stats.indexCashMultiplier },
 		{ name = "Masteries", mult = stats.masteryCash },

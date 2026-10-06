@@ -37,6 +37,7 @@ local Crates = require(Shared.Config.Crates)
 local Camps = require(Shared.Config.Camps)
 local Treadmill = require(Shared.Config.Treadmill)
 local LuckBoost = require(Shared.Config.LuckBoost)
+local Weather = require(Shared.Config.Weather)
 local GamePasses = require(Shared.Config.GamePasses)
 local CashBoost = require(Shared.Config.CashBoost)
 local Potions = require(Shared.Config.Potions)
@@ -57,6 +58,7 @@ local DigService = require(script.Parent.DigService)
 local CrateService = require(script.Parent.CrateService)
 local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
+local WeatherService = require(script.Parent.WeatherService)
 local GamePassService = require(script.Parent.GamePassService)
 local CashBoostService = require(script.Parent.CashBoostService)
 local PotionService = require(script.Parent.PotionService)
@@ -780,15 +782,46 @@ COMMANDS["/luckevent"] = {
 	help = "/luckevent [seconds|stop] — start the Violet Aurora now (2x luck, server-wide), or end it",
 	run = function(_player, _sandbox, args)
 		if args[1] == "stop" then
-			LuckBoostService.stopEvent()
-			return `{LuckBoost.EVENT_NAME} ended; next in {math.floor(LuckBoostService.secondsToNext())}s`
+			WeatherService.stop()
+			return `{LuckBoost.EVENT_NAME} ended`
 		end
 		local seconds = tonumber(args[1]) or LuckBoost.EVENT_SECONDS
 		if seconds <= 0 then
 			return "usage: /luckevent [seconds|stop]"
 		end
-		LuckBoostService.startEvent(seconds)
+		-- Through the weather clock, so any other weather ends first (one sky).
+		WeatherService.begin("aurora", seconds)
 		return `{LuckBoost.EVENT_NAME} up for {seconds}s`
+	end,
+}
+
+COMMANDS["/weather"] = {
+	-- Any weather on demand (Config/Weather), without waiting out the 20-30 minute gap.
+	-- `meteor now` drops one meteor straight away, shower or not.
+	help = "/weather [aurora|golden|meteor] [seconds] | stop | meteor now [stage] — start a weather, end it, or drop one meteor",
+	run = function(_player, _sandbox, args)
+		local id = args[1]
+		if id == nil then
+			local current = Weather.current()
+			if current then
+				return `{Weather.get(current).name} is up, {math.floor(Weather.endsAt(current) - Workspace:GetServerTimeNow())}s left`
+			end
+			return `clear sky; next weather in {math.floor(WeatherService.secondsToNext())}s`
+		end
+		if id == "stop" then
+			WeatherService.stop()
+			return "weather ended"
+		end
+		if id == "meteor" and args[2] == "now" then
+			local stage = tonumber(args[3])
+			return if WeatherService.dropMeteor(stage) then "meteor falling" else "no open ground for a meteor this tick"
+		end
+		if Weather.DEFS[id] == nil then
+			return `usage: /weather [{table.concat(Weather.ORDER, "|")}] [seconds] | stop | meteor now`
+		end
+		local seconds = tonumber(args[2])
+		WeatherService.begin(id, seconds)
+		return `{Weather.get(id).name} up for {seconds or Weather.get(id).seconds}s`
 	end,
 }
 

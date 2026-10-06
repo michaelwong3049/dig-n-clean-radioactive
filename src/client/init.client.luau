@@ -37,6 +37,7 @@ local ORDER = {
 	"GroupRewardController", -- the group chest on Stage 1: the join-group prompt + claim toast; reads GroupReward
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the Violet Aurora banner + lights (the luck countdown now lives in BoostsController)
+	"WeatherController", -- Golden Hour + the Meteor Shower: their banners, dust, shooting stars and landing meteors; reads MeteorFall
 	"BoostsController", -- the bottom-right Boosts widget: Luck/Cash/... totals, tap for every source; reads Boosts
 	"RareDropController", -- the announced rare drop: the "LEGENDARY DROP!" card, the live tracker pill, who claimed it
 	"CashController", -- the persistent cash badge; top-left, reads CashState
