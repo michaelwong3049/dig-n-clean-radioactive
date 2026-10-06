@@ -21,7 +21,7 @@
 	  base   -> ExhibitService.plotSpawn(player), the same PlotSpawn assign() already
 	            routes this player's respawns to. nil (no plot this session, all six
 	            taken) falls through to the shop anchor, so the button is never dead.
-	  shops  -> the SELL button: Base Camp's Trader booth step pad (traderCFrame),
+	  shops  -> the SELL button: in front of Base Camp's Trader kiosk (traderCFrame),
 	            falling back to ExposureService.baseCampCFrame() if it is missing.
 
 	  <camp key> -> CampService.arrivalCFrame(key), the CampAnchor build/CampSite stands
@@ -69,19 +69,23 @@ local DROP_IN = Vector3.new(0, 4, 0)
 local PRELOAD_TIMEOUT = 1.5
 local preloading: { [Player]: boolean } = {}
 
---- The SELL button lands you on Base Camp's Trader booth (2026-10-04, on request:
---- "change shop tp name to sell and make it go to the trader"): on the front step pad,
---- facing the stand. Looked up only on a press, scoped to BaseCamp (Toxic Twilight has a
---- Trader too). Falls back to the plaza anchor if the booth is not there.
+--- The SELL button lands you at Base Camp's Trader (2026-10-04, on request: "change
+--- shop tp name to sell and make it go to the trader"). The Trader is the four-sided
+--- kiosk on PLAZA_MID (BaseCamp.buildHubTrader): land this far out from its centre on a
+--- random side, facing a counter. That is past the deck (half 7.5) but inside the sell
+--- radius (16), so the panel opens on arrival -- unlike the respawn ring, which sits just
+--- outside it on purpose. Looked up only on a press, scoped to BaseCamp (Toxic Twilight
+--- has a Trader too). Falls back to the plaza anchor if the kiosk is not there.
+local TRADER_LANDING = 10
 local function traderCFrame(): CFrame
 	local camp = Workspace:FindFirstChild("BaseCamp", true)
 	local trader = camp and camp:FindFirstChild("Trader")
-	local pad = trader and trader:FindFirstChild("StepPad")
-	local station = trader and trader:FindFirstChild("TraderStation", true)
-	if pad and pad:IsA("BasePart") and station and station:IsA("BasePart") then
-		local at = pad.Position + DROP_IN
-		local look = Vector3.new(station.Position.X, at.Y, station.Position.Z)
-		return CFrame.lookAt(at, look)
+	local station = trader and trader:FindFirstChild("TraderStation")
+	if station and station:IsA("BasePart") then
+		local centre = station.Position + Vector3.new(0, 2, 0)
+		local angle = math.random(0, 3) * (math.pi / 2)
+		local at = centre + Vector3.new(math.sin(angle), 0, math.cos(angle)) * TRADER_LANDING
+		return CFrame.lookAt(at, centre)
 	end
 	return ExposureService.baseCampCFrame()
 end
