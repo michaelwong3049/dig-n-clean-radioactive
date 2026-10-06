@@ -18,6 +18,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage.Shared
+local Mastery = require(Shared.Mastery)
 local Net = require(Shared.Net)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -83,10 +84,9 @@ local DIM_ALPHA = 0.55
 local remote: RemoteEvent = nil
 local card: any = nil -- the open card's parts; nil when none is up
 
-local function withCommas(n: number): string
-	local digits = tostring(math.floor(n))
-	local grouped = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse()
-	return "$" .. grouped:gsub("^,", "")
+--- "$40M" rather than "$40,000,000" (on request), matching the floor sign.
+local function money(n: number): string
+	return "$" .. Mastery.short(n)
 end
 
 local function blob(parent: Instance, name: string, rect: { number }, color: Color3, zIndex: number, stroke: number?): Frame
@@ -184,10 +184,10 @@ local function refresh()
 	if type(c.cash) ~= "number" then
 		c.have.Text = ""
 	elseif c.cash >= price then
-		c.have.Text = `You have {withCommas(c.cash)}`
+		c.have.Text = `You have {money(c.cash)}`
 		c.have.TextColor3 = STYLE.sub
 	else
-		c.have.Text = `You need {withCommas(price - c.cash)} more`
+		c.have.Text = `You need {money(price - c.cash)} more`
 		c.have.TextColor3 = STYLE.short
 	end
 	c.buy.BackgroundColor3 = if c.busy or not canAfford(c) then STYLE.off else STYLE.buy
@@ -296,7 +296,7 @@ local function open(offer: any)
 	})
 
 	-- The bundle and the price, centred as one group.
-	local priceText = withCommas(offer.price)
+	local priceText = money(offer.price)
 	local priceW = game:GetService("TextService"):GetTextSize(priceText, L.priceSize, STYLE.title, Vector2.new(4000, 200)).X
 	local rowW = L.bundle + L.bundleGap + priceW
 	local left = (L.cardW - rowW) / 2
