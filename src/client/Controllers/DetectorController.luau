@@ -94,16 +94,13 @@ local LOCKGUI_HIDE_TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.Easin
 -- smaller size to fit the same cap; both are swapped in on PromptShown (start()).
 local KEYCAP_SIZE = 58
 local KEYCAP_RADIUS = UDim.new(0, 17)
-local KEY_TEXT_SIZE = 26
+local KEY_TEXT_SIZE = 28
 local KEY_TEXT_SIZE_TOUCH = 15
--- Tracked by hand -- Roblox has no letter-spacing. See the label in buildLockPromptGui.
---
--- THREE SPACES BETWEEN THE WORDS, NOT TWO. Measured in Studio at the size this actually
--- ships at (16 design px x GLOBAL_SCALE = ~12.8 on screen): with a two-space gap the
--- word break is indistinguishable from the letter gaps and the whole thing reads as one
--- run, "P I C K U P". Three separates them. Dropping the tracking entirely also works
--- and is a touch more legible -- set this to "PICK UP" -- but loses the airier look.
-local ACTION_TEXT = "P I C K   U P"
+-- Set solid in the house font (UIKit.House, Gotham Black), on request: the old
+-- hand-tracked "P I C K   U P" in Gotham Bold read airier but weaker than the rest of
+-- the HUD. Black caps set solid read as one punchy word, so no tracking spaces now.
+local ACTION_TEXT = "PICK UP"
+local ACTION_TEXT_SIZE = 18
 
 -- THE PROMPT WAITS FOR THE SPOT (on request: it landed on bare ground and sat there for
 -- about half a second while the glow came up underneath it). It hangs directly over one
@@ -374,7 +371,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	keyLabel.Name = "Key"
 	keyLabel.Size = UDim2.fromScale(1, 1)
 	keyLabel.BackgroundTransparency = 1
-	keyLabel.Font = UIKit.Font.title
+	keyLabel.Font = UIKit.Font.hero -- Gotham Black, the house font
 	keyLabel.Text = "E"
 	keyLabel.TextSize = KEY_TEXT_SIZE
 	keyLabel.TextColor3 = COLOR.text
@@ -401,19 +398,15 @@ local function buildLockPromptGui(adornee: BasePart)
 
 	-- The verb, centred under the key. It carries the signal's colour (see
 	-- updateLockPrompt) and UIKit's heavy black outline, which is the whole reason it
-	-- holds against bright ground now there is no panel behind it.
-	--
-	-- TRACKED CAPS BY HAND. Roblox TextLabels have no letter-spacing property, and at
-	-- this size bold caps set solid read as one block rather than as a word -- the
-	-- spaces ARE the tracking. Two spaces between the words so the word gap still beats
-	-- the letter gap.
+	-- holds against bright ground now there is no panel behind it. Gotham Black set
+	-- solid (see ACTION_TEXT).
 	local action = UIKit.label(card, {
 		name = "Action",
 		anchorPoint = Vector2.new(0.5, 1),
 		position = UDim2.fromScale(0.5, 1),
 		size = UDim2.new(1, 0, 0, 22),
-		font = UIKit.Font.title,
-		textSize = 16,
+		font = UIKit.Font.hero,
+		textSize = ACTION_TEXT_SIZE,
 		color = COLOR.scope,
 		xAlign = Enum.TextXAlignment.Center,
 		zIndex = 3,
@@ -1196,7 +1189,7 @@ end
 --- What the keycap says, and how big. Custom prompt style drops Roblox's own gamepad
 --- glyph and touch button, so the cap has to name this player's input itself. The
 --- outline thickness is re-derived here rather than fixed at build time because touch's
---- "HOLD" is a whole word at 15px while "E"/"X" are single glyphs at 26 — one thickness
+--- "HOLD" is a whole word at 15px while "E"/"X" are single glyphs at 28 — one thickness
 --- cannot flatter both (see the stroke in buildLockPromptGui).
 local function setKeyGlyph(text: string, textSize: number)
 	local g = ui.lockGui
