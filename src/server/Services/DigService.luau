@@ -228,6 +228,9 @@ type Signal = {
 	-- "Find a spot to dig" step has exactly one answer and nobody wanders off. Nobody
 	-- else registers it. Replanted the tick after it goes.
 	tutorial: boolean?,
+	-- THE RESHUFFLE (Tuning.SIGNAL_REFRESH_SECONDS): due to be reburied elsewhere the
+	-- first tick nobody can see it. See refreshStale.
+	stale: boolean?,
 }
 
 local signalsByStage: { [number]: { Signal } } = {}
@@ -255,6 +258,13 @@ local revealed: { [string]: Signal } = {}
 -- it once Tuning.AURA_LINGER has passed. Walking back into range drops the entry and
 -- clears the flag, and the fade reverses on its own.
 local auraFadingSince: { [string]: number } = {}
+
+-- Where each player's detector was looking on the current tick: stage, XZ centre and
+-- radius. Written by stepPlayer, cleared when they leave the field or the game. The
+-- reshuffle (refreshStale) reads it twice -- a stale signal inside anyone's radius is
+-- left alone, and a replacement is never buried inside one.
+type Sweep = { stageId: number, position: Vector3, radius: number }
+local sweeps: { [Player]: Sweep } = {}
 
 -- Yanks banked since the last tick, and the token bucket that decides which incoming
 -- clicks were allowed to bank. `lastYankAt` feeds `pulling` (below) as well as the
@@ -603,11 +613,32 @@ local MIN_SIGNAL_GAP = 12
 --- aura and the haul inside it) and never on top of another signal. Re-rolled rather
 --- than dropped, so a stage keeps its full count; nil only after SPAWN_TRIES misses,
 --- and the caller just tries again next tick.
-local function openSpot(stageId: number, part: BasePart): Vector3?
+---
+--- `unseen` also keeps it out of every detector radius on the stage (the reshuffle,
+--- refreshStale), with the same 6-stud crack reach on top so a burst cannot poke in.
+local function openSpot(stageId: number, part: BasePart, unseen: boolean?): Vector3?
 	local list = signalsByStage[stageId] or {}
 	for _ = 1, SPAWN_TRIES do
 		local candidate = randomPointOn(part)
 		if StageCraters.blocksDig(stageId, candidate.X, candidate.Z) then
+			continue
+		end
+		local inSight = false
+		if unseen then
+			for _, sweep in sweeps do
+				if sweep.stageId ~= stageId then
+					continue
+				end
+				local dx = sweep.position.X - candidate.X
+				local dz = sweep.position.Z - candidate.Z
+				local reach = sweep.radius + MIN_SIGNAL_GAP / 2
+				if dx * dx + dz * dz < reach * reach then
+					inSight = true
+					break
+				end
+			end
+		end
+		if inSight then
 			continue
 		end
 		local crowded = false
@@ -626,15 +657,17 @@ local function openSpot(stageId: number, part: BasePart): Vector3?
 	return nil
 end
 
-local function spawnSignal(stageId: number)
+--- Bury one fresh signal on the stage. True if it went in; false when there is no
+--- stage part yet, no open ground this tick, or the stage stocks nothing.
+local function spawnSignal(stageId: number, unseen: boolean?): boolean
 	local part = stagePart(stageId)
 	if part == nil then
-		return
+		return false
 	end
 
-	local position = openSpot(stageId, part)
+	local position = openSpot(stageId, part, unseen)
 	if position == nil then
-		return
+		return false
 	end
 	local stage = Stages.get(stageId)
 
@@ -646,7 +679,7 @@ local function spawnSignal(stageId: number)
 			unstockedWarned[stageId] = true
 			warn(`[dig] stage {stageId} stocks no items — Config/Items.luau. No signals will spawn there.`)
 		end
-		return
+		return false
 	end
 
 	local rarity = Items.get(itemId).rarity
@@ -689,6 +722,7 @@ local function spawnSignal(stageId: number)
 	}
 
 	table.insert(signalsByStage[stageId], signal)
+	return true
 end
 
 local function removeSignal(stageId: number, uid: string)
@@ -771,6 +805,71 @@ local function topUpField()
 			if #list == before then
 				break -- no stage part in the world yet; try again next tick
 			end
+		end
+	end
+end
+
+-- ── The reshuffle ─────────────────────────────────────────────────────
+
+--- Mark every ordinary signal due for reburial (Tuning.SIGNAL_REFRESH_SECONDS).
+--- Announced drops and the tutorial spot keep their ground.
+local function markFieldStale()
+	for _, list in signalsByStage do
+		for _, signal in list do
+			if not signal.rareDrop and not signal.tutorial then
+				signal.stale = true
+			end
+		end
+	end
+end
+
+--- Can anybody see this signal, or have a hand on it? Any aura -- lit or still fading
+--- -- is on someone's screen; a detector radius covers what a player is stood over
+--- even past their depth gate; a lock, a haul or a lit fuse is someone mid-pull.
+local function inUse(signal: Signal): boolean
+	local uid = signal.uid
+	if auras[uid] ~= nil or hot[uid] ~= nil then
+		return true
+	end
+	for _, target in lockedTo do
+		if target == uid then
+			return true
+		end
+	end
+	for _, target in digTarget do
+		if target == uid then
+			return true
+		end
+	end
+	for _, sweep in sweeps do
+		if sweep.stageId == signal.stageId then
+			local dx = sweep.position.X - signal.position.X
+			local dz = sweep.position.Z - signal.position.Z
+			if dx * dx + dz * dz <= sweep.radius * sweep.radius then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+--- Rebury every stale signal nobody can see. The replacement goes in FIRST, out of
+--- everyone's sight, and only then does the old one come out -- so if a crowded stage
+--- has no hidden ground this tick, the old signal just waits for the next one rather
+--- than leaving a gap topUpField would refill in plain view.
+local function refreshStale()
+	for stageId, list in signalsByStage do
+		local due: { Signal } = {}
+		for _, signal in list do
+			if signal.stale and not inUse(signal) then
+				table.insert(due, signal)
+			end
+		end
+		for _, signal in due do
+			if not spawnSignal(stageId, true) then
+				break -- no hidden ground left this tick; the rest wait
+			end
+			removeSignal(stageId, signal.uid)
 		end
 	end
 end
@@ -1287,6 +1386,10 @@ end
 -- ── Tick ────────────────────────────────────────────────────────────
 
 local function stepPlayer(player: Player, dt: number)
+	-- Re-set below once we know they are on a stage; any early return leaves them
+	-- looking at nothing, which is what the reshuffle should believe.
+	sweeps[player] = nil
+
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if root == nil or not root:IsA("BasePart") then
@@ -1337,6 +1440,8 @@ local function stepPlayer(player: Player, dt: number)
 		})
 		return
 	end
+
+	sweeps[player] = { stageId = stageId, position = position, radius = stats.detectorRadius }
 
 	local contacts = registeredFor(stageId, position, stats, safe)
 	markRevealed(contacts)
@@ -1998,6 +2103,7 @@ function DigService.start()
 		pulling[player] = nil
 		overSignal[player] = nil
 		lastContacts[player] = nil
+		sweeps[player] = nil
 		safeDiggers[player.UserId] = nil
 		clearHaul(player)
 
@@ -2016,6 +2122,8 @@ function DigService.start()
 		-- players on the next tick, and anything only this player could see falls out
 		-- of `revealed` on its own — one shared reconcile, one place to be wrong.
 	end)
+
+	local nextRefreshAt = os.clock() + Tuning.SIGNAL_REFRESH_SECONDS
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)
 		topUpField()
@@ -2041,6 +2149,18 @@ function DigService.start()
 		end
 
 		reconcileAuras()
+
+		-- The reshuffle, after the auras so `auras` and `sweeps` both describe this
+		-- tick: inUse then sees exactly what is on everybody's screen right now.
+		local now = os.clock()
+		if now >= nextRefreshAt then
+			nextRefreshAt = now + Tuning.SIGNAL_REFRESH_SECONDS
+			markFieldStale()
+		end
+		local refreshed, refreshErr = pcall(refreshStale)
+		if not refreshed then
+			warn(`[dig] reshuffle failed: {refreshErr}`)
+		end
 
 		-- After the auras, so a spot that appeared this tick is stamped this tick too.
 		-- Wrapped like stepPlayer: a throw here must not take the auras down with it.

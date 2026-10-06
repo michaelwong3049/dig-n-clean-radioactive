@@ -306,6 +306,13 @@ end
 -- 28 -> 25 WITH THE 10%-THINNER PASS (2026-10-04: FOOTPRINT_Z 170 -> 153, area x0.9;
 -- 25.2 rounded down).
 Tuning.SIGNALS_PER_STAGE = 25
+-- THE FIELD RESHUFFLE (on request, 2026-10-05). Every this-many seconds every ordinary
+-- signal goes stale, and a stale one is reburied somewhere else the moment nobody can
+-- see it: no aura up (lit or fading), outside every detector radius, no magnet on it,
+-- no lit fuse. Whatever a player is looking at stays put until they walk off it, and
+-- the replacement is placed outside everyone's radius, so nothing ever swaps on screen.
+-- Announced drops and the tutorial spot are never reshuffled. See DigService.refreshStale.
+Tuning.SIGNAL_REFRESH_SECONDS = 60
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
