@@ -1,7 +1,7 @@
 --!strict
 --[[
 	PassOfferController — the 2x Luck and 2x Speed buy cards on the right edge, from
-	the user's reference picture: a chunky stud-textured card, the pass's picture poking
+	the user's reference picture: a chunky card in the glossy L-stud pattern (client/Studded), the pass's picture poking
 	out over its top-left corner, a big outlined title, and "ONLY R$ 99" hung across
 	the card's bottom edge (half on it, half off, on request). A light streak sweeps
 	across each card every few seconds.
@@ -28,6 +28,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
 local RobuxButton = require(script.Parent.Parent.RobuxButton)
 local Sfx = require(script.Parent.Parent.Sfx)
+local Studded = require(script.Parent.Parent.Studded)
 
 local PassOfferController = {}
 
@@ -52,8 +53,7 @@ local TITLE_SIZE = 19
 local PRICE_SIZE = 15
 local PRICE_H = 18
 local STEP = CARD_H + PRICE_H / 2 + 10 -- card top to the next card's top
-local STUD = 14 -- stud grid pitch
-local STUD_D = 7
+local STUD_TILE = 20 -- L-stud tile, px
 -- The Boosts widget's box above the hotbar (BoostsController), which the stack stays
 -- clear of.
 local LUCK_CLEAR = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP + Dock.BOOSTS_HEIGHT + Dock.GAP
@@ -85,34 +85,6 @@ local function outline(parent: Instance, color: Color3, thickness: number, borde
 		s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	end
 	s.Parent = parent
-end
-
---- The faint LEGO-style studs, inset so none pokes past the rounded corners.
-local function studs(card: Frame)
-	local columns = math.floor((CARD_W - 8) / STUD)
-	local rows = math.floor((CARD_H - 8) / STUD)
-	local x0 = (CARD_W - (columns - 1) * STUD) / 2
-	local y0 = (CARD_H - (rows - 1) * STUD) / 2
-	for row = 0, rows - 1 do
-		for column = 0, columns - 1 do
-			local stud = Instance.new("Frame")
-			stud.Name = "Stud"
-			stud.AnchorPoint = Vector2.new(0.5, 0.5)
-			stud.Position = UDim2.fromOffset(x0 + column * STUD, y0 + row * STUD)
-			stud.Size = UDim2.fromOffset(STUD_D, STUD_D)
-			stud.BackgroundColor3 = WHITE
-			stud.BackgroundTransparency = 0.84
-			stud.BorderSizePixel = 0
-			stud.ZIndex = 2
-			stud.Parent = card
-			round(stud, STUD_D)
-			local ring = Instance.new("UIStroke")
-			ring.Color = Color3.new(0, 0, 0)
-			ring.Transparency = 0.9
-			ring.Thickness = 1
-			ring.Parent = stud
-		end
-	end
 end
 
 --- The light streak: a white overlay the card's shape, see-through but for a narrow
@@ -191,7 +163,8 @@ local function build(parent: Instance, look: Look): Built?
 	fill.Rotation = 90
 	fill.Color = ColorSequence.new(look.top, look.bottom)
 	fill.Parent = card
-	studs(card)
+	-- The glossy L-stud pattern the Shop and Nukes panels wear, tinted by the fill.
+	Studded.pattern(card, { radius = RADIUS, tile = STUD_TILE, zIndex = 2, bands = { 0.28, 0.5, 0.58, 0.64 }, glow = false })
 	shine(card)
 
 	local icon = Instance.new("ImageLabel")

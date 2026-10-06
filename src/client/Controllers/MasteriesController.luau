@@ -25,6 +25,7 @@ local Mastery = require(Shared.Mastery)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Studded = require(script.Parent.Parent.Studded)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local Sfx = require(script.Parent.Parent.Sfx)
@@ -349,6 +350,10 @@ local function buildPanel(): ScreenGui
 	padding.PaddingLeft = UDim.new(0, PAD)
 	padding.PaddingRight = UDim.new(0, PAD)
 	padding.Parent = panel
+	-- The Shop's dark grey studded backdrop, pushed back out past the padding.
+	local pattern = Studded.darkPanel(panel, 8)
+	pattern.Position = UDim2.fromOffset(-PAD, -(PAD - 6))
+	pattern.Size = UDim2.new(1, 2 * PAD, 1, 2 * PAD - 6)
 
 	inked(panel, {
 		Name = "Title",

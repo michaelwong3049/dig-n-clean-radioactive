@@ -23,6 +23,7 @@ local DailyRewards = require(Shared.Config.DailyRewards)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Studded = require(script.Parent.Parent.Studded)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local Sfx = require(script.Parent.Parent.Sfx)
@@ -409,6 +410,7 @@ local function buildPanel(): ScreenGui
 	panel.Visible = false
 	round(panel, 8)
 	edge(panel, PANEL.ink, 4)
+	Studded.darkPanel(panel, 8) -- the Shop's dark grey studded backdrop
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
 
