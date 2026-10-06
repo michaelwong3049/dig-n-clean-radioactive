@@ -10,3 +10,6 @@ Packages/
 ServerPackages/
 sourcemap.json
 wally.lock
+
+# Merged nuke mesh exports (tools/studio-migrations/export-merged-nuke-meshes.luau)
+merged-nukes/
