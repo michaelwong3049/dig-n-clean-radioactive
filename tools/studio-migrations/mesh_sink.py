@@ -15,6 +15,22 @@ SAFE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 class Sink(BaseHTTPRequestHandler):
     def do_GET(self):
+        # /read?file=batch_01.json hands a written file back (the apply step's
+        # manifests); anything else is a ping.
+        q = parse_qs(urlparse(self.path).query)
+        name = q.get("file", [""])[0]
+        if name:
+            path = os.path.join(OUT, name)
+            if not SAFE.match(name) or not os.path.isfile(path):
+                self.send_response(404)
+                self.end_headers()
+                return
+            with open(path, "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(body)
+            return
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"ok")
