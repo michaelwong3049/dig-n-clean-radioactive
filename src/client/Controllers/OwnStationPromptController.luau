@@ -19,6 +19,11 @@
 	Which plot a prompt is on comes from its Plot<n> ancestor; which plot is ours from
 	our RespawnLocation (the plot's PlotSpawn) and Net PlotState. StreamingEnabled: the
 	plots stream in and out, so prompts are picked up as they arrive.
+
+	It also hangs a white "CLEANING" label over OUR tub only — a billboard in our own
+	PlayerGui, so nobody else ever sees it and we never see one over theirs. It hides
+	while our Wash prompt is off (the server holds it off for the length of a wash), so
+	it is not floating in the wash shot.
 ]]
 
 local Players = game:GetService("Players")
@@ -35,6 +40,64 @@ local GATED: { [string]: string } = { Wash = "Basin" }
 
 local myPlot: number? = nil
 local prompts: { [ProximityPrompt]: number } = {}
+
+--- The "CLEANING" label over our own tub: studs wide/tall, and how far above the
+--- Basin's centre (the tub floor) it floats.
+local LABEL_SIZE = UDim2.fromScale(14, 3)
+local LABEL_HEIGHT = 9
+
+local label: BillboardGui? = nil
+
+local function buildLabel(): BillboardGui
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "CleaningStationLabel"
+	gui.Size = LABEL_SIZE
+	gui.LightInfluence = 0
+	gui.ResetOnSpawn = false
+	gui.Enabled = false
+	local text = Instance.new("TextLabel")
+	text.BackgroundTransparency = 1
+	text.Size = UDim2.fromScale(1, 1)
+	text.Font = Enum.Font.GothamBlack
+	text.Text = "CLEANING"
+	text.TextScaled = true
+	text.TextColor3 = Color3.new(1, 1, 1)
+	text.TextStrokeTransparency = 1
+	text.Parent = gui
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 3
+	stroke.Color = Color3.new(0, 0, 0)
+	stroke.Parent = text
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	return gui
+end
+
+--- Point the label at our own tub's Basin (if it has streamed in), shown only while
+--- its Wash prompt is on.
+local function refreshLabel()
+	local gui = label
+	if gui == nil then
+		return
+	end
+	local mine: ProximityPrompt? = nil
+	for prompt, plot in prompts do
+		if plot == myPlot then
+			mine = prompt
+			break
+		end
+	end
+	local basin = mine and mine.Parent
+	if basin and basin:IsA("BasePart") then
+		gui.Adornee = basin
+		-- StudsOffsetWorldSpace is in the ADORNEE's axes, and the Basin is a Cylinder
+		-- turned to stand up (Kit.R.cylUp), so its own Y points sideways: take world up
+		-- into its space or the label sits beside the tub at floor height.
+		gui.StudsOffsetWorldSpace = basin.CFrame:VectorToObjectSpace(Vector3.new(0, LABEL_HEIGHT, 0))
+	else
+		gui.Adornee = nil
+	end
+	gui.Enabled = mine ~= nil and gui.Adornee ~= nil and mine.Enabled
+end
 
 local function plotIndexOf(row: Instance, inst: Instance): number?
 	local node: Instance? = inst
@@ -66,10 +129,13 @@ local function onDescendant(row: Instance, inst: Instance)
 	apply(inst, index)
 	inst:GetPropertyChangedSignal("Enabled"):Connect(function()
 		apply(inst, index)
+		refreshLabel()
 	end)
 	inst.Destroying:Connect(function()
 		prompts[inst] = nil
+		refreshLabel()
 	end)
+	refreshLabel()
 end
 
 local function onPlot(index: number?)
@@ -84,6 +150,7 @@ local function onPlot(index: number?)
 			apply(prompt, plot)
 		end
 	end
+	refreshLabel()
 end
 
 local function watch(row: Instance)
@@ -107,6 +174,7 @@ local function fromSpawn()
 end
 
 function OwnStationPromptController.start()
+	label = buildLabel()
 	Net.get("PlotState").OnClientEvent:Connect(onPlot)
 	fromSpawn()
 	Players.LocalPlayer:GetPropertyChangedSignal("RespawnLocation"):Connect(fromSpawn)
