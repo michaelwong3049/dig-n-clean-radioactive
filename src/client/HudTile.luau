@@ -27,6 +27,7 @@ local TweenService = game:GetService("TweenService")
 local UIKit = require(script.Parent.UIKit)
 local Dock = UIKit.Dock
 local Artwork = require(script.Parent.HudArtwork)
+local TutorialGate = require(script.Parent.TutorialGate)
 
 local HudTile = {}
 
@@ -246,6 +247,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	end)
 	if spec.onActivated then
 		button.Activated:Connect(spec.onActivated)
+	end
+	-- The top-right corner row (Daily, Potions) stays hidden until the tutorial is over.
+	if spec.corner ~= nil then
+		TutorialGate.bind(gui)
 	end
 
 	return gui, button

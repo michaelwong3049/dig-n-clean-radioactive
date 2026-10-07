@@ -40,6 +40,7 @@ local Potions = require(Shared.Config.Potions)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local CloverArt = require(script.Parent.Parent.CloverArt)
+local TutorialGate = require(script.Parent.Parent.TutorialGate)
 local ShopController = require(script.Parent.ShopController)
 local Dock = UIKit.Dock
 local House = UIKit.House
@@ -320,6 +321,8 @@ local function build()
 	-- Beside the Index/Shop tiles (55), where the clover badge sat.
 	gui.DisplayOrder = 56
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	-- Hidden until the tutorial is over.
+	TutorialGate.bind(gui)
 	canvas = UIKit.canvas(gui)
 
 	-- A button so it can be hovered and clicked; the pills inside draw it.

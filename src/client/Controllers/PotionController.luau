@@ -24,6 +24,7 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Studded = require(script.Parent.Parent.Studded)
 local HudTile = require(script.Parent.Parent.HudTile)
+local TutorialGate = require(script.Parent.Parent.TutorialGate)
 local Sfx = require(script.Parent.Parent.Sfx)
 
 local PotionController = {}
@@ -474,6 +475,8 @@ local function buildChips(): ScreenGui
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 55
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	-- Hidden until the tutorial is over, with the corner row they sit in.
+	TutorialGate.bind(gui)
 	local canvas = UIKit.canvas(gui)
 	for _, id in Potions.ORDER do
 		chips[id] = buildChip(canvas, id)
