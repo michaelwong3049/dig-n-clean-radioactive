@@ -37,6 +37,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local Stages = require(Shared.Config.Stages)
+local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -120,13 +121,14 @@ local function isHeavy(): boolean
 	return reading.health / burn <= HEAVY_SECONDS or healthFrac <= HEAVY_HEALTH
 end
 
---- Whether any rung of Gear.Aura is rated for this stage. Past the top of the ladder
---- there is nothing to upgrade to, so the warning says to turn back instead.
+--- Whether any rung of Gear.Aura is rated for this stage. Past the top of the ladder,
+--- or in a raid stage (Tuning.ZONE_SURVIVAL.RAID, Ground Zero) where even the top aura
+--- fails, there is nothing to upgrade to, so the warning says to turn back instead.
 local function anyAuraHolds(stageId: number?): boolean
 	if stageId == nil then
 		return true
 	end
-	return Stages.get(stageId).ratedAuraTier <= #Gear.Aura
+	return Stages.get(stageId).ratedAuraTier <= #Gear.Aura and Tuning.ZONE_SURVIVAL.RAID[stageId] == nil
 end
 
 local function textWidth(text: string, size: number): number

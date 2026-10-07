@@ -761,7 +761,7 @@ function Spec.run(): boolean
 				local entrance = Radiation.zoneSurvival(stageId, 0, rated)
 				local brk = Radiation.zoneSurvival(stageId, if dz then math.min(Z.BREAK, dz.from - 0.01) else Z.BREAK, rated)
 				local far = Radiation.zoneSurvival(stageId, 1, rated)
-				if not (entrance >= 300 and brk >= 180 and (dz ~= nil or far >= 60) and far < brk) then
+				if Z.RAID[stageId] == nil and not (entrance >= 300 and brk >= 180 and (dz ~= nil or far >= 60) and far < brk) then
 					ratedOk = false
 				end
 			end
@@ -785,7 +785,28 @@ function Spec.run(): boolean
 			end
 		end
 		check(`§zone the rated drain climbs smoothly, no steps ({detail ~= "" and detail or "ok"})`, smooth)
-		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge (outside dead zones)", ratedOk)
+		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge (outside dead zones and raid stages)", ratedOk)
+		-- RAID STAGES (Tuning.ZONE_SURVIVAL.RAID): Ground Zero is not a farm even in its own
+		-- aura, on request ("you can basically stay there forever"). The top aura fails
+		-- everywhere in it, within a few minutes at the entrance and under a minute at the
+		-- far edge, but always outlasts the aura one under it.
+		for stageId in Z.RAID do
+			local rated = Stages.get(stageId).ratedAuraTier
+			local entrance, brk, far = Radiation.zoneSurvival(stageId, 0, rated), Radiation.zoneSurvival(stageId, Z.BREAK, rated), Radiation.zoneSurvival(stageId, 1, rated)
+			check(
+				string.format("§zone Stage %d is a raid for its own aura: %.0fs entrance, %.0fs at 60%%, %.0fs far edge (want <= 240, <= 120, <= 60)", stageId, entrance, brk, far),
+				entrance <= 240 and brk <= 120 and far <= 60 and far < brk and brk < entrance
+			)
+			check(`§zone ...Stage {stageId}'s own aura is failing there from the entrance`, readingAt(stageId, rated, 0, 0).failing and readingAt(stageId, rated, 0, 1).failing)
+			local outlasts = true
+			for i = 0, 10 do
+				if Radiation.zoneSurvival(stageId, i / 10, rated) <= Radiation.zoneSurvival(stageId, i / 10, rated - 1) then
+					outlasts = false
+				end
+			end
+			check(`§zone ...but still outlasts the aura one under it at every depth`, outlasts)
+			check(`§zone ...and Stage {stageId} has no dead zone on top`, Z.DEAD_ZONE[stageId] == nil)
+		end
 		-- The last stage of every zone ends in a dead zone (Tuning.ZONE_SURVIVAL.DEAD_ZONE):
 		-- the stage's own aura fails out there, and only there.
 		check("§zone the old Stage 6 dead zone is gone", Z.DEAD_ZONE[6] == nil)
