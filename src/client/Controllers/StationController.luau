@@ -894,6 +894,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	buyFill.Rotation = 90
 	buyFill.Color = STUDDED.lime
 	buyFill.Parent = buy
+	Studded.button(buy, 8)
 
 	-- Hidden until paintShopCard finds a product for the tier.
 	local robux = UIKit.button(card, {
@@ -919,6 +920,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	robuxFill.Rotation = 90
 	robuxFill.Color = STUDDED.robux
 	robuxFill.Parent = robux
+	Studded.button(robux, 8)
 	robux.MouseEnter:Connect(function()
 		robux.BackgroundColor3 = Color3.fromHex("E6D6FF")
 	end)

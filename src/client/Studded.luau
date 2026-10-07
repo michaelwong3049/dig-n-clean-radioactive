@@ -189,6 +189,54 @@ function Studded.pattern(parent: GuiObject, props: PatternProps?): Frame
 	return holder
 end
 
+--- Lay the glossy L-studs over a TextButton that draws its own caption (on request,
+--- 2026-10-07: the buy buttons). A child always draws over its parent's own text, so the
+--- caption moves to a "Caption" label above the pattern that mirrors the button's Text,
+--- TextColor3, TextSize and Font, and takes its text strokes with it; callers keep
+--- setting the button's properties as before.
+function Studded.button(button: TextButton, radius: number?): Frame
+	local holder = Studded.pattern(button, {
+		radius = radius,
+		tile = 20,
+		bands = { 0.28, 0.5, 0.58, 0.64 },
+		bandTransparency = 0.8,
+		studTransparency = 0.35,
+		glow = false,
+	})
+	local caption = Instance.new("TextLabel")
+	caption.Name = "Caption"
+	caption.Size = UDim2.fromScale(1, 1)
+	caption.BackgroundTransparency = 1
+	caption.ZIndex = button.ZIndex + 1
+	caption.RichText = button.RichText
+	caption.TextScaled = button.TextScaled
+	caption.TextWrapped = button.TextWrapped
+	caption.TextXAlignment = button.TextXAlignment
+	caption.TextYAlignment = button.TextYAlignment
+	for _, child in button:GetChildren() do
+		if child:IsA("UIStroke") and child.ApplyStrokeMode == Enum.ApplyStrokeMode.Contextual then
+			child.Parent = caption
+		end
+	end
+	local function sync()
+		caption.Text = button.Text
+		caption.TextColor3 = button.TextColor3
+		caption.TextSize = button.TextSize
+		caption.Font = button.Font
+	end
+	sync()
+	for _, property in { "Text", "TextColor3", "TextSize", "Font" } do
+		button:GetPropertyChangedSignal(property):Connect(sync)
+	end
+	button:GetPropertyChangedSignal("ZIndex"):Connect(function()
+		caption.ZIndex = button.ZIndex + 1
+		holder.ZIndex = button.ZIndex
+	end)
+	button.TextTransparency = 1
+	caption.Parent = button
+	return holder
+end
+
 -- The dark grey studded backdrop the Shop and Nukes panels wear.
 Studded.DARK = Color3.fromHex("2B2F36")
 

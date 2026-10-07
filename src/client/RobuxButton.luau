@@ -29,6 +29,8 @@ local TweenService = game:GetService("TweenService")
 
 local GamePasses = require(ReplicatedStorage.Shared.Config.GamePasses)
 
+local Studded = require(script.Parent.Studded)
+
 local RobuxButton = {}
 
 local ROBUX = utf8.char(0xE002)
@@ -174,6 +176,8 @@ local function shell(parent: Instance, caption: string?): (TextButton, TextLabel
 	local scale = Instance.new("UIScale")
 	scale.Name = "Press"
 	scale.Parent = button
+	-- The Shop's glossy L-studs, under the caption and price (on request, 2026-10-07).
+	Studded.pattern(button, { radius = 10, tile = 20, bands = { 0.28, 0.5, 0.58, 0.64 }, bandTransparency = 0.8, studTransparency = 0.35, glow = false })
 
 	local captionLabel: TextLabel? = nil
 	local price: TextLabel

@@ -301,6 +301,7 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 	buyText.Thickness = 3
 	buyText.LineJoinMode = Enum.LineJoinMode.Round
 	buyText.Parent = buy
+	Studded.button(buy, 12)
 	if not live then
 		return buy
 	end
