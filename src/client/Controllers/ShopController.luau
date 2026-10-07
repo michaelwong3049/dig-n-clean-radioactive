@@ -1170,7 +1170,7 @@ local function refreshStatus()
 	label.Text = `Active: {clock} left`
 end
 
---- Open the Shop panel. Also what the Boosts card's GET MORE does (BoostsController).
+--- Open the Shop panel.
 function Shop.open()
 	local panel = panelFrame
 	if panel == nil or panel.Visible or HudTile.blocked("Shop") then
