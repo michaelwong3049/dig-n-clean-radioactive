@@ -18,10 +18,9 @@
 	Crate. Each camp also gets a Robux pad copying Base Camp's (Fusion + Plasma, the same
 	two products). The Scrap crate went $15K -> $75K the same day; Coolant stays $40K.
 
-	CAMP PRICES FOLLOW WHAT'S INSIDE: Scrap at $75K is ~27x its average nuke's value
-	(~$2.8K), and the camp nuke crates keep that markup -- Field ~$26K inside -> $700K
-	(about Twilight's cheapest gear), Void ~$432K inside -> $12M. Each liquid crate is a
-	bit over half its pad's nuke crate, the same ratio as Base Camp's Coolant to Scrap.
+	CAMP PRICES (user's call, 2026-10-07): Field $1M, Isotope $700K, Void $25M, Nitro
+	$10M. Raised from a first cut that kept Scrap's ~27x markup over the average nuke
+	inside (Field ~$26K, Void ~$432K) -- $700K / $400K / $12M / $6.5M.
 
 	CAMP PADS SIT ON THE PLAZA'S EAST SIDE (moved from the west on request, 2026-10-07),
 	flanking the exit path the way Base Camp's flank the chest, and as close in (18 off the
@@ -139,10 +138,10 @@ CrateShop.PADS = {
 	},
 } :: { Pad }
 
-for _, pad in campPads("twilight", "Twilight", "nuke2", 700_000, "liquid2", 400_000) do
+for _, pad in campPads("twilight", "Twilight", "nuke2", 1_000_000, "liquid2", 700_000) do
 	table.insert(CrateShop.PADS, pad)
 end
-for _, pad in campPads("magma", "Magma", "nuke3", 12_000_000, "liquid1", 6_500_000) do
+for _, pad in campPads("magma", "Magma", "nuke3", 25_000_000, "liquid1", 10_000_000) do
 	table.insert(CrateShop.PADS, pad)
 end
 
