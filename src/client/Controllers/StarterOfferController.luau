@@ -42,12 +42,22 @@ local StarterOfferController = {}
 
 local PACK_KEY = "starter"
 
-local CARD_W = 168
+-- Smaller, on request (2026-10-07): 168 x 156 -> 140 x 128.
+local CARD_W = 140
 local CARD_H = Dock.STARTER_CARD_H
-local RAYS = 380
-local ART = 74
-local BUY_H = 34
-local CLOSE = 30
+local RAYS = 310
+local ART = 60
+-- The crate's centre, down from the card's top.
+local ART_Y = 66
+-- The cash bundle and clover lean on the crate's sides (on request, 2026-10-07: they
+-- floated off at the card's edges): their centres this far out from the crate's, and
+-- this far below it.
+local SIDE_OUT = 30
+local SIDE_DROP = 14
+local BUNDLE = 42
+local CLOVER = 34
+local BUY_H = 28
+local CLOSE = 26
 -- Never smaller than this on a short screen, where the card must squeeze in above the
 -- right-edge tile column.
 local MIN_FIT = 0.6
@@ -451,16 +461,16 @@ function StarterOfferController.start()
 	local cardScale = Instance.new("UIScale")
 	cardScale.Parent = card
 
-	local title = label(card, "Title", string.upper(pack.name), 17, COLOR.white, 6)
-	title.Size = UDim2.new(1, -16, 0, 22)
-	title.Position = UDim2.fromOffset(8, 8)
+	local title = label(card, "Title", string.upper(pack.name), 15, COLOR.white, 6)
+	title.Size = UDim2.new(1, -12, 0, 18)
+	title.Position = UDim2.fromOffset(6, 6)
 
-	local once = label(card, "Once", "ONE TIME ONLY", 11, COLOR.cash, 6)
-	once.Size = UDim2.new(1, -16, 0, 12)
-	once.Position = UDim2.fromOffset(8, 30)
+	local once = label(card, "Once", "ONE TIME ONLY", 10, COLOR.cash, 6)
+	once.Size = UDim2.new(1, -12, 0, 11)
+	once.Position = UDim2.fromOffset(6, 24)
 
 	-- The crate, still (on request), a cash bundle leaning on its left and a luck clover
-	-- on its right.
+	-- on its right, both tucked against it and in front of it.
 	local art = Instance.new("ImageLabel")
 	art.Name = "Art"
 	art.BackgroundTransparency = 1
@@ -474,7 +484,7 @@ function StarterOfferController.start()
 	end
 	art.ScaleType = Enum.ScaleType.Fit
 	art.AnchorPoint = Vector2.new(0.5, 0.5)
-	art.Position = UDim2.new(0.5, 6, 0, 46 + ART / 2 - 4)
+	art.Position = UDim2.new(0.5, 0, 0, ART_Y)
 	art.Size = UDim2.fromOffset(ART, ART)
 	art.ZIndex = 4
 	art.Parent = card
@@ -483,24 +493,24 @@ function StarterOfferController.start()
 	bundle.BackgroundTransparency = 1
 	bundle.Image = Artwork.IMAGE.cashBundle
 	bundle.ScaleType = Enum.ScaleType.Fit
-	bundle.AnchorPoint = Vector2.new(0.5, 1)
-	bundle.Position = UDim2.new(0, 38, 1, -BUY_H - 6)
-	bundle.Size = UDim2.fromOffset(50, 50)
+	bundle.AnchorPoint = Vector2.new(0.5, 0.5)
+	bundle.Position = UDim2.new(0.5, -SIDE_OUT, 0, ART_Y + SIDE_DROP)
+	bundle.Size = UDim2.fromOffset(BUNDLE, BUNDLE)
 	bundle.Rotation = -12
 	bundle.ZIndex = 5
 	bundle.Parent = card
-	local clover = CloverArt.build(card, 42, 5)
+	local clover = CloverArt.build(card, CLOVER, 5)
 	clover.Name = "Clover"
-	clover.AnchorPoint = Vector2.new(0.5, 1)
-	clover.Position = UDim2.new(1, -30, 1, -BUY_H - 8)
+	clover.AnchorPoint = Vector2.new(0.5, 0.5)
+	clover.Position = UDim2.new(0.5, SIDE_OUT, 0, ART_Y + SIDE_DROP)
 	clover.Rotation = 12
 
 	local buy = RobuxButton.product(card, function()
 		return pack.id
 	end)
 	buy.button.AnchorPoint = Vector2.new(0.5, 1)
-	buy.button.Position = UDim2.new(0.5, 0, 1, -8)
-	buy.button.Size = UDim2.new(1, -16, 0, BUY_H)
+	buy.button.Position = UDim2.new(0.5, 0, 1, -4)
+	buy.button.Size = UDim2.new(1, -12, 0, BUY_H)
 	buy.button.ZIndex = 6
 	buy.price.ZIndex = 7
 	-- Just the R$ price, no purple button behind it (on request), and not a button of its
@@ -529,12 +539,12 @@ function StarterOfferController.start()
 	close.Name = "Close"
 	close.AutoButtonColor = false
 	close.AnchorPoint = Vector2.new(0.5, 0.5)
-	close.Position = UDim2.new(1, -6, 0, 6)
+	close.Position = UDim2.new(1, -4, 0, 4)
 	close.Size = UDim2.fromOffset(CLOSE, CLOSE)
 	close.BackgroundColor3 = COLOR.close
 	close.Font = Enum.Font.GothamBlack
 	close.Text = "X"
-	close.TextSize = 18
+	close.TextSize = 16
 	close.TextColor3 = COLOR.white
 	close.ZIndex = 8
 	close.Parent = body
@@ -548,12 +558,12 @@ function StarterOfferController.start()
 	end)
 
 	-- Under the corner row, hard right, dropped a little (Dock.STARTER_DROP) so its rays clear the
-	-- Daily and Potions tiles in the corner above it; shrunk on a short screen so it stays clear of
-	-- the tile column below it (Dock.sideColumnTop).
+	-- corner tiles above it; shrunk on a short screen so it stays clear of the Nukes / Potions
+	-- column below it (Dock.rightColumnTop).
 	local function place()
 		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
 		local top = Dock.STARTER_TOP
-		local ceiling = height / 2 + Dock.sideColumnTop(height) - Dock.GAP
+		local ceiling = height / 2 + Dock.rightColumnTop(height) - Dock.GAP
 		local touch = if UIKit.isTouch() then TOUCH_FIT else 1
 		fit.Scale = math.clamp((ceiling - top) / (CARD_H * touch), MIN_FIT, 1) * touch
 		holder.Position = UDim2.new(1, -(Dock.CORNER_SIDE + 4), 0, top)
