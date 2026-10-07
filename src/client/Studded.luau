@@ -193,11 +193,14 @@ end
 --- 2026-10-07: the buy buttons). A child always draws over its parent's own text, so the
 --- caption moves to a "Caption" label above the pattern that mirrors the button's Text,
 --- TextColor3, TextSize and Font, and takes its text strokes with it; callers keep
---- setting the button's properties as before.
+--- setting the button's properties as before. The studs are half the cards' 28 px
+--- (on request: smaller than the card the button sits on).
+Studded.BUTTON_TILE = 14
+
 function Studded.button(button: TextButton, radius: number?): Frame
 	local holder = Studded.pattern(button, {
 		radius = radius,
-		tile = 20,
+		tile = Studded.BUTTON_TILE,
 		bands = { 0.28, 0.5, 0.58, 0.64 },
 		bandTransparency = 0.8,
 		studTransparency = 0.35,
@@ -235,6 +238,19 @@ function Studded.button(button: TextButton, radius: number?): Frame
 	button.TextTransparency = 1
 	caption.Parent = button
 	return holder
+end
+
+--- A rounded ink border round a button's box (Border mode: on a TextButton the default
+--- Contextual stroke only outlines the text).
+function Studded.border(button: GuiObject, thickness: number): UIStroke
+	local ink = Instance.new("UIStroke")
+	ink.Name = "Border"
+	ink.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	ink.Color = Studded.INK
+	ink.Thickness = thickness
+	ink.LineJoinMode = Enum.LineJoinMode.Round
+	ink.Parent = button
+	return ink
 end
 
 -- The dark grey studded backdrop the Shop and Nukes panels wear.

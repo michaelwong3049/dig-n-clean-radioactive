@@ -771,6 +771,9 @@ end
 --- falls back to child lookup when a property of that name exists, which would make
 --- the label permanently unreachable. Hence `CardName`, matching `ItemNameLabel`
 --- above for the same reason.
+-- The gear cards' corner: squared off, just softened (on request, 2026-10-07; was 12).
+local CARD_CORNER = 4
+
 local function makeShopCard(parent: Instance, order: number): Frame
 	local card = UIKit.panel(parent, {
 		name = `Card{order}`,
@@ -781,7 +784,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		transparency = 0,
 		strokeColor = STUDDED.cardEdge,
 		strokeThickness = 4,
-		cornerRadius = UDim.new(0, 12),
+		cornerRadius = UDim.new(0, CARD_CORNER),
 		visible = false,
 	})
 	card.LayoutOrder = order
@@ -789,7 +792,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	-- The glossy L-stud pattern over whatever colour the card is painted
 	-- (paintShopCard), under everything else on it. The glow is kept faint so the
 	-- gear's colour still reads at full strength.
-	Studded.pattern(card, { radius = 12, zIndex = 0, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.55, glowTransparency = 0.72 })
+	Studded.pattern(card, { radius = CARD_CORNER, zIndex = 0, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.55, glowTransparency = 0.72 })
 
 	local scale = Instance.new("UIScale")
 	scale.Name = "FocusScale"
@@ -895,6 +898,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	buyFill.Color = STUDDED.lime
 	buyFill.Parent = buy
 	Studded.button(buy, 8)
+	Studded.border(buy, 3)
 
 	-- Hidden until paintShopCard finds a product for the tier.
 	local robux = UIKit.button(card, {
@@ -921,6 +925,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	robuxFill.Color = STUDDED.robux
 	robuxFill.Parent = robux
 	Studded.button(robux, 8)
+	Studded.border(robux, 3)
 	robux.MouseEnter:Connect(function()
 		robux.BackgroundColor3 = Color3.fromHex("E6D6FF")
 	end)
@@ -957,6 +962,11 @@ end
 local function inkShopText(root: Instance)
 	for _, node in root:GetDescendants() do
 		if not (node:IsA("TextLabel") or node:IsA("TextButton")) or node.TextSize <= 1 then
+			continue
+		end
+		-- A Studded.button draws its text on a Caption label (inked here in its own
+		-- turn); its own UIStroke is the box's Border and stays one.
+		if node:IsA("TextButton") and node.TextTransparency >= 1 then
 			continue
 		end
 		local stroke = node:FindFirstChildOfClass("UIStroke")
