@@ -1,6 +1,6 @@
 --!strict
 --[[
-	CrateFx.luau — subtle ambient effects on the ten supply crates (Config/Crates).
+	CrateFx.luau — subtle ambient effects on the supply crates (Config/Crates).
 
 	FITTED TO THE MODEL, NOT TO ONE DRAWING. Every effect is placed from the crate's
 	bounding box, not from named parts, so the same layer works on the studded crates
@@ -150,7 +150,7 @@ type Parts = { core: BasePart, top: BasePart, peak: Attachment, extents: Vector3
 
 --- Every crate: faint sparkles in the crate's own colour drifting up round it, a
 --- little denser the better the crate, so the tier reads at a glance.
-local AURA_RATE = { 0.8, 1.4, 2.4, 3, 3.8 }
+local AURA_RATE = { 0.8, 1.4, 2.4, 3, 3.8, 4.6, 5.4 }
 
 local function aura(core: BasePart, hex: string, variant: number)
 	emitter(core, {
@@ -400,6 +400,71 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 			spread = 25,
 			lightEmission = 1,
 			rotSpeed = NumberRange.new(-60, 60),
+		})
+	end,
+
+	-- Ground Zero (Mythic jackpot): a red-orange glow from the magma cracks, embers
+	-- rising off the case and a slow plume of dark smoke off the mushroom cloud.
+	nuke6 = function(p)
+		light(p.core, "FF5A2E", math.max(p.extents.X, p.extents.Z) * 2.4, 1.1)
+		emitter(p.top, {
+			name = "Embers",
+			texture = SPARKLE,
+			color = colour("FF5A2E", "FFD27A"),
+			size = seq(0.16, 0.08, 0),
+			transparency = seq(0.05, 1),
+			rate = 5,
+			lifetime = NumberRange.new(1.4, 2.4),
+			speed = NumberRange.new(0.6, 1.1),
+			spread = 30,
+			lightEmission = 1,
+			rotSpeed = NumberRange.new(-60, 60),
+		})
+		emitter(p.peak, {
+			name = "Plume",
+			texture = SMOKE,
+			color = colour("5A4038", "2A2220"),
+			size = seq(0.4, 1.2),
+			transparency = seq(0.75, 1),
+			rate = 1.2,
+			lifetime = NumberRange.new(2, 3),
+			speed = NumberRange.new(0.3, 0.5),
+			spread = 15,
+			rotSpeed = NumberRange.new(-20, 20),
+		})
+	end,
+
+	-- Rift (Anomaly jackpot): white-violet stars spilling out of the portal, a halo
+	-- pulsing at the top, and a cold white light.
+	nuke7 = function(p)
+		light(p.core, "D8C8FF", math.max(p.extents.X, p.extents.Z) * 2.4, 1.1)
+		emitter(p.core, {
+			name = "Stars",
+			texture = SPARKLE,
+			color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromHex("FFFFFF")),
+				ColorSequenceKeypoint.new(0.5, Color3.fromHex("B98CFF")),
+				ColorSequenceKeypoint.new(1, Color3.fromHex("6FE0FF")),
+			}),
+			size = seq(0, 0.18, 0),
+			transparency = seq(0.05),
+			rate = 4,
+			lifetime = NumberRange.new(0.8, 1.4),
+			speed = NumberRange.new(0.3, 0.7),
+			spread = 180,
+			lightEmission = 1,
+		})
+		emitter(p.peak, {
+			name = "Halo",
+			texture = SPARKLE,
+			color = colour("FFFFFF", "D8C8FF"),
+			size = seq(0.6, 1.4),
+			transparency = seq(0.45, 1),
+			rate = 1.2,
+			lifetime = NumberRange.new(1.2),
+			speed = NumberRange.new(0),
+			lightEmission = 1,
+			locked = true,
 		})
 	end,
 

@@ -1,6 +1,6 @@
 --!strict
 --[[
-	CrateModels.luau — the ten supply crates (Config/Crates), as geometry.
+	CrateModels.luau — the supply crates (Config/Crates), as geometry.
 
 	MODELS AS CODE, like Shared/ItemModels and Shared/ToolModels/Hose: every crate is
 	built from primitives here, in git, so nothing about it lives in the place file and
@@ -11,7 +11,7 @@
 	plates are smooth.
 
 	THESE ARE THE FALLBACK. The shipped crates are the user's imported models
-	(Assets.CrateTemplates, below): nuke1-5 = scrap / field / void / cobalt / fusion,
+	(Assets.CrateTemplates, below): nuke1-7 = scrap / field / void / cobalt / fusion / groundzero / rift,
 	liquid1-5 = nitro / isotope / coolant / quicksilver / plasma. The built ones below
 	stand in for any id with no import (the late tiers borrow the top early drawings).
 
@@ -382,6 +382,8 @@ local BUILDERS: { [string]: (Model) -> BasePart } = {
 	-- No hand-built drawing of their own: the imported models are the real ones.
 	nuke4 = reactor,
 	nuke5 = reactor,
+	nuke6 = reactor,
+	nuke7 = reactor,
 	liquid4 = cryo,
 	liquid5 = cryo,
 	potion1 = hazmat,

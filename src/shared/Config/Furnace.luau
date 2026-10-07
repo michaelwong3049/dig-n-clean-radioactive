@@ -10,9 +10,10 @@
 	(`furnaceFill`), so dumping a Mythic stack can bank several rolls at once.
 
 	A ROLL draws one prize off PRIZES by weight: potions, crates, cash, timed boosts,
-	and a small chance of a Legendary / Mythic / Anomaly nuke from Magma Hollow's own
-	stages (JACKPOT_STAGES). The client plays it as a card reel (client/PrizeReel); the
-	server has already granted the prize when the reel starts.
+	the jackpot crates (Ground Zero ~2%, Rift ~0.5%), and a small chance of a
+	Legendary / Mythic / Anomaly nuke from Magma Hollow's own stages (JACKPOT_STAGES).
+	The client plays it as a card reel (client/PrizeReel); the server has already
+	granted the prize when the reel starts.
 
 	SLAGGED COPIES COUNT, ON PURPOSE. A Slagged nuke is worth a tenth and no stand
 	will take it; the furnace is the one place it is worth anything (SLAG_FILL).
@@ -104,7 +105,9 @@ Furnace.PRIZES = {
 	{ id = "cashBoost", name = "2x Cash 15 min", kind = "cashBoost", seconds = 15 * 60, tier = "Epic", weight = 2.5 },
 	{ id = "cashVault", name = "Cash Vault", kind = "cash", minutes = 45, floor = 1000000, tier = "Legendary", weight = 1.2 },
 	{ id = "legendaryNuke", name = "Legendary Nuke", kind = "nuke", rarity = "Legendary", tier = "Legendary", weight = 1 },
+	{ id = "groundZeroCrate", name = "Ground Zero Crate", kind = "crate", crate = "nuke6", tier = "Mythic", weight = 2.1 },
 	{ id = "mythicNuke", name = "Mythic Nuke", kind = "nuke", rarity = "Mythic", tier = "Mythic", weight = 0.3 },
+	{ id = "riftCrate", name = "Rift Crate", kind = "crate", crate = "nuke7", tier = "Anomaly", weight = 0.53 },
 	{ id = "anomalyNuke", name = "Anomaly Nuke", kind = "nuke", rarity = "Anomaly", tier = "Anomaly", weight = 0.05 },
 } :: { PrizeDef }
 
