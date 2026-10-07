@@ -29,6 +29,7 @@ local Dock = UIKit.Dock
 local RobuxButton = require(script.Parent.Parent.RobuxButton)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Studded = require(script.Parent.Parent.Studded)
+local TutorialGate = require(script.Parent.Parent.TutorialGate)
 
 local PassOfferController = {}
 
@@ -243,6 +244,8 @@ function PassOfferController.start()
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 53
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	-- Hidden until the tutorial is over (the Starter Pack offer above waits too).
+	TutorialGate.bind(gui)
 	local canvas = UIKit.canvas(gui)
 
 	-- Anchored top-right, so the fit scale shrinks the stack into the right edge.
