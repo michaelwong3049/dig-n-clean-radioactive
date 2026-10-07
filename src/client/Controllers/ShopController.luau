@@ -89,9 +89,12 @@ local PANEL = {
 local CARD_SHADE = 0.12 -- 0 = card colour as drawn, 1 = black
 local CARD_SEE = 0.1 -- BackgroundTransparency of every card
 
-local function darkGlass(card: GuiObject)
+-- Each card also wears the gear shop cards' glossy L-studs (on request, 2026-10-07),
+-- under everything else on it.
+local function darkGlass(card: GuiObject, radius: number)
 	card.BackgroundColor3 = card.BackgroundColor3:Lerp(Color3.new(0, 0, 0), CARD_SHADE)
 	card.BackgroundTransparency = CARD_SEE
+	Studded.pattern(card, { radius = radius, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.55, glowTransparency = 0.72 })
 end
 
 local PANEL_W = 860
@@ -345,7 +348,7 @@ local function buildCloverCard(parent: Frame)
 	card.Size = UDim2.new(1, -8, 0, CLOVER_H)
 	card.LayoutOrder = -19
 	card.BackgroundColor3 = PANEL.card
-	darkGlass(card)
+	darkGlass(card, 16)
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
 	card.Parent = parent
@@ -446,7 +449,7 @@ local function buildServerBoostCard(parent: Frame)
 	card.Size = UDim2.new(1, -8, 0, SERVER_BOOST_H)
 	card.LayoutOrder = -18
 	card.BackgroundColor3 = SERVER_BOOST_TINT
-	darkGlass(card)
+	darkGlass(card, 16)
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
 	card.Parent = parent
@@ -593,7 +596,7 @@ local function buildPacks(parent: Instance)
 		card.Name = `Pack_{pack.key}`
 		card.LayoutOrder = index
 		card.BackgroundColor3 = PACK_TINT[pack.key] or PANEL.cashTile
-		darkGlass(card)
+		darkGlass(card, 16)
 		card.BorderSizePixel = 0
 		card.ZIndex = 12
 		card.Parent = frame
@@ -741,7 +744,7 @@ local function buildPasses(parent: Instance)
 			card.Name = `Pass_{pass.key}`
 			card.LayoutOrder = slot
 			card.BackgroundColor3 = PASS_TINT[pass.key] or PANEL.cashTile
-			darkGlass(card)
+			darkGlass(card, 14)
 			card.BorderSizePixel = 0
 			card.ZIndex = 12
 			card.Parent = frame
@@ -850,7 +853,7 @@ local function buildPackRows(parent: Instance, order: number, title: string, pac
 			card.Name = `{title}{index}`
 			card.LayoutOrder = index
 			card.BackgroundColor3 = Color3.new(1, 1, 1)
-			darkGlass(card)
+			darkGlass(card, 14)
 			card.BorderSizePixel = 0
 			card.ClipsDescendants = true
 			card.ZIndex = 12
@@ -1065,7 +1068,7 @@ local function buildCodes(parent: Instance)
 	card.LayoutOrder = 21
 	card.Size = UDim2.new(1, -8, 0, CODES_H)
 	card.BackgroundColor3 = PANEL.cardEdge:Lerp(PANEL.liquidTile, 0.5)
-	darkGlass(card)
+	darkGlass(card, 14)
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
 	card.Parent = parent
