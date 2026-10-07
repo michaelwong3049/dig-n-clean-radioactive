@@ -83,10 +83,11 @@ local PANEL = {
 	headline = Enum.Font.GothamBlack,
 	label = Enum.Font.GothamBlack,
 }
--- DARK GLASS: every card is its own colour pulled most of the way to black and made
--- see-through, so the shop reads as tinted smoked glass over the world.
-local CARD_SHADE = 0.5 -- 0 = card colour as drawn, 1 = black
-local CARD_SEE = 0.3 -- BackgroundTransparency of every card
+-- TINTED GLASS: every card is its own colour, only lightly shaded and a touch
+-- see-through. Brighter on request (2026-10-07), once the panel behind them wore the
+-- studs: it was 0.5 shade / 0.3 see-through, which read muddy over the dark studs.
+local CARD_SHADE = 0.12 -- 0 = card colour as drawn, 1 = black
+local CARD_SEE = 0.1 -- BackgroundTransparency of every card
 
 local function darkGlass(card: GuiObject)
 	card.BackgroundColor3 = card.BackgroundColor3:Lerp(Color3.new(0, 0, 0), CARD_SHADE)
