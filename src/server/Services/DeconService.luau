@@ -243,6 +243,9 @@ local function stepPlayer(player: Player, _dt: number)
 		-- luck multiplier behind the crit, and the Reactor mastery's fee discount.
 		luck = if kind == "merge" then stats.luckMultiplier else nil,
 		mergeFeeMult = if kind == "merge" then stats.mergeFeeMult else nil,
+		-- The Slag Furnace's meter and banked rolls (Config/Furnace), only at the furnace.
+		furnaceFill = if kind == "furnace" then data.furnaceFill or 0 else nil,
+		furnaceRolls = if kind == "furnace" then data.furnaceRolls or 0 else nil,
 	})
 end
 

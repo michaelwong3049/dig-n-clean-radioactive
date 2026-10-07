@@ -75,6 +75,9 @@
 	                                  The cleansing station then moves to the WashYard
 	                                  deck north-west of the plaza, on a spur off the
 	                                  entry path, so you wash right as you come in.
+	    ...<Key>.SlagFurnace          StationKind = "furnace", StationId = <Key>, on the
+	                                  south deck the Merge Reactor stands on elsewhere;
+	                                  only where Config/Camps sets `furnace`
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -91,13 +94,14 @@ local Shops = require(script.Parent.Shops)
 local BaseCamp = require(script.Parent.BaseCamp)
 local Plots = require(script.Parent.Plots)
 local MergeReactor = require(script.Parent.MergeReactor)
+local SlagFurnace = require(script.Parent.SlagFurnace)
 local ReforgeStation = require(script.Parent.ReforgeStation)
 
 local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 35
+local BUILDER_VERSION = 36
 
 local C = Kit.C
 local build = Kit.build
@@ -164,6 +168,12 @@ local BAY_Z = 134
 local MERGE_DECK_HALF_X = 18
 local MERGE_DECK_MIN_Z, MERGE_DECK_MAX_Z = 114, 146
 local MERGE_Z = 134
+
+--- Whether this camp has the south deck: the Merge Reactor's, or the Slag Furnace's
+--- where there is no reactor (Config/Camps `furnace`).
+local function hasSouthDeck(def: Camps.CampDef): boolean
+	return def.mergeReactor == true or def.furnace == true
+end
 
 --- WHERE THE CLEANSING STATION GOES WHEN THE REFORGE STATION TAKES THE NORTH DECK
 --- (Config/Camps `reforge`): its own deck, the wash deck's size, north-west of the
@@ -289,7 +299,7 @@ local function buildBorder(parent: Instance, L: Layout)
 
 	-- Which octagon sides a path leaves through (local axis sign pairs).
 	local west, east = true, L.exitX ~= nil
-	local north, south = true, L.def.mergeReactor == true
+	local north, south = true, hasSouthDeck(L.def)
 	local t = OCT_DIAG - OCT_HALF -- the axis sides' half-length
 	local function side(open: boolean, run: (number, number) -> ())
 		if open then
@@ -464,7 +474,7 @@ local function paved(L: Layout, x: number, z: number): boolean
 		return true
 	end
 	-- South, down to (and on under) the Merge Reactor's deck.
-	if L.def.mergeReactor and ax <= PATH_HALF and z <= L.oz and z >= L.oz - MERGE_DECK_MIN_Z - TILE then
+	if hasSouthDeck(L.def) and ax <= PATH_HALF and z <= L.oz and z >= L.oz - MERGE_DECK_MIN_Z - TILE then
 		return true
 	end
 	-- North off the west path, up to (and on under) the wash yard.
@@ -1133,9 +1143,10 @@ local function buildWashYard(parent: Instance, L: Layout)
 	Plots.buildCleansingStation(parent, bay * CFrame.Angles(0, math.rad(-90), 0) * CFrame.new(-26, 0, 32), p.awnings[1])
 end
 
---- The Merge Reactor on its own deck, south of the octagon, facing the plaza.
+--- The Merge Reactor (or, where there is none, the Slag Furnace) on its own deck,
+--- south of the octagon, facing the plaza.
 local function buildMergeDeck(parent: Instance, L: Layout)
-	if not L.def.mergeReactor then
+	if not hasSouthDeck(L.def) then
 		return
 	end
 	local p = L.palette
@@ -1148,7 +1159,7 @@ local function buildMergeDeck(parent: Instance, L: Layout)
 	}
 	local tint: Hub.TileOpts = { topY = deckTop, dark = p.deck, light = lighter(p.deck, 0.06) }
 	local deck = Instance.new("Model")
-	deck.Name = "MergeDeck"
+	deck.Name = if L.def.mergeReactor then "MergeDeck" else "FurnaceDeck"
 	Hub.groundSlab(deck, rect, "Deck", DECK_THICKNESS, tint)
 	local tiles = Instance.new("Folder")
 	tiles.Name = "DeckTiles"
@@ -1156,8 +1167,15 @@ local function buildMergeDeck(parent: Instance, L: Layout)
 	tiles.Parent = deck
 	deck.Parent = parent
 
+	if L.def.comingSoon then
+		return
+	end
 	-- Unrotated: the machine is authored facing +Z, which is north, up the path.
-	MergeReactor.build(parent, CFrame.new(L.ox, deckTop, L.oz - MERGE_Z), L.def.key)
+	if L.def.mergeReactor then
+		MergeReactor.build(parent, CFrame.new(L.ox, deckTop, L.oz - MERGE_Z), L.def.key)
+	else
+		SlagFurnace.build(parent, CFrame.new(L.ox, deckTop, L.oz - MERGE_Z), L.def.key)
+	end
 end
 
 --- Where WarpService puts you: on the west path, between the plaza's west edge and the
@@ -1220,7 +1238,7 @@ local function buildFoliage(parent: Instance, L: Layout)
 				continue
 			end
 			if
-				L.def.mergeReactor
+				hasSouthDeck(L.def)
 				and math.abs(x - L.ox) <= MERGE_DECK_HALF_X + 6
 				and z <= L.oz - MERGE_DECK_MIN_Z + 6
 				and z >= L.oz - MERGE_DECK_MAX_Z - 6

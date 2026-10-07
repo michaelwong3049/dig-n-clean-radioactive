@@ -57,6 +57,7 @@ local ToolTiers = require(Config.ToolTiers)
 local Camps = require(Config.Camps)
 local Merge = require(Config.Merge)
 local Reforge = require(Config.Reforge)
+local Furnace = require(Config.Furnace)
 local Bombing = require(script.Parent.Parent.Bombing)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
@@ -493,6 +494,56 @@ function Spec.run(): boolean
 		check("Â§reforge a better roll makes a bigger bomb", b.damage > a.damage and b.radius > a.radius)
 		local same = Bombing.statsFor(plain)
 		check("Â§reforge a never-reforged copy is untouched", same.damage == Bombing.statsFor(table.clone(plain)).damage)
+	end
+
+	-- Config/Furnace — the Slag Furnace. Pins: rarer copies fill more, a good quality
+	-- and a merge star each add,
+	-- Slagged fills its flat amount, one Anomaly fills a whole meter, every prize names a
+	-- real crate/potion, and the odds add up to one.
+	do
+		local ladder = true
+		local last = 0
+		for _, name in Rarity.ORDER do
+			local fill = Furnace.FILL[name]
+			if type(fill) ~= "number" or fill <= last then
+				ladder = false
+			end
+			last = fill or last
+		end
+		check("§furnace rarer copies fill more", ladder)
+		check("§furnace one Anomaly fills the meter", Furnace.fillOf({ rarity = "Anomaly", modifier = "None" }) >= Furnace.FULL)
+		local plain = Furnace.fillOf({ rarity = "Rare", modifier = "None" })
+		check("§furnace a good quality adds fill", Furnace.fillOf({ rarity = "Rare", modifier = "Pristine" }) > plain)
+		check(
+			"§furnace qualities stack",
+			Furnace.fillOf({ rarity = "Rare", modifier = "Pristine", bonus = { "Fused" } }) > Furnace.fillOf({ rarity = "Rare", modifier = "Pristine" })
+		)
+		check("§furnace a merge star adds fill", Furnace.fillOf({ rarity = "Rare", modifier = "None", merge = 1 }) > plain)
+		check("§furnace Slagged fills its flat amount", Furnace.fillOf({ rarity = "Mythic", modifier = "Slagged" }) == Furnace.SLAG_FILL)
+		local real, total = true, 0
+		for _, prize in Furnace.PRIZES do
+			total += Furnace.chance(prize.id)
+			if prize.kind == "crate" and not Crates.has(prize.crate) then
+				real = false
+			end
+			if prize.kind == "potion" and not Potions.has(prize.potion) then
+				real = false
+			end
+		end
+		check("§furnace every prize names a real crate or potion", real)
+		check("§furnace the odds add up to one", math.abs(total - 1) < 1e-9)
+		local jackpot = true
+		for _, rarity in { "Legendary", "Mythic", "Anomaly" } do
+			local any = false
+			for _, stageId in Furnace.JACKPOT_STAGES do
+				if Items.hasAny(stageId, rarity) then
+					any = true
+				end
+			end
+			jackpot = jackpot and any
+		end
+		check("§furnace every jackpot rarity is stocked on Magma Hollow's stages", jackpot)
+		check("§furnace Magma Hollow stands the furnace", (Camps.get("magma") :: any) ~= nil and (Camps.get("magma") :: any).furnace == true)
 	end
 
 

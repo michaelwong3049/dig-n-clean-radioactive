@@ -125,6 +125,7 @@ local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
 local MergePanel = require(script.Parent.Parent.MergePanel)
 local ReforgePanel = require(script.Parent.Parent.ReforgePanel)
+local FurnacePanel = require(script.Parent.Parent.FurnacePanel)
 local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 
 local Station = {}
@@ -154,13 +155,15 @@ local COLOR = UIKit.C
 -- approach would sit over the screen every time you walked to the wash.
 --
 -- THE MERGE REACTOR (Toxic Twilight) opens the same way, on its own E ("OpenMerge"),
--- and so does the REFORGE STATION beside it ("OpenReforge").
+-- and so does the REFORGE STATION beside it ("OpenReforge"), and Magma Hollow's SLAG
+-- FURNACE ("OpenFurnace").
 local PANEL_KINDS: { [string]: boolean } = {
 	trader = true,
 	shop = true,
 	locker = true,
 	merge = true,
 	reforge = true,
+	furnace = true,
 }
 
 -- ── Shop carousel ───────────────────────────────────────────────────
@@ -425,6 +428,10 @@ local mergePressedAt = -math.huge
 --- The Reforge Station's prompt (build/ReforgeStation), with the same press grace.
 local REFORGE_PROMPT = "OpenReforge"
 local reforgePressedAt = -math.huge
+
+--- The Slag Furnace's prompt (build/SlagFurnace), with the same press grace.
+local FURNACE_PROMPT = "OpenFurnace"
+local furnacePressedAt = -math.huge
 
 --- THE LOCKER'S FIRST-VISIT TUTORIAL (client/LockerTutorial): a spotlight walk over the
 --- panel, owed while the server's `lockerTutorial` is true. `tutorial` is the running
@@ -1556,6 +1563,8 @@ local function build(): ScreenGui
 	ui.merge = MergePanel.new(panel, 22)
 	-- And the Reforge Station's.
 	ui.reforge = ReforgePanel.new(panel, 23)
+	-- And the Slag Furnace's.
+	ui.furnace = FurnacePanel.new(panel, 24)
 
 	-- No drop shadow: UIKit draws it as a SIBLING label, and every child of `panel` is a
 	-- row of its list layout, so the shadow used to turn up as a faint copy of the
@@ -2328,11 +2337,13 @@ local function render()
 	local atLocker = state.station == "locker"
 	local atMerge = state.station == "merge"
 	local atReforge = state.station == "reforge"
+	local atFurnace = state.station == "furnace"
 	ui.shop.Visible = atShop
 	ui.locker.frame.Visible = atLocker
 	ui.merge.frame.Visible = atMerge
 	ui.reforge.frame.Visible = atReforge
-	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge and not atReforge
+	ui.furnace.frame.Visible = atFurnace
+	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge and not atReforge and not atFurnace
 	ui.fitPanel() -- the trader and the stalls each sit higher than the rest (TRADER_LIFT, SHOP_LIFT)
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
@@ -2354,6 +2365,7 @@ local function render()
 			elseif atLocker then LockerPanel.WIDTH
 			elseif atMerge then MergePanel.WIDTH
 			elseif atReforge then ReforgePanel.WIDTH
+			elseif atFurnace then FurnacePanel.WIDTH
 			else TraderPanel.WIDTH,
 		math.huge
 	)
@@ -2364,7 +2376,7 @@ local function render()
 	ui.panel.BackgroundColor3 = FIELD.panel
 	ui.panel.BackgroundTransparency = 0 -- solid: it sits over the depth readout and vitals bars now
 	-- The dark studded backdrop sits under the shop, the trader and the reactor alike.
-	local atTrader = not (atShop or atLocker or atMerge or atReforge)
+	local atTrader = not (atShop or atLocker or atMerge or atReforge or atFurnace)
 	ui.shopBackdrop.Visible = atShop or atTrader or atMerge
 
 	if atShop then
@@ -2479,6 +2491,12 @@ local function render()
 		return
 	end
 
+	if atFurnace then
+		ui.panelStroke.Color = FIELD.edge
+		ui.furnace.paint(state)
+		return
+	end
+
 	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
 	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
 	-- the RACK button with it -- see this file's header. The body is TraderPanel's.
@@ -2556,6 +2574,17 @@ function Station.start()
 	end)
 	Net.get("ReforgeResult").OnClientEvent:Connect(function(result)
 		ui.reforge.showResult(result)
+	end)
+	-- The furnace's two verbs. FurnaceService re-derives the station, the copies, the
+	-- fill and the prize; FurnaceResult brings the meter back, and a roll's reel.
+	ui.furnace.onDump(function(uids)
+		actionRemote:FireServer({ action = "furnaceDump", uids = uids })
+	end)
+	ui.furnace.onRoll(function()
+		actionRemote:FireServer({ action = "furnaceRoll" })
+	end)
+	Net.get("FurnaceResult").OnClientEvent:Connect(function(result)
+		ui.furnace.showResult(result)
 	end)
 
 	-- ── Moving along the carousel ────────────────────────────────────
@@ -2858,6 +2887,13 @@ function Station.start()
 			else
 				reforgePressedAt = os.clock()
 			end
+		elseif prompt.Name == FURNACE_PROMPT then
+			if state.station == "furnace" then
+				dismissed = not dismissed
+				render()
+			else
+				furnacePressedAt = os.clock()
+			end
 		elseif prompt.Name == LOCKER_PROMPT then
 			-- Toggles like the stand's E. Somebody else's rack reaches here too; the
 			-- server never reports it as a station (DeconService.ownsLocker), so the
@@ -2933,6 +2969,11 @@ function Station.start()
 				rackCard = nil
 				dismissed = os.clock() - reforgePressedAt > LOCKER_PRESS_GRACE
 				reforgePressedAt = -math.huge
+			elseif payload.station == "furnace" then
+				-- And the furnace.
+				rackCard = nil
+				dismissed = os.clock() - furnacePressedAt > LOCKER_PRESS_GRACE
+				furnacePressedAt = -math.huge
 			else
 				rackCard = nil
 				dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)

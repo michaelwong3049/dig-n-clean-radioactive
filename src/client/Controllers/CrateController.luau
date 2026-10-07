@@ -13,22 +13,18 @@
 	(LiquidController, FluidSpin) -- the server just sends that popup a reel drawn from
 	the crate's table. A NUKE crate plays this file's popup, built as that brew's
 	sibling: the same dimmed screen, glow, light rays, burst, tier pill and chips.
-	Where the brew has its flask, this has the NUKES THEMSELVES: every name on the reel
-	slides its own 3D model through the middle like a real reel, fast at first and
-	slowing down, fading at each hand-off, with a soft glow behind that eases between
-	rarity colours, until it settles on your prize and bursts (the "Smooth Flask" pass,
-	same as the brew). (It used to be the crate rattling here; the user asked for the nukes.)
-	The reel is made of real rolls off the crate's own table, so the nukes that flash
-	past most are the ones that come up most.
 
-	EVERY REEL MODEL IS BUILT ONCE, the tick before it is needed, and cached by item id.
-	ONLY THREE ARE EVER IN THE VIEWPORT: the nuke in view and its two neighbours on the
-	reel, the neighbours parked far below the camera. A ViewportFrame redraws every
-	part inside it whenever anything in it moves, so the old way (all ~16 reel models,
-	~1.7k parts, parked inside it the whole time) cost a redraw of all of them every
-	frame and was the opening's lag. A neighbour is parented a tick before it is shown,
-	because a model freshly parented into a ViewportFrame can miss a frame before it
-	draws, which at this tick rate read as a flicker.
+	THE CARD REEL (2026-10-06, on request, the Slag Furnace's option 1): a strip of
+	nuke cards slides across the screen past a marker, slows down and stops on your
+	prize (client/PrizeReel). Every card is its rarity's colour under the L-stud
+	pattern, with the nuke's model on the cards near the prize, and the glow behind
+	eases to the rarity of the card under the marker. It replaced a reel that slid one
+	3D nuke at a time through a single viewport. The reel is made of real rolls off
+	the crate's own table, so the nukes that flash past most are the ones that come
+	up most.
+
+	THE PRIZE IS BUILT ONCE, when the crate opens, and cached; the single 3D view
+	shows it only after the reel lands, turning on its plinth beside the stat sheet.
 
 	THE MODEL NEVER MOVES PER FRAME. The turn and the reel slide are the CAMERA orbiting
 	the model (with the light turned the same way, so the shading matches a turning
@@ -89,6 +85,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Prefs = require(script.Parent.Parent.Prefs)
 local RadFxArt = require(script.Parent.Parent.RadFxArt)
+local PrizeReel = require(script.Parent.Parent.PrizeReel)
 
 local CrateController = {}
 
@@ -119,14 +116,13 @@ local STAR_SIZE = 30
 local GOLD = Color3.fromHex("FFD34D")
 local MONEY = UIKit.House.cash
 local FADE_SECONDS = 0.25
-local REEL_FROM = 3
-local OVERSHOOT = 0.35
+--- The reel's band across the screen, and its cards (design px).
+local REEL_BAND_H = 196
+local REEL_CARD = Vector2.new(124, 156)
+--- How long the landed card holds before the prize's own view takes over.
+local LAND_HOLD = 0.8
 --- The soft glow behind the view: RadFx's white "soft dot with a bright core", tinted.
 local GLOW_IMAGE = RadFxArt.mote
---- How far a nuke slides sideways across one reel step, in model radii.
-local SLIDE = 1.6
---- The viewport's transparency at the moment one nuke hands over to the next.
-local HANDOFF_FADE = 0.55
 --- Sparks fall under this (design px/s^2) and lose speed to this drag per second.
 local SPARK_GRAVITY = 520
 local SPARK_DRAG = 0.35
@@ -819,6 +815,23 @@ local function build()
 	buildView(root)
 	buildResult(root)
 
+	-- The card reel, a dark band right across the screen through the view's middle.
+	local band = plainFrame(root, "ReelBand", UDim2.fromOffset(UIKit.DESIGN_SCREEN.X * 3, REEL_BAND_H), UDim2.fromOffset(VIEW_X, VIEW_Y), Vector2.new(0.5, 0.5))
+	band.BackgroundColor3 = Color3.new(0, 0, 0)
+	band.BackgroundTransparency = 0.4
+	band.ZIndex = 4
+	band.Visible = false
+	ui.reelBand = band
+	ui.reel = PrizeReel.new(band, {
+		size = UDim2.fromScale(1, 1),
+		widthHint = UIKit.DESIGN_SCREEN.X * 1.5,
+		cardSize = REEL_CARD,
+		gap = 10,
+		zIndex = 4,
+		marker = HOT_STROKE,
+		artAtStart = false,
+	})
+
 	local flash = Instance.new("Frame")
 	flash.Name = "Flash"
 	flash.BorderSizePixel = 0
@@ -955,6 +968,7 @@ local function close(token: number)
 				ui.connection:Disconnect()
 				ui.connection = nil
 			end
+			ui.reel.clear()
 			clearCache()
 		end
 	end)
@@ -1250,39 +1264,22 @@ local function play(payload: any)
 	local reel = fillReel(payload.reel, math.clamp(tonumber(payload.land) or #payload.reel, 1, #payload.reel), payload.crate)
 	local land = math.clamp(tonumber(payload.land) or #reel, 1, #reel)
 	local seconds = math.max(tonumber(payload.seconds) or 4.5, 0.5)
-	local from = math.min(REEL_FROM, land)
-
-	-- The nuke at `index` in view, its neighbours staged (built and parked) so the
-	-- next tick in either direction never builds or parents anything.
-	local function stageAround(index: number)
-		local entry = reel[index]
-		if type(entry) ~= "table" then
-			return
-		end
-		local current = cached(entry.itemId, entry.rarity)
-		local wanted = { current }
-		for _, near in { index - 1, index + 1 } do
-			local other = reel[near]
-			if type(other) == "table" and type(other.itemId) == "string" then
-				table.insert(wanted, cached(other.itemId, other.rarity))
-			end
-		end
-		stage(wanted, current)
-	end
 
 	clearCache()
 	preloadReel(reel, payload.result)
-	stageAround(from)
+	-- The prize, built now and staged in the (hidden) view, so the reveal never waits on
+	-- a clone.
+	display(cached(payload.result, payload.rarity))
 	ui.opening = true
 	ui.hide = 1
-	local first = reel[from]
+	local first = reel[1]
 	ui.header.Text = string.upper(crate.name)
 	ui.header.TextColor3 = Color3.fromHex(crate.color)
 	ui.sheet.Visible = false
-	ui.cycle.Visible = true
-	ui.cycle.Text = ""
+	ui.cycle.Visible = false
 	ui.cycleTier.Visible = false
 	ui.viewHolder.Position = ui.viewHome
+	ui.viewHolder.Visible = false
 	local centre = UDim2.fromOffset(VIEW_X, VIEW_Y)
 	ui.rays.Position = centre
 	ui.bloom.Position = centre
@@ -1301,92 +1298,63 @@ local function play(payload: any)
 	ui.glowTarget = firstColour
 	ui.scale.Scale = 0.92
 	ui.dim.BackgroundTransparency = 1
+	ui.reelBand.Visible = true
 	ui.gui.Enabled = true
 	tween(ui.scale, 0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
 	tween(ui.dim, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 0.45 })
 
-	-- The brew's own easing: quartic ease-out to just past (or short of) the result,
-	-- then a smoothstep back onto it.
-	local overshoot = (math.random() * 2 - 1) * OVERSHOOT
-	local mainSeconds = seconds * 0.88
-	local started = os.clock()
-	local lastTile = from
-	local lastPosition = from
-	local landed = false
-	-- Accumulated, not elapsed * speed: the turn slows when the prize lands, and
-	-- recomputing the angle from the total time at the new speed snapped it.
-	local turn = 0
-	aim(turn, 0)
+	local entries: { PrizeReel.Entry } = {}
+	for index, entry in reel do
+		local known = type(entry) == "table"
+		local itemId = if known and type(entry.itemId) == "string" then entry.itemId else payload.result
+		local rarity = if known then entry.rarity else nil
+		entries[index] = {
+			name = if known and entry.name then entry.name else "???",
+			tier = rarity,
+			item = { uid = `crate-reel-{index}`, itemId = itemId, identified = true, rarity = rarity },
+		}
+	end
+	local landedAt: number? = nil
+	ui.reel.spin(entries, land, seconds, {
+		onTick = function(entry)
+			-- The glow behind eases toward the rarity under the marker (animateAmbient),
+			-- so a Legendary going by is felt before it is read.
+			ui.glowTarget = rarityColour(entry.tier)
+			ui.tick:Play()
+		end,
+		onLand = function()
+			landedAt = os.clock()
+		end,
+	})
 
-	--- The view's transparency: hidden while the nuke in it is still downloading, on
-	--- top of the reel's hand-off fade. Hiding is INSTANT (an eased fade-out left a
-	--- half-drawn nuke on screen for ~6 frames); only the fade back in is eased.
-	local function showView(dt: number, handoff: number)
+	local revealed = false
+	local turn = 0
+
+	--- The view's transparency: hidden while the prize is still downloading, eased in
+	--- once it is whole.
+	local function showView(dt: number)
 		if ui.current and drawable(ui.current) then
 			ui.hide -= ui.hide * (1 - 0.0005 ^ dt)
 		else
 			ui.hide = 1
 		end
-		ui.viewport.ImageTransparency = 1 - (1 - handoff) * (1 - ui.hide)
+		ui.viewport.ImageTransparency = ui.hide
 	end
 	ui.connection = RunService.RenderStepped:Connect(function(dt)
 		if token ~= spinToken then
 			return
 		end
-		local elapsed = os.clock() - started
-		if not landed then
-			local position
-			if elapsed < mainSeconds then
-				position = from + (land + overshoot - from) * (1 - (1 - elapsed / mainSeconds) ^ 4)
-			else
-				local t = math.clamp((elapsed - mainSeconds) / (seconds - mainSeconds), 0, 1)
-				position = land + overshoot * (1 - t * t * (3 - 2 * t))
-			end
-
-			local centred = math.clamp(math.floor(position + 0.5), 1, #reel)
-			if centred ~= lastTile then
-				lastTile = centred
-				local entry = reel[centred]
-				local colour = rarityColour(entry.rarity)
-				stageAround(centred)
-				-- The name drops in from just above rather than swapping in place.
-				ui.cycle.Position = ui.cycleHome - UDim2.fromOffset(0, 8)
-				tween(ui.cycle, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Position = ui.cycleHome })
-				ui.cycle.Text = entry.name or "???"
-				ui.cycle.TextColor3 = colour
-				ui.cycleTierText.Text = string.upper(entry.rarity or "")
-				ui.cycleTierPill.BackgroundColor3 = colour
-				ui.cycleTier.Visible = entry.rarity ~= nil
-				-- The glow behind eases toward this nuke's rarity (animateAmbient), so a
-				-- Legendary going by is felt before it is read. The real rays wait for
-				-- the landing.
-				ui.glowTarget = colour
-				ui.tick:Play()
-			end
-
-			-- A real reel: the nuke in view slides across as the reel moves, from one
-			-- side at the hand-off to the other, and the view fades a little at each
-			-- hand-off so the swap reads as a pass, not a cut. Settling onto the prize
-			-- brings it to rest in the middle.
-			-- Only once the reel is slow: at 20 nukes a second a fade per hand-off strobes.
-			local speed = math.abs(position - lastPosition) / math.max(dt, 1 / 240)
-			lastPosition = position
-			local slow = math.clamp(1 - speed / 8, 0, 1)
-			local offset = centred - position -- -0.5..0.5
-			showView(dt, HANDOFF_FADE * slow * (math.abs(offset) * 2) ^ 2)
-			turn += dt * 1.6
-			if ui.current then
-				aim(turn, offset * SLIDE * ui.current.radius)
-			end
-
-			-- Land only once the prize can draw whole: its template has arrived and its
-			-- meshes are in, or PRIZE_WAIT has run out. Until then it keeps turning on
-			-- the reel's last tile.
-			if elapsed >= seconds then
+		if not revealed then
+			-- Reveal once the landed card has held a moment and the prize can draw whole:
+			-- its template has arrived and its meshes are in, or PRIZE_WAIT has run out.
+			if landedAt then
+				local since = os.clock() - landedAt
 				local prize = cached(payload.result, payload.rarity)
-				if (not prize.placeholder and drawable(prize)) or elapsed >= seconds + PRIZE_WAIT then
-					landed = true
+				if since >= LAND_HOLD and ((not prize.placeholder and drawable(prize)) or since >= PRIZE_WAIT) then
+					revealed = true
 					ui.opening = false
+					ui.reelBand.Visible = false
+					ui.viewHolder.Visible = true
 					reveal(payload, token)
 					aim(turn, 0)
 				end
@@ -1396,7 +1364,7 @@ local function play(payload: any)
 			-- late if PRIZE_WAIT ran out before its meshes did).
 			turn += dt * 0.8
 			aim(turn, 0)
-			showView(dt, 0)
+			showView(dt)
 		end
 		animateAmbient(dt)
 	end)
