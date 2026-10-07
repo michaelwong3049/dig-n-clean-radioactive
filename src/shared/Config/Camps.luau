@@ -109,6 +109,8 @@ end
 
 local TWILIGHT_X, TWILIGHT_CLIP_X, TWILIGHT_EXIT_X = siteAfter(4)
 local MAGMA_X, MAGMA_CLIP_X, MAGMA_EXIT_X = siteAfter(8)
+--- Zone 4 sits past the chain's last stage, so nothing opens out of its east side yet.
+local RIFT_X, RIFT_CLIP_X = siteAfter(12)
 
 Camps.BASE = "base"
 
@@ -236,6 +238,49 @@ Camps.DEFS = {
 				Cleaner = "3E6E74", -- quench-water steel
 				Magnet = "5E3A2A", -- rust
 			},
+		},
+	},
+	{
+		id = 4,
+		key = "rift",
+		name = "Rift Outpost",
+		blurb = "Past Ground Zero, at the end of Stage 12",
+		card = {
+			skyTop = "07070D",
+			skyBottom = "1F2133",
+			wall = "15161F",
+			wallCap = "E2E6F0",
+			lawn = "23263A",
+			path = "C9CEDC",
+			roofs = { "FF5F6D", "4FC3F7" },
+			accent = "4FC3F7",
+		},
+		-- ZONE 4, ON REQUEST (2026-10-06): the void camp past Ground Zero, built and seen but
+		-- not entered until Stages 13+ exist. Near-black void rock, starlit pale paths, and
+		-- the Anomaly spectrum (Rarity.ANOMALY_SPECTRUM) on the awnings. No exitX: walled
+		-- shut on the east.
+		center = { RIFT_X, 0 },
+		radius = 225,
+		clipX = RIFT_CLIP_X,
+		comingSoon = true,
+		-- Every pair is a 0.877 two-tone (dark = light x 0.877 per channel), so the
+		-- shared StudChecker material covers them all with no new colour maps.
+		palette = {
+			groundDark = "1F2133", -- void-slate lawn
+			groundLight = "23263A",
+			lipDark = "C6CAD2", -- starlit rim over the wall crown
+			lipLight = "E2E6F0",
+			wallDark = "12131B", -- black void cliff
+			wallLight = "15161F",
+			pathDark = "B0B5C1", -- pale moon-grey plaza and paths
+			pathLight = "C9CEDC",
+			paverDark = "282B3D",
+			paverLight = "2E3146",
+			kerb = "4FC3F7",
+			deck = "2A2D42",
+			bush = "B388FF",
+			bushDark = "9D77E0",
+			awnings = { "FF5F6D", "FFC371", "4FC3F7", "B388FF" },
 		},
 	},
 } :: { CampDef }
