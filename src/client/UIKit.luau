@@ -742,14 +742,18 @@ end
 -- right, with Shop and Index as bars on the left. Masteries' bare medal stood on top of
 -- it until it took Gear's slot (2026-10-05, the Gear panel removed on request).
 -- 76 -> 66 -> 58, smaller, on request (with the AI pictures).
-Dock.SIDE_GRID_TILE = 58
+-- BIGGER OFF TOUCH, on request (2026-10-06: "make the gui bigger on the left, not for
+-- phone players"): every grid measure (tile, gap, poke, and HudTile's picture, caption
+-- and corners) is multiplied by SIDE_GRID_SCALE, which is 1 on a phone or tablet.
+Dock.SIDE_GRID_SCALE = if UIKit.isTouch() then 1 else 1.3
+Dock.SIDE_GRID_TILE = math.round(58 * Dock.SIDE_GRID_SCALE)
 Dock.SIDE_GRID_COLUMNS = 2
 Dock.SIDE_GRID_ROWS = 3
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
-Dock.SIDE_TILE_GAP = 9
+Dock.SIDE_TILE_GAP = math.round(9 * Dock.SIDE_GRID_SCALE)
 -- How far a tile's picture pokes up over its top edge (HudTile): "barely sticking out", on request.
-Dock.SIDE_GRID_POKE = 4
+Dock.SIDE_GRID_POKE = math.round(4 * Dock.SIDE_GRID_SCALE)
 -- How far below the canvas's middle the grid's middle sits, on request ("lower them a little").
 Dock.SIDE_GRID_DROP = 28
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
