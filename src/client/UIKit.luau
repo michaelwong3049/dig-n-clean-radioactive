@@ -851,9 +851,10 @@ end
 -- over Potions, the grid's studded tiles at RIGHT_TILE_SCALE with no caption, centred on
 -- the right edge like the grid on the left. The Starter Pack offer hangs above it and the
 -- Boosts widget keeps below it. It replaced the 2x Luck / 2x Speed pass cards.
-Dock.RIGHT_TILE_SCALE = 0.85
+-- 0.85 -> 0.72 with double the gap, on request ("smaller, space them out a little more").
+Dock.RIGHT_TILE_SCALE = 0.72
 Dock.RIGHT_TILE = math.round(Dock.SIDE_GRID_TILE * Dock.RIGHT_TILE_SCALE)
-Dock.RIGHT_TILE_GAP = Dock.SIDE_TILE_GAP
+Dock.RIGHT_TILE_GAP = Dock.SIDE_TILE_GAP * 2
 Dock.RIGHT_TILES = 2
 Dock.RIGHT_COLUMN_HEIGHT = Dock.RIGHT_TILES * Dock.RIGHT_TILE + (Dock.RIGHT_TILES - 1) * Dock.RIGHT_TILE_GAP
 
