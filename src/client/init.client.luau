@@ -64,7 +64,7 @@ local ORDER = {
 	"FloorPurchaseController", -- the "Purchase floor" popup a floor sign's E opens: price, BUY / CANCEL; reads FloorPurchase
 	"GiftController", -- the "Gift nuke" prompt over other players and the ACCEPT / DECLINE gift card; reads Gift
 	"FloorSignController", -- hides a base's "Build Floor N" prompt from anyone but its owner; reads PlotState
-	"OwnStationPromptController", -- hides a base's Wash prompt from anyone but its owner; reads PlotState
+	"OwnStationPromptController", -- hides a base's Wash prompt from anyone but its owner + the white "CLEANING" label over our own tub; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear): GENERAL / GRAPHICS / AUDIO tabs; PlotColor, HideAura, SfxMuted + the Prefs rows (client/Prefs)
 	"FastModeController", -- FAST MODE (Settings > Graphics): hides the nukes on other players' bases; reads the fastMode pref
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
