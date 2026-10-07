@@ -21,7 +21,7 @@
 
 	THE CARD opens to the left of the stack on hover, and a click / tap pins it open
 	(click again to close). It sits above the stack, so it never covers the vitals bars.
-	GET MORE opens the Shop, as the old clover did.
+	It has no GET MORE button any more (removed on request, 2026-10-07).
 
 	POSITION: hard in the bottom-right corner, level with the hotbar's bottom
 	(above the jump button on touch), and never up into the right-hand tile grid
@@ -41,7 +41,6 @@ local Potions = require(Shared.Config.Potions)
 local UIKit = require(script.Parent.Parent.UIKit)
 local CloverArt = require(script.Parent.Parent.CloverArt)
 local TutorialGate = require(script.Parent.Parent.TutorialGate)
-local ShopController = require(script.Parent.ShopController)
 local Dock = UIKit.Dock
 local House = UIKit.House
 
@@ -246,40 +245,6 @@ local function buildCard()
 	bodyList.SortOrder = Enum.SortOrder.LayoutOrder
 	bodyList.Padding = UDim.new(0, 2)
 	bodyList.Parent = cardBody
-
-	local more = Instance.new("TextButton")
-	more.Name = "GetMore"
-	more.LayoutOrder = 2
-	more.Size = UDim2.fromOffset(150, 32)
-	more.AutoButtonColor = false
-	more.BackgroundColor3 = House.buy
-	more.BorderSizePixel = 0
-	more.Font = House.font
-	more.TextSize = 16
-	more.TextColor3 = House.white
-	more.TextStrokeTransparency = 1
-	more.Text = "GET MORE"
-	more.ZIndex = 31
-	more.Parent = card
-	local moreRound = Instance.new("UICorner")
-	moreRound.CornerRadius = UDim.new(0, 10)
-	moreRound.Parent = more
-	stroke(more, 2.5, true)
-	local moreText = Instance.new("UIStroke")
-	moreText.Color = House.ink
-	moreText.Thickness = 2
-	moreText.Parent = more
-	more.MouseEnter:Connect(function()
-		more.BackgroundColor3 = House.buyHover
-	end)
-	more.MouseLeave:Connect(function()
-		more.BackgroundColor3 = House.buy
-	end)
-	more.Activated:Connect(function()
-		pinned = false
-		card.Visible = false
-		ShopController.open()
-	end)
 end
 
 local function build()
