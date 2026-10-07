@@ -49,6 +49,7 @@ local Plots = require(script.Parent.Plots)
 local CampSite = require(script.Parent.CampSite)
 local MergeReactor = require(script.Parent.MergeReactor)
 local ReforgeStation = require(script.Parent.ReforgeStation)
+local SlagFurnace = require(script.Parent.SlagFurnace)
 local CrateShopPads = require(script.Parent.CrateShopPads)
 local GroupRewardChest = require(script.Parent.GroupRewardChest)
 local PrizeSquare = require(script.Parent.PrizeSquare)
@@ -491,6 +492,23 @@ function World.verify(): (boolean, { string })
 			check(
 				tagged:FindFirstChild(ReforgeStation.PROMPT_NAME) ~= nil,
 				`{tagged:GetFullName()} is a Reforge Station with no "{ReforgeStation.PROMPT_NAME}" prompt -- its panel could never open`
+			)
+		end
+	end
+	-- One Slag Furnace per open site camp that asks for one (Config/Camps `furnace`),
+	-- with the E its panel opens on (client StationController's FURNACE_PROMPT).
+	local furnaces = 0
+	for _, def in sites do
+		if def.furnace and not def.mergeReactor and not def.comingSoon then
+			furnaces += 1
+		end
+	end
+	check((census.furnace or 0) == furnaces, `expected {furnaces} Slag Furnace stations, found {census.furnace or 0}`)
+	for _, tagged in CollectionService:GetTagged(Kit.STATION_TAG) do
+		if tagged:IsDescendantOf(Workspace) and tagged:GetAttribute("StationKind") == "furnace" then
+			check(
+				tagged:FindFirstChild(SlagFurnace.PROMPT_NAME) ~= nil,
+				`{tagged:GetFullName()} is a Slag Furnace with no "{SlagFurnace.PROMPT_NAME}" prompt -- its panel could never open`
 			)
 		end
 	end

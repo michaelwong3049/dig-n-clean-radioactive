@@ -52,6 +52,7 @@ local ORDER = {
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
 	"MergeReactorController", -- the Merge Reactor's show: nukes into the hoppers, the core charging, the result on the lift; reads the reactor's Merge* attributes
 	"ReforgeStationController", -- the Reforge Station's strike: hammer, sparks, the forge flaring; reads the forge's Reforge* attributes
+	"FurnaceStationController", -- the Slag Furnace's flare: mouth + hopper glow, sparks out of the hopper; reads the furnace's Furnace* attributes
 	"ToolMotionController", -- the top magnets' moving parts (gyros, halos, orbiting diamonds, floating balls); watches ToolMotion-tagged welds from Shared/ToolFX
 	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off
 	"DetonationController", -- nukes going off: the blast, the crater orb, the lit-fuse warnings; reads Detonation

@@ -71,6 +71,9 @@ local REMOTES: { [string]: string } = {
 	-- The Reforge Station's roll (Services/ReforgeService): the old and new damage/radius
 	-- pair for the panel's KEEP / REVERT, any quality it added, and the copy as it stands.
 	ReforgeResult = "RemoteEvent", -- server -> client, { uid, old, new, quality, item }
+	-- The Slag Furnace (Services/FurnaceService): the meter after a dump, and a roll's
+	-- prize already granted, with the reel the panel plays it on.
+	FurnaceResult = "RemoteEvent", -- server -> client, { kind = "dump" | "roll", ... }
 	-- The popup over the hotbar (InventoryController) for a refusal at something that
 	-- has no panel to toast into -- StationResult is invisible there (memory:
 	-- station-result-toast-needs-panel). The exhibit stands are the first user.

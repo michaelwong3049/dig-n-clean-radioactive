@@ -58,6 +58,7 @@ local ORDER = {
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"MergeService", -- the Merge Reactor at Toxic Twilight: 3 copies in, 1 out; needs Station + Economy + Carry + Exhibit + Wash
 	"ReforgeService", -- the Reforge Station at Toxic Twilight: pay to reroll a nuke's bomb damage/radius, rare quality; same needs as Merge
+	"FurnaceService", -- the Slag Furnace at Magma Hollow: burn nukes to fill a meter, roll potions/crates/cash/boosts/nukes; needs Station + Economy + Carry + Exhibit + Wash + Identify + Potion + Crate + LuckBoost + CashBoost
 	"GiftService", -- gifting the held nuke to another player, both past Toxic Twilight; needs Carry + Dig + Wash
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
 	"BombService", -- dropping a held clean nuke as a bomb; copies ToolService's held model, needs Stage + Hazard + Dig

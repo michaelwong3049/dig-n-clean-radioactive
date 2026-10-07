@@ -235,6 +235,11 @@ local TEMPLATE = {
 	potions = {},
 	potionLeft = {},
 
+	-- THE SLAG FURNACE at Magma Hollow (Config/Furnace, FurnaceService): the meter's
+	-- percent (0..99, a full 100 banks a roll) and the rolls banked and not yet spent.
+	furnaceFill = 0,
+	furnaceRolls = 0,
+
 	-- Packs bought (Config/Packs), key -> true. Once per player; PackService sets it.
 	packs = {},
 
