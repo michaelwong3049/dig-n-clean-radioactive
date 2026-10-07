@@ -58,11 +58,12 @@ local GLOW_TRANSPARENCY_HOVER = 0.12
 -- over the top edge by Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
 -- (Settings, Daily, placed by spec.position) keep the dark glow-orb look.
 local GRID_SIZE = Dock.SIDE_GRID_TILE
-local GRID_CORNER = 11
+local GRID_SCALE = Dock.SIDE_GRID_SCALE
+local GRID_CORNER = math.round(11 * GRID_SCALE)
 local GRID_OUTLINE = Studded.INK
 local GRID_OUTLINE_THICKNESS = 2
 local GRID_OUTLINE_TRANSPARENCY = 0
-local GRID_STUD_TILE = 18
+local GRID_STUD_TILE = math.round(18 * GRID_SCALE)
 
 -- Each grid tile's studded plate (2026-10-06, on request: "instead of black transparent
 -- ones, do studded backgrounds", a colour per tile that sits well with its picture).
@@ -78,10 +79,10 @@ local PLATES: { [string]: ColorSequence } = {
 	FreeGiftsButton = Studded.RED,
 }
 local DEFAULT_PLATE = ColorSequence.new(Studded.DARK)
-local GRID_ICON = 52
+local GRID_ICON = math.round(52 * GRID_SCALE)
 -- The picture's centre, up from the tile's: its top then clears the edge by the poke.
 local GRID_ICON_RISE = GRID_ICON / 2 + Dock.SIDE_GRID_POKE - GRID_SIZE / 2
-local GRID_TEXT_SIZE = 15
+local GRID_TEXT_SIZE = math.round(15 * GRID_SCALE)
 local GRID_TEXT_STROKE = 3
 local GRID_TEXT_DROP = Vector2.new(1, 2)
 
@@ -185,6 +186,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()
 
+		local captionSize = if spec.captionSize then math.round(spec.captionSize * GRID_SCALE) else GRID_TEXT_SIZE
 		icon = Artwork.picture(button, "Icon", spec.image, GRID_ICON, Color3.new(1, 1, 1))
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
 		icon.Position = UDim2.new(0.5, 0, 0.5, -GRID_ICON_RISE + (spec.iconDrop or 0))
@@ -194,10 +196,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 			name = "Caption",
 			anchorPoint = Vector2.new(0.5, 1),
 			position = UDim2.new(0.5, 0, 1, 1),
-			size = UDim2.new(1, 12, 0, (spec.captionSize or GRID_TEXT_SIZE) + 4),
+			size = UDim2.new(1, 12, 0, captionSize + 4),
 			text = spec.caption,
 			font = Enum.Font.GothamBlack,
-			textSize = spec.captionSize or GRID_TEXT_SIZE,
+			textSize = captionSize,
 			color = Color3.new(1, 1, 1),
 			xAlign = Enum.TextXAlignment.Center,
 			zIndex = 8,
