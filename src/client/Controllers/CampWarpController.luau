@@ -54,7 +54,6 @@ local PANEL = {
 	panel = Color3.fromHex("2B2F36"),
 	board = Color3.fromHex("22262C"),
 	header = ColorSequence.new(Color3.fromHex("2C3E6B"), Color3.fromHex("1C2848")),
-	subtitle = Color3.fromHex("C9D3EA"),
 	dim = Color3.fromHex("9AA3AD"),
 	dot = Color3.fromHex("C9CDD2"),
 	-- The info bar under the board, for the "???" camp (a real camp wears its accent).
@@ -107,7 +106,6 @@ local CLICK_DEBOUNCE = 0.4
 -- A locked camp's picture, greyed down.
 local DIMMED = Color3.fromRGB(120, 120, 130)
 
-local SUBTITLE = "Tap a camp on the trail, then warp. A camp unlocks once you've walked there."
 local STAGE_NOTICE = "You can't warp out of a stage. Walk back to a camp first."
 
 -- The "???" badge's key in `selected`.
@@ -743,19 +741,8 @@ local function buildPanel(): ScreenGui
 		Text = "Warp",
 		Font = PANEL.headline,
 		TextSize = 34,
-		Position = UDim2.fromOffset(18, 4),
+		Position = UDim2.fromOffset(18, (HEADER_H - 36) / 2),
 		Size = UDim2.fromOffset(200, 36),
-		ZIndex = 3,
-	})
-	inked(header, {
-		Name = "Subtitle",
-		Text = SUBTITLE,
-		Font = PANEL.label,
-		TextSize = 13,
-		TextColor3 = PANEL.subtitle,
-		Position = UDim2.fromOffset(18, 40),
-		Size = UDim2.new(1, -80, 0, 16),
-		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 3,
 	})
 
