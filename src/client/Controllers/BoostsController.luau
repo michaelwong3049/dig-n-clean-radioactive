@@ -14,18 +14,17 @@
 
 	THE STACK: no panels, like the boxless cash readout -- name, total and picture per
 	line, right-aligned. Only Luck, Cash and Walk Speed show, always (x1 included);
-	the other boosts StatResolver sends are left off on request (2026-10-06). A line
-	shows its countdown in place of its name when a timed source is running -- the
-	soonest one, so it is the time until that number next changes. The luck line
+	the other boosts StatResolver sends are left off on request (2026-10-06), and so
+	are the potion / weather countdowns -- those live on the card. The luck line
 	carries the clover, green up to x2 and purple past it; this replaced the old clover
-	badge (LuckBoostController), so the last 30 seconds still pulse.
+	badge (LuckBoostController).
 
 	THE CARD opens to the left of the stack on hover, and a click / tap pins it open
 	(click again to close). It sits above the stack, so it never covers the vitals bars.
 	GET MORE opens the Shop, as the old clover did.
 
-	POSITION is the old clover's formula: hard in the right corner on the hotbar's top
-	edge (above the jump button on touch), and never up into the right-hand tile grid
+	POSITION: hard in the bottom-right corner, level with the hotbar's bottom
+	(above the jump button on touch), and never up into the right-hand tile grid
 	(Dock.sideColumnBottom) -- on a short canvas it slides down, then shrinks (Dock.BOOSTS_MIN_FIT).
 ]]
 
@@ -74,8 +73,6 @@ local ICON = 30
 local VALUE_SIZE = 30
 local CAPTION_SIZE = 17
 local CARD_W = 270
-local WARN_SECONDS = 30
-local WARN = Color3.fromHex("FF5C8A")
 
 local gui: ScreenGui
 local canvas: Frame
@@ -126,18 +123,6 @@ local function secondsLeft(source: Source): number?
 	end
 	local left = endsAt - now()
 	return if left > 0 then left else nil
-end
-
---- The soonest-ending timed source on a row: when its number next changes.
-local function soonest(boost: Boost): number?
-	local best: number? = nil
-	for _, source in boost.sources do
-		local left = secondsLeft(source)
-		if left and (best == nil or left < best) then
-			best = left
-		end
-	end
-	return best
 end
 
 local function stroke(parent: Instance, thickness: number, border: boolean?)
@@ -343,7 +328,7 @@ end
 
 local function place()
 	local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-	-- On the hotbar's top edge, above the jump button on touch,
+	-- Hard in the corner, above the jump button on touch,
 	-- shrunk on a short canvas (Dock.boostsLayout).
 	local bottom, scale = Dock.boostsLayout(height)
 	local right = Dock.ROW_SIDE_MARGIN
@@ -365,8 +350,8 @@ local function luckColor(total: number): Color3
 	return if total > 2 then LUCK_PURPLE else LOOK.luck.color
 end
 
---- The lines. Called every frame for the countdowns.
-local function drawStack(t: number)
+--- The lines: name, total and picture, redrawn whenever the list arrives.
+local function drawStack()
 	for _, row in rows do
 		local boost: Boost? = nil
 		for _, b in boosts do
@@ -377,16 +362,7 @@ local function drawStack(t: number)
 		end
 		local look = LOOK[row.key]
 		local total = if boost then boost.total else 1
-		local left = if boost then soonest(boost) else nil
-		if left then
-			row.caption.Text = clock(left)
-			local warn = left <= WARN_SECONDS
-			local pulse = if warn then 0.5 + 0.5 * math.sin(t * 8) else 0
-			row.caption.TextColor3 = House.white:Lerp(WARN, pulse)
-		else
-			row.caption.Text = look.short
-			row.caption.TextColor3 = House.white
-		end
+		row.caption.Text = look.short
 		row.value.Text = times(total)
 		row.value.TextColor3 = if row.key == "luck" then luckColor(total) else look.color
 		if row.key == "luck" and row.icon then
@@ -460,6 +436,7 @@ end
 local function onBoosts(list: { Boost })
 	boosts = list
 	stack.Visible = #list > 0
+	drawStack()
 	if card.Visible then
 		drawCard()
 	end
@@ -487,14 +464,9 @@ function BoostsController.start()
 
 	Net.get("Boosts").OnClientEvent:Connect(onBoosts)
 
-	-- The countdowns. A handful of property writes a frame; the card's text only while open.
+	-- The card's countdowns tick while it is open.
 	local lastCard = 0
 	RunService.Heartbeat:Connect(function()
-		if not stack.Visible then
-			return
-		end
-		local t = now()
-		drawStack(t)
 		if card.Visible and os.clock() - lastCard > 0.25 then
 			lastCard = os.clock()
 			drawCard()
