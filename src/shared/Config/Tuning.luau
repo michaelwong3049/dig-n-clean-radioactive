@@ -22,6 +22,10 @@ Tuning.EXPOSURE_CAP = 100 -- a full meter: heavy sickness (SICKNESS_FULL_METER)
 Tuning.EXPOSURE_WARN = 0.50 -- vignette + click bed
 Tuning.EXPOSURE_DANGER = 0.80 -- distortion, false pings
 Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon shower
+-- Rads/sec removed anywhere outside every stage (Base Camp, any site camp). A full
+-- meter clears in ~4 s; the shower is still the instant flush. A crater orb's fallout
+-- (CRATER_RADS_PER_BURN) still lands on top, so standing in one there still fills.
+Tuning.CAMP_FLUSH_RATE = 25
 -- Base Camp's two heal pads (build/HealPads): a shower anyone can use, which also
 -- heals this fraction of your MAX health per second -- full from empty in ~2 s at any
 -- aura tier, where the camp's plain regen takes the better part of a minute late on.

@@ -903,13 +903,19 @@ local function stepPlayer(player: Player, dt: number)
 
 	local showering, healing = inShower(player, root.Position)
 	local sickDrain = 0
+	-- What is coming OFF the meter this tick: the shower's flush, or a camp's steady
+	-- drain (Tuning.CAMP_FLUSH_RATE). Sent to the HUD so its arrows can read ▼.
+	local flushRate = if showering
+		then Tuning.SHOWER_FLUSH_RATE
+		elseif stageId == nil then Tuning.CAMP_FLUSH_RATE
+		else 0
 
 	if not state.downed then
-		if showering then
-			state.exposure = math.max(0, state.exposure - Tuning.SHOWER_FLUSH_RATE * dt)
-		else
-			state.exposure = math.clamp(state.exposure + (reading.net + craterRads) * dt, 0, Tuning.EXPOSURE_CAP)
-		end
+		state.exposure = math.clamp(
+			state.exposure + (if showering then 0 else reading.net + craterRads) * dt - flushRate * dt,
+			0,
+			Tuning.EXPOSURE_CAP
+		)
 
 		if blastHit > 0 then
 			state.health = math.max(0, state.health - blastHit)
@@ -1022,6 +1028,7 @@ local function stepPlayer(player: Player, dt: number)
 		ambient = ambient,
 		depth = depth,
 		inShower = showering,
+		flushRate = flushRate,
 
 		exposure = state.exposure,
 		exposureFrac = Radiation.exposureFraction(state.exposure),

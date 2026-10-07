@@ -3,7 +3,8 @@
 	Camps.luau — the safe zones strung along the stage chain.
 
 	A CAMP IS WHERE THE WASTELAND STOPS. Standing in one means standing in no stage, so
-	the rest-pocket rule (zero rads, 6x regen — ExposureService) already covers it for
+	the rest-pocket rule (zero rads, the meter drains at Tuning.CAMP_FLUSH_RATE, 6x
+	regen — ExposureService) already covers it for
 	free, the same way it covers the plaza. Nothing here makes a camp safe; being
 	outside every stage rectangle does. build/CampSite and World.verify() hold the
 	footprints to that.
