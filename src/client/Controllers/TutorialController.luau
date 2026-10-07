@@ -77,7 +77,7 @@ local SKIN = {
 -- fades out to both screen edges, with big white words in a heavy black outline.
 local BANNER_Y = 114 -- ON REQUEST: nudged down from 98
 local BANNER_H = 96
-local BANNER_SHADE = 0.35 -- the band's BackgroundTransparency at its middle
+local BANNER_SHADE = 0.6 -- the band's BackgroundTransparency at its middle (ON REQUEST: lighter, was 0.35)
 local BANNER_FADE = 0.28 -- fraction of the width each side spends fading out
 local TITLE_SIZE = 56
 local SKIP_W = 64
