@@ -113,6 +113,8 @@ local REMOTES: { [string]: string } = {
 	-- nuke crate answers on CrateOpened (the reel popup), a liquid crate on FluidSpin.
 	CrateOpen = "RemoteEvent", -- client -> server, the held crate's uid
 	CrateOpened = "RemoteEvent", -- server -> client, { crate, reel, land, seconds, result, name, rarity, modifier, notice? }
+	-- The reel's SKIP button: settle the open now instead of when the reel would land.
+	CrateSkip = "RemoteEvent", -- client -> server, no payload
 
 	-- The wash bay. WashState is the session; WashInput is aim + intent, never
 	-- progress -- the server owns the clock, exactly as the scrub timer did before it.

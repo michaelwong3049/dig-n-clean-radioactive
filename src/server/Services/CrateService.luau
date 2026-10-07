@@ -59,9 +59,13 @@ local PRIZE_MODIFIERS = { "None", "Pristine", "Irradiated", "Fused" }
 
 local openRemote: any = nil
 local openedRemote: any = nil
+local skipRemote: any = nil
 
 --- Set while a player's reel is playing, so a second open cannot stack under it.
 local opening: { [Player]: boolean } = {}
+--- What finishes a player's open (announce, into their hands), run when the reel
+--- lands or as soon as they SKIP it, whichever comes first.
+local settles: { [Player]: () -> () } = {}
 
 local function rollModifier(): string
 	local total = 0
@@ -136,7 +140,11 @@ local function openNuke(player: Player, data: any, crateId: string)
 	})
 	print(`[crate] {player.Name} opened a {Crates.get(crateId).name}: {carried.modifier} {def.rarity} {def.name}`)
 
-	task.delay(REEL_SECONDS, function()
+	local function settle()
+		if settles[player] ~= settle then
+			return
+		end
+		settles[player] = nil
 		opening[player] = nil
 		if player.Parent == nil then
 			return
@@ -148,7 +156,9 @@ local function openNuke(player: Player, data: any, crateId: string)
 		if live and live.heldUid == "" and not DigService.isLocked(player) and EconomyService.find(live, carried.uid) then
 			live.heldUid = carried.uid
 		end
-	end)
+	end
+	settles[player] = settle
+	task.delay(REEL_SECONDS, settle)
 end
 
 --- Open the crate `uid`, which must be the one in the player's hands.
@@ -217,6 +227,7 @@ end
 function CrateService.init()
 	openRemote = Net.get("CrateOpen")
 	openedRemote = Net.get("CrateOpened")
+	skipRemote = Net.get("CrateSkip")
 end
 
 function CrateService.start()
@@ -230,8 +241,16 @@ function CrateService.start()
 		end
 	end)
 
+	skipRemote.OnServerEvent:Connect(function(player: Player)
+		local settle = settles[player]
+		if settle then
+			settle()
+		end
+	end)
+
 	Players.PlayerRemoving:Connect(function(player)
 		opening[player] = nil
+		settles[player] = nil
 	end)
 end
 
