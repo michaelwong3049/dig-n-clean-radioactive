@@ -23,9 +23,10 @@
 	(about Twilight's cheapest gear), Void ~$432K inside -> $12M. Each liquid crate is a
 	bit over half its pad's nuke crate, the same ratio as Base Camp's Coolant to Scrap.
 
-	CAMP PADS SIT ON THE PLAZA'S WEST SIDE, flanking the entry path the way Base Camp's
-	flank the chest: just inside the octagon, west of the paver square, crates facing the
-	way you walk in (-X). Walking in (facing +X) the cash pad is on your right (+Z), the
+	CAMP PADS SIT ON THE PLAZA'S EAST SIDE (moved from the west on request, 2026-10-07),
+	flanking the exit path the way Base Camp's flank the chest, and as close in (18 off the
+	axis): just inside the octagon, east of the paver square, crates facing back across
+	the plaza (-X) at you as you walk through. Walking in (facing +X) the cash pad is on your right (+Z), the
 	same hand as at Base Camp. `camp` + `offset` place them off the camp's plaza centre
 	(build/CrateShopPads resolves it), so moving a camp carries its pads along.
 
@@ -81,11 +82,11 @@ CrateShop.CRATE_SCALE = 1.3 -- x the bag-sized crate (CrateModels' 3.2-stud foot
 -- exclusivity shows only the nearest one, so neighbours never fight over E.
 CrateShop.PROMPT_DISTANCE = 6
 
--- A camp pad's centre from its plaza centre: 88 west lands it between the octagon's west
--- edge (110) and the paver square (66) with room either side; 24 off the axis clears the
--- entry path (half-width 10) by the pad's 7.5-stud half-length and some.
-local CAMP_PAD_X = -88
-local CAMP_PAD_Z = 24
+-- A camp pad's centre from its plaza centre: 88 east lands it between the paver square (66)
+-- and the octagon's east edge (110) with room either side; 18 off the axis (Base Camp's
+-- PAD_Z) leaves the pad's 7.5-stud half-length just clear of the exit path (half-width 10).
+local CAMP_PAD_X = 88
+local CAMP_PAD_Z = 18
 
 --- A camp's cash pad (right hand walking in, +Z) and Robux pad (left, -Z).
 local function campPads(campKey: string, label: string, nuke: string, nukeCash: number, liquid: string, liquidCash: number): { Pad }
