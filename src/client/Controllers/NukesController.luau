@@ -110,6 +110,19 @@ local TAB_GAP = 16
 -- white, and seconds per sweep.
 local SHIMMER_LIGHT = 0.75
 local SHIMMER_PERIOD = 2.2
+-- QUALITY STICKERS (2026-10-07, on request: the "Pristine Irradiated" words after the
+-- stars got cut off): each quality is a little tilted chip stacked up the model well's
+-- bottom, in the stand card's sticker colours, so the text column never has to fit them.
+local STICKER_H = 15
+local STICKER_GAP = 2
+local STICKER_INSET = 4
+local STICKER_TILT = 4
+local STICKER_COLOR: { [string]: Color3 } = {
+	Pristine = Color3.fromHex("7DF9FF"),
+	Irradiated = Color3.fromHex("A3FF3C"),
+	Fused = Color3.fromHex("FF8A3D"),
+	Cracked = Color3.fromHex("A7ADB4"),
+}
 
 -- The slide: a quick ease out on the way in, a quicker ease in on the way out.
 local SLIDE_IN = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -264,6 +277,7 @@ type Row = {
 	art: ViewportFrame,
 	name: TextLabel,
 	stars: TextLabel,
+	stickers: Frame,
 	unequip: TextButton,
 	entry: any,
 	pending: boolean,
@@ -272,16 +286,62 @@ type Row = {
 -- Rows on screen, by uid, kept across refreshes.
 local rows: { [string]: Row } = {}
 
---- The stand line under the name: stars (half stars drawn by StarLine), Merge
---- Reactor stars, modifier.
+--- The stand line under the name: stars (half stars drawn by StarLine) and Merge
+--- Reactor stars. The qualities ride the model well as stickers (paintStickers).
 local function paintStarLine(label: TextLabel, entry: any)
 	local rating = Rarity.stars(entry.rarity, entry.modifier, Payload.forUid(entry.uid), entry.bonus, Items.stageOf(entry.itemId))
-	local qualities = Rarity.qualities(entry.modifier, entry.bonus)
 	StarLine.set(label, rating, {
 		trail = entry.merge or 0,
 		trailColor = Merge.COLOR,
-		after = if #qualities > 0 then `<font color="#{PANEL.dim:ToHex()}">{table.concat(qualities, " ")}</font>` else nil,
 	})
+end
+
+--- "PrewarSealed" -> "PREWAR SEALED".
+local function stickerText(quality: string): string
+	return string.upper((string.gsub(quality, "(%l)(%u)", "%1 %2")))
+end
+
+--- One chip per quality, stacked up from the well's bottom, tilts alternating so the
+--- pile reads as slapped on. Rebuilt only when the copy's qualities change.
+local function paintStickers(row: Row, entry: any)
+	local qualities = Rarity.qualities(entry.modifier, entry.bonus)
+	local key = table.concat(qualities, ",")
+	if row.stickers:GetAttribute("Key") == key then
+		return
+	end
+	row.stickers:SetAttribute("Key", key)
+	row.stickers:ClearAllChildren()
+	for i, quality in qualities do
+		local chip = Instance.new("Frame")
+		chip.Name = `Sticker{i}`
+		chip.AnchorPoint = Vector2.new(0.5, 1)
+		chip.Position = UDim2.new(0.5, 0, 1, -STICKER_INSET - (i - 1) * (STICKER_H + STICKER_GAP))
+		chip.Size = UDim2.new(1, -STICKER_INSET * 2, 0, STICKER_H)
+		chip.Rotation = if i % 2 == 1 then -STICKER_TILT else STICKER_TILT
+		chip.BackgroundColor3 = STICKER_COLOR[quality] or PANEL.dim
+		chip.BorderSizePixel = 0
+		chip.ZIndex = 4
+		chip.Parent = row.stickers
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 4)
+		corner.Parent = chip
+		local stroke = edge(chip, PANEL.ink, 2)
+		stroke.LineJoinMode = Enum.LineJoinMode.Round
+		local label = Instance.new("TextLabel")
+		label.Name = "Label"
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.new(1, -6, 1, -2)
+		label.Position = UDim2.fromOffset(3, 1)
+		label.Font = PANEL.equipFont
+		label.Text = stickerText(quality)
+		label.TextColor3 = PANEL.ink
+		label.TextScaled = true
+		label.ZIndex = 5
+		label.Parent = chip
+		local cap = Instance.new("UITextSizeConstraint")
+		cap.MaxTextSize = 12
+		cap.Parent = label
+	end
 end
 
 local function paintUnequip(row: Row)
@@ -312,6 +372,13 @@ local function newRow(parent: Instance, uid: string): Row
 	edge(well, PANEL.ink, 2)
 	local art = ItemArt.newViewport(well)
 	art.ZIndex = 2
+	-- The quality stickers, over the model (paintStickers fills it).
+	local stickers = Instance.new("Frame")
+	stickers.Name = "Stickers"
+	stickers.BackgroundTransparency = 1
+	stickers.Size = UDim2.fromScale(1, 1)
+	stickers.ZIndex = 3
+	stickers.Parent = well
 
 	local textLeft = ART_W + 10
 	local textW = -(textLeft + UNEQUIP_W + 16)
@@ -351,6 +418,7 @@ local function newRow(parent: Instance, uid: string): Row
 		art = art,
 		name = name,
 		stars = stars,
+		stickers = stickers,
 		unequip = unequip,
 		entry = nil,
 		pending = false,
@@ -438,6 +506,7 @@ local function render()
 		row.frame.LayoutOrder = order
 		row.name.Text = `{entry.name} ({formatRate(entry.rate)})`
 		paintStarLine(row.stars, entry)
+		paintStickers(row, entry)
 		tint(row, os.clock())
 		paintUnequip(row)
 		ItemArt.paint(row.art, {
