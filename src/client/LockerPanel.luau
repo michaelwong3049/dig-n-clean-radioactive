@@ -563,6 +563,17 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 	rackLayout.Padding = UDim.new(0, TUBE_GAP)
 	rackLayout.Parent = rack
 
+	-- Centred only while the row fits: a centred row wider than the rack spills past
+	-- its left edge, where the scroll can't reach, and the first tube gets cut off.
+	local function alignRack()
+		local room = rack.AbsoluteWindowSize.X - 2 * RACK_PAD
+		rackLayout.HorizontalAlignment = if rackLayout.AbsoluteContentSize.X <= room
+			then Enum.HorizontalAlignment.Center
+			else Enum.HorizontalAlignment.Left
+	end
+	rackLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(alignRack)
+	rack:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(alignRack)
+
 	local tubes: { Tube } = {}
 
 	-- ── The bag strip ──────────────────────────────────────────────────
