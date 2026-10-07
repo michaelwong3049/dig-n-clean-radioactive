@@ -116,6 +116,7 @@ local state = {
 	net = 0,
 	failing = false,
 	inShower = false,
+	flushRate = 0, -- rads/sec coming off the meter: shower or camp drain
 	inCrater = false,
 	stageName = "Base Camp",
 	downed = false,
@@ -445,15 +446,17 @@ end
 
 --- ▲ filling, ▼ draining, nothing when still; one to three by speed.
 ---
---- DRAINING IS THE SHOWER, NOT A NEGATIVE `net`. `net` is what the air and your bag
+--- DRAINING IS THE SHOWER (or a camp's CAMP_FLUSH_RATE, sent as `flushRate`), NOT A NEGATIVE `net`. `net` is what the air and your bag
 --- ADD (Radiation.resolve: stage + bag, never below zero), and a decon shower flushes
 --- on top of that at SHOWER_FLUSH_RATE without touching it — so a player standing
 --- in the shower with a half-full meter reads `net == 0`. This takes the flush rate
 --- whenever there is something left to flush, which is what the old "RADS — FLUSHING"
 --- caption was keyed to.
 local function arrows(): string
-	local draining = state.inShower and state.exposureFrac > 0
-	local rate = if draining then Tuning.SHOWER_FLUSH_RATE else state.net
+	-- The shower ignores `net`; a camp's drain fights it (a crater orb's fallout).
+	local drainNet = state.flushRate - (if state.inShower then 0 else state.net)
+	local draining = drainNet > 0 and state.exposureFrac > 0
+	local rate = if draining then drainNet else state.net
 	if rate < STILL_RATE then
 		return ""
 	end
@@ -609,6 +612,7 @@ function Hud.start()
 		state.net = payload.net or 0
 		state.failing = payload.failing == true
 		state.inShower = payload.inShower == true
+		state.flushRate = payload.flushRate or 0
 		state.stageName = payload.stageName or ""
 		state.downed = payload.downed == true
 
