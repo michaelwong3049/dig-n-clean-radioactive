@@ -35,6 +35,7 @@ local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
 local GroupReward = require(Config.GroupReward)
+local FriendBoost = require(Config.FriendBoost)
 local Potions = require(Config.Potions)
 local Weather = require(Config.Weather)
 local IndexProgress = require(script.Parent.IndexProgress)
@@ -78,6 +79,9 @@ export type Profile = {
 	-- The group chest's one-time claim (Config/GroupReward). Optional for the same
 	-- reason; absent means not claimed, no permanent cash bonus.
 	groupRewardClaimed: boolean?,
+	-- A Roblox friend is in the server right now (Config/FriendBoost). LIVE, never
+	-- saved: FriendBoostService sets and clears it. Absent means no friend here.
+	friendBoost: boolean?,
 	-- Banked seconds per running potion (Config/Potions), id -> seconds. Optional for
 	-- the same reason; absent means none running.
 	potionLeft: { [string]: number }?,
@@ -221,6 +225,8 @@ function StatResolver.get(profile: Profile): Stats
 		* CashBoost.multiplier((profile.cashBoostLeft or 0) > 0)
 		-- The group chest's permanent +10% (Config/GroupReward), on the same two payouts.
 		* GroupReward.cashMultiplier(profile.groupRewardClaimed)
+		-- A friend in the server (Config/FriendBoost), on the same two payouts.
+		* FriendBoost.cashMultiplier(profile.friendBoost)
 		-- The Cash Potion (Config/Potions), on the same two payouts.
 		* Potions.multiplier(profile.potionLeft, "cash")
 		-- Golden Hour (Config/Weather), server-wide, on the same two payouts.
@@ -388,6 +394,7 @@ function StatResolver.boosts(profile: Profile): { Boost }
 		potion("cash"),
 		{ name = Weather.DEFS.golden.name, mult = StatResolver.goldenHourMult(), timer = Weather.DEFS.golden.endsAttr, global = true },
 		{ name = "Group Bonus", mult = GroupReward.cashMultiplier(profile.groupRewardClaimed) },
+		{ name = "Friend Boost", mult = FriendBoost.cashMultiplier(profile.friendBoost) },
 		{ name = "Index Complete", mult = stats.indexCashMultiplier },
 		{ name = "Masteries", mult = stats.masteryCash },
 	})

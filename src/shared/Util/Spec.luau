@@ -41,6 +41,7 @@ local Weather = require(Config.Weather)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
 local GroupReward = require(Config.GroupReward)
+local FriendBoost = require(Config.FriendBoost)
 local Packs = require(Config.Packs)
 local RareDrop = require(Config.RareDrop)
 local Masteries = require(Config.Masteries)
@@ -2955,6 +2956,7 @@ function Spec.run(): boolean
 				luckBoostLeft = 60,
 				cashBoostLeft = 60,
 				groupRewardClaimed = true,
+				friendBoost = true,
 			}
 			local got = StatResolver.get(stacked)
 			local totals = {}
@@ -3015,6 +3017,20 @@ function Spec.run(): boolean
 					and math.abs(member.yieldMultiplier / plain.yieldMultiplier - GroupReward.CASH_MULT) < 1e-9
 					and member.luckBoost == plain.luckBoost
 			)
+		end
+
+		-- The friend boost (Config/FriendBoost): both payouts while a friend is here,
+		-- nothing once they leave.
+		do
+			local together = StatResolver.get({ level = 1, gear = {}, perks = {}, friendBoost = true })
+			local alone = StatResolver.get({ level = 1, gear = {}, perks = {}, friendBoost = nil })
+			check(
+				"§friendboost adds its cash bonus to sales and stand income while a friend is here",
+				math.abs(together.sellMultiplier / plain.sellMultiplier - FriendBoost.CASH_MULT) < 1e-9
+					and math.abs(together.yieldMultiplier / plain.yieldMultiplier - FriendBoost.CASH_MULT) < 1e-9
+					and together.luckBoost == plain.luckBoost
+			)
+			check("§friendboost no friend is no boost", alone.sellMultiplier == plain.sellMultiplier)
 		end
 
 		-- The packs (Config/Packs): real crates, own keys and ids, and the contents the
