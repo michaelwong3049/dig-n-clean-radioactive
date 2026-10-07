@@ -66,13 +66,13 @@ local Studded = require(script.Parent.Parent.Studded)
 
 local Index = {}
 
--- THE INDEX TILE: top right of the left-edge 2x3 grid, beside Shop, built by HudTile
+-- THE INDEX TILE: middle left of the left-edge 2x3 grid, under the Shop, built by HudTile
 -- in the grid's shared dark look with the fanned rarity cards. The grid's top is level with the top of the cash/meter column
 -- on the left, or the whole grid is centred on a screen too short for that line
 -- (Dock.sideColumnTop). Its own ScreenGui (IgnoreGuiInset = true), so those offsets
 -- measure against the true screen as the left column's do; the detail panel keeps the
 -- inset-aware gui it needs (see build()).
-local TILE_SLOT = 2
+local TILE_SLOT = 3
 local TILE_COLOR = Color3.fromRGB(164, 107, 255)
 local TILE_LIGHT = Color3.fromRGB(212, 182, 255)
 

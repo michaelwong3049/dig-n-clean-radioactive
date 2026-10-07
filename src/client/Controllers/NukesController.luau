@@ -45,8 +45,8 @@ local Studded = require(script.Parent.Parent.Studded)
 
 local Nukes = {}
 
--- THE NUKES TILE: middle left of the left-edge 2x3 grid (HudTile), the green nuke.
-local TILE_SLOT = 3
+-- THE NUKES TILE: middle right of the left-edge 2x3 grid (HudTile), the green nuke.
+local TILE_SLOT = 4
 local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
