@@ -78,6 +78,8 @@ type Spec = {
 	-- Where the click warps to; nil for WARP, which opens the camp list instead.
 	dest: string?,
 	text: string,
+	-- The portal disc alone, no name pill (WARP, on request).
+	discOnly: boolean?,
 	image: string,
 	light: Color3,
 	mid: Color3,
@@ -103,6 +105,7 @@ local BUTTONS: { Spec } = {
 	},
 	{
 		text = "WARP",
+		discOnly = true,
 		image = Artwork.IMAGE.portal,
 		light = Color3.fromHex("B7ECFF"),
 		mid = Color3.fromHex("3CC3FF"),
@@ -154,13 +157,17 @@ local function bands(parent: Instance, a: Color3, b: Color3): UIGradient
 	return gradient
 end
 
+local function widthOf(spec: Spec): number
+	return if spec.discOnly then DISC else BTN_W
+end
+
 local function buildButton(parent: Frame, spec: Spec, x: number): Entry
 	local button = Instance.new("TextButton")
 	button.Name = spec.text
 	button.AutoButtonColor = false
 	button.BackgroundTransparency = 1
 	button.Text = ""
-	button.Size = UDim2.fromOffset(BTN_W, BTN_H)
+	button.Size = UDim2.fromOffset(widthOf(spec), BTN_H)
 	button.Position = UDim2.fromOffset(x, 0)
 	button.ZIndex = 2
 	button.Parent = parent
@@ -182,6 +189,7 @@ local function buildButton(parent: Frame, spec: Spec, x: number): Entry
 	pill.ZIndex = 4
 	pill.Parent = button
 	for _, frame in { pillShadow, pill } do
+		frame.Visible = not spec.discOnly
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0.5, 0)
 		corner.Parent = frame
@@ -281,10 +289,14 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local canvas = UIKit.canvas(gui)
+	local barWidth = -GAP
+	for _, spec in BUTTONS do
+		barWidth += widthOf(spec) + GAP
+	end
 	-- Named Panel: AuraWarningController finds the bar by WarpBar.Panel to stay clear of it.
 	local frame = UIKit.panel(canvas, {
 		name = "Panel",
-		size = UDim2.fromOffset(#BUTTONS * BTN_W + (#BUTTONS - 1) * GAP, BTN_H),
+		size = UDim2.fromOffset(barWidth, BTN_H),
 		position = HIDDEN,
 		anchorPoint = Vector2.new(0.5, 0),
 		color = UIKit.C.panel,
@@ -293,8 +305,10 @@ local function build(): ScreenGui
 		visible = false,
 	})
 
-	for index, spec in BUTTONS do
-		table.insert(entries, buildButton(frame, spec, (index - 1) * (BTN_W + GAP)))
+	local x = 0
+	for _, spec in BUTTONS do
+		table.insert(entries, buildButton(frame, spec, x))
+		x += widthOf(spec) + GAP
 	end
 
 	panel = frame
