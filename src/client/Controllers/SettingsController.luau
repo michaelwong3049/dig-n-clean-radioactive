@@ -1105,7 +1105,7 @@ local function build(): ScreenGui
 		name = "SettingsButton",
 		caption = "Settings",
 		slot = 1,
-		topbarLeft = true,
+		topbarLeft = 1,
 		color = Color3.fromHex("9FB4C8"),
 		light = Color3.fromHex("DCE6F0"),
 		image = Artwork.IMAGE.settingsGear,
