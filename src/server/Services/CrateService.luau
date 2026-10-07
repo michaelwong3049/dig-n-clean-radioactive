@@ -209,7 +209,7 @@ function CrateService.grant(player: Player, crateId: string): boolean
 end
 
 --- Put `crateId` straight into a bag, even past capacity -- a bought crate always fits
---- (packs, daily rewards, the Base Camp crate pads). Mutates only `data` and never
+--- (packs, daily rewards, the crate pads). Mutates only `data` and never
 --- yields, so a Robux grant can call it (PackService, CrateShopService).
 function CrateService.give(data: any, crateId: string)
 	assert(Crates.has(crateId), `CrateService.give: unknown crate {crateId}`)
