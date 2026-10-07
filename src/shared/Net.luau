@@ -302,6 +302,12 @@ local REMOTES: { [string]: string } = {
 	-- Client -> server, no payload: "send me the panel" (once, when it is built).
 	MasteryState = "RemoteEvent",
 
+	-- Settings > Stats (Services/StatsService). Client -> server, no payload: "send my
+	-- numbers" (while the page is open). Server -> client: { playtime, dug, itemsCleaned,
+	-- cashEarned, indexFound, indexTotal, deepestStage, kills, bagsStolen, deaths,
+	-- bombsDropped, rareFinds, merges, rolls, cratesOpened }.
+	PlayerStats = "RemoteEvent",
+
 	-- The daily login calendar (Config/DailyRewards, Services/DailyRewardService).
 	-- Client -> server: "ask" or "claim". Server -> client: { day, ready, readyAt,
 	-- resetAt, days = { {cash, crates, luckSeconds, cashBoostSeconds, big} }, claimed? }.

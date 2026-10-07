@@ -1,10 +1,11 @@
 --[[
 	SettingsController.lua — the player Settings panel: a wide panel with a tab rail
-	down the left (General / Graphics / Audio) and the chosen page on the right.
+	down the left (General / Graphics / Audio / Stats) and the chosen page on the right.
 
 	  GENERAL   base colour, rare drop alerts, confirm rare drops
 	  GRAPHICS  graphics level (also the radiation effects), screen shake, reduce flashing, show auras, fast mode
 	  AUDIO     sound effects (the mute) and the master / effects / UI / Geiger / music sliders
+	  STATS     your lifetime numbers, read only: playtime, nukes dug, cash earned, kills...
 
 	THE LOOK (on request, mockup "2 Sidebar"): House slate, ink outlines, rows split by
 	thin lines rather than boxed, pill switches for flags, a segmented picker for
@@ -47,8 +48,12 @@
 
 	SHAPE MIRRORS IndexController: a ScreenGui with a corner button and a centred
 	`UIKit.panel` that toggles. `start()` only — nothing to build in `init()`.
-	Instance names tests drive: Panel.Tabs.<GENERAL|GRAPHICS|AUDIO> (the rail's
-	buttons) and Panel.<GENERAL|GRAPHICS|AUDIO> (the pages).
+	Instance names tests drive: Panel.Tabs.<GENERAL|GRAPHICS|AUDIO|STATS> (the rail's
+	buttons) and Panel.<GENERAL|GRAPHICS|AUDIO|STATS> (the pages).
+
+	STATS IS THE SERVER'S (Services/StatsService, Net.PlayerStats). The page asks when it
+	opens and every STATS_REFRESH seconds while it stays open, and each answer repaints
+	the values; nothing is asked while the page is shut.
 ]]
 
 local Players = game:GetService("Players")
@@ -64,6 +69,8 @@ local HudTile = require(script.Parent.Parent.HudTile)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local Prefs = require(script.Parent.Parent.Prefs)
 local Rarity = require(Shared.Config.Rarity)
+local Stages = require(Shared.Config.Stages)
+local Mastery = require(Shared.Mastery)
 
 local Settings = {}
 
@@ -98,6 +105,9 @@ local PAGE_TOP = 20
 local HEADER_H = 62 -- the page's title + subtitle, above its scrolling rows
 local ROW_H = 62
 local SLIDER_H = 56
+local STAT_H = 48 -- a Stats row with no hint
+local GROUP_H = 40 -- a Stats group heading ("Digging", "Combat"...)
+local STATS_REFRESH = 2 -- seconds between asks while the Stats page is open
 
 -- THE PANEL'S TYPE: Gotham Black throughout, in sentence case (#650).
 local FONT = House.font
@@ -156,6 +166,9 @@ local ui = {
 	-- Preset hex -> its swatch's UIStroke, plus the rainbow swatch's, lit to match the
 	-- committed colour.
 	presetStrokes = {} :: { [string]: UIStroke },
+	-- Stats key -> its row's value label, and hint label where it has one.
+	statValues = {} :: { [string]: TextLabel },
+	statHints = {} :: { [string]: TextLabel },
 }
 
 -- ── Colour helpers ──────────────────────────────────────────────────
@@ -552,6 +565,153 @@ local function volumeRow(row: Instance, key: string, title: string)
 	end)
 end
 
+-- ── Stats ───────────────────────────────────────────────────────────
+
+--- 1,284,000.
+local function commas(n: number): string
+	local out = tostring(math.floor(n))
+	repeat
+		local changed
+		out, changed = string.gsub(out, "^(-?%d+)(%d%d%d)", "%1,%2")
+	until changed == 0
+	return out
+end
+
+--- 45s, 12m, 3h 05m, 2d 4h.
+local function duration(seconds: number): string
+	seconds = math.floor(seconds)
+	if seconds < 60 then
+		return `{seconds}s`
+	end
+	local minutes = seconds // 60
+	if minutes < 60 then
+		return `{minutes}m`
+	end
+	local hours = minutes // 60
+	if hours < 24 then
+		return string.format("%dh %02dm", hours, minutes % 60)
+	end
+	return `{hours // 24}d {hours % 24}h`
+end
+
+-- The Stats page top to bottom: a `group` entry is a heading, the rest are stats keyed
+-- by Net.PlayerStats' fields. `hint` adds a dim line under the title; `format` says how
+-- the number reads (plain numbers get commas).
+type StatDef = { key: string?, group: string?, title: string?, hint: string?, format: ((number) -> string)? }
+local STATS: { StatDef } = {
+	{ group = "Overall" },
+	{ key = "playtime", title = "Playtime", hint = "Time spent in game", format = duration },
+	{
+		key = "cashEarned",
+		title = "Cash earned",
+		hint = "Every dollar you have ever made",
+		format = function(n)
+			return "$" .. Mastery.short(n)
+		end,
+	},
+	{ key = "index", title = "Index found", hint = "Different nukes you have discovered" },
+	{ key = "deepestStage", title = "Deepest stage", hint = "" }, -- the hint is the stage's name
+	{ group = "Digging" },
+	{ key = "dug", title = "Nukes dug up" },
+	{ key = "rareFinds", title = "Rare finds", hint = "Legendary, Mythic and Anomaly nukes dug up" },
+	{ key = "itemsCleaned", title = "Nukes cleaned" },
+	{ key = "cratesOpened", title = "Crates opened" },
+	{ group = "Combat" },
+	{ key = "bombsDropped", title = "Nukes bombed", hint = "Clean nukes dropped as bombs" },
+	{ key = "kills", title = "Players knocked out", hint = "Players downed by your bombs" },
+	{ key = "bagsStolen", title = "Bags stolen", hint = "Dropped bags you took from other players" },
+	{ key = "deaths", title = "Deaths" },
+	{ group = "Crafting" },
+	{ key = "merges", title = "Merges", hint = "At the Merge Reactor" },
+	{ key = "rolls", title = "Fluids brewed" },
+}
+
+--- One stat: title (and hint) on the left, the number on the right.
+local function statRow(row: Instance, def: StatDef)
+	local key = def.key :: string
+	local valueW = 200
+	local hinted = def.hint ~= nil
+	UIKit.label(row, {
+		name = "SectionTitle",
+		anchorPoint = if hinted then Vector2.zero else Vector2.new(0, 0.5),
+		position = if hinted then UDim2.fromOffset(0, 5) else UDim2.fromScale(0, 0.5),
+		size = UDim2.new(1, -valueW - 14, 0, 24),
+		font = FONT,
+		textSize = SIZE.row,
+		color = C.text,
+		text = def.title or "",
+		zIndex = 12,
+	})
+	if hinted then
+		ui.statHints[key] = UIKit.label(row, {
+			name = "SectionHint",
+			position = UDim2.fromOffset(0, 30),
+			size = UDim2.new(1, -valueW - 14, 0, 18),
+			font = FONT,
+			textSize = SIZE.hint,
+			color = C.dim,
+			text = def.hint or "",
+			zIndex = 12,
+		})
+	end
+	ui.statValues[key] = UIKit.label(row, {
+		name = "Value",
+		anchorPoint = Vector2.new(1, 0.5),
+		position = UDim2.new(1, -4, 0.5, 0),
+		size = UDim2.fromOffset(valueW, 28),
+		font = FONT,
+		textSize = SIZE.row,
+		color = C.text,
+		xAlign = Enum.TextXAlignment.Right,
+		text = "\u{2013}",
+		zIndex = 12,
+	})
+end
+
+--- A group heading over a run of stats, in the steel "on" blue.
+local function groupRow(row: Instance, title: string)
+	UIKit.label(row, {
+		name = "Group",
+		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(0, 0, 1, -8),
+		size = UDim2.new(1, 0, 0, 20),
+		font = FONT,
+		textSize = SIZE.hint,
+		color = C.on,
+		text = string.upper(title),
+		zIndex = 12,
+	})
+end
+
+--- The server's numbers (Net.PlayerStats) onto the rows.
+local function onServerStats(payload: any)
+	if type(payload) ~= "table" then
+		return
+	end
+	local function num(key: string): number
+		return tonumber(payload[key]) or 0
+	end
+	for _, def in STATS do
+		local key = def.key
+		local label = if key then ui.statValues[key] else nil
+		if key == nil or label == nil then
+			continue
+		end
+		if key == "index" then
+			label.Text = `{commas(num("indexFound"))} / {commas(num("indexTotal"))}`
+		elseif key == "deepestStage" then
+			local id = math.max(1, num("deepestStage"))
+			label.Text = `Stage {id}`
+			local ok, stage = pcall(Stages.get, id)
+			ui.statHints.deepestStage.Text = if ok and stage then stage.name else ""
+		elseif def.format then
+			label.Text = def.format(num(key))
+		else
+			label.Text = commas(num(key))
+		end
+	end
+end
+
 -- ── Draggable tracks ────────────────────────────────────────────────
 
 --- Wire a full-bleed transparent `catcher` frame so a press anywhere on it — and any
@@ -914,6 +1074,12 @@ local function tabIcon(chip: Frame, tab: string)
 		bar(6, 7, 18, 12, true)
 		bar(13, 20, 4, 3)
 		bar(10, 23, 10, 2)
+	elseif tab == "STATS" then
+		-- A rising bar chart on a baseline.
+		bar(7, 17, 4, 6)
+		bar(13, 12, 4, 11)
+		bar(19, 7, 4, 16)
+		bar(5, 23, 20, 2)
 	else
 		bar(6, 14, 4, 10)
 		bar(13, 7, 4, 17)
@@ -1018,12 +1184,13 @@ local function build(): ScreenGui
 		zIndex = 14,
 	})
 
-	local TABS = { "GENERAL", "GRAPHICS", "AUDIO" }
-	local TAB_LABEL = { GENERAL = "General", GRAPHICS = "Graphics", AUDIO = "Audio" }
+	local TABS = { "GENERAL", "GRAPHICS", "AUDIO", "STATS" }
+	local TAB_LABEL = { GENERAL = "General", GRAPHICS = "Graphics", AUDIO = "Audio", STATS = "Stats" }
 	local TAB_SUB = {
 		GENERAL = "Your base and alerts",
 		GRAPHICS = "Lower is smoother on slow devices",
 		AUDIO = "Only changes what you hear",
+		STATS = "Your lifetime numbers",
 	}
 	local pages: { [string]: Frame } = {}
 	local scrollers: { [string]: ScrollingFrame } = {}
@@ -1036,6 +1203,10 @@ local function build(): ScreenGui
 			t.back.Visible = on
 			t.button.TextColor3 = if on then C.text else C.dim
 			t.chip.BackgroundColor3 = if on then C.on else C.chip
+		end
+		ui.tab = name
+		if name == "STATS" and ui.askStats then
+			ui.askStats()
 		end
 	end
 	for i, name in TABS do
@@ -1197,6 +1368,18 @@ local function build(): ScreenGui
 	volumeRow(row("AUDIO", "Geiger", SLIDER_H), "volGeiger", "Geiger")
 	volumeRow(row("AUDIO", "Music", SLIDER_H), "musicLevel", "Music")
 
+	-- STATS: read only. A heading has no line of its own; the one under the row before
+	-- it marks the break.
+	for _, def in STATS do
+		if def.group then
+			local heading = row("STATS", "Group_" .. def.group, GROUP_H)
+			heading.Line.Visible = false
+			groupRow(heading, def.group)
+		else
+			statRow(row("STATS", "Stat_" .. (def.key :: string), if def.hint then ROW_H - 4 else STAT_H), def)
+		end
+	end
+
 	for _, frame in lastRow do
 		frame.Line.Visible = false
 	end
@@ -1205,6 +1388,9 @@ local function build(): ScreenGui
 
 	local function toggle()
 		panel.Visible = not panel.Visible
+		if panel.Visible and ui.tab == "STATS" and ui.askStats then
+			ui.askStats()
+		end
 	end
 	button.MouseButton1Click:Connect(toggle)
 	close.MouseButton1Click:Connect(toggle)
@@ -1237,6 +1423,21 @@ function Settings.start()
 	Net.get("SfxMuted").OnClientEvent:Connect(onServerSfxMuted)
 	-- Ask rather than wait: SfxController connected first and took the queued load echo.
 	Net.get("SfxMuted"):FireServer(nil)
+
+	-- STATS: asked on open (choose / toggle call askStats), then kept fresh while it shows.
+	local statsRemote = Net.get("PlayerStats")
+	statsRemote.OnClientEvent:Connect(onServerStats)
+	ui.askStats = function()
+		statsRemote:FireServer()
+	end
+	task.spawn(function()
+		while true do
+			task.wait(STATS_REFRESH)
+			if ui.panel.Visible and ui.tab == "STATS" then
+				ui.askStats()
+			end
+		end
+	end)
 end
 
 return Settings
