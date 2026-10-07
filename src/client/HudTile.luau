@@ -42,6 +42,8 @@ local EDGE_TRANSPARENCY_HOVER = 0.15
 -- The picture's square box, centred in the tile. No caption under it, on request, so
 -- the drawn symbol (which runs to the edge of its square) fills most of the tile.
 local ICON_SIZE = 34
+-- A glyph tile's character (the Info button's "i"), about as tall as a picture's symbol.
+local GLYPH_SIZE = 28
 
 -- The glow picture's diameter and how see-through it is. Its alpha falls to nothing
 -- at the rim, so it can be a little wider than the tile's top band without an edge.
@@ -84,7 +86,7 @@ export type Spec = {
 	-- The glow and edge colour, and the lighter caption tint.
 	color: Color3,
 	light: Color3,
-	-- The symbol (Artwork.IMAGE).
+	-- The symbol (Artwork.IMAGE). Unused when `glyph` is given.
 	image: string,
 	-- Design px to drop the symbol below the glow's centre, for a drawing whose weight
 	-- sits high in its square.
@@ -98,9 +100,11 @@ export type Spec = {
 	-- 1 = Settings, 2 = Daily, 3 = Potions), re-placed when the scale changes. `slot`
 	-- is then unused.
 	corner: number?,
-	-- Optional: the top LEFT instead, right after Roblox's own topbar buttons
-	-- (Dock.topbarLeftCentre) -- the Settings gear. `slot` is then unused.
-	topbarLeft: boolean?,
+	-- Optional: a place in the top LEFT instead, right after Roblox's own topbar buttons
+	-- (Dock.topbarLeftCentre: 1 = Settings, 2 = Info). `slot` is then unused.
+	topbarLeft: number?,
+	-- Optional: a GothamBlack character drawn instead of `image` (the Info button's "i").
+	glyph: string?,
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
 }
@@ -120,7 +124,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
-	local grid = spec.position == nil and spec.corner == nil and not spec.topbarLeft
+	local grid = spec.position == nil and spec.corner == nil and spec.topbarLeft == nil
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
 		size = if grid then UDim2.fromOffset(GRID_SIZE, GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
@@ -179,9 +183,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
 	else
 		local corner = spec.corner
-		if spec.topbarLeft then
+		local topbarLeft = spec.topbarLeft
+		if topbarLeft then
 			Dock.onTopbarChanged(function()
-				button.Position = Dock.topbarLeftCentre()
+				button.Position = Dock.topbarLeftCentre(topbarLeft)
 			end)
 		elseif corner then
 			UIKit.onScaleChanged(function()
@@ -198,10 +203,25 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		glow.ImageTransparency = GLOW_TRANSPARENCY
 		glow.ZIndex = 5
 
-		icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
-		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.Position = UDim2.new(0.5, 0, 0.5, spec.iconDrop or 0)
-		icon.ZIndex = 6
+		if spec.glyph then
+			UIKit.hudNumber(button, {
+				name = "Glyph",
+				anchorPoint = Vector2.new(0.5, 0.5),
+				position = UDim2.new(0.5, 0, 0.5, spec.iconDrop or 0),
+				size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE),
+				text = spec.glyph,
+				font = Enum.Font.GothamBlack,
+				textSize = GLYPH_SIZE,
+				color = Color3.new(1, 1, 1),
+				xAlign = Enum.TextXAlignment.Center,
+				zIndex = 6,
+			}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
+		else
+			icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
+			icon.AnchorPoint = Vector2.new(0.5, 0.5)
+			icon.Position = UDim2.new(0.5, 0, 0.5, spec.iconDrop or 0)
+			icon.ZIndex = 6
+		end
 	end
 
 	local hovered, pressed = false, false

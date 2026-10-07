@@ -775,14 +775,16 @@ function Dock.cornerButtonCentre(index: number): UDim2
 	return UDim2.new(1, -fromRight, 0, Dock.CORNER_TOP + half)
 end
 
---- The Settings button's centre: in the topbar band on the LEFT, right after Roblox's
---- own buttons (the menu, chat, the microphone), on request. GuiService.TopbarInset
---- starts where those end (screen px, so divided by the scale); it moves when Roblox
---- adds or drops a button, so re-read it on its change signal (Dock.onTopbarChanged).
-function Dock.topbarLeftCentre(): UDim2
+--- The centre of top-left button `index` (1 = Settings, 2 = Info right of it): in the
+--- topbar band on the LEFT, right after Roblox's own buttons (the menu, chat, the
+--- microphone), on request. GuiService.TopbarInset starts where those end (screen px,
+--- so divided by the scale); it moves when Roblox adds or drops a button, so re-read
+--- it on its change signal (Dock.onTopbarChanged).
+function Dock.topbarLeftCentre(index: number?): UDim2
 	local half = Dock.CORNER_TILE_SIZE / 2
 	local left = GuiService.TopbarInset.Min.X / UIKit.scale()
-	return UDim2.fromOffset(left + Dock.CORNER_GAP + half, Dock.CORNER_TOP + half)
+	local step = ((index or 1) - 1) * (Dock.CORNER_TILE_SIZE + Dock.CORNER_GAP)
+	return UDim2.fromOffset(left + Dock.CORNER_GAP + half + step, Dock.CORNER_TOP + half)
 end
 
 --- Call `listener` now and whenever the scale or Roblox's topbar buttons change.
