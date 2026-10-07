@@ -121,6 +121,8 @@ local REEL_BAND_H = 196
 local REEL_CARD = Vector2.new(124, 156)
 --- How long the landed card holds before the prize's own view takes over.
 local LAND_HOLD = 0.8
+--- The same hold after a SKIP: just long enough to see which card it stopped on.
+local SKIP_HOLD = 0.3
 --- The soft glow behind the view: RadFx's white "soft dot with a bright core", tinted.
 local GLOW_IMAGE = RadFxArt.mote
 --- Sparks fall under this (design px/s^2) and lose speed to this drag per second.
@@ -137,6 +139,8 @@ local HELD_ITEM_NAME = "HeldItem" -- ToolService's name for whatever is in your 
 local OPEN_KEY = Enum.KeyCode.F
 
 local ui: any = {}
+--- CrateSkip (client -> server): the reel's SKIP button. Set in start().
+local skipRemote: any = nil
 local spinToken = 0
 
 local function round(parent: Instance, radius: UDim)
@@ -832,6 +836,35 @@ local function build()
 		artAtStart = false,
 	})
 
+	-- SKIP, under the reel while it runs: snaps it onto the prize and has the server
+	-- settle the open now, so the nuke is in your hands with the result sheet.
+	local skip, skipStroke = UIKit.button(root, {
+		name = "Skip",
+		size = UDim2.fromOffset(150, 44),
+		position = UDim2.fromOffset(VIEW_X, VIEW_Y + REEL_BAND_H / 2 + 18),
+		anchorPoint = Vector2.new(0.5, 0),
+		text = "SKIP",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		fillColor = Color3.new(0, 0, 0),
+		fillTransparency = 0.35,
+		strokeColor = HOT_STROKE,
+		strokeThickness = 2.5,
+		zIndex = 6,
+		visible = false,
+	})
+	-- The orange ring on the box only; the word gets the usual dark outline.
+	skipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	skip.TextStrokeColor3 = INK
+	skip.TextStrokeTransparency = 0
+	skip.MouseEnter:Connect(function()
+		skip.BackgroundTransparency = 0.15
+	end)
+	skip.MouseLeave:Connect(function()
+		skip.BackgroundTransparency = 0.35
+	end)
+	ui.skip = skip
+
 	local flash = Instance.new("Frame")
 	flash.Name = "Flash"
 	flash.BorderSizePixel = 0
@@ -1315,6 +1348,7 @@ local function play(payload: any)
 		}
 	end
 	local landedAt: number? = nil
+	local skipped = false
 	ui.reel.spin(entries, land, seconds, {
 		onTick = function(entry)
 			-- The glow behind eases toward the rarity under the marker (animateAmbient),
@@ -1324,8 +1358,23 @@ local function play(payload: any)
 		end,
 		onLand = function()
 			landedAt = os.clock()
+			ui.skip.Visible = false
 		end,
 	})
+
+	if ui.skipConnection then
+		ui.skipConnection:Disconnect()
+	end
+	ui.skip.Visible = true
+	ui.skipConnection = ui.skip.Activated:Connect(function()
+		if token ~= spinToken or skipped then
+			return
+		end
+		skipped = true
+		ui.skip.Visible = false
+		ui.reel.skip()
+		skipRemote:FireServer()
+	end)
 
 	local revealed = false
 	local turn = 0
@@ -1350,7 +1399,7 @@ local function play(payload: any)
 			if landedAt then
 				local since = os.clock() - landedAt
 				local prize = cached(payload.result, payload.rarity)
-				if since >= LAND_HOLD and ((not prize.placeholder and drawable(prize)) or since >= PRIZE_WAIT) then
+				if since >= (if skipped then SKIP_HOLD else LAND_HOLD) and ((not prize.placeholder and drawable(prize)) or since >= PRIZE_WAIT) then
 					revealed = true
 					ui.opening = false
 					ui.reelBand.Visible = false
@@ -1497,6 +1546,7 @@ end
 
 function CrateController.start()
 	openRemote = Net.get("CrateOpen")
+	skipRemote = Net.get("CrateSkip")
 	Net.get("CrateOpened").OnClientEvent:Connect(play)
 
 	local player = Players.LocalPlayer

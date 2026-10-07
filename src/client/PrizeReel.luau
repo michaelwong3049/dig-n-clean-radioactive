@@ -79,6 +79,8 @@ export type Reel = {
 	frame: Frame,
 	spin: (entries: { Entry }, land: number, seconds: number, callbacks: Callbacks?) -> (),
 	clear: () -> (),
+	-- Jump a running spin straight to its landing; false when nothing is spinning.
+	skip: () -> boolean,
 	winner: () -> Frame?,
 }
 
@@ -285,6 +287,8 @@ function PrizeReel.new(parent: Instance, props: Props): Reel
 	local artConnection: RBXScriptConnection? = nil
 	local token = 0
 	local landedIndex: number? = nil
+	--- Set by skip(): the running spin lands on its next frame.
+	local rushed = false
 
 	local function makeCard(entry: Entry, index: number): Card
 		local cz = z + 1
@@ -402,6 +406,7 @@ function PrizeReel.new(parent: Instance, props: Props): Reel
 		end
 		table.clear(cards)
 		landedIndex = nil
+		rushed = false
 	end
 
 	local function place(position: number)
@@ -489,7 +494,7 @@ function PrizeReel.new(parent: Instance, props: Props): Reel
 			if token ~= my then
 				return
 			end
-			local t = math.clamp((os.clock() - started) / math.max(seconds, 0.1), 0, 1)
+			local t = if rushed then 1 else math.clamp((os.clock() - started) / math.max(seconds, 0.1), 0, 1)
 			local position = from + (target - from) * (1 - (1 - t) ^ 4)
 			place(position)
 
@@ -537,6 +542,13 @@ function PrizeReel.new(parent: Instance, props: Props): Reel
 		frame = root,
 		spin = spin,
 		clear = clear,
+		skip = function(): boolean
+			if connection == nil then
+				return false
+			end
+			rushed = true
+			return true
+		end,
 		winner = function(): Frame?
 			return if landedIndex and cards[landedIndex] then cards[landedIndex].frame else nil
 		end,
