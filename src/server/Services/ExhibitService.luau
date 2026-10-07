@@ -1451,6 +1451,9 @@ function ExhibitService.unequipAll(player: Player): (boolean, string)
 	return true, text
 end
 
+-- The one Equip Best outcome the Nukes panel prints over the tray (see NukeAction).
+local ALREADY_BEST = "your best nukes are already on display"
+
 --- Fill every stand with the best set of nukes the player owns, and swap weaker
 --- displayed ones back into the bag. "Best" is what the plot actually earns: the
 --- duplicate damping is counted, so it spreads across different nukes instead of
@@ -1540,7 +1543,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 		end
 	end
 	if #goingUp == 0 then
-		return false, "your best nukes are already on display"
+		return false, ALREADY_BEST
 	end
 
 	local stays = {}
@@ -1855,8 +1858,11 @@ function ExhibitService.start()
 				return
 			end
 			lastEquip[player] = now
+			-- Only "already on display" is worth a line over the tray; the stands
+			-- changing (or a refusal) shows for itself, so the rest stay quiet. Still a
+			-- string, not nil: the client frees the busy button on any notice.
 			local _, message = ExhibitService.equipBest(player)
-			notice = message
+			notice = if message == ALREADY_BEST then message else ""
 		elseif action == "unequipAll" then
 			local now = os.clock()
 			if now - (lastEquip[player] or 0) < EQUIP_COOLDOWN then
