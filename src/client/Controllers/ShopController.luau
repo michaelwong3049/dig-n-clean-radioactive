@@ -45,6 +45,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local CloverArt = require(script.Parent.Parent.CloverArt)
+local Studded = require(script.Parent.Parent.Studded)
 local ItemArt = require(script.Parent.Parent.ItemArt)
 
 local Shop = {}
@@ -1228,6 +1229,18 @@ local function buildPanel(): ScreenGui
 	padding.PaddingLeft = UDim.new(0, PAD)
 	padding.PaddingRight = UDim.new(0, PAD)
 	padding.Parent = panel
+	-- The L-stud pattern the other panels wear (on request, 2026-10-07), laid straight
+	-- over the see-through black rather than Studded.darkPanel's solid grey: the world
+	-- still shows behind it. Pushed back out past the padding, like Masteries'.
+	local pattern = Studded.pattern(panel, {
+		radius = 20,
+		bands = { 0.15, 0.42, 0.52, 0.58 },
+		bandTransparency = 0.93,
+		studTransparency = 0.1,
+		glow = false,
+	})
+	pattern.Position = UDim2.fromOffset(-PAD, -(PAD - 6))
+	pattern.Size = UDim2.new(1, 2 * PAD, 1, 2 * PAD - 6)
 
 	inked(panel, {
 		Name = "Title",
