@@ -1,7 +1,8 @@
 --!strict
 --[[
-	CrateShopService.luau — the two crate pads in Base Camp, either side of the group
-	chest (Config/CrateShop): cash crates on one, Robux crates on the other. Two crates
+	CrateShopService.luau — the crate pads (Config/CrateShop): Base Camp's two either side
+	of the group chest, and a pair on every camp's plaza. Cash crates on one of each pair,
+	Robux crates on the other. Two crates
 	hover side by side over each pad; each has its own E prompt that buys it.
 
 	THE PADS ARE BAKED INTO THE PLACE by build/CrateShopPads (World.rebuild), so they
@@ -163,11 +164,15 @@ end
 -- ── Bootstrap ────────────────────────────────────────────────────────────────
 
 function CrateShopService.init()
-	-- In init, not start, so no receipt can land before these are registered.
+	-- In init, not start, so no receipt can land before these are registered. Every
+	-- camp's Robux pad sells the same products, so each one registers once.
+	local registered: { [number]: boolean } = {}
 	for _, pad in CrateShop.PADS do
 		for _, offer in pad.offers do
-			if offer.productId then
-				ProductService.register(offer.productId, function(player, data)
+			local productId = offer.productId
+			if productId and not registered[productId] then
+				registered[productId] = true
+				ProductService.register(productId, function(player, data)
 					grantRobux(player, data, offer.crateId)
 				end)
 			end

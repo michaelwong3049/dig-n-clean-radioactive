@@ -767,7 +767,7 @@ function World.verify(): (boolean, { string })
 		end
 	end
 
-	-- ── Base Camp crate pads + group chest ────────────────────────────────
+	-- ── Crate pads (Base Camp + camps) + group chest ────────────────────────────────
 	-- Their services build them at runtime when missing, so a miss here is not a
 	-- broken game, only a place that shows nothing in Edit mode.
 	for _, pad in CrateShop.PADS do
