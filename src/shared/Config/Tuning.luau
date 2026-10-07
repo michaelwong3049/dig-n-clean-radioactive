@@ -104,8 +104,10 @@ Tuning.BURN_EXPONENT = 0.75
 --   under   : one tier too weak. 20-30s at the entrance, ~2-3s past BREAK. Failing.
 --   wayUnder: two or more tiers too weak. About a second, anywhere. Failing.
 --   (UNDER_GRACE is added on top of both failing rows, see below.)
---   lastAura: the top aura in a stage rated past the end of the ladder (Stage 12).
---             About a minute, on purpose: the deepest stage is a raid, not a farm.
+--   lastAura: the top aura in a stage rated past the end of the ladder (unused
+--             since the Molten Serpent gave Stage 12 its own rung).
+--   raid    : the stage's own aura in a RAID stage (Ground Zero). Fails everywhere
+--             in it, on its own row; see RAID below.
 --   over    : one or two tiers too STRONG. The rated row stretched by OVER (x5, x25):
 --             a slow wear you can watch tick down as you walk deeper, never failing.
 --             Three or more tiers over takes no aura damage at all.
@@ -148,6 +150,17 @@ Tuning.ZONE_SURVIVAL = {
 	-- while a stage below your aura still farms comfortably (Spec: 5m+ at its far edge).
 	-- Green wear (the aura holding), never failing. Three or more over takes nothing.
 	OVER = { 5, 25 },
+	-- RAID STAGES: stageId -> { entrance, BREAK, far edge } for the stage's OWN aura, which
+	-- FAILS there everywhere (red, "TURN BACK": there is no aura above it). On request
+	-- (2026-10-07, "make ground zero be able to die with max aura, right now you can
+	-- basically stay there forever"): with the rated row the Molten Serpent wore 8m a bar
+	-- at the entrance, so Ground Zero was a farm. Now it is a raid again, like the old
+	-- Vortex lastAura: ~3m at the entrance, 1.5m at 60%, 40s at the far edge. Always
+	-- kept above one tier under there (the Vortex: ~70s / 40s / 33s), so the Serpent
+	-- still buys time.
+	RAID = {
+		[12] = { 180, 90, 40 },
+	},
 	-- DEAD ZONES: stageId -> the back of that stage, where even the stage's own aura
 	-- fails. From `from` on, the time a bar lasts falls geometrically from whatever the
 	-- normal curve gives there to `edge` seconds at the far edge -- the same SHARE
