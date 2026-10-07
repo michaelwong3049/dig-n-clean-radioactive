@@ -545,8 +545,9 @@ Tuning.AURA_PULLED_SCALE_ATTR = "PulledScale"
 -- pillar was too close to PLAN 10.9's server-wide "Legendary pulled" beacon.
 --
 -- All three sizes are at WellScale 1 and multiply by Config/Weight.crackScale
--- (0.75..2.40), off the NUKE'S SIZE: the biggest finds' cracks reach ~6 studs out, a
--- touch past DIG_RADIUS.
+-- (0.75..~4.7), off the NUKE'S SIZE: an ordinary find's cracks reach ~3 studs out, a
+-- heavy GIGA roll's well over 10, far past
+-- DIG_RADIUS (you still have to stand on the hot spot).
 Tuning.AURA_CORE = 0.8 -- the hot spot where the cracks meet, diameter in studs -- the spot to stand on
 Tuning.AURA_CRACK_LENGTH = 3.1 -- a crack's length ALONG its jagged path, studs (each varies 0.75..1.25x); the kinks mean it reaches ~80% of that out from the centre
 Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers to ~15% at the tip

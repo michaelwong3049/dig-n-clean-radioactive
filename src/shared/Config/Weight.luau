@@ -82,20 +82,31 @@ end
 -- The span of real nuke sizes `crackScale` maps across: the haul's whole scale
 -- (sizeScale * sizeMult * Payload) from the smallest possible dig (0.55 * 0.8 * 0.6)
 -- up to where the very biggest stop reading any bigger. Past either end it saturates.
+-- PIVOT is roughly an ordinary dig (a mid-weight nuke at a ~1x roll): up to it the
+-- cracks follow the gentle log curve, past it they GROW -- a power curve, so an
+-- OVERSIZED / GIGA roll on a heavy nuke throws a spot several times the usual size.
 Weight.CRACK_SIZE_MIN = 0.25
-Weight.CRACK_SIZE_MAX = 20
+Weight.CRACK_SIZE_PIVOT = 1.5
+Weight.CRACK_SIZE_MAX = 6
+Weight.CRACK_SCALE_MIN = 0.75 -- at CRACK_SIZE_MIN
+Weight.CRACK_SCALE_PIVOT = 1.45 -- at CRACK_SIZE_PIVOT
+Weight.CRACK_GROWTH = 0.85 -- the power past the pivot; tops out ~4.7 at CRACK_SIZE_MAX
 
 --- How much bigger the buried signal's aura reads (the hot spot, and the cracks'
 --- length and width), off the size the NUKE ITSELF comes up at -- `size` is the
 --- haul's full scale (DigService.sizeOf: sizeScale * sizeMult * Payload), never the
 --- weight on its own. Bigger cracks always mean a bigger nuke: a light item that
---- rolled giga out-cracks a heavy one that rolled small. Log, like `norm`, so the
---- crowded middle of the range still reads apart. NOT the pickup radius -- that stays
---- Tuning.DIG_RADIUS.
+--- rolled giga out-cracks a heavy one that rolled small. Log below the pivot, like
+--- `norm`, so the crowded small end still reads apart; a power curve above it, so the
+--- big ones are BIG (a ~3.5 giga reads ~3.0, was ~1.75). NOT the pickup radius --
+--- that stays Tuning.DIG_RADIUS.
 function Weight.crackScale(size: number): number
-	local lo, hi = Weight.CRACK_SIZE_MIN, Weight.CRACK_SIZE_MAX
-	local t = clamp01(math.log(math.max(size, lo) / lo) / math.log(hi / lo))
-	return lerp(0.75, 2.40, t)
+	local lo, pivot, hi = Weight.CRACK_SIZE_MIN, Weight.CRACK_SIZE_PIVOT, Weight.CRACK_SIZE_MAX
+	if size <= pivot then
+		local t = clamp01(math.log(math.max(size, lo) / lo) / math.log(pivot / lo))
+		return lerp(Weight.CRACK_SCALE_MIN, Weight.CRACK_SCALE_PIVOT, t)
+	end
+	return Weight.CRACK_SCALE_PIVOT * (math.min(size, hi) / pivot) ^ Weight.CRACK_GROWTH
 end
 
 --- Multiplies the pull's `required` seconds (DigService: PULL_SECONDS_PER_STUD *
