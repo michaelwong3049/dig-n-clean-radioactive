@@ -31,9 +31,9 @@ local PotionController = {}
 
 -- The Potions tile: bottom left of the left-edge 2x3 grid (HudTile), Warp's old slot
 -- (Warp moved up beside SELL, WarpController). Its running-potion chips stay in the
--- top-right corner row, after Daily (1): from 2 on.
+-- top-right corner row, after Daily (1) and Masteries (2): from 3 on.
 local TILE_SLOT = 5
-local CHIP_AFTER = 1
+local CHIP_AFTER = 2
 local TILE_COLOR = Color3.fromRGB(168, 75, 240)
 local TILE_LIGHT = Color3.fromRGB(227, 166, 255)
 

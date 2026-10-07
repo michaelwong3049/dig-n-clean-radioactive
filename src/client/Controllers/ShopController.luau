@@ -49,7 +49,7 @@ local ItemArt = require(script.Parent.Parent.ItemArt)
 
 local Shop = {}
 
--- THE SHOP TILE: top left of the left-edge 2x3 grid (HudTile), the shopping basket.
+-- THE SHOP TILE: the whole top row of the left-edge grid (HudTile, span 2), the basket.
 local TILE_SLOT = 1
 local TILE_COLOR = Color3.fromRGB(86, 212, 71)
 local TILE_LIGHT = Color3.fromRGB(185, 245, 168)
@@ -1299,6 +1299,9 @@ local function build(): ScreenGui
 		name = "ShopButton",
 		caption = "Shop",
 		slot = TILE_SLOT,
+		-- The whole top row of the grid, on request (2026-10-06: "enlongate shop to
+		-- take up two gui spots").
+		span = 2,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Artwork.IMAGE.chest,

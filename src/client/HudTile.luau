@@ -1,7 +1,7 @@
 --[[
-	HudTile — one HUD tile: the 2x3 button grid on the middle left (Shop, Index, Nukes, Gear,
-	Warp, Gifts) in the dark "Grid" look, and the top-right corner buttons (Settings, Daily) in
-	the dark "glow orb" look.
+	HudTile — one HUD tile: the button grid on the middle left (a wide Shop over Index,
+	Nukes, Potions, Gifts) as coloured studded plates, and the top-right corner buttons
+	(Daily, Masteries) and top-left ones (Settings, Info) in the dark "glow orb" look.
 
 	The grid tile, on request (2026-10-03, from a reference picture): a dark navy rounded
 	square with a light rim, a big picture that pokes up over its top edge, and the name in
@@ -28,6 +28,7 @@ local UIKit = require(script.Parent.UIKit)
 local Dock = UIKit.Dock
 local Artwork = require(script.Parent.HudArtwork)
 local TutorialGate = require(script.Parent.TutorialGate)
+local Studded = require(script.Parent.Studded)
 
 local HudTile = {}
 
@@ -52,19 +53,31 @@ local GLOW_SIZE = 42
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 
--- THE LEFT-EDGE GRID (Shop, Index, Nukes, Gear, Warp, Gifts), on request: a see-through
--- near-black fill lit faintly from the top inside a thin black outline (the grey rim and
--- the navy went, on request), the picture just poking up over the top edge by
--- Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
+-- THE LEFT-EDGE GRID (a wide Shop over Index, Nukes, Potions, Gifts): a studded plate
+-- in the tile's own colour (PLATES) inside a thin ink outline, the picture just poking up
+-- over the top edge by Dock.SIDE_GRID_POKE, the name across the foot. The corner buttons
 -- (Settings, Daily, placed by spec.position) keep the dark glow-orb look.
 local GRID_SIZE = Dock.SIDE_GRID_TILE
 local GRID_CORNER = 11
-local GRID_TOP = Color3.fromRGB(34, 36, 42)
-local GRID_FOOT = Color3.fromRGB(6, 7, 10)
-local GRID_FILL_TRANSPARENCY = 0.35
-local GRID_OUTLINE = Color3.new(0, 0, 0)
+local GRID_OUTLINE = Studded.INK
 local GRID_OUTLINE_THICKNESS = 2
-local GRID_OUTLINE_TRANSPARENCY = 0.25
+local GRID_OUTLINE_TRANSPARENCY = 0
+local GRID_STUD_TILE = 18
+
+-- Each grid tile's studded plate (2026-10-06, on request: "instead of black transparent
+-- ones, do studded backgrounds", a colour per tile that sits well with its picture).
+-- Picked to frame the picture, not to match it: the pink basket on its handle's blue,
+-- the gold cards on purple, the lime bomb on a deep toxic green, the purple potion on
+-- the glass's teal, the gold gift box on red. Keyed by the tile's name; anything not
+-- listed gets the dark grey panel plate.
+local PLATES: { [string]: ColorSequence } = {
+	ShopButton = ColorSequence.new(Color3.fromHex("6EC8FF"), Color3.fromHex("2C7FE0")),
+	IndexButton = Studded.PURPLE,
+	NukesButton = ColorSequence.new(Color3.fromHex("4FA23A"), Color3.fromHex("1F5A1E")),
+	PotionsButton = ColorSequence.new(Color3.fromHex("5FE3D2"), Color3.fromHex("1C9A9E")),
+	FreeGiftsButton = Studded.RED,
+}
+local DEFAULT_PLATE = ColorSequence.new(Studded.DARK)
 local GRID_ICON = 52
 -- The picture's centre, up from the tile's: its top then clears the edge by the poke.
 local GRID_ICON_RISE = GRID_ICON / 2 + Dock.SIDE_GRID_POKE - GRID_SIZE / 2
@@ -83,6 +96,8 @@ export type Spec = {
 	caption: string,
 	-- Where in the left-edge grid: 1-6, left to right, top to bottom.
 	slot: number,
+	-- Optional: how many grid slots wide (the Shop spans 2), starting at `slot`.
+	span: number?,
 	-- The glow and edge colour, and the lighter caption tint.
 	color: Color3,
 	light: Color3,
@@ -97,7 +112,7 @@ export type Spec = {
 	-- `slot` is then unused.
 	position: UDim2?,
 	-- Optional: a place in the top-right corner row instead (Dock.cornerButtonCentre:
-	-- 1 = Settings, 2 = Daily, 3 = Potions), re-placed when the scale changes. `slot`
+	-- 1 = Daily, 2 = Masteries, counted from the right), re-placed when the scale changes. `slot`
 	-- is then unused.
 	corner: number?,
 	-- Optional: a place in the top LEFT instead, right after Roblox's own topbar buttons
@@ -125,9 +140,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local canvas = UIKit.canvas(gui)
 
 	local grid = spec.position == nil and spec.corner == nil and spec.topbarLeft == nil
+	local span = spec.span or 1
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
-		size = if grid then UDim2.fromOffset(GRID_SIZE, GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
+		size = if grid then UDim2.fromOffset(GRID_SIZE * span + Dock.SIDE_TILE_GAP * (span - 1), GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		text = "",
 		textSize = UIKit.TextSize.body,
@@ -144,13 +160,15 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		edge.Color = GRID_OUTLINE
 		edge.Thickness = GRID_OUTLINE_THICKNESS
 		edge.Transparency = GRID_OUTLINE_TRANSPARENCY
-		-- The fill is white so the gradient's colours are the colours drawn.
-		button.BackgroundColor3 = Color3.new(1, 1, 1)
-		button.BackgroundTransparency = GRID_FILL_TRANSPARENCY
-		local fill = Instance.new("UIGradient")
-		fill.Rotation = 90
-		fill.Color = ColorSequence.new(GRID_TOP, GRID_FOOT)
-		fill.Parent = button
+		-- A solid coloured plate under the glossy L-stud pattern the panels wear.
+		Studded.fill(button, PLATES[spec.name] or DEFAULT_PLATE)
+		Studded.pattern(button, {
+			tile = GRID_STUD_TILE,
+			radius = GRID_CORNER,
+			studTransparency = 0.3,
+			bandTransparency = 0.8,
+			glow = false,
+		})
 	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
@@ -159,7 +177,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	if grid then
 		local function place()
 			local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-			button.Position = Dock.sideTileCentre(spec.slot, height)
+			-- A wide tile sits on the middle of the slots it spans.
+			local first = Dock.sideTileCentre(spec.slot, height)
+			local last = Dock.sideTileCentre(spec.slot + span - 1, height)
+			button.Position = first:Lerp(last, 0.5)
 		end
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()

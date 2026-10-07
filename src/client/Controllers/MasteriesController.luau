@@ -559,10 +559,10 @@ function MasteriesController.start()
 	local barGui, button = HudTile.build({
 		name = "MasteriesButton",
 		caption = "Masteries",
-		-- The Gear tile's old slot, middle right of the grid beside Nukes, on request
-		-- (2026-10-05: "remove the gear gui ... and replace it with the masteries").
-		-- It was a bare medal standing over the grid.
-		slot = 4,
+		-- Top-right corner row, left of Daily, on request (2026-10-06: "move masteries
+		-- gui to top right"). It was grid slot 4 beside Nukes; the Shop took its row.
+		slot = 0,
+		corner = 2,
 		color = BAR_COLOR,
 		light = BAR_LIGHT,
 		image = Artwork.IMAGE.medal,
