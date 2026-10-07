@@ -876,14 +876,15 @@ Dock.HAULPANEL_CENTRE_GAP = 100
 -- to overlap the surfacing item; further in it tucks behind the meter (DisplayOrder 100
 -- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
 -- width, not a different anchor.
--- THE BOOSTS WIDGET (BoostsController): the bottom-right stack of Luck / Cash / ... totals,
--- just above the hotbar. Up to BOOSTS_ROWS pills; PassOfferController stacks above it and
--- the haul panel keeps clear of its width.
-Dock.BOOSTS_WIDTH = 150
-Dock.BOOSTS_ROW = 26
-Dock.BOOSTS_ROW_GAP = 4
-Dock.BOOSTS_ROWS = 4
-Dock.BOOSTS_HEIGHT = Dock.BOOSTS_ROWS * Dock.BOOSTS_ROW + (Dock.BOOSTS_ROWS - 1) * Dock.BOOSTS_ROW_GAP
+-- THE BOOSTS WIDGET (BoostsController): the bottom-right "CURRENT BOOSTS" header over the
+-- Luck / Cash / Walk Speed totals, just above the hotbar. PassOfferController stacks above
+-- it and the haul panel keeps clear of its width.
+Dock.BOOSTS_WIDTH = 200
+Dock.BOOSTS_HEADER = 20
+Dock.BOOSTS_ROW = 34
+Dock.BOOSTS_ROW_GAP = 2
+Dock.BOOSTS_ROWS = 3
+Dock.BOOSTS_HEIGHT = Dock.BOOSTS_HEADER + Dock.BOOSTS_ROWS * (Dock.BOOSTS_ROW + Dock.BOOSTS_ROW_GAP)
 
 --- The lowest the Boosts widget's bottom edge may sit, up from the screen's bottom edge:
 --- on the hotbar's top edge, and above the jump button on touch. Read on scale changes.
