@@ -23,7 +23,7 @@
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
-	A COMING SOON CAMP (Config/Camps `comingSoon`, Zone 3 past Stage 12) is the same
+	A COMING SOON CAMP (Config/Camps `comingSoon`, Zone 4's Rift Outpost past Stage 12) is the same
 	formation with nothing working in it: every stall a shell, no trader kiosk, an empty
 	wash deck and no CampAnchor (so CampService offers no warp to it). A barricade with
 	an invisible collider stands across its ENTRANCE, so it is seen and never entered.
@@ -101,7 +101,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 36
+local BUILDER_VERSION = 37
 
 local C = Kit.C
 local build = Kit.build

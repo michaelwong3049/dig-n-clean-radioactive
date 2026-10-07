@@ -718,7 +718,17 @@ function Spec.run(): boolean
 			end
 			check(`§camp exactly one site camp sits past Stage {stageId} (found {found})`, found == 1)
 		end
-		check(`§camp every site camp fills a stage gap ({#Camps.sites()} sites, {#Stages.CAMP_AFTER} gaps)`, #Camps.sites() == #Stages.CAMP_AFTER)
+		-- A COMING SOON camp (Zone 4) sits off the chain's last edge instead of in a gap.
+		local _, _, chainEndX = Stages.bounds(Stages.DEFS[#Stages.DEFS].id)
+		local gapSites = 0
+		for _, def in Camps.sites() do
+			if def.comingSoon then
+				check(`§camp {def.name} (coming soon) sits past the last stage`, def.clipX ~= nil and math.abs(def.clipX - chainEndX) < 0.5 and def.exitX == nil)
+			else
+				gapSites += 1
+			end
+		end
+		check(`§camp every open site camp fills a stage gap ({gapSites} sites, {#Stages.CAMP_AFTER} gaps)`, gapSites == #Stages.CAMP_AFTER)
 	end
 
 	-- THE ZONE SURVIVAL CURVE (Tuning.ZONE_SURVIVAL), pinned to the user's targets.

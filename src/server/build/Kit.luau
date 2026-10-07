@@ -456,7 +456,7 @@ function Kit.blendHex(a: string, b: string, t: number): string
 	return Color3.fromHex(a):Lerp(Color3.fromHex(b), t):ToHex()
 end
 
---- The hazard-tape colours per ZONE (four stages each: 1-4, 5-8, 9-12), on request --
+--- The hazard-tape colours per ZONE (four stages each: 1-4, 5-8, 9-12, 13-16), on request --
 --- every boundary line in a zone wears the same bright + dark pair, so the tape tells
 --- you which zone you're in. Zone 1 keeps the original yellow and black, on request.
 --- Shared by Scenery's stage seams and CampSite's camp mouths.
@@ -464,6 +464,7 @@ local HAZARD_ZONE_PAIR: { { bright: string, dark: string } } = {
 	{ bright = Kit.C.barrelYellow, dark = Kit.C.hazardBlack }, -- zone 1: classic yellow / black
 	{ bright = "3FA9FF", dark = "0A1F3D" }, -- zone 2: electric blue / navy
 	{ bright = "E8332A", dark = "2E0B09" }, -- zone 3: warning red / oxblood
+	{ bright = "F2F4FA", dark = "0E0F18" }, -- zone 4: starlight white / void black
 }
 
 --- (bright, dark) hazard-tape colours for the zone `stageId` sits in. A stage past the

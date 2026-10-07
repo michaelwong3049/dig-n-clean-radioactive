@@ -567,7 +567,7 @@ local function stops(here: string?): { Stop }
 		table.insert(out, { key = def.key, def = def, id = def.id, status = statusOf(def, here) })
 	end
 	-- Numbered after every camp in the config, listed here or not -- except a COMING
-	-- SOON one, which IS that "???" badge (Zone 3 is seen past Stage 12, never warped to).
+	-- SOON one, which IS that "???" badge (Rift Outpost is seen past Stage 12, never warped to).
 	local lastId = 0
 	for _, def in Camps.DEFS do
 		if not def.comingSoon then
