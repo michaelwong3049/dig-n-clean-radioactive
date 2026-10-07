@@ -2,16 +2,16 @@
 --[[
 	WarpController.luau — the "getting around" bar at the top of the screen.
 
-	Two portals, HOME and SHOPS, centred against the top edge. They are a convenience
+	Three portals, HOME, SELL and WARP, centred against the top edge. They are a convenience
 	for moving around Base Camp — from your plot out to the shop cluster and back — and
 	they are ONLY on screen while you are standing in no stage. The moment you cross
 	into a field the bar slides away: warping is not an escape hatch (WarpService
 	refuses it server-side from inside a stage as well), and the top-centre strip is
 	the stage-name banner's while you are in one.
 
-	CAMPS ARE NOT UP HERE. Every other camp (Config/Camps) is on the Warp tile's panel
-	on the right edge (CampWarpController), which lists them all, locked or not, so the
-	bar stays two buttons however many camps the chain grows.
+	CAMPS ARE NOT UP HERE. WARP (right of SELL) opens CampWarpController's camp list
+	instead of warping, which lists every camp (Config/Camps), locked or not, so the
+	bar stays three buttons however many camps the chain grows.
 
 	THE LOOK is a portal ring per destination: a disc of the destination's colour whose
 	bands turn slowly (a UIGradient's Rotation, stepped every frame while the bar is
@@ -35,6 +35,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
+local CampWarp = require(script.Parent.CampWarpController)
 
 local WarpController = {}
 
@@ -74,7 +75,8 @@ local PILL_HOVER = Color3.fromHex("232936")
 local EYE = Color3.fromHex("0F0F19")
 
 type Spec = {
-	dest: string,
+	-- Where the click warps to; nil for WARP, which opens the camp list instead.
+	dest: string?,
 	text: string,
 	image: string,
 	light: Color3,
@@ -98,6 +100,13 @@ local BUTTONS: { Spec } = {
 		light = Color3.fromHex("FFE36B"),
 		mid = Color3.fromHex("FFB61C"),
 		dark = Color3.fromHex("C47A00"),
+	},
+	{
+		text = "WARP",
+		image = Artwork.IMAGE.portal,
+		light = Color3.fromHex("B7ECFF"),
+		mid = Color3.fromHex("3CC3FF"),
+		dark = Color3.fromHex("1A7FC0"),
 	},
 }
 
@@ -226,6 +235,10 @@ local function buildButton(parent: Frame, spec: Spec, x: number): Entry
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
 	icon.Position = UDim2.fromScale(0.5, 0.5)
 
+	if spec.dest == nil then
+		CampWarp.attachBadge(seat)
+	end
+
 	local entry: Entry = { outer = outer, inner = inner, angle = x, speed = SPIN_REST }
 
 	local function setHighlighted(active: boolean)
@@ -249,7 +262,11 @@ local function buildButton(parent: Frame, spec: Spec, x: number): Entry
 		-- A quick press, then back to whatever the pointer says.
 		grow.Scale = PRESS_SHRINK
 		TweenService:Create(grow, POP, { Scale = if entry.speed == SPIN_HOVER then HOVER_GROW else 1 }):Play()
-		warpRemote:FireServer({ dest = spec.dest })
+		if spec.dest then
+			warpRemote:FireServer({ dest = spec.dest })
+		else
+			CampWarp.toggle()
+		end
 	end)
 
 	return entry

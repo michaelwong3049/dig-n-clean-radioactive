@@ -1,10 +1,11 @@
 --!strict
 --[[
-	CampWarpController.luau — the Warp tile, and the camp list it opens.
+	CampWarpController.luau — the camp list the WARP portal opens.
 
-	THE TILE is bottom left of the left-edge 2x3 grid, under Nukes, built by HudTile
-	like the other five, with a portal swirl on it.
-	A red "!" sits on its corner from the moment a camp is reached on foot (CampState's
+	THE BUTTON is the WARP portal in the top bar, right of SELL (WarpController builds
+	it and calls CampWarp.toggle); it used to be a tile in the left-edge grid, whose
+	slot is the Potions tile's now. Like the bar, it is only up outside a stage.
+	A red "!" sits on its corner (CampWarp.attachBadge) from the moment a camp is reached on foot (CampState's
 	`unlocked`) until the panel is next opened, so a new warp does not go unnoticed.
 
 	THE PANEL IS A TRAIL MAP (2026-10-05, mockup 3 of 4, on request): every camp
@@ -42,16 +43,10 @@ local Net = require(Shared.Net)
 local Camps = require(Shared.Config.Camps)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local Studded = require(script.Parent.Parent.Studded)
 
 local CampWarp = {}
-
--- THE WARP TILE: bottom left of the left-edge 2x3 grid (HudTile), the portal swirl.
-local TILE_SLOT = 5
-local TILE_COLOR = Color3.fromRGB(60, 195, 255)
-local TILE_LIGHT = Color3.fromRGB(183, 236, 255)
 
 local PANEL = {
 	-- The glossy L-stud look (2026-10-05, mockup 3 "trail map", on request): the shop's
@@ -828,31 +823,19 @@ local function buildPanel(): ScreenGui
 	return gui
 end
 
--- ── The tile ────────────────────────────────────────────────────────
-
-local function build(): ScreenGui
-	local gui, button = HudTile.build({
-		name = "WarpButton",
-		caption = "Warp",
-		slot = TILE_SLOT,
-		color = TILE_COLOR,
-		light = TILE_LIGHT,
-		image = Artwork.IMAGE.portal,
-		onActivated = CampWarp.toggle,
-	})
-	-- A camp reached since the panel was last opened: a red "!" on the corner, the
-	-- same badge the Index tile wears for new entries.
-	local badge, mark = HudTile.badge(button, PANEL.badge, PANEL.ink)
+--- Hang the "camp reached" red "!" on the WARP portal (WarpController's bar).
+function CampWarp.attachBadge(host: GuiObject)
+	local badge, mark = HudTile.badge(host, PANEL.badge, PANEL.ink)
+	badge.ZIndex = 10
 	mark.Text = "!"
 	mark.TextSize = 13
 	ui.badge = badge
-	return gui
+	setBadge()
 end
 
 function CampWarp.start()
 	local player = Players.LocalPlayer
 	local playerGui = player:WaitForChild("PlayerGui")
-	build().Parent = playerGui
 	buildPanel().Parent = playerGui
 	HudTile.registerPanel("Warp", ui.panel)
 

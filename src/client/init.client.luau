@@ -30,12 +30,12 @@ local ORDER = {
 	"MasteriesController", -- the Masteries tile beside Nukes (the Gear tile's old slot), its panel and the "Mastery reached" toast; reads MasteryState
 	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
 	"DailyRewardsController", -- the Daily tile under Warp and its 7-day calendar; reads DailyRewards
-	"PotionController", -- the Potions tile left of Daily, the stash panel + running-potion chips; reads Potions
+	"PotionController", -- the Potions tile bottom left of the grid (under Nukes), the stash panel + running-potion chips; reads Potions
 	"PlaytimeGiftController", -- the Free Gifts tile and its 12-gift panel; reads PlaytimeGifts
 	"StarterOfferController", -- the Starter Pack offer under the top-right corner row, once the tutorial is done; X hides it for the session
 	"PassOfferController", -- the 2x Luck / 2x Speed pass buy cards on the right edge, under the Starter Pack offer; gone once owned
 	"GroupRewardController", -- the group chest on Stage 1: the join-group prompt + claim toast; reads GroupReward
-	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
+	"CampWarpController", -- the camp list behind the top bar's WARP portal: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the Violet Aurora banner + lights (the luck countdown now lives in BoostsController)
 	"WeatherController", -- Golden Hour + the Meteor Shower: their banners, dust, shooting stars and landing meteors; reads MeteorFall
 	"BoostsController", -- the bottom-right Boosts widget: Luck/Cash/... totals, tap for every source; reads Boosts

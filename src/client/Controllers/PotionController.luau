@@ -1,5 +1,5 @@
 --[[
-	PotionController — the Potions tile (top-right corner row, left of Daily), the panel
+	PotionController — the Potions tile (bottom left of the left-edge grid), the panel
 	it opens, the running-potion chips beside it, and the card that pops up when a
 	Potion Crate is opened (Config/Potions, Services/PotionService).
 
@@ -29,8 +29,11 @@ local Sfx = require(script.Parent.Parent.Sfx)
 
 local PotionController = {}
 
--- The top-right corner row: Daily (1), Potions (2); chips from 3 on.
-local CORNER_INDEX = 2
+-- The Potions tile: bottom left of the left-edge 2x3 grid (HudTile), Warp's old slot
+-- (Warp moved up beside SELL, WarpController). Its running-potion chips stay in the
+-- top-right corner row, after Daily (1): from 2 on.
+local TILE_SLOT = 5
+local CHIP_AFTER = 1
 local TILE_COLOR = Color3.fromRGB(168, 75, 240)
 local TILE_LIGHT = Color3.fromRGB(227, 166, 255)
 
@@ -452,7 +455,7 @@ local function paintChips()
 		if chip then
 			shown[entry.id] = true
 			chip.frame.Visible = true
-			chip.frame.Position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX + index) + UDim2.fromOffset(0, -4)
+			chip.frame.Position = UIKit.Dock.cornerButtonCentre(CHIP_AFTER + index) + UDim2.fromOffset(0, -4)
 			chip.time.Text = clock(entry.left)
 			local warn = entry.left <= WARN_SECONDS
 			chip.pill.BackgroundColor3 = if warn
@@ -629,8 +632,7 @@ function PotionController.start()
 	local tileGui, button = HudTile.build({
 		name = "PotionsButton",
 		caption = "Potions",
-		slot = 1,
-		corner = CORNER_INDEX,
+		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Potions.TILE_IMAGE,
