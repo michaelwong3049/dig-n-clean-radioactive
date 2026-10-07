@@ -18,7 +18,13 @@
 	nudged, so nothing drifts over an AFK afternoon.
 
 	CHEAP BY CONSTRUCTION. Only what is within NEAR of the camera animates, re-sorted a
-	couple of times a second, and a spinning Model is one PivotTo. The world streams
+	couple of times a second, and a spinning Model is one PivotTo.
+
+	DISPLAYED NUKES ARE RATIONED. A `hover` nuke is 20-190 parts, and PivotTo moves
+	every one of them each frame: a full three-floor base was 1,948 part moves and
+	2.24 ms a frame on a dev PC, before the bases beside it. So only the nearest
+	HOVER budget of them inside HOVER range turn and bob (the same tier ItemFxController
+	gives full effects); the rest hold whatever pose they had. The world streams
 	(Workspace.StreamingEnabled), so tagged instances come and go: the builders stream
 	each spinning Model atomically, a streamed-out one simply drops off the list, and a
 	streamed-back one arrives at its server pose and is captured fresh. A world built
@@ -41,6 +47,14 @@ local MOTION_TAG = "StationMotion"
 --- Studs from the camera inside which anything animates. The machines are a few studs
 --- across; past this they are a handful of pixels and nobody can see a fan turn.
 local NEAR = 90
+
+--- Displayed nukes (`hover`): per Settings GRAPHICS, how many of the nearest turn
+--- and bob, and inside what range. Matches ItemFxController's full tier ("low" holds
+--- everything still anyway).
+local HOVER = {
+	high = { range = 45, budget = 12 },
+	med = { range = 30, budget = 6 },
+}
 
 --- Seconds between re-sorting what is near. Walking pace covers a couple of studs in
 --- that time, which is nothing against NEAR.
@@ -129,13 +143,26 @@ local function resort()
 		return
 	end
 	local eye = camera.CFrame.Position
+	local hover = HOVER[Prefs.get("graphics")] or HOVER.med
+	local hovers: { { entry: Entry, distance: number } } = {}
 	for target, entry in entries do
 		if target.Parent == nil then
 			continue
 		end
-		if (entry.home.Position - eye).Magnitude <= NEAR then
+		local distance = (entry.home.Position - eye).Magnitude
+		if entry.kind == "hover" then
+			if distance <= hover.range then
+				table.insert(hovers, { entry = entry, distance = distance })
+			end
+		elseif distance <= NEAR then
 			table.insert(active, entry)
 		end
+	end
+	table.sort(hovers, function(a, b)
+		return a.distance < b.distance
+	end)
+	for index = 1, math.min(#hovers, hover.budget) do
+		table.insert(active, hovers[index].entry)
 	end
 end
 
