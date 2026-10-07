@@ -489,7 +489,7 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		size = UDim2.new(1, -24, 0, 16),
 		textSize = 13,
 		color = SKIN.dim,
-		text = "YOUR NUKES (bag + locker) \u{00B7} tap to pick, BURN to throw them in for good",
+		text = "YOUR NUKES",
 		ink = false,
 	})
 	local grid = Instance.new("ScrollingFrame")
@@ -521,7 +521,7 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.muted,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = "No nukes to burn. Washed and Slagged nukes in your bag or locker show up here.",
+		text = "No nukes to burn.",
 		ink = false,
 	})
 
