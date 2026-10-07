@@ -7,13 +7,14 @@
 	the reactor has pink.
 
 	TOP TO BOTTOM:
-	  the pick     the copy you picked: its art, name, rating stars and qualities, and how
-	               many times it has been reforged.
-	  the forge    its DAMAGE and RADIUS: the number, the roll as a signed percent, and a
-	               meter across the whole forge band (Config/Reforge ROLL_MIN..ROLL_MAX).
-	               After a reforge the new roll stands beside the old, green where it is
-	               better and red where it is worse, and REFORGE splits into KEEP NEW and
-	               REVERT.
+	  the pick     the copy you picked: its art, name, rating stars, how many times it
+	               has been reforged, and its EFFECTS (its qualities, or "None").
+	  the forge    its DAMAGE and RADIUS, each over a roll meter: the whole forge band
+	               (Config/Reforge ROLL_MIN..ROLL_MAX) split into BAD / OK / GOOD / GREAT /
+	               PERFECT zones, the copy's roll a white tick. After a reforge an orange
+	               diamond slides to the new roll, the new number stands beside the old
+	               (green better, red worse) with its grade, and REFORGE splits into
+	               KEEP NEW and REVERT.
 	  the copies   every washed nuke you own, bag and Quarantine Locker together.
 
 	The numbers are Shared/Bombing.statsFor over the described copy, with the new `forge`
@@ -65,12 +66,32 @@ ReforgePanel.WIDTH = 860
 
 local HEADER_H = 58
 local WALLET_INSET = 44
-local TOP_H = 200
+local TOP_H = 250
 local PICK_W = 220
 local GRID_H = 230
 local TILE_W = 92
 local TILE_H = 108
-local ROW_H = 54
+local ROW_H = 80
+
+-- The roll meter's zones, as cuts across Reforge.grade (0 = ROLL_MIN, 1 = ROLL_MAX): the
+-- band's colour in each and the grade tag a roll landing there wears.
+local GRADES = {
+	{ upto = 0.2, name = "BAD", band = Color3.fromHex("5A2A2C"), tag = Color3.fromHex("FF6B6F") },
+	{ upto = 0.45, name = "OK", band = Color3.fromHex("3A4148"), tag = Color3.fromHex("C9CED3") },
+	{ upto = 0.7, name = "GOOD", band = Color3.fromHex("2D5A3A"), tag = Color3.fromHex("5FE07A") },
+	{ upto = 0.9, name = "GREAT", band = Color3.fromHex("245A57"), tag = Color3.fromHex("4FD1C5") },
+	{ upto = 1, name = "PERFECT", band = Color3.fromHex("6B5A1C"), tag = Color3.fromHex("FFD24A") },
+}
+
+-- WashReveal's stamp colours, so a quality reads the same here as when it was washed.
+local QUALITY_COLOR: { [string]: Color3 } = {
+	Pristine = Color3.fromHex("7DF9FF"),
+	Irradiated = Color3.fromHex("A3FF3C"),
+	Fused = Color3.fromHex("FF8A3D"),
+	Cracked = Color3.fromHex("A7ADB4"),
+}
+
+local SLIDE = TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 local POP = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
@@ -96,9 +117,31 @@ local function rarityColor(name: string?): Color3
 	return if def then def.color else SKIN.dim
 end
 
-local function qualityText(item: any): string
+--- The pick card's EFFECTS list: one quality a line in its colour with its value
+--- multiplier, or "None".
+local function effectsText(item: any): string
 	local qualities = Rarity.qualities(item.modifier, item.bonus)
-	return if #qualities > 0 then table.concat(qualities, " ") else "No qualities"
+	if #qualities == 0 then
+		return `<font color="#{SKIN.muted:ToHex()}">None</font>`
+	end
+	local lines = {}
+	for _, name in qualities do
+		local color = QUALITY_COLOR[name] or SKIN.text
+		local def = Rarity.MODIFIERS[name]
+		local mult = if def then ` <font size="11" color="#{SKIN.dim:ToHex()}">x{def.valueMult} value</font>` else ""
+		table.insert(lines, `<font color="#{color:ToHex()}">{name}</font>{mult}`)
+	end
+	return table.concat(lines, "\n")
+end
+
+local function gradeOf(mult: number)
+	local g = Reforge.grade(mult)
+	for _, grade in GRADES do
+		if g <= grade.upto then
+			return grade
+		end
+	end
+	return GRADES[#GRADES]
 end
 
 local function ink(node: TextLabel | TextButton)
@@ -225,9 +268,11 @@ type Tile = {
 }
 
 type StatRow = {
+	frame: Frame,
 	now: TextLabel,
 	arrow: TextLabel,
 	nextValue: TextLabel,
+	grade: TextLabel,
 	nowMark: Frame,
 	nextMark: Frame,
 }
@@ -279,66 +324,126 @@ local function makeTile(parent: Instance, index: number): Tile
 	return { button = button, stroke = stroke, strip = strip, viewport = viewport, stars = stars, detail = detail, where = where }
 end
 
---- One stat line in the forge card: "DAMAGE  84 (+6%)  ->  97 (+18%)" over a meter.
+--- One stat in the forge card: "DAMAGE        84 +6%  ->  97 +18%  GREAT" over a roll
+--- meter the width of the card, its zones coloured BAD..PERFECT (GRADES).
 local function makeRow(parent: Instance, name: string, y: number): StatRow
 	local row = frame(parent, name)
 	row.Position = UDim2.fromOffset(12, y)
 	row.Size = UDim2.new(1, -24, 0, ROW_H)
 	text(row, {
 		name = "Label",
-		size = UDim2.fromOffset(96, 28),
-		textSize = 15,
-		color = SKIN.dim,
+		size = UDim2.fromOffset(130, 30),
+		font = SKIN.headline,
+		textSize = 20,
 		text = string.upper(name),
-		ink = false,
-	})
-	local now = text(row, {
-		name = "Now",
-		position = UDim2.fromOffset(96, 0),
-		size = UDim2.fromOffset(170, 28),
-		font = SKIN.headline,
-		textSize = 22,
-		rich = true,
-	})
-	local arrow = text(row, {
-		name = "Arrow",
-		position = UDim2.fromOffset(266, 0),
-		size = UDim2.fromOffset(30, 28),
-		font = SKIN.headline,
-		textSize = 22,
-		color = SKIN.forge,
-		xAlign = Enum.TextXAlignment.Center,
-		text = "\u{2192}",
-	})
-	local nextValue = text(row, {
-		name = "Next",
-		position = UDim2.fromOffset(302, 0),
-		size = UDim2.new(1, -302, 0, 28),
-		font = SKIN.headline,
-		textSize = 22,
-		rich = true,
 	})
 
-	-- The meter: the whole forge band, the copy's roll as a white tick, the new one orange.
+	-- The numbers, packed against the right edge; the arrow, the new roll and its grade
+	-- only show while a roll waits on KEEP / REVERT.
+	local values = frame(row, "Values")
+	values.AnchorPoint = Vector2.new(1, 0)
+	values.Position = UDim2.fromScale(1, 0)
+	values.Size = UDim2.new(1, -130, 0, 30)
+	local valuesLayout = Instance.new("UIListLayout")
+	valuesLayout.FillDirection = Enum.FillDirection.Horizontal
+	valuesLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	valuesLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	valuesLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	valuesLayout.Padding = UDim.new(0, 6)
+	valuesLayout.Parent = values
+	local function value(key: string, order: number, size: number, color: Color3?): TextLabel
+		local label = text(values, {
+			name = key,
+			size = UDim2.fromOffset(0, 30),
+			font = SKIN.headline,
+			textSize = size,
+			color = color,
+			xAlign = Enum.TextXAlignment.Center,
+			rich = true,
+		})
+		label.AutomaticSize = Enum.AutomaticSize.X
+		label.LayoutOrder = order
+		return label
+	end
+	local now = value("Now", 1, 24)
+	local arrow = value("Arrow", 2, 22, SKIN.forge)
+	arrow.Text = "\u{2192}"
+	local nextValue = value("Next", 3, 28)
+	local grade = chip(values, "Grade")
+	grade.LayoutOrder = 4
+	grade.Size = UDim2.fromOffset(0, 20)
+	grade.TextSize = 13
+
+	-- The meter: the whole forge band in its grade zones, a faint line at +0%, the
+	-- copy's roll as a white tick and the new one as an orange diamond.
 	local meter = frame(row, "Meter", SKIN.well)
-	meter.Position = UDim2.fromOffset(96, 34)
-	meter.Size = UDim2.new(1, -96, 0, 10)
-	corner(meter, 5)
-	edge(meter, SKIN.edge, 1)
-	local natural = frame(meter, "Natural", SKIN.off)
-	-- The natural wobble's slice of the band (Config/Bombing.VARIANCE = 0.12 around 1).
-	natural.Position = UDim2.fromScale(Reforge.grade(0.88), 0)
-	natural.Size = UDim2.fromScale(Reforge.grade(1.12) - Reforge.grade(0.88), 1)
+	meter.Position = UDim2.fromOffset(0, 36)
+	meter.Size = UDim2.new(1, 0, 0, 26)
+	corner(meter, 8)
+	edge(meter, SKIN.ink, 3)
+	local zones = frame(meter, "Zones")
+	zones.Size = UDim2.fromScale(1, 1)
+	zones.ClipsDescendants = true
+	local from = 0
+	for index, zone in GRADES do
+		local band = frame(zones, `Zone{index}`, zone.band)
+		band.Position = UDim2.fromScale(from, 0)
+		band.Size = UDim2.fromScale(zone.upto - from, 1)
+		if index == 1 or index == #GRADES then
+			corner(band, 7)
+		end
+		from = zone.upto
+	end
+	local zero = frame(meter, "Zero", SKIN.text)
+	zero.AnchorPoint = Vector2.new(0.5, 0.5)
+	zero.Position = UDim2.fromScale(Reforge.grade(1), 0.5)
+	zero.Size = UDim2.new(0, 2, 1, 8)
+	zero.BackgroundTransparency = 0.6
 	local nowMark = frame(meter, "NowMark", SKIN.text)
 	nowMark.AnchorPoint = Vector2.new(0.5, 0.5)
-	nowMark.Size = UDim2.fromOffset(4, 16)
+	nowMark.Size = UDim2.new(0, 6, 1, -4)
 	nowMark.Position = UDim2.fromScale(0.5, 0.5)
+	corner(nowMark, 3)
+	edge(nowMark, SKIN.ink, 1)
 	local nextMark = frame(meter, "NextMark", SKIN.forge)
 	nextMark.AnchorPoint = Vector2.new(0.5, 0.5)
-	nextMark.Size = UDim2.fromOffset(6, 18)
+	nextMark.Size = UDim2.fromOffset(20, 20)
+	nextMark.Rotation = 45
 	nextMark.Position = UDim2.fromScale(0.5, 0.5)
-	corner(nextMark, 2)
-	return { now = now, arrow = arrow, nextValue = nextValue, nowMark = nowMark, nextMark = nextMark }
+	nextMark.ZIndex = 3
+	corner(nextMark, 3)
+	edge(nextMark, SKIN.ink, 3)
+
+	local scale = frame(row, "Scale")
+	scale.Position = UDim2.fromOffset(0, 65)
+	scale.Size = UDim2.new(1, 0, 0, 13)
+	local names = {}
+	for _, zone in GRADES do
+		table.insert(names, zone.name)
+	end
+	for _, spec in {
+		{ Enum.TextXAlignment.Left, Reforge.percentText(Reforge.ROLL_MIN) },
+		{ Enum.TextXAlignment.Center, table.concat(names, " \u{00B7} ") },
+		{ Enum.TextXAlignment.Right, Reforge.percentText(Reforge.ROLL_MAX) },
+	} do
+		text(scale, {
+			size = UDim2.fromScale(1, 1),
+			textSize = 11,
+			color = SKIN.dim,
+			xAlign = spec[1],
+			text = spec[2],
+			ink = false,
+		})
+	end
+	return {
+		frame = row,
+		now = now,
+		arrow = arrow,
+		nextValue = nextValue,
+		grade = grade,
+		nowMark = nowMark,
+		nextMark = nextMark,
+	}
 end
 
 local function deltaColor(new: number, old: number): Color3
@@ -412,11 +517,11 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 	local pickStroke = edge(pick, SKIN.edge, 3)
 	local pickArt = frame(pick, "Art")
 	pickArt.Position = UDim2.fromOffset(10, 8)
-	pickArt.Size = UDim2.new(1, -20, 0, 104)
+	pickArt.Size = UDim2.new(1, -20, 0, 96)
 	local pickViewport = ItemArt.newViewport(pickArt)
 	local pickName = text(pick, {
 		name = "ItemName",
-		position = UDim2.fromOffset(8, 114),
+		position = UDim2.fromOffset(8, 104),
 		size = UDim2.new(1, -16, 0, 22),
 		font = SKIN.headline,
 		textSize = 18,
@@ -425,7 +530,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 	pickName.TextTruncate = Enum.TextTruncate.AtEnd
 	local pickStars = text(pick, {
 		name = "Stars",
-		position = UDim2.fromOffset(8, 137),
+		position = UDim2.fromOffset(8, 127),
 		size = UDim2.new(1, -16, 0, 18),
 		textSize = 15,
 		xAlign = Enum.TextXAlignment.Center,
@@ -433,12 +538,32 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 	})
 	local pickDetail = text(pick, {
 		name = "Detail",
-		position = UDim2.fromOffset(8, 157),
-		size = UDim2.new(1, -16, 0, 34),
+		position = UDim2.fromOffset(8, 146),
+		size = UDim2.new(1, -16, 0, 16),
 		textSize = 12,
 		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Center,
+		ink = false,
+	})
+	-- EFFECTS: the copy's qualities, one a line, or "None".
+	local effectsRule = frame(pick, "EffectsRule", SKIN.rule)
+	effectsRule.Position = UDim2.fromOffset(14, 168)
+	effectsRule.Size = UDim2.new(1, -28, 0, 1)
+	local effectsLabel = text(pick, {
+		name = "EffectsLabel",
+		position = UDim2.fromOffset(14, 174),
+		size = UDim2.new(1, -28, 0, 16),
+		textSize = 14,
+		text = "Effects:",
+	})
+	local effects = text(pick, {
+		name = "Effects",
+		position = UDim2.fromOffset(14, 192),
+		size = UDim2.new(1, -28, 0, TOP_H - 200),
+		textSize = 14,
+		yAlign = Enum.TextYAlignment.Top,
 		wrapped = true,
+		rich = true,
 		ink = false,
 	})
 	local pickEmpty = text(pick, {
@@ -460,17 +585,8 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 	card.Size = UDim2.new(1, -(PICK_W + 12), 0, TOP_H)
 	corner(card, 12)
 	edge(card, SKIN.edge, 2)
-	local caption = text(card, {
-		name = "Caption",
-		position = UDim2.fromOffset(12, 8),
-		size = UDim2.new(1, -24, 0, 14),
-		textSize = 12,
-		color = SKIN.dim,
-		text = "BOMB STATS",
-		ink = false,
-	})
-	local damageRow = makeRow(card, "Damage", 28)
-	local radiusRow = makeRow(card, "Radius", 28 + ROW_H + 2)
+	local damageRow = makeRow(card, "Damage", 12)
+	local radiusRow = makeRow(card, "Radius", 12 + ROW_H + 8)
 
 	local buttonY = TOP_H - 10 - 44
 	local reforgeButton = bigButton(card, "ReforgeButton")
@@ -582,6 +698,8 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 	local lastState: any = nil
 	local canReforge = false
 	local bannerToken = 0
+	-- While the diamonds slide to a fresh roll, the ~10 Hz repaint leaves them be.
+	local slideUntil = 0
 	local paint: (state: any) -> ()
 
 	local function repaint()
@@ -629,11 +747,17 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 		row.arrow.Visible = showing
 		row.nextValue.Visible = showing
 		row.nextMark.Visible = showing
+		row.grade.Visible = showing
 		if showing then
 			local color = deltaColor(nextMult :: number, nowMult)
 			row.nextValue.TextColor3 = color
 			row.nextValue.Text = `{nextValue} <font size="14">{Reforge.percentText(nextMult :: number)}</font>`
-			row.nextMark.Position = UDim2.fromScale(Reforge.grade(nextMult :: number), 0.5)
+			local grade = gradeOf(nextMult :: number)
+			row.grade.Text = grade.name
+			row.grade.BackgroundColor3 = grade.tag
+			if os.clock() >= slideUntil then
+				row.nextMark.Position = UDim2.fromScale(Reforge.grade(nextMult :: number), 0.5)
+			end
 		end
 	end
 
@@ -697,15 +821,12 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 
 		local item = if selected then byUid[selected] else nil
 		pickEmpty.Visible = item == nil
-		for _, node in { pickName, pickStars, pickDetail } :: { GuiObject } do
+		for _, node in { pickName, pickStars, pickDetail, effectsRule, effectsLabel, effects } :: { GuiObject } do
 			node.Visible = item ~= nil
 		end
 		cardHint.Visible = item == nil
-		for _, node in { caption } :: { GuiObject } do
-			node.Visible = item ~= nil
-		end
 		for _, row in { damageRow, radiusRow } do
-			(row.now.Parent :: GuiObject).Visible = item ~= nil
+			row.frame.Visible = item ~= nil
 		end
 		canReforge = false
 		-- Each button's Visible is written ONCE per paint, never false-then-true: this
@@ -731,9 +852,10 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 		StarLine.set(pickStars, ratingOf(item), { color = SKIN.gold })
 		local count = if type(item.reforges) == "number" then item.reforges else 0
 		pickDetail.Text = if count > 0
-			then `{qualityText(item)}\nReforged {count} time{if count == 1 then "" else "s"}`
-			else qualityText(item)
-		ItemArt.paint(pickViewport, item, (PICK_W - 20) / 104)
+			then `Reforged {count} time{if count == 1 then "" else "s"}`
+			else "Never reforged"
+		effects.Text = effectsText(item)
+		ItemArt.paint(pickViewport, item, (PICK_W - 20) / 96)
 
 		local nowDmg, nowRad = Bombing.forgeOf(item)
 		local nowStats = Bombing.statsFor(item)
@@ -743,13 +865,11 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 			local nextStats = Bombing.statsFor(preview)
 			paintRow(damageRow, tostring(nowStats.damage), nowDmg, tostring(nextStats.damage), result.new.dmg)
 			paintRow(radiusRow, tostring(nowStats.radius), nowRad, tostring(nextStats.radius), result.new.rad)
-			caption.Text = "BOMB STATS \u{00B7} NEW ROLL"
 			return
 		end
 
 		paintRow(damageRow, tostring(nowStats.damage), nowDmg)
 		paintRow(radiusRow, tostring(nowStats.radius), nowRad)
-		caption.Text = "BOMB STATS"
 		local price = Reforge.cost(if type(item.value) == "number" then item.value else 0, count)
 		canReforge = cashNow >= price
 		reforgeButton.Text = if canReforge then `REFORGE \u{00B7} {money(price)}` else `NEED {money(price)}`
@@ -792,7 +912,16 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 				end
 			end)
 		end
+		slideUntil = os.clock() + SLIDE.Time
 		repaint()
+		-- The diamonds start on the old roll's tick and slide out to the new one.
+		for _, pair in { { damageRow, payload.new.dmg }, { radiusRow, payload.new.rad } } do
+			local row, mult = pair[1], pair[2]
+			if type(mult) == "number" then
+				row.nextMark.Position = row.nowMark.Position
+				TweenService:Create(row.nextMark, SLIDE, { Position = UDim2.fromScale(Reforge.grade(mult), 0.5) }):Play()
+			end
+		end
 	end
 
 	return {
