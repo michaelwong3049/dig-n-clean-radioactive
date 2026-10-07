@@ -44,7 +44,6 @@ local Stages = require(Shared.Config.Stages)
 local Tutorial = require(Shared.Config.Tutorial)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local Studded = require(script.Parent.Parent.Studded)
 
 local TutorialController = {}
 
@@ -76,13 +75,10 @@ local SKIN = {
 -- AuraWarningController read its rect to stack themselves underneath it.
 -- ON REQUEST (from a reference shot): the pill became a FULL-WIDTH dark band that
 -- fades out to both screen edges, with big white words in a heavy black outline.
--- ON REQUEST (2026-10-06): the band became the Shop's dark grey studded backdrop, as a
--- pill sized to the words. "Banner" itself stays the full-width rect the others read.
 local BANNER_Y = 114 -- ON REQUEST: nudged down from 98
 local BANNER_H = 96
-local PILL_H = 80
-local PILL_PAD = 24 -- the pill's side padding round the words and SKIP
-local PILL_RADIUS = 14
+local BANNER_SHADE = 0.6 -- the band's BackgroundTransparency at its middle (ON REQUEST: lighter, was 0.35)
+local BANNER_FADE = 0.28 -- fraction of the width each side spends fading out
 local TITLE_SIZE = 56
 local SKIP_W = 64
 local SKIP_GAP = 18
@@ -193,64 +189,33 @@ local function buildBanner(canvas: Frame)
 	banner.AnchorPoint = Vector2.new(0.5, 0)
 	banner.Position = UDim2.new(0.5, 0, 0, BANNER_Y)
 	banner.Size = UDim2.new(1, 0, 0, BANNER_H)
-	banner.BackgroundTransparency = 1
+	banner.BackgroundColor3 = Color3.new(0, 0, 0)
+	banner.BackgroundTransparency = BANNER_SHADE
 	banner.BorderSizePixel = 0
 	banner.Visible = false
 	banner.Parent = canvas
-
-	-- The studded pill, centred in the band, behind the row of words and SKIP. The two
-	-- are siblings: a scale-sized pattern inside an AutomaticSize pill ratchets its
-	-- width (it grows for long words and never shrinks back), so the pill follows the
-	-- row, by its width-to-height ratio so the band's UIScale doesn't matter.
-	local pill = Instance.new("Frame")
-	pill.Name = "Pill"
-	pill.AnchorPoint = Vector2.new(0.5, 0.5)
-	pill.Position = UDim2.fromScale(0.5, 0.5)
-	pill.Size = UDim2.fromOffset(0, PILL_H)
-	pill.BorderSizePixel = 0
-	pill.Parent = banner
-	local pillCorner = Instance.new("UICorner")
-	pillCorner.CornerRadius = UDim.new(0, PILL_RADIUS)
-	pillCorner.Parent = pill
-	local pillStroke = Instance.new("UIStroke")
-	pillStroke.Color = SKIN.ink
-	pillStroke.Thickness = 3
-	pillStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	pillStroke.Parent = pill
-	Studded.darkPanel(pill, PILL_RADIUS)
-
-	local content = Instance.new("Frame")
-	content.Name = "Row"
-	content.AnchorPoint = Vector2.new(0.5, 0.5)
-	content.Position = UDim2.fromScale(0.5, 0.5)
-	content.Size = UDim2.fromOffset(0, PILL_H)
-	content.AutomaticSize = Enum.AutomaticSize.X
-	content.BackgroundTransparency = 1
-	content.ZIndex = 2
-	content.Parent = banner
-	content:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		local abs = content.AbsoluteSize
-		if abs.Y > 0 then
-			pill.Size = UDim2.fromOffset(PILL_H * abs.X / abs.Y, PILL_H)
-		end
-	end)
+	-- Solid in the middle, see-through at both edges.
+	local fade = Instance.new("UIGradient")
+	fade.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(BANNER_FADE, 0),
+		NumberSequenceKeypoint.new(1 - BANNER_FADE, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	fade.Parent = banner
 	local row = Instance.new("UIListLayout")
 	row.FillDirection = Enum.FillDirection.Horizontal
 	row.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	row.VerticalAlignment = Enum.VerticalAlignment.Center
 	row.SortOrder = Enum.SortOrder.LayoutOrder
 	row.Padding = UDim.new(0, SKIP_GAP)
-	row.Parent = content
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, PILL_PAD)
-	pad.PaddingRight = UDim.new(0, PILL_PAD)
-	pad.Parent = content
+	row.Parent = banner
 
 	local scale = Instance.new("UIScale")
 	scale.Parent = banner
 
 	-- UIKit's default outline and drop shadow keep the words crisp on the pill.
-	local title = UIKit.label(content, {
+	local title = UIKit.label(banner, {
 		name = "Title",
 		size = UDim2.fromScale(0, 1),
 		font = SKIN.headline,
@@ -286,7 +251,7 @@ local function buildBanner(canvas: Frame)
 	skip.TextColor3 = SKIN.dim
 	skip.Text = "Skip"
 	skip.ZIndex = 3
-	skip.Parent = content
+	skip.Parent = banner
 	local skipCorner = Instance.new("UICorner")
 	skipCorner.CornerRadius = UDim.new(0, 8)
 	skipCorner.Parent = skip
