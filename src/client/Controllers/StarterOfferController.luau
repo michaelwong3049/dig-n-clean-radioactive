@@ -34,6 +34,7 @@ local Dock = UIKit.Dock
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local RobuxButton = require(script.Parent.Parent.RobuxButton)
 local Sfx = require(script.Parent.Parent.Sfx)
+local Studded = require(script.Parent.Parent.Studded)
 local HudTile = require(script.Parent.Parent.HudTile)
 local CloverArt = require(script.Parent.Parent.CloverArt)
 local ItemArt = require(script.Parent.Parent.ItemArt)
@@ -309,6 +310,7 @@ local function buildPanel(pack: Packs.Pack): ScreenGui
 	panel.Parent = root
 	round(panel, 8)
 	stroke(panel, 4, true)
+	Studded.darkPanel(panel, 8) -- the Shop's dark grey studded backdrop
 
 	local title = label(panel, "Title", string.upper(pack.name), 38, COLOR.white, 11)
 	title.TextXAlignment = Enum.TextXAlignment.Left
@@ -352,6 +354,8 @@ local function buildPanel(pack: Packs.Pack): ScreenGui
 		tile.Parent = panel
 		round(tile, 8)
 		stroke(tile, 3, true)
+		-- The Shop cards' glossy L-studs, under the rays and the art.
+		Studded.pattern(tile, { radius = 8, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.55, glowTransparency = 0.72 })
 		-- White rays behind each picture, like the Shop's cash cards.
 		local glow = Instance.new("ImageLabel")
 		glow.Name = "Rays"

@@ -36,6 +36,7 @@ local Net = require(Shared.Net)
 local AwayEarnings = require(Shared.Config.AwayEarnings)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
+local Studded = require(script.Parent.Parent.Studded)
 local UIKit = require(script.Parent.Parent.UIKit)
 
 local AwayEarningsController = {}
@@ -373,6 +374,7 @@ local function open(offer: any)
 	blob(group, "CardShadow", { cardX, L.cardTop + L.shadow, L.cardW, L.cardH }, INK, 4, square)
 	blob(group, "Rim", { cardX - L.rim, L.cardTop - L.rim, L.cardW + L.rim * 2, L.cardH + L.rim * 2 }, STYLE.rim, 4, square)
 	local face = blob(group, "Face", { cardX, L.cardTop, L.cardW, L.cardH }, STYLE.card, 5, square, L.outline)
+	Studded.darkPanel(face) -- the Shop's dark grey studded backdrop
 
 	inkLabel(face, {
 		name = "Title",

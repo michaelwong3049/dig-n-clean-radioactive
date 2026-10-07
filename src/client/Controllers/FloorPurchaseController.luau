@@ -22,6 +22,7 @@ local Mastery = require(Shared.Mastery)
 local Net = require(Shared.Net)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
+local Studded = require(script.Parent.Parent.Studded)
 local UIKit = require(script.Parent.Parent.UIKit)
 
 local FloorPurchaseController = {}
@@ -276,6 +277,7 @@ local function open(offer: any)
 	blob(group, "CardShadow", { pad, pad + L.shadow, L.cardW, L.cardH }, INK, 4)
 	blob(group, "Rim", { pad - L.rim, pad - L.rim, L.cardW + L.rim * 2, L.cardH + L.rim * 2 }, STYLE.rim, 4)
 	local face = blob(group, "Face", { pad, pad, L.cardW, L.cardH }, STYLE.card, 5, L.outline)
+	Studded.darkPanel(face) -- the Shop's dark grey studded backdrop
 
 	local title = inkLabel(face, {
 		name = "Title",
