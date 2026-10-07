@@ -473,6 +473,9 @@ local function onPlayerAdded(player: Player)
 	local predatesRustBucket = profile.Data.detectorLadder == nil
 	local predatesFourBelts = profile.Data.treadmillLadder == nil
 	profile:Reconcile() -- fill in keys added to TEMPLATE since this save was made
+	-- Live-only (FriendBoostService): a copy saved by a server that died mid-session
+	-- must not pay out before FriendBoostService re-derives it.
+	profile.Data.friendBoost = nil
 	backfillGearOwned(profile.Data)
 	if predatesTutorial then
 		profile.Data.onboarding = "done"

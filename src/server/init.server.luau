@@ -44,6 +44,7 @@ local ORDER = {
 	"RareDropService", -- the announced drop every 8-12 min: a guaranteed Epic+ in a random stage; needs Dig + LuckBoost
 	"AwayEarningsService", -- the "While you were away" card: holds offline income for COLLECT / Robux DOUBLE IT; needs Economy + Product
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
+	"FriendBoostService", -- +10% cash while a Roblox friend is in the server; needs Data + Exhibit
 	"TreadmillService", -- the speed grind on your plot's belt; needs Station + Economy + Exhibit
 	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Camp + Dig + Exhibit + Exposure
 	"LiquidService", -- the fluid bottle + panel: rolling liquids, charges, Luck; needs Exhibit + Shop
