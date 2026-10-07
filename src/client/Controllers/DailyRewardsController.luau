@@ -55,7 +55,7 @@ local PANEL = {
 }
 
 local PAD = 20
-local HEADER_H = 74
+local HEADER_H = 52
 local CARD_W = 180
 local CARD_H = 158
 local CARD_GAP = 12
@@ -421,16 +421,6 @@ local function buildPanel(): ScreenGui
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Size = UDim2.fromOffset(400, 46),
 		Position = UDim2.fromOffset(PAD, PAD - 6),
-		ZIndex = 11,
-	})
-	inked(panel, {
-		Name = "Subtitle",
-		Text = "A new reward every 24 hours. Cash and crates grow with how far you've dug.",
-		TextSize = 14,
-		TextColor3 = PANEL.dim,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Size = UDim2.new(1, -PAD * 2 - 50, 0, 18),
-		Position = UDim2.fromOffset(PAD + 2, PAD + 40),
 		ZIndex = 11,
 	})
 

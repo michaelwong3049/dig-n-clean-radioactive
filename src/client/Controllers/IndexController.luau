@@ -1045,7 +1045,7 @@ local function buildDetail(panel: Frame)
 		textSize = 13,
 		color = UIKit.C.dim,
 		wrapped = true,
-		text = "Not identified yet. Wash one clean, or sell one blind, to learn what it is.",
+		text = "Not identified yet.",
 	})
 	unknown.AutomaticSize = Enum.AutomaticSize.Y
 	unknown.LayoutOrder = 3
