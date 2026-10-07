@@ -9,6 +9,8 @@
 	  the bag      one row per item in the bag: its model on a grey block, its name in
 	               its rarity colour, rarity and stars under it, a CRUSTED tag while it
 	               is "???", its sale price and a tick box. Clicking a row ticks it.
+	               Ordered by the header's SORT pill (pref `traderSort`): price high-low,
+	               price low-high, or rarest first. The receipt follows the same order.
 	  the receipt  a paper slip listing every ticked item and their total, then SELL,
 	               the only button that actually sells. Under it SELL ALL, SELL ALL CLEAN
 	               and SELL ALL UNCLEAN, which only TICK -- they put that group on the
@@ -33,6 +35,7 @@ local Tuning = require(Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
 local StarLine = require(script.Parent.StarLine)
+local Prefs = require(script.Parent.Prefs)
 local ItemArt = require(script.Parent.ItemArt)
 local Studded = require(script.Parent.Studded)
 
@@ -88,6 +91,12 @@ local SELL_H = 52
 local BULK_H = 34
 local BULK_GAP = 6
 local WALLET_INSET = 44
+-- The header's SORT pill, the gear shop's filter pill size.
+local SORT_W = 190
+local SORT_H = 34
+
+local SORT_OPTIONS = { "high", "low", "rarity" }
+local SORT_TEXT = { high = "PRICE: HIGH-LOW", low = "PRICE: LOW-HIGH", rarity = "SORT: RARITY" }
 
 --- The widest the trader's panel is allowed to get, padding included. StationController
 --- sets the panel's MaxSize to this in trader mode.
@@ -115,6 +124,39 @@ end
 local function ratingOf(item: any): number
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
 	return Rarity.stars(item.rarity, item.modifier, payload, item.bonus, Items.stageOf(item.itemId))
+end
+
+--- Where a rarity sits on the ladder (Scrap 1 .. Anomaly 8), 0 when unknown.
+local function rarityRank(name: string?): number
+	return (if name then table.find(Rarity.ORDER, name) else nil) or 0
+end
+
+--- The bag in the SORT pill's order (pref `traderSort`): a sorted COPY, so the state's
+--- own list is left alone. Ties fall back on the name and then the uid, so rows never
+--- shuffle between StationState ticks.
+local function sortedItems(items: { any }): { any }
+	local mode = Prefs.get("traderSort")
+	local out = table.clone(items)
+	table.sort(out, function(a, b)
+		local va, vb = a.value or 0, b.value or 0
+		if mode == "rarity" then
+			local ra, rb = rarityRank(a.rarity), rarityRank(b.rarity)
+			if ra ~= rb then
+				return ra > rb
+			end
+			if va ~= vb then
+				return va > vb
+			end
+		elseif va ~= vb then
+			return if mode == "low" then va < vb else va > vb
+		end
+		local na, nb = tostring(a.name or ""), tostring(b.name or "")
+		if na ~= nb then
+			return na < nb
+		end
+		return tostring(a.uid) < tostring(b.uid)
+	end)
+	return out
 end
 
 local function text(parent: Instance, props: { [string]: any }): TextLabel
@@ -313,6 +355,26 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.cash,
 		xAlign = Enum.TextXAlignment.Right,
 	})
+
+	-- The SORT pill, centred between the title and the wallet. Each press steps pref
+	-- `traderSort` to its next option; the observer below repaints.
+	local sortPill = UIKit.button(header, {
+		name = "Sort",
+		size = UDim2.fromOffset(SORT_W, SORT_H),
+		font = SKIN.headline,
+		textSize = 16,
+		color = SKIN.text,
+		fillColor = SKIN.edge,
+		fillTransparency = 0,
+		cornerRadius = UDim.new(0.5, 0),
+		strokeColor = SKIN.ink,
+		strokeThickness = 2,
+		outline = false,
+		shadow = false,
+	})
+	sortPill.AnchorPoint = Vector2.new(0.5, 0.5)
+	-- Back by half the header's left padding, so it centres on the box, not the inset.
+	sortPill.Position = UDim2.new(0.5, -HEADER_PAD / 2, 0.5, 0)
 
 	-- ── The bag list ────────────────────────────────────────────────────
 	local list = Instance.new("ScrollingFrame")
@@ -563,7 +625,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 
 	paint = function(state: any)
 		lastState = state
-		local items = state.items or {}
+		local items = sortedItems(state.items or {})
 
 		local present: { [string]: boolean } = {}
 		for _, item in items do
@@ -585,7 +647,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		end
 		emptyBag.Visible = #items == 0
 
-		-- The receipt, in bag order.
+		-- The receipt, in the rows' order.
 		local count, sum, blind, cleanCount = 0, 0, 0, 0
 		for _, item in items do
 			if item.clean then
@@ -651,6 +713,17 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		tickWhere(function(item)
 			return not item.clean
 		end)
+	end)
+
+	sortPill.MouseButton1Click:Connect(function()
+		local at = table.find(SORT_OPTIONS, Prefs.get("traderSort")) or 0
+		Prefs.set("traderSort", SORT_OPTIONS[at % #SORT_OPTIONS + 1])
+	end)
+	-- Fires now (painting the pill's text) and on every change, including the saved
+	-- value landing after the panel was built.
+	Prefs.observe("traderSort", function(mode)
+		sortPill.Text = SORT_TEXT[mode] or SORT_TEXT.high
+		repaint()
 	end)
 
 	sell.MouseButton1Click:Connect(function()

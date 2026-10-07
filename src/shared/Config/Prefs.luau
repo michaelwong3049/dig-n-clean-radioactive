@@ -99,6 +99,11 @@ Prefs.DEFS = {
 	shopSort = { kind = "choice", default = "high", options = { "high", "low" } },
 	shopShow = { kind = "choice", default = "all", options = { "all", "unowned", "affordable" } },
 
+	-- TRADER ORDER (client TraderPanel): the SORT pill in the trader's header. "high" =
+	-- best price first; "low" = cheapest first; "rarity" = rarest first, then by price.
+	-- Set from the panel itself, not shown in Settings.
+	traderSort = { kind = "choice", default = "high", options = { "high", "low", "rarity" } },
+
 	-- DEVICE, picked once on the loading screen's "Mobile or PC?" card (ReplicatedFirst
 	-- LoadingScreen). "unset" = not asked yet, so the card shows. The pick also sets
 	-- graphics + fastMode (mobile: low + on, pc: med + off); this key only remembers
