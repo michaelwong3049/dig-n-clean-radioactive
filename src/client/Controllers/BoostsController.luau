@@ -1,8 +1,8 @@
 --!strict
 --[[
-	BoostsController.luau — the bottom-right Boosts widget: a small stack of pills that
-	says what your luck, cash and other multipliers add up to RIGHT NOW, with a card
-	that lists every source behind each one.
+	BoostsController.luau — the bottom-right Boosts widget: "CURRENT BOOSTS" over three
+	lines of outlined text saying what your luck, cash and walk speed add up to RIGHT
+	NOW, with a card that lists every source behind each one.
 
 	WHY IT EXISTS: luck comes from the Violet Aurora, the Lucky Clover, the 2x Luck pass
 	and the Luck Potion, all stacking, and players lost track of what their total was.
@@ -12,10 +12,11 @@
 	it changes. Countdowns come off the attributes the owner services already publish
 	(each source's `timer`), so they tick smoothly without a remote per second.
 
-	THE STACK: Luck and Cash always show; any other row shows while it is above x1, up
-	to Dock.BOOSTS_ROWS pills (the last one turns into "+N MORE" if there are more).
-	A pill shows its countdown when a timed source is running -- the soonest one, so it
-	is the time until that number next changes -- and its name otherwise. The luck pill
+	THE STACK: no panels, like the boxless cash readout -- name, total and picture per
+	line, right-aligned. Only Luck, Cash and Walk Speed show, always (x1 included);
+	the other boosts StatResolver sends are left off on request (2026-10-06). A line
+	shows its countdown in place of its name when a timed source is running -- the
+	soonest one, so it is the time until that number next changes. The luck line
 	carries the clover, green up to x2 and purple past it; this replaced the old clover
 	badge (LuckBoostController), so the last 30 seconds still pulse.
 
@@ -50,7 +51,7 @@ local BoostsController = {}
 type Source = { name: string, mult: number, timer: string?, global: boolean? }
 type Boost = { key: string, label: string, total: number, sources: { Source } }
 
--- Each row's picture, colour and pill caption. The pictures are the pass and potion
+-- Each line's picture, colour and caption. The pictures are the pass and potion
 -- art the Shop already shows; luck draws the clover instead.
 local function passImage(key: string): string
 	local pass = GamePasses.byKey(key)
@@ -61,19 +62,17 @@ local LOOK: { [string]: { short: string, color: Color3, image: string? } } = {
 	luck = { short = "LUCK", color = Color3.fromHex("6BE36A") },
 	cash = { short = "CASH", color = House.cash, image = passImage("cash") },
 	speed = { short = "SPEED", color = Color3.fromHex("6FA0FF"), image = Potions.get("speed").image },
-	strength = { short = "POWER", color = Color3.fromHex("FF8A3D"), image = passImage("digPower") },
-	clean = { short = "WASH", color = Color3.fromHex("25D3C9"), image = Potions.get("clean").image },
-	training = { short = "TRAIN", color = Color3.fromHex("50C8FF"), image = passImage("speed") },
-	bomb = { short = "BOMB", color = Color3.fromHex("FF5A4A"), image = passImage("bombDamage") },
-	health = { short = "HEALTH", color = Color3.fromHex("FF6E78"), image = passImage("health") },
 }
 local LUCK_PURPLE = Color3.fromHex("B48CFF")
 
-local ALWAYS = { luck = true, cash = true }
+-- The only boosts shown, top to bottom (Dock.BOOSTS_ROWS of them).
+local ORDER = { "luck", "cash", "speed" }
 
 local W = Dock.BOOSTS_WIDTH
 local ROW = Dock.BOOSTS_ROW
-local ICON = 24
+local ICON = 30
+local VALUE_SIZE = 30
+local CAPTION_SIZE = 17
 local CARD_W = 270
 local WARN_SECONDS = 30
 local WARN = Color3.fromHex("FF5C8A")
@@ -86,7 +85,7 @@ local card: Frame
 local cardFit: UIScale
 local cardBody: Frame
 
-type Row = { frame: Frame, icon: GuiObject, caption: TextLabel, value: TextLabel, key: string? }
+type Row = { frame: Frame, caption: TextLabel, value: TextLabel, key: string, icon: GuiObject? }
 local rows: { Row } = {}
 
 local boosts: { Boost } = {}
@@ -152,7 +151,8 @@ local function stroke(parent: Instance, thickness: number, border: boolean?)
 	s.Parent = parent
 end
 
-local function label(parent: Instance, name: string, size: number, z: number): TextLabel
+--- Outlined Gotham Black text; `thick` overrides the outline (size / 10 by default).
+local function label(parent: Instance, name: string, size: number, z: number, thick: number?): TextLabel
 	local l = Instance.new("TextLabel")
 	l.Name = name
 	l.BackgroundTransparency = 1
@@ -162,74 +162,58 @@ local function label(parent: Instance, name: string, size: number, z: number): T
 	l.TextStrokeTransparency = 1
 	l.ZIndex = z
 	l.Parent = parent
-	stroke(l, math.max(1, size * 0.1))
+	stroke(l, thick or math.max(1, size * 0.1))
 	return l
 end
 
 -- ── Build ─────────────────────────────────────────────────────────────
 
-local function buildRow(index: number): Row
+--- One line, right-aligned: caption, total, then the picture hard against the edge.
+local function buildRow(index: number, key: string): Row
 	local frame = Instance.new("Frame")
 	frame.Name = `Row{index}`
 	frame.LayoutOrder = index
 	frame.Size = UDim2.fromOffset(W, ROW)
-	frame.BackgroundColor3 = House.panel
-	frame.BackgroundTransparency = 0.1
-	frame.BorderSizePixel = 0
-	frame.Visible = false
+	frame.BackgroundTransparency = 1
 	frame.ZIndex = 20
 	frame.Parent = stack
-	local round = Instance.new("UICorner")
-	round.CornerRadius = UDim.new(0.5, 0)
-	round.Parent = frame
-	stroke(frame, 2.5, true)
+	local line = Instance.new("UIListLayout")
+	line.FillDirection = Enum.FillDirection.Horizontal
+	line.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	line.VerticalAlignment = Enum.VerticalAlignment.Center
+	line.SortOrder = Enum.SortOrder.LayoutOrder
+	line.Padding = UDim.new(0, 6)
+	line.Parent = frame
 
-	local caption = label(frame, "Caption", 12, 22)
-	caption.AnchorPoint = Vector2.new(0, 0.5)
-	caption.Position = UDim2.new(0, ICON + 10, 0.5, 0)
-	caption.Size = UDim2.fromOffset(60, ROW)
-	caption.TextXAlignment = Enum.TextXAlignment.Left
-	caption.TextColor3 = House.dim
+	local caption = label(frame, "Caption", CAPTION_SIZE, 22, 2)
+	caption.LayoutOrder = 1
+	caption.AutomaticSize = Enum.AutomaticSize.X
+	caption.Size = UDim2.fromOffset(0, ROW)
+	caption.TextColor3 = House.white
 
-	local value = label(frame, "Value", 17, 22)
-	value.AnchorPoint = Vector2.new(1, 0.5)
-	value.Position = UDim2.new(1, -10, 0.5, 0)
-	value.Size = UDim2.fromOffset(64, ROW)
-	value.TextXAlignment = Enum.TextXAlignment.Right
+	local value = label(frame, "Value", VALUE_SIZE, 22, 3)
+	value.LayoutOrder = 2
+	value.AutomaticSize = Enum.AutomaticSize.X
+	value.Size = UDim2.fromOffset(0, ROW)
 
-	return { frame = frame, icon = frame, caption = caption, value = value }
-end
-
---- Swap a row's picture for `key`'s: the clover for luck, an image otherwise.
-local function setIcon(row: Row, key: string?)
-	if row.key == key then
-		return
-	end
-	row.key = key
-	if row.icon ~= row.frame then
-		row.icon:Destroy()
-	end
-	if key == nil then
-		row.icon = row.frame
-		return
-	end
+	-- The clover for luck, the Shop's pass / potion art otherwise.
 	local icon: GuiObject
 	if key == "luck" then
-		icon = CloverArt.build(row.frame, ICON, 23)
+		icon = CloverArt.build(frame, ICON, 23)
 	else
 		local image = Instance.new("ImageLabel")
 		image.BackgroundTransparency = 1
 		image.ScaleType = Enum.ScaleType.Fit
 		image.Size = UDim2.fromOffset(ICON, ICON)
-		image.Image = LOOK[key] and LOOK[key].image or ""
+		image.Image = LOOK[key].image or ""
 		image.ZIndex = 23
-		image.Parent = row.frame
+		image.Parent = frame
 		icon = image
 	end
 	icon.Name = "Icon"
-	icon.AnchorPoint = Vector2.new(0, 0.5)
-	icon.Position = UDim2.new(0, 5, 0.5, 0)
-	row.icon = icon
+	icon.LayoutOrder = 3
+
+	return { frame = frame, caption = caption, value = value, key = key, icon = icon }
 end
 
 local function buildCard()
@@ -345,8 +329,14 @@ local function build()
 	list.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	list.Parent = stack
 
-	for i = 1, Dock.BOOSTS_ROWS do
-		rows[i] = buildRow(i)
+	local header = label(stack, "Header", 17, 22, 2)
+	header.LayoutOrder = 0
+	header.Size = UDim2.fromOffset(W, Dock.BOOSTS_HEADER)
+	header.TextXAlignment = Enum.TextXAlignment.Right
+	header.Text = "CURRENT BOOSTS"
+
+	for i, key in ORDER do
+		rows[i] = buildRow(i, key)
 	end
 	buildCard()
 end
@@ -368,56 +358,39 @@ end
 -- ── Draw ──────────────────────────────────────────────────────────────
 
 local function visible(boost: Boost): boolean
-	return ALWAYS[boost.key] == true or math.abs(boost.total - 1) > 1e-9
+	return LOOK[boost.key] ~= nil
 end
 
 local function luckColor(total: number): Color3
 	return if total > 2 then LUCK_PURPLE else LOOK.luck.color
 end
 
---- The pills. Called every frame for the countdowns; it only writes what changed.
+--- The lines. Called every frame for the countdowns.
 local function drawStack(t: number)
-	local shown: { Boost } = {}
-	for _, boost in boosts do
-		if visible(boost) then
-			table.insert(shown, boost)
+	for _, row in rows do
+		local boost: Boost? = nil
+		for _, b in boosts do
+			if b.key == row.key then
+				boost = b
+				break
+			end
 		end
-	end
-	local overflow = #shown - Dock.BOOSTS_ROWS
-	for i, row in rows do
-		local boost = shown[i]
-		local more = overflow > 0 and i == Dock.BOOSTS_ROWS
-		row.frame.Visible = boost ~= nil
-		if boost == nil then
-			continue
-		end
-		if more then
-			setIcon(row, nil)
-			row.caption.Position = UDim2.new(0, 12, 0.5, 0)
-			row.caption.Text = "TAP FOR ALL"
-			row.caption.TextColor3 = House.dim
-			row.value.Text = `+{overflow + 1}`
-			row.value.TextColor3 = House.white
-			continue
-		end
-		setIcon(row, boost.key)
-		row.caption.Position = UDim2.new(0, ICON + 10, 0.5, 0)
-		local look = LOOK[boost.key]
-		local color = if boost.key == "luck" then luckColor(boost.total) elseif look then look.color else House.white
-		local left = soonest(boost)
+		local look = LOOK[row.key]
+		local total = if boost then boost.total else 1
+		local left = if boost then soonest(boost) else nil
 		if left then
 			row.caption.Text = clock(left)
 			local warn = left <= WARN_SECONDS
 			local pulse = if warn then 0.5 + 0.5 * math.sin(t * 8) else 0
 			row.caption.TextColor3 = House.white:Lerp(WARN, pulse)
 		else
-			row.caption.Text = if look then look.short else string.upper(boost.label)
-			row.caption.TextColor3 = House.dim
+			row.caption.Text = look.short
+			row.caption.TextColor3 = House.white
 		end
-		row.value.Text = times(boost.total)
-		row.value.TextColor3 = color
-		if boost.key == "luck" then
-			CloverArt.paint(row.icon, CloverArt.paletteFor(boost.total))
+		row.value.Text = times(total)
+		row.value.TextColor3 = if row.key == "luck" then luckColor(total) else look.color
+		if row.key == "luck" and row.icon then
+			CloverArt.paint(row.icon, CloverArt.paletteFor(total))
 		end
 	end
 end
