@@ -887,9 +887,10 @@ Dock.BOOSTS_ROWS = 3
 Dock.BOOSTS_HEIGHT = Dock.BOOSTS_HEADER + Dock.BOOSTS_ROWS * (Dock.BOOSTS_ROW + Dock.BOOSTS_ROW_GAP)
 
 --- The lowest the Boosts widget's bottom edge may sit, up from the screen's bottom edge:
---- on the hotbar's top edge, and above the jump button on touch. Read on scale changes.
+--- hard in the corner, level with the hotbar's bottom (on request, 2026-10-06), and above
+--- the jump button on touch. Read on scale changes.
 function Dock.boostsFloor(): number
-	local floor = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
+	local floor = Dock.HOTBAR_BOTTOM
 	local corner = UIKit.touchCorner()
 	if corner.Y > 0 then
 		floor = math.max(floor, corner.Y + Dock.GAP)
