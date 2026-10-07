@@ -146,6 +146,16 @@ local function creditKill(victim: Player)
 	print(`[kill] {killer.Name} blew up {victim.Name} ({data.stats.kills} kills)`)
 end
 
+--- A player went down (a blackout or a real character death): count it on their own
+--- Settings > Stats page, then credit whoever bombed them.
+local function noteDeath(victim: Player)
+	local data = DataService.data(victim)
+	if data then
+		data.stats.deaths = (data.stats.deaths or 0) + 1
+	end
+	creditKill(victim)
+end
+
 -- Debug console only (see DebugService's /speed). A sustained WalkSpeed override:
 -- nil follows the player's trained speed as normal (Config/Treadmill), a number pins
 -- WalkSpeed to exactly that and ignores the haul penalty. Session-only and deliberately NOT persisted --
@@ -701,7 +711,7 @@ type Where = { stageName: string, depth: number }
 
 local function blackout(player: Player, state: State, cause: string, where: Where)
 	state.downed = true
-	creditKill(player)
+	noteDeath(player)
 
 	local data = DataService.data(player)
 	local character = player.Character
@@ -1155,7 +1165,7 @@ function ExposureService.start()
 		humanoid.Died:Connect(function()
 			local data = DataService.data(player)
 			local root = character:FindFirstChild("HumanoidRootPart")
-			creditKill(player)
+			noteDeath(player)
 			if data and root and root:IsA("BasePart") and StageService.stageOf(player) ~= nil then
 				local lost = dropBag(player, data, root.Position)
 				print(`[rads] {player.Name} died in a stage — dropped {lost} item(s)`)

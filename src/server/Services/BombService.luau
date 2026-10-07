@@ -195,6 +195,8 @@ local function drop(player: Player)
 	-- Out of the bag. CarryService notices heldUid is gone and empties the hands.
 	table.remove(data.carry, index)
 	data.heldUid = ""
+	-- Settings > Stats' "Nukes bombed".
+	data.stats.bombsDropped = (data.stats.bombsDropped or 0) + 1
 
 	readyAt[player] = now + stats.cooldown
 	live[player] = (live[player] or 0) + 1

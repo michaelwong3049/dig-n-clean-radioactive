@@ -279,6 +279,12 @@ local TEMPLATE = {
 		dug = 0,
 		merges = 0,
 		bagsStolen = 0,
+		-- Settings > Stats only (StatsService): seconds in game, bombs dropped
+		-- (BombService), deaths (ExposureService) and Legendary+ dug (DigService).
+		playtime = 0,
+		bombsDropped = 0,
+		deaths = 0,
+		rareFinds = 0,
 	},
 }
 

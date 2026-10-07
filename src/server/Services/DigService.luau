@@ -1236,6 +1236,10 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 	table.insert(data.carry, carried)
 	-- The Prospector mastery's counter (Config/Masteries): every nuke out of the ground.
 	data.stats.dug = (data.stats.dug or 0) + 1
+	-- Settings > Stats' "Rare finds": Legendary and up.
+	if Rarity.get(rarity).order >= Rarity.get("Legendary").order then
+		data.stats.rareFinds = (data.stats.rareFinds or 0) + 1
+	end
 
 	local sealed = #carried.patches == 0
 	if sealed then
