@@ -32,8 +32,8 @@ local ShinyCard = require(script.Parent.Parent.ShinyCard)
 
 local PlaytimeGiftController = {}
 
--- THE GIFTS TILE: bottom right of the left-edge 2x3 grid (HudTile).
-local TILE_SLOT = 6
+-- THE GIFTS TILE: bottom right of the left-edge grid (HudTile), beside Index.
+local TILE_SLOT = 4
 local TILE_COLOR = Color3.fromRGB(255, 150, 40)
 local TILE_LIGHT = Color3.fromRGB(255, 214, 150)
 

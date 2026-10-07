@@ -748,7 +748,9 @@ end
 Dock.SIDE_GRID_SCALE = if UIKit.isTouch() then 1 else 1.3
 Dock.SIDE_GRID_TILE = math.round(58 * Dock.SIDE_GRID_SCALE)
 Dock.SIDE_GRID_COLUMNS = 2
-Dock.SIDE_GRID_ROWS = 3
+-- Two rows since Nukes and Potions moved to the right edge (2026-10-07, on request):
+-- the wide Shop over Index | Gifts.
+Dock.SIDE_GRID_ROWS = 2
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
 Dock.SIDE_TILE_GAP = math.round(9 * Dock.SIDE_GRID_SCALE)
@@ -844,6 +846,36 @@ function Dock.sideColumnBottom(height: number): number
 	return height / 2 + Dock.leftGridTop(height) + Dock.SIDE_GRID_HEIGHT
 end
 
+-- THE RIGHT-EDGE COLUMN (2026-10-07, on request: "put the nukes and potions on the right
+-- side of the screen, make them slightly smaller, and remove the text under them"): Nukes
+-- over Potions, the grid's studded tiles at RIGHT_TILE_SCALE with no caption, centred on
+-- the right edge like the grid on the left. The Starter Pack offer hangs above it and the
+-- Boosts widget keeps below it. It replaced the 2x Luck / 2x Speed pass cards.
+Dock.RIGHT_TILE_SCALE = 0.85
+Dock.RIGHT_TILE = math.round(Dock.SIDE_GRID_TILE * Dock.RIGHT_TILE_SCALE)
+Dock.RIGHT_TILE_GAP = Dock.SIDE_TILE_GAP
+Dock.RIGHT_TILES = 2
+Dock.RIGHT_COLUMN_HEIGHT = Dock.RIGHT_TILES * Dock.RIGHT_TILE + (Dock.RIGHT_TILES - 1) * Dock.RIGHT_TILE_GAP
+
+--- The right column's TOP edge, in design px from the canvas's vertical centre: centred
+--- (dropped like the left grid), never up into the corner row.
+function Dock.rightColumnTop(height: number): number
+	local underCorner = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + Dock.SIDE_GRID_POKE - height / 2
+	return math.max(-Dock.RIGHT_COLUMN_HEIGHT / 2 + Dock.SIDE_GRID_DROP, underCorner)
+end
+
+--- The CENTRE of right-column tile `index` (1 = top), offset in from the RIGHT edge and
+--- down from the vertical centre.
+function Dock.rightTileCentre(index: number, height: number): UDim2
+	local down = Dock.rightColumnTop(height) + (index - 1) * (Dock.RIGHT_TILE + Dock.RIGHT_TILE_GAP) + Dock.RIGHT_TILE / 2
+	return UDim2.new(1, -(Dock.ROW_SIDE_MARGIN + Dock.RIGHT_TILE / 2), 0.5, down)
+end
+
+--- The right column's bottom edge, in design px from the canvas TOP.
+function Dock.rightColumnBottom(height: number): number
+	return height / 2 + Dock.rightColumnTop(height) + Dock.RIGHT_COLUMN_HEIGHT
+end
+
 -- The dock's total reserved height with no card open. Nothing anchors against it today
 -- — StationController and IndexController both centre their panels on the screen itself
 -- now (see their headers) and the left column moved to the middle-left — but it stays
@@ -883,8 +915,8 @@ Dock.HAULPANEL_CENTRE_GAP = 100
 -- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
 -- width, not a different anchor.
 -- THE BOOSTS WIDGET (BoostsController): the bottom-right "CURRENT BOOSTS" header over the
--- Luck / Cash / Walk Speed totals, just above the hotbar. PassOfferController stacks above
--- it and the haul panel keeps clear of its width.
+-- Luck / Cash / Walk Speed totals, just above the hotbar. The haul panel keeps clear of
+-- its width.
 Dock.BOOSTS_WIDTH = 200
 Dock.BOOSTS_HEADER = 20
 Dock.BOOSTS_ROW = 34
@@ -909,13 +941,14 @@ Dock.BOOSTS_MIN_FIT = 0.6
 
 --- Where the Boosts widget sits on a canvas `height` design px tall: its bottom edge (up
 --- from the screen's bottom edge) and its UIScale. It rests on boostsFloor and keeps
---- under the left grid's bottom row (sideColumnBottom): on a short canvas it slides
---- down, then shrinks. BoostsController draws it here; PassOfferController stacks on it.
+--- under the left grid's bottom row (sideColumnBottom) and the right column's
+--- (rightColumnBottom): on a short canvas it slides
+--- down, then shrinks. BoostsController draws it here.
 function Dock.boostsLayout(height: number): (number, number)
 	local floor = Dock.boostsFloor()
 	local bottom = floor
 	-- The highest its top may reach, measured up from the bottom edge like `bottom`.
-	local ceiling = height - Dock.sideColumnBottom(height) - Dock.GAP
+	local ceiling = height - math.max(Dock.sideColumnBottom(height), Dock.rightColumnBottom(height)) - Dock.GAP
 	local tall = Dock.BOOSTS_HEIGHT
 	if ceiling - bottom < tall then
 		bottom = math.max(floor, ceiling - tall)
@@ -930,10 +963,10 @@ function Dock.boostsTop(height: number): number
 end
 
 -- THE STARTER PACK CARD (StarterOfferController), hanging hard right under the corner
--- row, DROP lower so its rays clear the corner tiles. Smaller on touch (TOUCH_FIT), on
--- request (2026-10-06). Here so the pass offers can stack up to it on touch.
-Dock.STARTER_DROP = 30
-Dock.STARTER_CARD_H = 156
+-- row, DROP lower so its rays clear the corner tiles, above the right column. Smaller on
+-- touch (TOUCH_FIT), on request (2026-10-06); smaller everywhere (2026-10-07).
+Dock.STARTER_DROP = 24
+Dock.STARTER_CARD_H = 128
 Dock.STARTER_TOUCH_FIT = 0.7
 Dock.STARTER_TOP = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + Dock.STARTER_DROP
 -- With the button grid on the LEFT edge, the right corner only holds the Boosts widget.

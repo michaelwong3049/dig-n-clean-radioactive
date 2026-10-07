@@ -1,6 +1,7 @@
 --[[
-	HudTile — one HUD tile: the button grid on the middle left (a wide Shop over Index,
-	Nukes, Potions, Gifts) as coloured studded plates, and the top-right corner buttons
+	HudTile — one HUD tile: the button grid on the middle left (a wide Shop over Index and
+	Gifts) and the right-edge column (Nukes over Potions, a little smaller and with no
+	caption) as coloured studded plates, and the top-right corner buttons
 	(Daily, Masteries) and top-left ones (Settings, Info) in the dark "glow orb" look.
 
 	The grid tile, on request (2026-10-03, from a reference picture): a dark navy rounded
@@ -123,6 +124,9 @@ export type Spec = {
 	glyph: string?,
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
+	-- Optional: a place in the right-edge column instead (Dock.rightTileCentre: 1 = top).
+	-- The grid's studded look at Dock.RIGHT_TILE_SCALE, picture only. `slot` is then unused.
+	right: number?,
 }
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
@@ -140,11 +144,16 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
+	local right = spec.right
 	local grid = spec.position == nil and spec.corner == nil and spec.topbarLeft == nil
 	local span = spec.span or 1
+	-- The right column is the grid's look shrunk: every grid measure times this.
+	local shrink = if right then Dock.RIGHT_TILE_SCALE else 1
+	local tileSize = if right then Dock.RIGHT_TILE else GRID_SIZE
+	local tileCorner = math.round(GRID_CORNER * shrink)
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
-		size = if grid then UDim2.fromOffset(GRID_SIZE * span + Dock.SIDE_TILE_GAP * (span - 1), GRID_SIZE) else UDim2.fromOffset(SIZE, SIZE),
+		size = if grid then UDim2.fromOffset(tileSize * span + Dock.SIDE_TILE_GAP * (span - 1), tileSize) else UDim2.fromOffset(SIZE, SIZE),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		text = "",
 		textSize = UIKit.TextSize.body,
@@ -152,7 +161,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		fillTransparency = FILL_TRANSPARENCY,
 		strokeColor = spec.color,
 		strokeThickness = EDGE_THICKNESS,
-		cornerRadius = UDim.new(0, if grid then GRID_CORNER else CORNER),
+		cornerRadius = UDim.new(0, if grid then tileCorner else CORNER),
 		zIndex = 4,
 	})
 	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -164,8 +173,8 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		-- A solid coloured plate under the glossy L-stud pattern the panels wear.
 		Studded.fill(button, PLATES[spec.name] or DEFAULT_PLATE)
 		Studded.pattern(button, {
-			tile = GRID_STUD_TILE,
-			radius = GRID_CORNER,
+			tile = math.round(GRID_STUD_TILE * shrink),
+			radius = tileCorner,
 			studTransparency = 0.3,
 			bandTransparency = 0.8,
 			glow = false,
@@ -178,6 +187,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	if grid then
 		local function place()
 			local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
+			if right then
+				button.Position = Dock.rightTileCentre(right, height)
+				return
+			end
 			-- A wide tile sits on the middle of the slots it spans.
 			local first = Dock.sideTileCentre(spec.slot, height)
 			local last = Dock.sideTileCentre(spec.slot + span - 1, height)
@@ -186,24 +199,29 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()
 
-		local captionSize = if spec.captionSize then math.round(spec.captionSize * GRID_SCALE) else GRID_TEXT_SIZE
-		icon = Artwork.picture(button, "Icon", spec.image, GRID_ICON, Color3.new(1, 1, 1))
+		-- With no caption (the right column) the picture sits on the tile's middle.
+		local iconSize = math.round(GRID_ICON * shrink)
+		local rise = if right then 0 else GRID_ICON_RISE
+		icon = Artwork.picture(button, "Icon", spec.image, iconSize, Color3.new(1, 1, 1))
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.Position = UDim2.new(0.5, 0, 0.5, -GRID_ICON_RISE + (spec.iconDrop or 0))
+		icon.Position = UDim2.new(0.5, 0, 0.5, -rise + (spec.iconDrop or 0))
 		icon.ZIndex = 6
 
-		UIKit.hudNumber(button, {
-			name = "Caption",
-			anchorPoint = Vector2.new(0.5, 1),
-			position = UDim2.new(0.5, 0, 1, 1),
-			size = UDim2.new(1, 12, 0, captionSize + 4),
-			text = spec.caption,
-			font = Enum.Font.GothamBlack,
-			textSize = captionSize,
-			color = Color3.new(1, 1, 1),
-			xAlign = Enum.TextXAlignment.Center,
-			zIndex = 8,
-		}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
+		if not right then
+			local captionSize = if spec.captionSize then math.round(spec.captionSize * GRID_SCALE) else GRID_TEXT_SIZE
+			UIKit.hudNumber(button, {
+				name = "Caption",
+				anchorPoint = Vector2.new(0.5, 1),
+				position = UDim2.new(0.5, 0, 1, 1),
+				size = UDim2.new(1, 12, 0, captionSize + 4),
+				text = spec.caption,
+				font = Enum.Font.GothamBlack,
+				textSize = captionSize,
+				color = Color3.new(1, 1, 1),
+				xAlign = Enum.TextXAlignment.Center,
+				zIndex = 8,
+			}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
+		end
 	else
 		local corner = spec.corner
 		local topbarLeft = spec.topbarLeft

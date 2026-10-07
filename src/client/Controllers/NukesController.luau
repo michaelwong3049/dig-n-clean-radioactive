@@ -45,8 +45,9 @@ local Studded = require(script.Parent.Parent.Studded)
 
 local Nukes = {}
 
--- THE NUKES TILE: middle right of the left-edge 2x3 grid (HudTile), the green nuke.
-local TILE_SLOT = 4
+-- THE NUKES TILE: top of the right-edge column (HudTile, Dock.rightTileCentre), the
+-- green nuke, picture only (2026-10-07, on request; it was in the left grid).
+local TILE_RIGHT = 1
 local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -760,7 +761,8 @@ local function build(): ScreenGui
 	local gui = HudTile.build({
 		name = "NukesButton",
 		caption = "Nukes",
-		slot = TILE_SLOT,
+		slot = 0,
+		right = TILE_RIGHT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Artwork.IMAGE.nuke,
