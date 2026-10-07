@@ -106,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 66
+local BUILDER_VERSION = 67
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -391,20 +391,7 @@ local WALL_STAGE_PIN: { [number]: string } = {
 local BORDER_WIDTH = 3 -- studs along X (the walk direction)
 local BORDER_ROWS = 2 -- cells across BORDER_WIDTH; row width is BORDER_WIDTH / BORDER_ROWS
 local BORDER_CELL_Z = 3 -- checker cell length along the seam
-local BORDER_YELLOW = C.barrelYellow
-local BORDER_BLACK = C.hazardBlack
-
---- Each zone's own tape colours, keyed by the stage the line leads INTO (the camp ->
---- Stage 1 line takes Stage 1's, the 1/2 seam takes Stage 2's, and so on), on request:
---- one bright + one dark of the same hue, so it still reads as hazard tape while
---- telling the zones apart. Every hue sits clear of the tan/brown floors it crosses.
---- A stage not listed keeps the classic yellow-and-black.
-local BORDER_STAGE_PAIR: { [number]: { bright: string, dark: string } } = {
-	[1] = { bright = "8BD448", dark = "1F3A12" }, -- Fading Fields: meadow lime / deep moss
-	[2] = { bright = "F08A24", dark = "3A1E0A" }, -- Deadwood Grove: rust orange / bark brown
-	[3] = { bright = "E0402F", dark = "2A0E0B" }, -- The Waste Dump: warning red / oxblood
-	[4] = { bright = "A45CFF", dark = "1E0F33" }, -- Ooze Marsh: toxic violet / night purple
-}
+-- Colours come from the zone the line sits in -- Kit.hazardPair, shared with CampSite.
 
 --- Derive a (dark, light) checkerboard pair from one existing colour, at roughly the
 --- same brightness ratio the plaza's own hand-picked pair already sits at (measured:
@@ -3613,9 +3600,7 @@ local function buildStageBorderLines(parent: Instance)
 	-- stands proud too, so the tape keeps its full-width checker; edges against a black
 	-- neighbour sit OVERLAY_INSET in.
 	local function strip(seamX: number, minZ: number, maxZ: number, name: string, intoId: number)
-		local pair = BORDER_STAGE_PAIR[intoId]
-		local bright = if pair then pair.bright else BORDER_YELLOW
-		local dark = if pair then pair.dark else BORDER_BLACK
+		local bright, dark = Kit.hazardPair(intoId)
 		local x0 = seamX - BORDER_WIDTH / 2
 		local x1 = seamX + BORDER_WIDTH / 2
 		local cols = math.ceil((maxZ - minZ) / BORDER_CELL_Z)

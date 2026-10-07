@@ -97,7 +97,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 34
+local BUILDER_VERSION = 35
 
 local C = Kit.C
 local build = Kit.build
@@ -403,6 +403,7 @@ type Layout = {
 	clipX: number,
 	exitX: number?, -- the east clip line, where the next stage opens out (nil = walled shut)
 	nextBuilt: boolean, -- a built stage already starts at exitX, so the mouth is open
+	westStage: number?, -- the built stage whose east edge is clipX; its zone colours the tape
 	ox: number, -- the plaza centre: the grid cell nearest the disc centre
 	oz: number,
 	corridorHalfZ: number, -- the stage chain's half-width, where it opens in
@@ -414,11 +415,15 @@ local function layoutOf(def: Camps.CampDef): Layout
 	local exitX = def.exitX
 	local corridorHalfZ = 0
 	local nextBuilt = false
+	local westStage: number? = nil
 	for _, id in Stages.builtIds() do
-		local minX, minZ, _, maxZ = Stages.bounds(id)
+		local minX, minZ, maxX, maxZ = Stages.bounds(id)
 		corridorHalfZ = math.max(corridorHalfZ, -minZ, maxZ)
 		if exitX and math.abs(minX - exitX) < 0.5 then
 			nextBuilt = true
+		end
+		if math.abs(maxX - (def.clipX :: number)) < 0.5 then
+			westStage = id
 		end
 	end
 	return {
@@ -430,6 +435,7 @@ local function layoutOf(def: Camps.CampDef): Layout
 		clipX = def.clipX :: number,
 		exitX = exitX,
 		nextBuilt = nextBuilt,
+		westStage = westStage,
 		ox = ox,
 		oz = oz,
 		corridorHalfZ = corridorHalfZ,
@@ -565,8 +571,11 @@ end
 --- The hazard tape across a corridor mouth, its west edge at `x0`. On a mouth with a
 --- stage beyond it the tape is centred on the clip line -- half on the stage's floor,
 --- half on the camp's, exactly like every stage seam. The east mouth has no floor past
---- it until Stage 7 exists, so there it lies wholly on the camp side.
-local function buildSeam(parent: Instance, L: Layout, name: string, x0: number)
+--- it until Stage 7 exists, so there it lies wholly on the camp side. `stageId` is the
+--- stage on the far side of the mouth: the tape wears that stage's zone colours
+--- (Kit.hazardPair), same as every stage seam in that zone.
+local function buildSeam(parent: Instance, L: Layout, name: string, x0: number, stageId: number?)
+	local bright, dark = Kit.hazardPair(stageId)
 	local folder = Instance.new("Folder")
 	folder.Name = name
 	local rowWidth = SEAM_WIDTH / SEAM_ROWS
@@ -583,7 +592,7 @@ local function buildSeam(parent: Instance, L: Layout, name: string, x0: number)
 				name = "SeamTape",
 				pos = { x0 + (ix + 0.5) * rowWidth, FLOOR_Y + 0.26, (z0 + z1) / 2 },
 				size = { rowWidth, 0.4, z1 - z0 },
-				color = if (ix + iz) % 2 == 0 then C.barrelYellow else C.hazardBlack,
+				color = if (ix + iz) % 2 == 0 then bright else dark,
 				material = "SmoothPlastic",
 				canCollide = false,
 			})
@@ -1237,9 +1246,10 @@ local function buildCamp(parent: Instance, def: Camps.CampDef)
 	buildFloor(m, L)
 	buildKerb(m:FindFirstChild("Tiles") :: Instance, L)
 	buildBorder(m, L)
-	buildSeam(m, L, "Seam", L.clipX - SEAM_WIDTH / 2)
+	buildSeam(m, L, "Seam", L.clipX - SEAM_WIDTH / 2, L.westStage)
 	if L.exitX then
-		buildSeam(m, L, "ExitSeam", if L.nextBuilt then L.exitX - SEAM_WIDTH / 2 else L.exitX - SEAM_WIDTH)
+		local eastStage = if L.westStage then L.westStage + 1 else nil
+		buildSeam(m, L, "ExitSeam", if L.nextBuilt then L.exitX - SEAM_WIDTH / 2 else L.exitX - SEAM_WIDTH, eastStage)
 	end
 	buildWalls(m, L)
 	buildGate(m, L)
