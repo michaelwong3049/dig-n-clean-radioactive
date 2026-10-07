@@ -3270,6 +3270,61 @@ function Spec.run(): boolean
 		end
 		check("§crate nuke crates only roll nukes from their own stage range", ranged)
 
+		-- The jackpot crates: every live nuke of their one rarity is in the draw, an item
+		-- first stocked on a later stage comes up rarer than its 1/odds alone would say,
+		-- and they only drop on Stages 8-12, never through the ordinary crate roll.
+		local jackpot = true
+		for crateId, rarity in { nuke6 = "Mythic", nuke7 = "Anomaly" } do
+			local def = Crates.get(crateId)
+			local odds = Crates.nukeOdds(crateId)
+			for _, item in Items.DEFS do
+				if #item.stages > 0 and (item.rarity == rarity) ~= (odds[item.id] ~= nil) then
+					jackpot = false
+				end
+			end
+			if def.tier ~= rarity or not def.special then
+				jackpot = false
+			end
+		end
+		local function firstStage(id: string): number
+			return math.min(table.unpack(Items.get(id).stages))
+		end
+		local falloff = true
+		local mythics = Crates.nukeOdds("nuke6")
+		for a, pa in mythics do
+			for b, pb in mythics do
+				local ia, ib = Items.get(a), Items.get(b)
+				-- Same odds number, later stage => strictly rarer; per unit of 1/odds too.
+				if firstStage(a) < firstStage(b) and pa * ia.odds <= pb * ib.odds then
+					falloff = false
+				end
+			end
+		end
+		local never = function()
+			return false
+		end
+		local always = function()
+			return true
+		end
+		check("§crate the jackpot crates roll every Mythic / Anomaly in the game", jackpot)
+		check("§crate a jackpot crate's later-stage nukes come up rarer", falloff)
+		check(
+			"§crate the jackpot crates drop only on Stages 8-12, rarest first, and only where stocked",
+			Crates.rollSpecial(7, 0, always) == nil
+				and Crates.rollSpecial(8, 0, always) == "nuke7"
+				and Crates.rollSpecial(12, 1 / 3000000 + 1e-7, always) == "nuke6"
+				and Crates.rollSpecial(10, 0.5, always) == nil
+				and Crates.rollSpecial(10, 0, never) == nil
+		)
+		local ladderOnly = true
+		for stageId = 1, #Stages.DEFS do
+			for i = 0, 99 do
+				local id = Crates.dropId("nuke", stageId, 50, (i + 0.5) / 100)
+				ladderOnly = ladderOnly and not Crates.get(id).special
+			end
+		end
+		check("§crate the ordinary crate roll never hands out a jackpot crate", ladderOnly)
+
 		-- Deeper stages drop better crates (the average variant climbs); detector luck
 		-- only ever moves the odds up the ladder.
 		local function meanVariant(odds: { number }): number

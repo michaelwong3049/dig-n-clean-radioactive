@@ -544,7 +544,8 @@ local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number
 		* (IdentifyService.stageLuckMult(userId)[signal.stageId] or 1)
 	-- A meteor spot rolls luckier for everyone (Config/Weather.METEOR_LUCK).
 	local boost = stats.luckBoost * (if signal.meteor then Weather.METEOR_LUCK else 1)
-	if detectorLuck <= 1 and boost <= 1 then
+	-- A jackpot crate (Ground Zero / Rift) is what it is for everyone: no luck re-roll.
+	if (detectorLuck <= 1 and boost <= 1) or (signal.crateId and Crates.get(signal.crateId).special) then
 		return signal.itemId, signal.rarity, signal.modifier, signal.crateId
 	end
 
@@ -703,9 +704,15 @@ local function spawnSignal(stageId: number, unseen: boolean?): boolean
 	-- stand-in's weight and a real modifier roll, so its glow, burial depth, ping,
 	-- pull and fuse are an ordinary nuke's. Nobody learns it is a crate until the wash
 	-- takes the crust off.
-	local crateId: string? = nil
-	if math.random() * Crates.CRATE_CHANCE < 1 then
+	-- The jackpot crates (Ground Zero / Rift, Stages 8-12) are their own, far rarer
+	-- roll, dressed as a spot of their own tier -- a Mythic / Anomaly spot.
+	local crateId: string? = Crates.rollSpecial(stageId, math.random(), function(tier)
+		return Items.hasAny(stageId, tier)
+	end)
+	if crateId == nil and math.random() * Crates.CRATE_CHANCE < 1 then
 		crateId = Crates.dropId(Crates.rollKind(math.random()), stageId, 1, math.random())
+	end
+	if crateId then
 		rarity = Crates.get(crateId :: string).tier
 		itemId = standInFor(stageId, rarity, itemId)
 		weight = Items.get(itemId).weight

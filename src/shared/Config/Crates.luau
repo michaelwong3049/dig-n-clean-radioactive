@@ -22,6 +22,13 @@
 	    into the player's stash, every potion equally likely. It drops just as often
 	    on every stage and ignores detector luck (Crates.dropId).
 
+	THE JACKPOT CRATES (nuke6 Ground Zero = Mythic, nuke7 Rift = Anomaly) sit off the
+	ladder. Each rolls EVERY nuke of its one rarity in the game, Stage 1 to 12, with a
+	later stage's nukes rarer (`stageFalloff` per stage after the first). They never
+	come out of the ordinary crate roll: they are their own very rare dig drop on
+	Stages 8-12 (`digStages` / `digChance`, Crates.rollSpecial), dressed as a spot of
+	their own tier, and a rare Slag Furnace prize. Detector luck never re-rolls one.
+
 	FIVE VARIANTS OF EACH, and the better the crate, the higher the floor and the
 	fatter the top of its table. Variants 1-3 are the early crates (Stages 1-6);
 	4-5 only drop from Stage 7 on. Scrap and Field never hand out an Anomaly.
@@ -68,6 +75,14 @@ export type CrateDef = {
 	-- NUKE: { first, last } stage the prize can come from. An item stocked on any
 	-- stage in the range is in the pool.
 	stages: { number }?,
+	-- NUKE: inside a rarity, each stage after the first multiplies an item's weight by
+	-- this (its earliest stage counts), so later stages' nukes come up rarer. 1 if absent.
+	stageFalloff: number?,
+	-- A JACKPOT crate: off the variant ladder, never re-rolled by detector luck, and
+	-- dug only as its own drop -- `digChance` per spawned signal on `digStages`.
+	special: boolean?,
+	digStages: { number }?,
+	digChance: number?,
 	-- LIQUID: the lowest Liquids.ORDER entry this crate can hand out, and a luck
 	-- multiplier on top of the player's own fluid luck.
 	liquidFloor: string?,
@@ -102,6 +117,8 @@ Crates.ORDER = {
 	"nuke3",
 	"nuke4",
 	"nuke5",
+	"nuke6",
+	"nuke7",
 	"liquid1",
 	"liquid2",
 	"liquid3",
@@ -175,6 +192,42 @@ Crates.DEFS = {
 		rarities = { Epic = 55, Legendary = 32, Mythic = 11, Anomaly = 2 },
 		stages = { 9, 12 },
 		pullWeight = 200,
+	},
+	-- The jackpot crates: every Mythic / every Anomaly in the game, later stages rarer.
+	-- Dug about as often as a natural Mythic / Anomaly spot on those stages.
+	nuke6 = {
+		id = "nuke6",
+		kind = "nuke",
+		variant = 6,
+		name = "Ground Zero Crate",
+		short = "Ground Zero",
+		flavor = "A mushroom cloud frozen under glass, the case cracked with magma. Every Mythic ever dug is in the draw.",
+		color = "EF4444",
+		tier = "Mythic",
+		rarities = { Mythic = 1 },
+		stages = { 1, 12 },
+		stageFalloff = 0.8,
+		special = true,
+		digStages = { 8, 12 },
+		digChance = 1 / 300000,
+		pullWeight = 250,
+	},
+	nuke7 = {
+		id = "nuke7",
+		kind = "nuke",
+		variant = 7,
+		name = "Rift Crate",
+		short = "Rift Crate",
+		flavor = "A portal held open in a steel frame, stars pouring through. Every Anomaly ever dug is on the other side.",
+		color = "FFFFFF",
+		tier = "Anomaly",
+		rarities = { Anomaly = 1 },
+		stages = { 1, 12 },
+		stageFalloff = 0.8,
+		special = true,
+		digStages = { 8, 12 },
+		digChance = 1 / 3000000,
+		pullWeight = 300,
 	},
 	liquid1 = {
 		id = "liquid1",
@@ -359,6 +412,27 @@ function Crates.rollVariant(stageId: number, luck: number, rng: number): number
 	return last
 end
 
+--- The jackpot crates' dig drop, rarest first.
+Crates.SPECIAL_ORDER = { "nuke7", "nuke6" }
+
+--- Which jackpot crate (if any) a fresh signal on `stageId` is. `rng` is a number in
+--- [0, 1). Ignores detector luck. `stocked(tier)` says whether the stage has a nuke of
+--- that tier for the crate to pass for (DigService.standInFor); if not, no drop.
+function Crates.rollSpecial(stageId: number, rng: number, stocked: (string) -> boolean): string?
+	local pick = rng
+	for _, id in Crates.SPECIAL_ORDER do
+		local def = Crates.get(id)
+		local range = def.digStages
+		if range and def.digChance and stageId >= range[1] and stageId <= range[2] then
+			if pick < def.digChance then
+				return if stocked(def.tier) then id else nil
+			end
+			pick -= def.digChance
+		end
+	end
+	return nil
+end
+
 -- ── What a nuke crate holds ───────────────────────────────────────────
 
 --- Every nuke still in the catalogue (retired items have `stages = {}`), in a STABLE
@@ -400,10 +474,21 @@ function Crates.inStageRange(def: CrateDef, item: Items.ItemDef): boolean
 	return false
 end
 
+--- An item's weight inside its rarity: 1/odds like the dig roll, times the crate's
+--- `stageFalloff` for every stage its earliest stage sits past Stage 1.
+local function withinWeight(def: CrateDef, item: Items.ItemDef): number
+	local w = 1 / item.odds
+	local falloff = def.stageFalloff
+	if falloff and #item.stages > 0 then
+		w *= falloff ^ (math.min(table.unpack(item.stages)) - 1)
+	end
+	return w
+end
+
 --- Normalised prize odds for a nuke crate, keyed by item id. Only nukes in the crate's
 --- stage range are in it. The rarity is picked off the crate's `rarities` table (a
 --- rarity the range doesn't stock drops out and the rest renormalise); within a
---- rarity, rarer items (bigger `odds`) come up less, 1/odds like the dig roll. Sums to 1.
+--- rarity, rarer items (bigger `odds`) come up less (withinWeight). Sums to 1.
 function Crates.nukeOdds(crateId: string): { [string]: number }
 	local def = Crates.get(crateId)
 	local rarities = def.rarities or {}
@@ -411,7 +496,7 @@ function Crates.nukeOdds(crateId: string): { [string]: number }
 	local withinTotal: { [string]: number } = {}
 	for _, item in nukePool() do
 		if rarities[item.rarity] and Crates.inStageRange(def, item) then
-			withinTotal[item.rarity] = (withinTotal[item.rarity] or 0) + 1 / item.odds
+			withinTotal[item.rarity] = (withinTotal[item.rarity] or 0) + withinWeight(def, item)
 		end
 	end
 
@@ -430,7 +515,7 @@ function Crates.nukeOdds(crateId: string): { [string]: number }
 		local w = rarities[item.rarity]
 		local within = withinTotal[item.rarity]
 		if w and within and within > 0 and Crates.inStageRange(def, item) then
-			out[item.id] = (w / rarityTotal) * ((1 / item.odds) / within)
+			out[item.id] = (w / rarityTotal) * (withinWeight(def, item) / within)
 		end
 	end
 	return out
