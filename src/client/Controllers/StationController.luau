@@ -2377,7 +2377,7 @@ local function render()
 	ui.panel.BackgroundTransparency = 0 -- solid: it sits over the depth readout and vitals bars now
 	-- The dark studded backdrop sits under the shop, the trader and the reactor alike.
 	local atTrader = not (atShop or atLocker or atMerge or atReforge or atFurnace)
-	ui.shopBackdrop.Visible = atShop or atTrader or atMerge
+	ui.shopBackdrop.Visible = atShop or atTrader or atMerge or atReforge or atFurnace
 
 	if atShop then
 		local offer = state.offer
@@ -2486,13 +2486,15 @@ local function render()
 	end
 
 	if atReforge then
-		ui.panelStroke.Color = FIELD.edge
+		ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
+		ui.panelStroke.Color = STUDDED.cardEdge
 		ui.reforge.paint(state)
 		return
 	end
 
 	if atFurnace then
-		ui.panelStroke.Color = FIELD.edge
+		ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
+		ui.panelStroke.Color = STUDDED.cardEdge
 		ui.furnace.paint(state)
 		return
 	end
