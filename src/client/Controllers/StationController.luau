@@ -226,6 +226,10 @@ local DRAG_RUBBER = 0.35
 local WHEEL_COOLDOWN = 0.15
 -- The close badge's 32px plus the 14px it is inset by, less the panel pad it shares.
 local WALLET_INSET = 58
+-- The header's SORT / SHOW pills (see build).
+local FILTER_PILL_WIDTH = 190
+local FILTER_PILL_HEIGHT = 34
+local FILTER_PILL_GAP = 10
 
 local PANEL_PAD = 16
 -- The focused card, a gap and a peek either side, and the panel's own padding.
@@ -1532,6 +1536,44 @@ local function build(): ScreenGui
 		visible = false,
 	})
 
+	-- The row's SORT and SHOW pills, centred in the header between the title and the
+	-- wallet. Each press steps its pref to the next option (prefs `shopSort`,
+	-- `shopShow`); their text is painted by paintShopFilters.
+	local filters = Instance.new("Frame")
+	filters.Name = "ShopFilters"
+	filters.AnchorPoint = Vector2.new(0.5, 0.5)
+	filters.Position = UDim2.new(0.5, 0, 0.5, -1)
+	filters.Size = UDim2.fromOffset(2 * FILTER_PILL_WIDTH + FILTER_PILL_GAP, FILTER_PILL_HEIGHT)
+	filters.BackgroundTransparency = 1
+	filters.Visible = false
+	filters.Parent = header
+	local filtersLayout = Instance.new("UIListLayout")
+	filtersLayout.FillDirection = Enum.FillDirection.Horizontal
+	filtersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	filtersLayout.Padding = UDim.new(0, FILTER_PILL_GAP)
+	filtersLayout.Parent = filters
+	local function filterPill(name: string, order: number): TextButton
+		local pill = UIKit.button(filters, {
+			name = name,
+			size = UDim2.fromOffset(FILTER_PILL_WIDTH, FILTER_PILL_HEIGHT),
+			font = FIELD.headline,
+			textSize = 16,
+			color = FIELD.text,
+			fillColor = FIELD.edge,
+			fillTransparency = 0,
+			cornerRadius = UDim.new(0.5, 0),
+			strokeColor = FIELD.ink,
+			strokeThickness = 2,
+			outline = false,
+			shadow = false,
+		})
+		pill.LayoutOrder = order
+		return pill
+	end
+	ui.shopFilters = filters
+	ui.shopSort = filterPill("Sort", 1)
+	ui.shopShow = filterPill("Show", 2)
+
 	inkShopText(shop)
 
 	-- Plots have no panel any more: exhibit income auto-deposits into the owner's
@@ -1996,6 +2038,50 @@ local function tierIndex(tiers: { any }, tier: number): number?
 	return nil
 end
 
+--- The offer's ladder in the player's chosen order (the header's SORT pill, pref
+--- `shopSort`): a sorted COPY, so the server's worst-first list that the rack reads is
+--- left alone. Equal prices fall back on the tier, so the order never shuffles a tick.
+local function sortedTiers(tiers: { any }): { any }
+	local cheapFirst = Prefs.get("shopSort") == "low"
+	local out = table.clone(tiers)
+	table.sort(out, function(a, b)
+		local pa, pb = a.price or 0, b.price or 0
+		if pa ~= pb then
+			return if cheapFirst then pa < pb else pa > pb
+		end
+		return if cheapFirst then a.tier < b.tier else a.tier > b.tier
+	end)
+	return out
+end
+
+local SORT_TEXT = { high = "PRICE: HIGH-LOW", low = "PRICE: LOW-HIGH" }
+local SHOW_TEXT = { all = "SHOW: ALL", unowned = "SHOW: NOT OWNED", affordable = "SHOW: CAN AFFORD" }
+
+--- The header pills' text, off the current prefs. Hidden on a rack card.
+local function paintShopFilters(visible: boolean)
+	ui.shopFilters.Visible = visible
+	ui.shopSort.Text = SORT_TEXT[Prefs.get("shopSort")] or SORT_TEXT.high
+	ui.shopShow.Text = SHOW_TEXT[Prefs.get("shopShow")] or SHOW_TEXT.all
+end
+
+--- `tiers` narrowed by the header's SHOW pill (pref `shopShow`).
+local function filteredTiers(tiers: { any }): { any }
+	local show = Prefs.get("shopShow")
+	if show ~= "unowned" and show ~= "affordable" then
+		return tiers
+	end
+	local out = {}
+	for _, entry in tiers do
+		local keep = if show == "unowned"
+			then not entry.owned
+			else entry.buyable == true and entry.affordable == true
+		if keep then
+			table.insert(out, entry)
+		end
+	end
+	return out
+end
+
 local function paintRack(track: string?, tiers: { any }?)
 	for _, part in CollectionService:GetTagged(RACK_TAG) do
 		local tier = part:GetAttribute("SellsTier")
@@ -2207,22 +2293,26 @@ local function setShopFocus(index: number, animate: boolean)
 	paintPager()
 end
 
---- Where the row opens: the first rung past the one in your hands that you do not
---- own yet — the upgrade you most likely walked over for, with your own tool peeking
---- in on its left. Owning everything above it, the one in your hands.
+--- Where the row opens: the next tier up from the one in your hands that you do not
+--- own yet — the upgrade you most likely walked over for. Owning everything above it,
+--- the one in your hands. Picked by TIER, not position, so it holds whichever way the
+--- SORT pill orders the row (and whatever SHOW leaves in it).
 local function defaultShopFocus(tiers: { any }): number
-	local current = 0
+	local currentTier = 0
+	local currentIndex: number? = nil
 	for index, entry in tiers do
 		if entry.current then
-			current = index
+			currentTier = entry.tier
+			currentIndex = index
 		end
 	end
-	for index = current + 1, #tiers do
-		if not tiers[index].owned then
-			return index
+	local best: number?, bestTier = nil, math.huge
+	for index, entry in tiers do
+		if not entry.owned and entry.tier > currentTier and entry.tier < bestTier then
+			best, bestTier = index, entry.tier
 		end
 	end
-	return math.max(current, 1)
+	return best or currentIndex or 1
 end
 
 --- Start the locker tutorial the first time its panel is on screen, and drop it the
@@ -2347,7 +2437,7 @@ local function render()
 	ui.fitPanel() -- the trader and the stalls each sit higher than the rest (TRADER_LIFT, SHOP_LIFT)
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
-	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
+	local offerTiers = if atShop and state.offer and state.offer.tiers then sortedTiers(state.offer.tiers) else nil
 	-- The rack card's position in THIS stall's list (see tierIndex), nil when it is not
 	-- listed here, which is what makes it not a rack card at all.
 	local rackIndex: number? = if atShop
@@ -2380,8 +2470,9 @@ local function render()
 	ui.shopBackdrop.Visible = atShop or atTrader or atMerge or atReforge or atFurnace
 
 	if atShop then
-		local offer = state.offer
-		local tiers = if offer then offer.tiers else nil
+		-- The row in the SORT pill's order, narrowed by SHOW. A rack card keeps the whole
+		-- (sorted) list: SHOW never hides the one card a rack hook opened.
+		local tiers = if offerTiers == nil then nil elseif single then offerTiers else filteredTiers(offerTiers)
 		local track = state.stationId or "Shop"
 		local accent = STALL_ACCENT[track] or FIELD.amber
 		local cash = state.cash or 0
@@ -2399,7 +2490,9 @@ local function render()
 		if introTrack ~= nil and introTrack ~= track then
 			introTrack = nil
 		end
-		ui.introButton.Visible = overview ~= nil and count > 0
+		local listed = if offerTiers then #offerTiers else 0
+		ui.introButton.Visible = overview ~= nil and listed > 0
+		paintShopFilters(listed > 0 and not single)
 		-- Measured in design px: TextBounds is screen px, under the canvas and fit scales.
 		local titleWidth = TextService:GetTextSize(track, ui.shopTitle.TextSize, ui.shopTitle.Font, Vector2.new(1000, 100)).X
 		ui.introButton.Position = UDim2.new(0, 20 + titleWidth + 14, 0.5, -1)
@@ -2412,6 +2505,7 @@ local function render()
 		-- A rack card has nothing to scroll, so its window drops the scrollbar's strip.
 		ui.shopCarousel.Size = UDim2.new(1, 0, 0, if single then CARD_BAND else CAROUSEL_HEIGHT)
 		ui.shopEmpty.Visible = count == 0
+		ui.shopEmpty.Text = if listed > 0 then "nothing matches this filter" else "nothing for sale here"
 
 		-- The equipped tier, for the ghost bars on every card above it.
 		local held = nil
@@ -2609,6 +2703,26 @@ function Station.start()
 		introTrack = nil
 		render()
 	end)
+	-- The SORT / SHOW pills: each press steps its pref to the next option. The prefs'
+	-- observers (below) repaint the row and re-pick its opening card.
+	local function stepPref(key: string, options: { string })
+		local at = table.find(options, Prefs.get(key)) or 0
+		Prefs.set(key, options[at % #options + 1])
+	end
+	ui.shopSort.MouseButton1Click:Connect(function()
+		stepPref("shopSort", { "high", "low" })
+	end)
+	ui.shopShow.MouseButton1Click:Connect(function()
+		stepPref("shopShow", { "all", "unowned", "affordable" })
+	end)
+	for _, key in { "shopSort", "shopShow" } do
+		Prefs.observe(key, function()
+			if ui.panel.Visible and state.station == "shop" then
+				carousel.openedFor = nil -- the row moved under you: open on the next upgrade again
+				render()
+			end
+		end)
+	end
 	ui.introButton.MouseButton1Click:Connect(function()
 		introTrack = if introTrack == nil then state.stationId else nil
 		render()

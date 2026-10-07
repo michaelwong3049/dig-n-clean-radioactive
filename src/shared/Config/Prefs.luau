@@ -92,6 +92,13 @@ Prefs.DEFS = {
 	-- none of their rings, trails and sparkles move or cost a frame. On by default.
 	auras = { kind = "flag", default = true },
 
+	-- GEAR SHOP ORDER + FILTER (client StationController): the two pills in the shop
+	-- panel's header. "high" = most expensive card first; "low" = cheapest first. SHOW
+	-- narrows the row: "unowned" drops tiers you own, "affordable" keeps only tiers you
+	-- can buy right now. Set from the panel itself, not shown in Settings.
+	shopSort = { kind = "choice", default = "high", options = { "high", "low" } },
+	shopShow = { kind = "choice", default = "all", options = { "all", "unowned", "affordable" } },
+
 	-- DEVICE, picked once on the loading screen's "Mobile or PC?" card (ReplicatedFirst
 	-- LoadingScreen). "unset" = not asked yet, so the card shows. The pick also sets
 	-- graphics + fastMode (mobile: low + on, pc: med + off); this key only remembers
