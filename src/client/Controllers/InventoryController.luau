@@ -65,6 +65,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Crates = require(Shared.Config.Crates)
+local Merge = require(Shared.Config.Merge)
 local Bombing = require(Shared.Bombing)
 local Net = require(Shared.Net)
 
@@ -1159,7 +1160,11 @@ showCard = function(slot: any?)
 	ui.cardTitle.Text = if unknown then "???" else item.name
 	tint(ui.cardTitle, "TextColor3", rarityColor(item.rarity), item.rarity)
 	tint(ui.cardStroke, "Color", rarityColor(item.rarity), item.rarity)
-	StarLine.set(ui.cardStars, stats.stars)
+	-- Merge Reactor stars trail the rating in their own colour, as on the Nukes panel.
+	StarLine.set(ui.cardStars, stats.stars, {
+		trail = if unknown then 0 else Merge.levelOf(item),
+		trailColor = Merge.COLOR,
+	})
 	-- What it pays on a stand (CarryService's undamped `perSecond`): nil while it is
 	-- still crusted (worth "???" like its name) or Slagged (a stand won't take it).
 	local perSecond = item.perSecond
