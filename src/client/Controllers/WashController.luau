@@ -2256,18 +2256,41 @@ local function onRender(dt: number)
 	-- fixed position as the thing the barrel swings from.
 	local mount = eye * HELD_OFFSET
 
+	-- THE BARREL NEVER AIMS AT A POINT IT IS ALREADY PAST. The aim ray starts at the eye
+	-- but the muzzle rides HELD_OFFSET's 1.7 studs out in front of it, so crust closer to
+	-- the lens than that -- a big lump, its flank swung round by the turntable, a look off
+	-- to the side -- put the aim point BEHIND the nozzle: lookAt turned the barrel round
+	-- and the water sprayed straight back into the player's face. The target is pushed
+	-- out along the view until it is at least 1.5 studs ahead of the mount. When that
+	-- happens the nozzle is practically touching the surface, so the reticle's own hit is
+	-- where the water lands -- a jet traced from a muzzle sitting inside the crust would
+	-- sail through it and miss. (Local, not a file constant: the chunk is at the ceiling.)
+	local aheadMin = 1.5
+	local nozzleTarget = aimPoint
+	local ahead = (aimPoint - mount.Position):Dot(eye.LookVector)
+	local pressed = ahead < aheadMin
+	if pressed then
+		nozzleTarget = aimPoint + eye.LookVector * (aheadMin - ahead)
+	end
+
 	-- Tracks the view continuously, spraying or not — a machine you are standing at the
 	-- controls of reads as aimed the moment you look somewhere, not only while it is
 	-- live. It is also the only feedback that says the thing is listening to you before
 	-- you pull the trigger.
-	aimNozzle(mount, aimPoint, dt)
+	aimNozzle(mount, nozzleTarget, dt)
 
 	-- The jet reports back where it landed, which is not the aim point whenever the
 	-- falling arc clips something on the way. That impact, not the reticle, is what
 	-- picks the patch.
 	local nozzle = nozzleCFrame(mount)
 	local landing, landingPart = aimPoint, aimPart
-	if nozzle then
+	if nozzle and pressed then
+		if spraying then
+			drawJet(nozzle.Position, nozzleTarget, filter)
+		else
+			hideJet()
+		end
+	elseif nozzle then
 		if spraying then
 			landing, landingPart = drawJet(nozzle.Position, aimPoint, filter)
 		else
