@@ -394,6 +394,18 @@ local BORDER_CELL_Z = 3 -- checker cell length along the seam
 local BORDER_YELLOW = C.barrelYellow
 local BORDER_BLACK = C.hazardBlack
 
+--- Each zone's own tape colours, keyed by the stage the line leads INTO (the camp ->
+--- Stage 1 line takes Stage 1's, the 1/2 seam takes Stage 2's, and so on), on request:
+--- one bright + one dark of the same hue, so it still reads as hazard tape while
+--- telling the zones apart. Every hue sits clear of the tan/brown floors it crosses.
+--- A stage not listed keeps the classic yellow-and-black.
+local BORDER_STAGE_PAIR: { [number]: { bright: string, dark: string } } = {
+	[1] = { bright = "8BD448", dark = "1F3A12" }, -- Fading Fields: meadow lime / deep moss
+	[2] = { bright = "F08A24", dark = "3A1E0A" }, -- Deadwood Grove: rust orange / bark brown
+	[3] = { bright = "E0402F", dark = "2A0E0B" }, -- The Waste Dump: warning red / oxblood
+	[4] = { bright = "A45CFF", dark = "1E0F33" }, -- Ooze Marsh: toxic violet / night purple
+}
+
 --- Derive a (dark, light) checkerboard pair from one existing colour, at roughly the
 --- same brightness ratio the plaza's own hand-picked pair already sits at (measured:
 --- light is ~1.14x dark, per channel, on C.plazaTileDark/plazaTileLight). Treats the
@@ -3600,7 +3612,10 @@ local function buildStageBorderLines(parent: Instance)
 	-- parts, OVERLAY_PROUD proud of it. A yellow cell's edge on the strip's outline
 	-- stands proud too, so the tape keeps its full-width checker; edges against a black
 	-- neighbour sit OVERLAY_INSET in.
-	local function strip(seamX: number, minZ: number, maxZ: number, name: string)
+	local function strip(seamX: number, minZ: number, maxZ: number, name: string, intoId: number)
+		local pair = BORDER_STAGE_PAIR[intoId]
+		local bright = if pair then pair.bright else BORDER_YELLOW
+		local dark = if pair then pair.dark else BORDER_BLACK
 		local x0 = seamX - BORDER_WIDTH / 2
 		local x1 = seamX + BORDER_WIDTH / 2
 		local cols = math.ceil((maxZ - minZ) / BORDER_CELL_Z)
@@ -3618,7 +3633,7 @@ local function buildStageBorderLines(parent: Instance)
 			return if math.abs(v - outline) < 1e-3 then v + sign * OVERLAY_PROUD else v - sign * OVERLAY_INSET
 		end
 
-		tape({ seamX, y, (minZ + maxZ) / 2 }, { BORDER_WIDTH, 0.4, maxZ - minZ }, BORDER_BLACK)
+		tape({ seamX, y, (minZ + maxZ) / 2 }, { BORDER_WIDTH, 0.4, maxZ - minZ }, dark)
 		for ix = 0, BORDER_ROWS - 1 do
 			local cx0 = x0 + ix * rowWidth
 			local cx1 = cx0 + rowWidth
@@ -3631,7 +3646,7 @@ local function buildStageBorderLines(parent: Instance)
 
 				local a, b = edge(cx0, x0, -1), edge(cx1, x1, 1)
 				local c, d = edge(z0, minZ, -1), edge(z1, maxZ, 1)
-				tape({ (a + b) / 2, y, (c + d) / 2 }, { b - a, 0.4 + 2 * OVERLAY_PROUD, d - c }, BORDER_YELLOW)
+				tape({ (a + b) / 2, y, (c + d) / 2 }, { b - a, 0.4 + 2 * OVERLAY_PROUD, d - c }, bright)
 			end
 		end
 	end
@@ -3651,12 +3666,12 @@ local function buildStageBorderLines(parent: Instance)
 	for index, run in Stages.runs() do
 		if index == 1 then
 			local wMinX, wMinZ, _, wMaxZ = Stages.bounds(run[1])
-			strip(wMinX, wMinZ, wMaxZ, `Camp-Stage{run[1]}`)
+			strip(wMinX, wMinZ, wMaxZ, `Camp-Stage{run[1]}`, run[1])
 		end
 		for i = 1, #run - 1 do
 			local _, aMinZ, aMaxX, aMaxZ = Stages.bounds(run[i])
 			local bMinX, bMinZ, _, bMaxZ = Stages.bounds(run[i + 1])
-			strip((aMaxX + bMinX) / 2, math.min(aMinZ, bMinZ), math.max(aMaxZ, bMaxZ), `Seam{run[i]}-{run[i + 1]}`)
+			strip((aMaxX + bMinX) / 2, math.min(aMinZ, bMinZ), math.max(aMaxZ, bMaxZ), `Seam{run[i]}-{run[i + 1]}`, run[i + 1])
 		end
 	end
 
