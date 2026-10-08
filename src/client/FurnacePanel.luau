@@ -27,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Potions = require(Shared.Config.Potions)
+local Crates = require(Shared.Config.Crates)
 local Furnace = require(Shared.Config.Furnace)
 local Mastery = require(Shared.Mastery)
 
@@ -210,7 +211,13 @@ function FurnacePanel.entryFor(card: any): PrizeReel.Entry
 		entry.image = Potions.TILE_IMAGE
 		entry.caption = "x3"
 	elseif kind == "crate" and type(card.crate) == "string" then
-		entry.item = { uid = `furnace-{card.crate}`, crateId = card.crate }
+		-- The crate's picture where it has one (cheaper than a viewport per card).
+		local image = if Crates.has(card.crate) then Crates.get(card.crate).image else nil
+		if image then
+			entry.image = image
+		else
+			entry.item = { uid = `furnace-{card.crate}`, crateId = card.crate }
+		end
 	elseif kind == "cash" then
 		entry.image = HudArtwork.IMAGE.cashBundle
 		entry.caption = if type(card.amount) == "number" then `${Mastery.short(card.amount)}` else nil
