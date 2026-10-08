@@ -69,6 +69,8 @@ local HEADER_H = 58
 local WALLET_INSET = 44
 local METER_H = 40
 local REEL_H = 184
+--- Seconds after a SKIP press during which the ROLL / SKIP button ignores presses.
+local SKIP_GRACE = 0.75
 local CARD = Vector2.new(108, 136)
 local BUTTONS_H = 46
 local GRID_H = 196
@@ -235,6 +237,7 @@ export type Panel = {
 	paint: (state: any) -> (),
 	onDump: (callback: (uids: { string }) -> ()) -> (),
 	onRoll: (callback: () -> ()) -> (),
+	onSkip: (callback: () -> ()) -> (),
 	showResult: (result: any) -> (),
 }
 
@@ -535,7 +538,13 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 	local lastState: any = nil
 	local dumpCallback: ((uids: { string }) -> ())? = nil
 	local rollCallback: (() -> ())? = nil
+	local skipCallback: (() -> ())? = nil
 	local spinning = false
+	-- The reel itself is running (the server's answer came back), so ROLL is SKIP.
+	local reeling = false
+	-- When SKIP was last pressed: a quick double press must not fall through to ROLL
+	-- once the reel has landed and spend another banked roll.
+	local skippedAt = -math.huge
 	local hasRolled = false
 	-- ROLL pressed, no reel back yet. A refusal (StationResult) never answers here.
 	local awaiting = 0
@@ -677,7 +686,10 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		else
 			setButton(burnButton, "PICK NUKES TO BURN", nil)
 		end
-		if spinning then
+		if reeling then
+			-- SKIP, on request: lands the reel on the prize now.
+			setButton(rollButton, "SKIP", SKIN.deep)
+		elseif spinning then
 			setButton(rollButton, "ROLLING\u{2026}", nil)
 		elseif rolls > 0 then
 			setButton(rollButton, `ROLL \u{00D7}{rolls}`, SKIN.go)
@@ -738,6 +750,18 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		repaint()
 	end)
 	rollButton.MouseButton1Click:Connect(function()
+		if os.clock() - skippedAt < SKIP_GRACE then
+			return
+		end
+		if reeling then
+			skippedAt = os.clock()
+			reeling = false
+			if reel.skip() and skipCallback then
+				skipCallback()
+			end
+			repaint()
+			return
+		end
 		local rolls = if lastState and type(lastState.furnaceRolls) == "number" then lastState.furnaceRolls else 0
 		if spinning or rolls < 1 or rollCallback == nil then
 			return
@@ -776,6 +800,7 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		local prize = payload.prize or {}
 		awaiting += 1
 		spinning = true
+		reeling = true
 		hasRolled = true
 		resultText.Text = ""
 		repaint()
@@ -785,6 +810,7 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 			end,
 			onLand = function()
 				spinning = false
+				reeling = false
 				landSound:Play()
 				local detail = if type(prize.detail) == "string"
 					then ` ({prize.detail})`
@@ -807,6 +833,9 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		end,
 		onRoll = function(callback: () -> ())
 			rollCallback = callback
+		end,
+		onSkip = function(callback: () -> ())
+			skipCallback = callback
 		end,
 		showResult = showResult,
 	}
