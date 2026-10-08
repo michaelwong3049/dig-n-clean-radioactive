@@ -77,6 +77,8 @@ local function resolveGifts(data: any): { any }
 			cashBoostSeconds = gift.cashBoostSeconds or 0,
 			potions = potions,
 			crates = #PlaytimeGifts.crateIds(gift, stage),
+			-- Which crates, so the card can show the best one's picture.
+			crateIds = PlaytimeGifts.crateIds(gift, stage),
 			big = gift.big == true,
 		}
 	end
