@@ -50,6 +50,7 @@ local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local StandCard = require(Shared.StandCard) -- the attribute contract StandCardController draws from
+local StandNuke = require(Shared.StandNuke) -- the attribute contract StandNukeController draws each stand's nuke from
 local Ticker = require(Shared.Util.Ticker)
 local Tutorial = require(Shared.Config.Tutorial) -- assign(): new players join at Stage 1
 local Stages = require(Shared.Config.Stages)
@@ -369,22 +370,29 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		return
 	end
 
+	-- A server-built model left over from before stands were client-drawn (a place
+	-- saved mid-session): the client draws its own now.
 	local previous = display:FindFirstChild("ItemModel")
 	if previous then
 		previous:Destroy()
 	end
+	if not CollectionService:HasTag(display, StandNuke.TAG) then
+		CollectionService:AddTag(display, StandNuke.TAG)
+	end
 
+	-- The CLIENT draws the nuke (Shared/StandNuke). This clone is only measured: it is
+	-- sized and seated exactly as a displayed nuke always was, the pose is published
+	-- on the Display part, and the clone is destroyed without ever being parented.
 	local model: Model? = nil
 	if itemId then
 		local item = Items.get(itemId)
 		model = ItemModels.create(item.model, itemId, modifier)
 	end
 
+	local N = StandNuke.ATTR
 	if model then
 		display.Transparency = 1
-		model.Name = "ItemModel"
-		model:SetAttribute("ItemId", itemId)
-		model.Parent = display
+		local baseScale = model:GetScale()
 
 		-- Config/Payload's per-dig roll, full range -- this is an open plinth, not a
 		-- fixed-footprint aiming surface (unlike WashService's capped version). The
@@ -425,16 +433,24 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		-- A slow turn and a faint bob, animated client-side by StationMotionController
 		-- from this seated pose. Lifted by the bob's amplitude so the low point still
 		-- clears the plinth.
-		model:PivotTo(model:GetPivot() + Vector3.new(0, STAND_HOVER.amp, 0))
-		model:SetAttribute("Motion", "hover")
-		model:SetAttribute("MotionRate", STAND_HOVER.rate)
-		model:SetAttribute("MotionAmp", STAND_HOVER.amp)
-		CollectionService:AddTag(model, "StationMotion")
+		local pivot = model:GetPivot() + Vector3.new(0, STAND_HOVER.amp, 0)
+
+		display:SetAttribute(N.modifier, modifier or "None")
+		display:SetAttribute(N.scale, model:GetScale() / baseScale)
+		display:SetAttribute(N.pivot, pivot)
+		display:SetAttribute(N.rate, STAND_HOVER.rate)
+		display:SetAttribute(N.amp, STAND_HOVER.amp)
+		-- Last: the client rebuilds when the item changes, and the rest must be in
+		-- place by then (all of these land in one replication frame anyway).
+		display:SetAttribute(N.item, itemId)
+		model:Destroy()
 	elseif rarity then
+		display:SetAttribute(N.item, nil)
 		display.Color = Rarity.get(rarity).color
 		display.Transparency = 0
 		display:SetAttribute(StandCard.ATTR.top, display.Size.Y / 2)
 	else
+		display:SetAttribute(N.item, nil)
 		display.Transparency = 1
 		display:SetAttribute(StandCard.ATTR.top, nil)
 	end

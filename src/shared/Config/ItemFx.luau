@@ -277,6 +277,18 @@ ItemFx.IRRADIATED = {
 	drift = { color = SOFT_GREEN, rate = 4 },
 }
 
+-- DETAIL BY DISTANCE, per Settings GRAPHICS (Config/Prefs). The nearest `fullBudget`
+-- nukes inside `fullRange` studs of the camera get every effect (ItemFxController's
+-- full tier) and, on a stand, the full model rather than its still copy
+-- (StandNukeController); the rest inside `midRange` keep their motion at a lower
+-- rate; only the nearest `lights` keep a PointLight. FAST MODE puts every nuke in
+-- the still tier whatever this says.
+ItemFx.DETAIL = {
+	high = { fullRange = 45, fullBudget = 12, midRange = 90, lights = 8 },
+	med = { fullRange = 30, fullBudget = 6, midRange = 60, lights = 4 },
+	low = { fullRange = 20, fullBudget = 2, midRange = 40, lights = 2 },
+}
+
 ItemFx.DEFS = {
 	-- Atomic Bomb (Mythic). The flavour says "still glowing, still humming", so this
 	-- one leaks the light. The casing seams and nose ring breathe green, the arming

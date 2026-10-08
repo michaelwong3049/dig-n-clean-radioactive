@@ -12,8 +12,12 @@
 	Each id is copied once into that player's PlayerGui.NukeModels, a disabled
 	ScreenGui that survives respawns. PlayerGui replicates to its owner only.
 
-	The server's own clones (held items, stands, the wash bay) read ServerStorage
+	The server's own clones (held items, the wash bay, the lockers) read ServerStorage
 	directly through ItemModels.create, and replicate like any Workspace part.
+
+	STILL COPIES (Assets.NukeStillTemplates, Shared/StandNuke) move to ServerStorage
+	the same way and go out under ItemModels.stillKey(itemId). A nuke without one gets
+	its full model under that name, marked ItemModels.STILL_FALLBACK.
 ]]
 
 local Players = game:GetService("Players")
@@ -29,10 +33,10 @@ local ModelCacheService = {}
 
 local sent: { [Player]: { [string]: boolean } } = {}
 
---- Move (or fold) the replicated templates into ServerStorage.
-local function hideTemplates()
+--- Move (or fold) one replicated template folder into ServerStorage.
+local function hideTemplates(path: { string }, serverName: string)
 	local folder: Instance = ReplicatedStorage
-	for _, name in ItemModels.TEMPLATE_PATH do
+	for _, name in path do
 		local nextFolder = folder:FindFirstChild(name)
 		if nextFolder == nil then
 			return
@@ -40,9 +44,9 @@ local function hideTemplates()
 		folder = nextFolder
 	end
 
-	local target = ServerStorage:FindFirstChild(ItemModels.SERVER_FOLDER)
+	local target = ServerStorage:FindFirstChild(serverName)
 	if target == nil then
-		folder.Name = ItemModels.SERVER_FOLDER
+		folder.Name = serverName
 		folder.Parent = ServerStorage
 		return
 	end
@@ -62,13 +66,14 @@ end
 --- every shadow caster is drawn a second time into the shadow map. Flipping the
 --- templates once covers every clone: server copies and each player's cache.
 local function stripShadows()
-	local templates = ServerStorage:FindFirstChild(ItemModels.SERVER_FOLDER)
-	if templates == nil then
-		return
-	end
-	for _, part in templates:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.CastShadow = false
+	for _, name in { ItemModels.SERVER_FOLDER, ItemModels.STILL_SERVER_FOLDER } do
+		local templates = ServerStorage:FindFirstChild(name)
+		if templates then
+			for _, part in templates:GetDescendants() do
+				if part:IsA("BasePart") then
+					part.CastShadow = false
+				end
+			end
 		end
 	end
 end
@@ -76,7 +81,8 @@ end
 -- At require time, not init(): the earlier the folder leaves ReplicatedStorage, the
 -- smaller the window in which a joining client could still be sent it. ORDER lists
 -- this service first.
-hideTemplates()
+hideTemplates(ItemModels.TEMPLATE_PATH, ItemModels.SERVER_FOLDER)
+hideTemplates(ItemModels.STILL_PATH, ItemModels.STILL_SERVER_FOLDER)
 stripShadows()
 
 local function cacheFor(player: Player): Instance?
@@ -101,6 +107,7 @@ local function onRequest(player: Player, itemIds: any)
 		return
 	end
 	local templates = ServerStorage:FindFirstChild(ItemModels.SERVER_FOLDER)
+	local stills = ServerStorage:FindFirstChild(ItemModels.STILL_SERVER_FOLDER)
 	local cache = cacheFor(player)
 	if templates == nil or cache == nil then
 		return
@@ -115,6 +122,25 @@ local function onRequest(player: Player, itemIds: any)
 			break
 		end
 		if type(itemId) ~= "string" or given[itemId] then
+			continue
+		end
+		local stillOf = ItemModels.fromStillKey(itemId)
+		if stillOf then
+			local still = if stills then stills:FindFirstChild(stillOf) else nil
+			local fallback = false
+			if still == nil or not still:IsA("Model") then
+				still = templates:FindFirstChild(stillOf)
+				fallback = true
+			end
+			if still and still:IsA("Model") then
+				given[itemId] = true
+				local copy = still:Clone()
+				copy.Name = itemId
+				if fallback then
+					copy:SetAttribute(ItemModels.STILL_FALLBACK, true)
+				end
+				copy.Parent = cache
+			end
 			continue
 		end
 		local template = templates:FindFirstChild(itemId)

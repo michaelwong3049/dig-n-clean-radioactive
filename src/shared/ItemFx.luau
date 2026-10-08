@@ -149,4 +149,123 @@ function ItemFx.tag(model: Model, itemId: string?, modifier: string?)
 	CollectionService:AddTag(model, ItemFx.TAG)
 end
 
+-- ── Part looks ────────────────────────────────────────────────────────────
+-- Client-side paint, shared by ItemFxController (at activation) and
+-- StandNukeController (before a full model replaces a stand's still copy). Each one
+-- can run any number of times on the same model without compounding.
+
+--- Config/ItemFx `finish` on the matched parts: material, colour, transparency,
+--- reflectance, tint, ramp.
+function ItemFx.applyFinish(model: Model, def: Config.ItemFxDef)
+	for _, finish in def.finish or {} do
+		for _, part in ItemFx.partsNamed(model, finish.parts) do
+			if finish.material or finish.color then
+				-- The SurfaceAppearance overrides both material and colour; it has to go
+				-- for either to show.
+				for _, child in part:GetChildren() do
+					if child:IsA("SurfaceAppearance") then
+						child:Destroy()
+					end
+				end
+			end
+			if finish.material then
+				part.Material = (Enum.Material :: any)[finish.material]
+			end
+			if finish.color then
+				part.Color = finish.color
+			end
+			if finish.transparency then
+				part.Transparency = finish.transparency
+			end
+			if finish.reflectance then
+				part.Reflectance = finish.reflectance
+			end
+			if finish.tint then
+				-- Multiplies the painted colour map; the texture's detail stays.
+				local appearance = part:FindFirstChildOfClass("SurfaceAppearance")
+				if appearance then
+					appearance.Color = finish.tint
+				else
+					-- Baked parts (tools/studio-migrations/bake-nuke-texture-colours)
+					-- carry the paint in Part.Color. The untinted colour is kept in an
+					-- attribute so a second pass over the same model can't compound it.
+					local base = part:GetAttribute("FxBaseColor")
+					if typeof(base) ~= "Color3" then
+						base = part.Color
+						part:SetAttribute("FxBaseColor", base)
+					end
+					local tint = finish.tint
+					part.Color = Color3.new(base.R * tint.R, base.G * tint.G, base.B * tint.B)
+				end
+			end
+			local ramp = finish.ramp
+			if ramp then
+				local level = tonumber(string.match(part.Name, "%d+")) or 1
+				local t = if ramp.levels > 1 then (level - 1) / (ramp.levels - 1) else 0
+				part.Transparency = ramp.from + (ramp.to - ramp.from) * math.clamp(t, 0, 1)
+			end
+		end
+	end
+end
+
+--- Every part of the model that can be seen, largest first, so [1] is the body
+--- rather than some small fitting.
+function ItemFx.visibleParts(model: Model): { BasePart }
+	local visible: { BasePart } = {}
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant.Transparency < 0.9 then
+			table.insert(visible, descendant)
+		end
+	end
+	table.sort(visible, function(a, b)
+		return a.Size.Magnitude > b.Size.Magnitude
+	end)
+	return visible
+end
+
+--- Pull each painted part's colour `amount` of the way to `color` (the Fused bleach,
+--- the Irradiated cast). Glowing (Neon) and see-through parts keep their own. The
+--- colour before the first pull is kept in an attribute, so a second pass over the
+--- same model starts from it again instead of compounding.
+function ItemFx.pullColour(parts: { BasePart }, color: Color3, amount: number, reflectance: number?)
+	for _, part in parts do
+		if part.Material ~= Enum.Material.Neon and part.Transparency < 0.5 then
+			local appearance = part:FindFirstChildOfClass("SurfaceAppearance")
+			if appearance then
+				-- A colour map can only be multiplied, never lightened; it has to go.
+				-- Every imported map is one flat colour already baked into Part.Color
+				-- (tools/studio-migrations/bake-nuke-texture-colours), so little is lost.
+				appearance:Destroy()
+			end
+			local base = part:GetAttribute("FxQualityBaseColor")
+			if typeof(base) ~= "Color3" then
+				base = part.Color
+				part:SetAttribute("FxQualityBaseColor", base)
+			end
+			part.Color = (base :: Color3):Lerp(color, amount)
+			if reflectance then
+				part.Reflectance = math.max(part.Reflectance, reflectance)
+			end
+		end
+	end
+end
+
+--- Everything about a tagged model's resting look, read off its own attributes: its
+--- Config/ItemFx finish, then the Fused or Irradiated colour pull. No lights,
+--- particles or motion (those are ItemFxController's).
+function ItemFx.applyLook(model: Model)
+	local def = ItemFx.get(model:GetAttribute(ItemFx.ATTRIBUTE) :: string?)
+	if def then
+		ItemFx.applyFinish(model, def)
+	end
+	if model:GetAttribute(ItemFx.FUSED_ATTRIBUTE) == true then
+		local fused = Config.FUSED
+		ItemFx.pullColour(ItemFx.visibleParts(model), fused.color, fused.whiten, fused.reflectance)
+	end
+	if model:GetAttribute(ItemFx.IRRADIATED_ATTRIBUTE) == true then
+		local hot = Config.IRRADIATED
+		ItemFx.pullColour(ItemFx.visibleParts(model), hot.color, hot.tint)
+	end
+end
+
 return ItemFx
