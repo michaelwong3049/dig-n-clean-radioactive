@@ -1112,14 +1112,29 @@ end
 --- Adding /cash is what made this urgent rather than theoretical, so it is fixed
 --- here rather than filed. Studio is always allowed (that is the whole point of the
 --- console); in a real server it is the place owner and nobody else.
+---
+--- A GROUP-OWNED place has no single owner id, so there it is the group's Admin role
+--- and up (rank 254+, owner is 255) -- read off game.CreatorId, so it follows the
+--- place if it ever moves group. Roblox caches GetRankInGroup per server, so the
+--- first command pays the web call and the rest do not.
+local CONSOLE_MIN_GROUP_RANK = 254
+
 local function mayUseConsole(player: Player): boolean
 	if RunService:IsStudio() then
 		return true
 	end
 
-	-- Group-owned places have no single owner id; fall back to closed.
-	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
-		return true
+	if game.CreatorType == Enum.CreatorType.User then
+		return player.UserId == game.CreatorId
+	end
+
+	if game.CreatorType == Enum.CreatorType.Group then
+		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
+		if not ok then
+			warn(`[debug] group rank check for {player.Name} failed: {rank}`)
+			return false
+		end
+		return rank >= CONSOLE_MIN_GROUP_RANK
 	end
 
 	return false
