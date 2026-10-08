@@ -572,6 +572,30 @@ function DataService.onLoaded(fn: (player: Player, data: any) -> ())
 	end
 end
 
+--- Queue `message` on this user's save, online or not (ProfileStore:MessageAsync).
+--- A session that holds it gets the message straight away, and otherwise it is read
+--- on their next join. YIELDS. Returns false if the write didn't land.
+function DataService.message(userId: number, message: { [string]: any }): boolean
+	local ok, result = pcall(store.MessageAsync, store, `{userId}`, message)
+	if not ok then
+		warn(`[data] message to {userId} failed: {result}`)
+		return false
+	end
+	return result == true
+end
+
+--- A read-only copy of this user's saved data. Returns (true, nil) if they have never
+--- played and (false, nil) if the read failed. YIELDS. For checks only. The copy may be
+--- a few minutes stale while they are in a session.
+function DataService.peek(userId: number): (boolean, any)
+	local ok, profile = pcall(store.GetAsync, store, `{userId}`)
+	if not ok then
+		warn(`[data] peek at {userId} failed: {profile}`)
+		return false, nil
+	end
+	return true, if profile then profile.Data else nil
+end
+
 --- "Access" once DataStores are reachable; "NoAccess" in Studio without API
 --- services enabled, in which case ProfileStore runs against an in-memory mock and
 --- nothing survives restarting Studio. Surfaced so the boot log can say which.

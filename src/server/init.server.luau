@@ -53,6 +53,7 @@ local ORDER = {
 	"PackService", -- the Starter / Pro Packs: cash, crates, luck + cash time in one receipt; needs Product + Economy + Crate + LuckBoost + CashBoost
 	"DailyRewardService", -- the 7-day login calendar; needs Economy + Crate + LuckBoost + CashBoost + Exhibit
 	"GroupRewardService", -- the group chest on Stage 1: join the group for cash + Speed + 2x luck, once; needs Economy + LuckBoost + Exhibit + Treadmill
+	"RobuxGiftService", -- buying a Robux product for someone else: the intent, the receipt route, delivery via save messages; needs Data + Product (and every grant registered in init)
 	"CrateShopService", -- the two crate pads either side of the group chest: Scrap + Coolant for cash, Fusion + Plasma for Robux; needs Economy + Product + Crate
 	"PlaytimeGiftService", -- the Free Gifts ladder: gifts open at 1-120 min of play, reset on leaving; needs Economy + Crate + LuckBoost + CashBoost + Exhibit + Treadmill + Potion
 	"CodeService", -- the Shop's CODES section: group members redeem a code once for its reward; needs Economy + Crate + LuckBoost + CashBoost + Potion + Exhibit + Treadmill + GroupReward

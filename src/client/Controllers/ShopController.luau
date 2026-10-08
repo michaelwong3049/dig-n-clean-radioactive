@@ -40,6 +40,7 @@ local Packs = require(ReplicatedStorage.Shared.Config.Packs)
 local CashBoost = require(ReplicatedStorage.Shared.Config.CashBoost)
 local GroupReward = require(ReplicatedStorage.Shared.Config.GroupReward)
 local Net = require(ReplicatedStorage.Shared.Net)
+local RobuxGift = require(script.Parent.RobuxGiftController)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -65,11 +66,16 @@ local PANEL = {
 	well = Color3.fromHex("1E7A3A"),
 	light = Color3.fromHex("DDF8D2"),
 	dim = Color3.fromHex("F1F5FF"),
-	-- StationController's FIELD.robux: every Robux button in the game is this purple.
-	buy = Color3.fromHex("7B3FE4"),
-	buyHover = Color3.fromHex("9257F5"),
-	-- An owned pass's button: the clover's green, so "you have this" reads at a glance.
-	buyOwned = Color3.fromHex("2F9E4A"),
+	-- Every R$ button in the Shop is the gear shop buttons' pure green (on request,
+	-- 2026-10-08; it was the purple every other Robux button wears). Purple stays on
+	-- the gift buttons beside them (RobuxGiftController).
+	buy = Color3.fromHex("5CFE01"),
+	buyHover = Color3.fromHex("85FF01"),
+	-- An owned pass's (or pack's) button: a deep green, so OWNED reads as done rather
+	-- than as one more bright BUY.
+	buyOwned = Color3.fromHex("1F6E12"),
+	-- The CODES section's REDEEM button: not a Robux buy, so it keeps the old purple.
+	redeem = Color3.fromHex("7B3FE4"),
 	-- Card colours. Each pass has its own (PASS_TINT); cash is green, crates by kind.
 	tileEdge = Color3.fromHex("1A1A1A"),
 	cashTile = Color3.fromHex("2EA552"),
@@ -116,7 +122,7 @@ local CASH_CARD = {
 	middle = Color3.fromHex("8CF06A"),
 	edge = Color3.fromHex("2B2B33"),
 	-- The gear shop buttons' pure green (a reference button the user sent, 2026-10-04):
-	-- its gradient's middle, lifting to its top on hover.
+	-- its gradient's middle, lifting to its top on hover. PANEL.buy is the same green.
 	buy = Color3.fromHex("5CFE01"),
 	buyHover = Color3.fromHex("85FF01"),
 	buyEdge = Color3.fromHex("1F6E12"),
@@ -126,9 +132,10 @@ local SPEED_CARD = {
 	top = Color3.fromHex("3E8BD6"),
 	middle = Color3.fromHex("6AB8F0"),
 	edge = Color3.fromHex("2B2B33"),
-	buy = Color3.fromHex("2A9BDB"),
-	buyHover = Color3.fromHex("45B2EC"),
-	buyEdge = Color3.fromHex("124A6E"),
+	-- Green like every other Shop R$ button (on request, 2026-10-08; was blue).
+	buy = Color3.fromHex("5CFE01"),
+	buyHover = Color3.fromHex("85FF01"),
+	buyEdge = Color3.fromHex("1F6E12"),
 }
 -- Every Robux button: the R$ is Roblox's own Robux glyph (private-use U+E002, which
 -- every Roblox font draws as the hexagon icon), big enough to read across the room.
@@ -259,11 +266,11 @@ local function shine(card: GuiObject, corner: number, delay: number)
 	end)
 end
 
---- A purple R$ button for `productId`, parented to `parent`. Its price is read off the
+--- A green R$ button for `productId`, parented to `parent`. Its price is read off the
 --- product, so a dashboard change needs no code change; the bare glyph stands in until then. An
 --- id of 0 (not set up on the dashboard) gives a grey COMING SOON that does nothing.
 --- `isPass` sells a game pass (Config/GamePasses) instead of a developer product.
---- `color` / `hover` swap the purple for another pair (the cash cards' green).
+--- `color` / `hover` swap the green for another pair.
 local function robuxButton(parent: Instance, productId: number, isPass: boolean?, color: Color3?, hover: Color3?): TextButton
 	local live = productId ~= 0
 	local base = color or PANEL.buy
@@ -332,6 +339,8 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 		if isPass then
 			MarketplaceService:PromptGamePassPurchase(Players.LocalPlayer, productId)
 		else
+			-- Bought for yourself: forget any gift this product was pressed for earlier.
+			RobuxGift.clear()
 			MarketplaceService:PromptProductPurchase(Players.LocalPlayer, productId)
 		end
 	end)
@@ -424,7 +433,7 @@ local function buildCloverCard(parent: Frame)
 		Font = PANEL.label,
 		TextSize = 16,
 		TextColor3 = PANEL.light,
-		Size = UDim2.new(1, -textLeft - 196, 0, 46),
+		Size = UDim2.new(1, -textLeft - 196 - (BUY_H + 8), 0, 46),
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, textLeft, 1, -14),
 		TextWrapped = true,
@@ -436,6 +445,12 @@ local function buildCloverCard(parent: Frame)
 	buy.TextSize = BUY_TEXT + 4
 	buy.AnchorPoint = Vector2.new(1, 1)
 	buy.Position = UDim2.new(1, -16, 1, -14)
+	local gift = RobuxGift.button(card, LuckBoost.PRODUCT_ID)
+	if gift then
+		gift.Size = UDim2.fromOffset(BUY_H + 4, BUY_H + 4)
+		gift.AnchorPoint = Vector2.new(1, 1)
+		gift.Position = UDim2.new(1, -16 - 230 - 4, 1, -14)
+	end
 end
 
 --- The Server Luck Boost card under the clover: everyone on the server gets the
@@ -688,10 +703,16 @@ local function buildPacks(parent: Instance)
 		})
 
 		local buy = robuxButton(card, pack.id)
-		buy.AnchorPoint = Vector2.new(0.5, 1)
-		buy.Position = UDim2.new(0.5, 0, 1, -10)
-		buy.Size = UDim2.new(1, -20, 0, BUY_H)
+		local gift = RobuxGift.button(card, pack.id)
+		buy.AnchorPoint = Vector2.new(0, 1)
+		buy.Position = UDim2.new(0, 10, 1, -10)
+		buy.Size = UDim2.new(1, -20 - (if gift then BUY_H + 4 else 0), 0, BUY_H)
 		buy.TextSize = BUY_TEXT
+		if gift then
+			gift.AnchorPoint = Vector2.new(1, 1)
+			gift.Position = UDim2.new(1, -10, 1, -10)
+			gift.Size = UDim2.fromOffset(BUY_H, BUY_H)
+		end
 		local attr = Packs.attr(pack.key)
 		local function refresh()
 			if player:GetAttribute(attr) == true then
@@ -904,10 +925,16 @@ local function buildPackRows(parent: Instance, order: number, title: string, pac
 			})
 
 			local buy = robuxButton(card, pack.id, false, look.buy, look.buyHover)
-			buy.AnchorPoint = Vector2.new(0.5, 1)
-			buy.Position = UDim2.new(0.5, 0, 1, -10)
-			buy.Size = UDim2.new(1, -20, 0, BUY_H)
+			local gift = RobuxGift.button(card, pack.id)
+			buy.AnchorPoint = Vector2.new(0, 1)
+			buy.Position = UDim2.new(0, 10, 1, -10)
+			buy.Size = UDim2.new(1, -20 - (if gift then BUY_H + 4 else 0), 0, BUY_H)
 			buy.TextSize = BUY_TEXT + 4
+			if gift then
+				gift.AnchorPoint = Vector2.new(1, 1)
+				gift.Position = UDim2.new(1, -10, 1, -10)
+				gift.Size = UDim2.fromOffset(BUY_H, BUY_H)
+			end
 			local box = Instance.new("UIStroke")
 			box.Color = look.buyEdge
 			box.Thickness = 3
@@ -995,7 +1022,7 @@ local function paintCodeButton()
 		return
 	end
 	button.Text = if codeWaiting then "..." else "REDEEM"
-	button.BackgroundColor3 = if codeWaiting then PANEL.off else PANEL.buy
+	button.BackgroundColor3 = if codeWaiting then PANEL.off else PANEL.redeem
 	button.Active = not codeWaiting
 	button.AutoButtonColor = false
 end
