@@ -127,7 +127,7 @@ UIKit.TextSize = {
 	caption = 13, -- smallest secondary text (slot keys, sub-labels)
 }
 
--- ── Text outline + shadow ────────────────────────────────────────────────────────
+-- ── Text outline ───────────────────────────────────────────────────────────────
 -- THE "JUICY" TREATMENT, PROMOTED FROM A ONE-OFF TO THE DEFAULT. IndexController's
 -- tile caption already shipped exactly this — a heavy black UIStroke on the text,
 -- with TextStrokeTransparency forced to 1 so Roblox's own built-in stroke (a soft
@@ -164,19 +164,6 @@ function UIKit.strokeThicknessFor(textSize: number): number
 		return UIKit.TextStroke.caption
 	end
 end
-
--- THE DROP SHADOW IS A SEPARATE SIBLING INSTANCE, NOT A SECOND STROKE — a UIStroke
--- traces the glyph edge uniformly and cannot be offset, so an actual drop shadow
--- (the reference image has one) needs its own duplicate text instance, offset,
--- dark, behind. It defaults ON for `hero`/`title` tier text (the showcase moments —
--- banner headline, panel titles, card names, primary buttons) and OFF elsewhere
--- (status lines, per-slot readouts), so the extra instance only exists where it
--- earns its keep; either default can be overridden per call site via `shadow`.
-UIKit.TextShadow = {
-	offset = Vector2.new(2, 2),
-	color = Color3.new(0, 0, 0),
-	transparency = 0.55,
-}
 
 -- ── Corner radius / stroke ───────────────────────────────────────────────────────
 UIKit.Radius = {
@@ -1051,9 +1038,6 @@ export type LabelProps = {
 	-- visual language from outlined text) pass `outline = false` to keep their old
 	-- look and their own `strokeTransparency` untouched.
 	outline: boolean?,
-	-- `shadow` defaults to the font: on for hero/title (the showcase text), off
-	-- elsewhere. Either can be forced explicitly.
-	shadow: boolean?,
 }
 
 function UIKit.label(parent: Instance, props: LabelProps): TextLabel
@@ -1091,55 +1075,16 @@ function UIKit.label(parent: Instance, props: LabelProps): TextLabel
 
 	label.Parent = parent
 
-	local shadow = props.shadow
-	if shadow == nil then
-		shadow = font == UIKit.Font.hero or font == UIKit.Font.title
-	end
-	if shadow then
-		local shadowLabel = Instance.new("TextLabel")
-		shadowLabel.Name = label.Name .. "Shadow"
-		shadowLabel.Size = label.Size
-		shadowLabel.Position = label.Position + UDim2.fromOffset(UIKit.TextShadow.offset.X, UIKit.TextShadow.offset.Y)
-		shadowLabel.AnchorPoint = label.AnchorPoint
-		shadowLabel.BackgroundTransparency = 1
-		shadowLabel.Font = label.Font
-		shadowLabel.TextSize = label.TextSize
-		shadowLabel.TextColor3 = UIKit.TextShadow.color
-		shadowLabel.TextTransparency = UIKit.TextShadow.transparency
-		shadowLabel.TextStrokeTransparency = 1
-		shadowLabel.TextXAlignment = label.TextXAlignment
-		shadowLabel.TextYAlignment = label.TextYAlignment
-		shadowLabel.TextWrapped = label.TextWrapped
-		shadowLabel.Text = label.Text
-		shadowLabel.ZIndex = label.ZIndex - 1
-		shadowLabel.Visible = label.Visible
-		shadowLabel.Parent = parent
-		-- Bound live so any later `label.Text = ...` (every controller does this
-		-- constantly — cash ticking up, status lines, item names) keeps the shadow
-		-- in sync without the caller ever knowing it exists.
-		label:GetPropertyChangedSignal("Text"):Connect(function()
-			shadowLabel.Text = label.Text
-		end)
-		label:GetPropertyChangedSignal("Visible"):Connect(function()
-			shadowLabel.Visible = label.Visible
-		end)
-	end
-
 	return label
 end
 
 --- A big HUD number standing straight on the world with no panel behind it (the cash
 --- and speed rows): an outlined UIKit.label, `stroke` design px thick, over a solid
 --- `outline`-coloured copy of itself (stroke and all) dropped `drop` px down-right.
----
---- NOT props.shadow: that shadow copy has no stroke, so under a heavy outline it only
---- shows as a sliver past the fill and the number still reads as floating. Text,
---- TextSize, Position and Visible are mirrored live, so a caller only ever touches the
---- returned label.
+--- Text, TextSize, Position and Visible are mirrored live, so a caller only ever
+--- touches the returned label.
 function UIKit.hudNumber(parent: Instance, props: LabelProps, stroke: number, drop: Vector2): TextLabel
-	local own = table.clone(props)
-	own.shadow = false
-	local label = UIKit.label(parent, own)
+	local label = UIKit.label(parent, props)
 	local uiStroke = label:FindFirstChildOfClass("UIStroke")
 	if uiStroke then
 		uiStroke.Thickness = stroke
@@ -1185,11 +1130,6 @@ export type ButtonProps = {
 	-- outlines the button's text too, in one instance. `strokeColor` still wins if a
 	-- caller passes one explicitly.
 	outline: boolean?,
-	-- Same default-by-font rule as UIKit.label (on for hero/title). Implemented as a
-	-- child TextLabel rather than a sibling: a child renders above the button's own
-	-- fill but, given a lower ZIndex than the button, still behind the button's own
-	-- native text — confirmed live in Studio before relying on it here.
-	shadow: boolean?,
 }
 
 function UIKit.button(parent: Instance, props: ButtonProps): (TextButton, UIStroke)
@@ -1222,34 +1162,6 @@ function UIKit.button(parent: Instance, props: ButtonProps): (TextButton, UIStro
 	stroke.Parent = button
 	if outline then
 		button.TextStrokeTransparency = 1
-	end
-
-	local shadow = props.shadow
-	if shadow == nil then
-		shadow = font == UIKit.Font.hero or font == UIKit.Font.title
-	end
-	if shadow then
-		local shadowLabel = Instance.new("TextLabel")
-		shadowLabel.Name = "TextShadow"
-		shadowLabel.Size = UDim2.fromScale(1, 1)
-		shadowLabel.Position = UDim2.fromOffset(UIKit.TextShadow.offset.X, UIKit.TextShadow.offset.Y)
-		shadowLabel.BackgroundTransparency = 1
-		shadowLabel.Font = button.Font
-		shadowLabel.TextSize = button.TextSize
-		shadowLabel.TextColor3 = UIKit.TextShadow.color
-		shadowLabel.TextTransparency = UIKit.TextShadow.transparency
-		shadowLabel.TextStrokeTransparency = 1
-		shadowLabel.TextXAlignment = button.TextXAlignment
-		shadowLabel.TextYAlignment = button.TextYAlignment
-		shadowLabel.Text = button.Text
-		shadowLabel.ZIndex = button.ZIndex - 1
-		shadowLabel.Parent = button
-		-- Bound live for the same reason as UIKit.label's shadow: StationController
-		-- and friends reassign `.Text` on these buttons constantly post-creation
-		-- (EQUIP/EQUIPPED, PURCHASE price, etc.) and never need to know this exists.
-		button:GetPropertyChangedSignal("Text"):Connect(function()
-			shadowLabel.Text = button.Text
-		end)
 	end
 
 	return button, stroke

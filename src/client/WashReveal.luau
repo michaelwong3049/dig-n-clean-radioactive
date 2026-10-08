@@ -349,7 +349,6 @@ local function chip(parent: Instance, text: string, fill: Color3, ink: Color3, y
 		textSize = 22,
 		color = ink,
 		outline = false,
-		shadow = false,
 	})
 	label.AutomaticSize = Enum.AutomaticSize.X
 
@@ -512,7 +511,6 @@ local function stamp(parent: Instance, spec: StampSpec, spot: typeof(STAMP_SPOTS
 		textSize = spot.textSize,
 		xAlign = Enum.TextXAlignment.Center,
 		color = spec.colour,
-		shadow = false, -- its drop shadow is a sibling label, which the list would stack
 	})
 	word.AutomaticSize = Enum.AutomaticSize.X
 	word.LayoutOrder = 1
@@ -525,7 +523,6 @@ local function stamp(parent: Instance, spec: StampSpec, spot: typeof(STAMP_SPOTS
 		textSize = math.floor(spot.textSize * 0.5),
 		xAlign = Enum.TextXAlignment.Center,
 		color = spec.colour,
-		shadow = false, -- its drop shadow is a sibling label, which the list would stack
 	})
 	effect.AutomaticSize = Enum.AutomaticSize.X
 	effect.LayoutOrder = 2
@@ -664,7 +661,6 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			xAlign = Enum.TextXAlignment.Center,
 			color = UIKit.C.outline,
 			outline = false,
-			shadow = false,
 		})
 	end
 

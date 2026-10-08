@@ -84,9 +84,6 @@ local function addBadge(player: Player, character: Model, head: BasePart)
 		textSize = 17,
 		color = BADGE_COLOR,
 		xAlign = Enum.TextXAlignment.Center,
-		-- Plain text, no shadow copy: UIKit's shadow is a sibling that never hears a
-		-- Text change (the same reason the hotbar's names turn it off).
-		shadow = false,
 	})
 
 	local function refresh()
@@ -170,8 +167,6 @@ local function addBar(player: Player, character: Model, head: BasePart)
 		color = Color3.new(1, 1, 1),
 		xAlign = Enum.TextXAlignment.Center,
 		zIndex = 2,
-		-- Same reason as the star badge's: the shadow copy never hears a Text change.
-		shadow = false,
 	})
 
 	local function refresh()

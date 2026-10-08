@@ -289,14 +289,10 @@ local function cartoonShade(frame: GuiObject, spot: number?, centreY: number?)
 	end
 end
 
---- A plain label: no outline or drop shadow unless asked. UIKit.label's shadow is a
---- SIBLING label, which a UIListLayout would lay out as an extra row.
+--- A plain label: no outline unless asked.
 local function text(parent: Instance, props: any): TextLabel
 	if props.outline == nil then
 		props.outline = false
-	end
-	if props.shadow == nil then
-		props.shadow = false
 	end
 	return UIKit.label(parent, props)
 end
@@ -540,7 +536,6 @@ local function buildHeader(panel: Frame)
 		strokeThickness = 2,
 		cornerRadius = UDim.new(0, 8),
 		outline = false,
-		shadow = false,
 	})
 	clearNew.Visible = false
 	ui.clearNew = clearNew
@@ -601,7 +596,6 @@ local function buildHeader(panel: Frame)
 		strokeThickness = 3,
 		cornerRadius = UDim.new(0, 9),
 		outline = false,
-		shadow = false,
 	})
 	ui.close = close
 end

@@ -163,7 +163,6 @@ local function pill(parent: Instance, name: string, text: string, textSize: numb
 		-- Dark ink on the bright tier chip; a black outline would just smear it.
 		outline = textColour ~= INK,
 		strokeTransparency = 1,
-		shadow = false,
 	})
 	label.AutomaticSize = Enum.AutomaticSize.X
 	return frame, label
@@ -552,7 +551,6 @@ local function buildResult(root: Frame)
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.title,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 		zIndex = 5,
 	})
 	ui.cycleHome = ui.cycle.Position
@@ -624,7 +622,6 @@ local function buildResult(root: Frame)
 			fillTransparency = 0,
 			cornerRadius = UDim.new(0, 14),
 			zIndex = 6,
-			shadow = false,
 		})
 		-- Frees the mouse from shift-lock / first person while the question is up.
 		button.Modal = true
@@ -1198,7 +1195,6 @@ local function buildPanelFluid(pg: Frame)
 		text = "Plain Water",
 		font = UIKit.Font.hero,
 		textSize = 25,
-		shadow = false,
 	})
 	-- "Antimatter Tonic" is near the edge in GothamBlack; shrink rather than clip.
 	name.TextScaled = true
@@ -1256,8 +1252,6 @@ local function buildPanelBrew(pg: Frame)
 		fillTransparency = 0,
 		cornerRadius = UDim.new(0, 16),
 		zIndex = 3,
-		-- No drop-shadow copy: it keeps its first TextSize, so "BREW IN 29:59" drew twice.
-		shadow = false,
 	})
 	panel.brew = brew
 	brew.Activated:Connect(function()
@@ -1393,7 +1387,6 @@ local function buildPanelFluids(pg: Frame)
 			font = UIKit.Font.title,
 			textSize = 11,
 			xAlign = Enum.TextXAlignment.Center,
-			shadow = false,
 		})
 		label.TextWrapped = true
 		label.TextScaled = true
@@ -1531,7 +1524,6 @@ local function buildPanelLuck(pg: Frame)
 		font = UIKit.Font.hero,
 		textSize = UIKit.TextSize.header + 3,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 	panel.upPrice = UIKit.label(upgrade, {
 		name = "Price",
@@ -1542,7 +1534,6 @@ local function buildPanelLuck(pg: Frame)
 		textSize = UIKit.TextSize.body,
 		color = Color3.fromHex("CFE3FF"),
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 end
 
@@ -1568,7 +1559,6 @@ local function buildPanelTip(pg: Frame)
 		text = "",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.caption,
-		shadow = false,
 	})
 	text.TextWrapped = true
 	text.ZIndex = 21
@@ -1658,7 +1648,6 @@ local function buildPanelTabs(card: Frame)
 		strokeColor = UIKit.House.ink,
 		strokeThickness = 3,
 		cornerRadius = UDim.new(0, 10),
-		shadow = false,
 	})
 	closeKey.Activated:Connect(function()
 		if panel.onClose then

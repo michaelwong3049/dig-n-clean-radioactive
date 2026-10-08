@@ -198,7 +198,6 @@ function LockerTutorial.run(steps: { Step }, onDone: (finished: boolean) -> ()):
 		textSize = 13,
 		color = SKIN.amber,
 		outline = false,
-		shadow = false,
 	})
 	counter.LayoutOrder = 1
 	local title = UIKit.label(card, {
@@ -217,7 +216,6 @@ function LockerTutorial.run(steps: { Step }, onDone: (finished: boolean) -> ()):
 		color = SKIN.dim,
 		wrapped = true,
 		outline = false,
-		shadow = false,
 	})
 	body.LayoutOrder = 3
 

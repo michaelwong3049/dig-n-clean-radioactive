@@ -599,7 +599,6 @@ local function makeStatTip(card: Frame): Frame
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
-		shadow = false,
 	})
 	text.TextWrapped = true
 	text.ZIndex = 21
@@ -658,7 +657,6 @@ local function makeStatChip(parent: Instance, order: number): Frame
 		color = FIELD.dim,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
-		shadow = false,
 	})
 
 	local statValue = UIKit.label(chip, {
@@ -670,7 +668,6 @@ local function makeStatChip(parent: Instance, order: number): Frame
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
-		shadow = false,
 	})
 	-- Three cards across leave a five-stat track (the Aura) ~50px a chip, so both lines
 	-- shrink to fit rather than run out of the chip; never larger than their design size.
@@ -822,7 +819,6 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
-		shadow = false,
 	})
 	cardName.TextScaled = true
 	local nameLimit = Instance.new("UITextSizeConstraint")
@@ -838,7 +834,6 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
-		shadow = false,
 	})
 
 	-- ── Art ──────────────────────────────────────────────────────────
@@ -887,7 +882,6 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		cornerRadius = UDim.new(0, 8),
 		strokeThickness = 1,
 		outline = false,
-		shadow = false,
 	})
 	buy.LayoutOrder = 9
 	-- The fill is white under a vertical gradient that paintShopCard swaps per state
@@ -915,7 +909,6 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		cornerRadius = UDim.new(0, 8),
 		strokeThickness = 1,
 		outline = false,
-		shadow = false,
 		visible = false,
 	})
 	robux.AutoButtonColor = false
@@ -943,7 +936,6 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		cornerRadius = UDim.new(0, 8),
 		strokeThickness = 0,
 		outline = false,
-		shadow = false,
 		zIndex = 20,
 	})
 	focus.Selectable = false
@@ -1043,7 +1035,6 @@ local function build(): ScreenGui
 		cornerRadius = UDim.new(0, 8),
 		strokeThickness = 2,
 		strokeColor = FIELD.ink,
-		shadow = false,
 		text = "X",
 	})
 	-- UIKit.button's stroke is Contextual, which on a TextButton outlines the GLYPH:
@@ -1233,7 +1224,6 @@ local function build(): ScreenGui
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
-		shadow = false,
 	})
 
 	-- Inset from the panel's right edge by the close badge's width, which sits over
@@ -1249,7 +1239,6 @@ local function build(): ScreenGui
 		text = "ON HAND",
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
-		shadow = false,
 	})
 
 	ui.shopCash = UIKit.label(header, {
@@ -1262,7 +1251,6 @@ local function build(): ScreenGui
 		color = STUDDED.cash,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
-		shadow = false,
 	})
 
 	-- ── The carousel ─────────────────────────────────────────────────
@@ -1316,7 +1304,6 @@ local function build(): ScreenGui
 			strokeThickness = 1,
 			cornerRadius = UDim.new(0, 6),
 			outline = false,
-			shadow = false,
 			zIndex = 30,
 		})
 		-- The apex points `side`; each bar's centre sits half a bar back from it and
@@ -1382,7 +1369,6 @@ local function build(): ScreenGui
 		text = "nothing for sale here",
 		visible = false,
 		outline = false,
-		shadow = false,
 	})
 	ui.shopEmpty.LayoutOrder = 3
 
@@ -1437,7 +1423,6 @@ local function build(): ScreenGui
 		color = FIELD.amber,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
-		shadow = false,
 	})
 	introKicker.LayoutOrder = 1
 
@@ -1451,7 +1436,6 @@ local function build(): ScreenGui
 		yAlign = Enum.TextYAlignment.Top,
 		wrapped = true,
 		outline = false,
-		shadow = false,
 	})
 	introBody.AutomaticSize = Enum.AutomaticSize.Y
 	introBody.LayoutOrder = 2
@@ -1483,7 +1467,6 @@ local function build(): ScreenGui
 			xAlign = Enum.TextXAlignment.Left,
 			yAlign = Enum.TextYAlignment.Top,
 			outline = false,
-			shadow = false,
 		})
 		local statTip = UIKit.label(statRow, {
 			name = "StatTip",
@@ -1496,7 +1479,6 @@ local function build(): ScreenGui
 			yAlign = Enum.TextYAlignment.Top,
 			wrapped = true,
 			outline = false,
-			shadow = false,
 		})
 		statTip.AutomaticSize = Enum.AutomaticSize.Y
 		table.insert(introRows, { frame = statRow, name = statName, tip = statTip })
@@ -1515,7 +1497,6 @@ local function build(): ScreenGui
 		strokeColor = FIELD.ink,
 		strokeThickness = 2,
 		outline = false,
-		shadow = false,
 	})
 	introOk.LayoutOrder = 20
 
@@ -1544,7 +1525,6 @@ local function build(): ScreenGui
 		cornerRadius = UDim.new(0.5, 0),
 		strokeThickness = 0,
 		outline = false,
-		shadow = false,
 		visible = false,
 	})
 
@@ -1577,7 +1557,6 @@ local function build(): ScreenGui
 			strokeColor = FIELD.ink,
 			strokeThickness = 2,
 			outline = false,
-			shadow = false,
 		})
 		pill.LayoutOrder = order
 		return pill
@@ -1620,10 +1599,7 @@ local function build(): ScreenGui
 	-- And the Slag Furnace's.
 	ui.furnace = FurnacePanel.new(panel, 24)
 
-	-- No drop shadow: UIKit draws it as a SIBLING label, and every child of `panel` is a
-	-- row of its list layout, so the shadow used to turn up as a faint copy of the
-	-- message at the top of the panel. Centred and inked instead, like the reference's
-	-- "NEW SHOVEL EQUIPPED!" line (STUDDED).
+	-- Centred and inked, like the reference's "NEW SHOVEL EQUIPPED!" line (STUDDED).
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
 		size = UDim2.new(1, 0, 0, 26),
@@ -1631,7 +1607,6 @@ local function build(): ScreenGui
 		textSize = 20,
 		color = COLOR.green,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 	ui.toast.LayoutOrder = 70
 	local toastInk = ui.toast:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")

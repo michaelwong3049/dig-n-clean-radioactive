@@ -334,7 +334,6 @@ local function build(canvas: Instance): Bar
 		xAlign = Enum.TextXAlignment.Center,
 		text = "0% CLEAN",
 		zIndex = 6,
-		shadow = true,
 	})
 	local percentStroke = percent:FindFirstChildOfClass("UIStroke")
 	if percentStroke then
@@ -355,7 +354,6 @@ local function build(canvas: Instance): Bar
 		color = STYLE.water,
 		text = "Plain Water",
 		zIndex = 2,
-		shadow = true,
 	})
 	local nameStroke = name:FindFirstChildOfClass("UIStroke")
 	if nameStroke then
@@ -373,7 +371,6 @@ local function build(canvas: Instance): Bar
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 		zIndex = 4,
 	})
 
@@ -397,7 +394,6 @@ local function build(canvas: Instance): Bar
 			text = PASS.key.Name,
 			outline = false,
 			strokeTransparency = 1,
-			shadow = false,
 			zIndex = 6,
 		})
 	end

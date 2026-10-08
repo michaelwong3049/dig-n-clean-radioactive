@@ -160,7 +160,6 @@ local function inkLabel(parent: Instance, props: any): TextLabel
 		textSize = props.textSize,
 		color = props.color or WHITE,
 		xAlign = props.xAlign or Enum.TextXAlignment.Center,
-		shadow = false,
 		outline = props.outline,
 		zIndex = props.zIndex,
 	})
@@ -397,7 +396,6 @@ local function open(offer: any)
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 		zIndex = 12,
 	})
 
@@ -464,7 +462,6 @@ local function open(offer: any)
 			xAlign = Enum.TextXAlignment.Center,
 			outline = false,
 			strokeTransparency = 1,
-			shadow = false,
 			zIndex = 24,
 		})
 		task.spawn(function()

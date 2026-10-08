@@ -172,7 +172,6 @@ local function text(parent: Instance, props: { [string]: any }): TextLabel
 		wrapped = props.wrapped,
 		text = props.text,
 		outline = false,
-		shadow = false,
 		strokeTransparency = 1,
 	})
 	if props.rich then

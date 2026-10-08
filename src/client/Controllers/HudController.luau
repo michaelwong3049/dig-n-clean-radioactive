@@ -258,7 +258,6 @@ local function buildRadsTip(parent: Instance, badge: GuiObject)
 		textSize = 15,
 		color = STYLE.rads,
 		text = "RADIATION",
-		shadow = false,
 		zIndex = 21,
 	})
 	local tint = { STYLE.radsShine, STYLE.healthShine, STYLE.dangerMark }
@@ -272,7 +271,6 @@ local function buildRadsTip(parent: Instance, badge: GuiObject)
 			textSize = 14,
 			color = tint[i],
 			text = row[1],
-			shadow = false,
 			zIndex = 21,
 		})
 		UIKit.label(tip, {
@@ -283,7 +281,6 @@ local function buildRadsTip(parent: Instance, badge: GuiObject)
 			textSize = 14,
 			color = STYLE.text,
 			text = row[2],
-			shadow = false,
 			zIndex = 21,
 		})
 	end
@@ -322,7 +319,6 @@ local function buildBar(parent: Instance, name: string, rowY: number, fillColor:
 		textSize = V.barTextSize,
 		color = STYLE.text,
 		xAlign = Enum.TextXAlignment.Right,
-		shadow = false,
 		zIndex = 9,
 	})
 	value.RichText = true
@@ -415,7 +411,6 @@ local function build(): ScreenGui
 			color = STYLE.text,
 			xAlign = align,
 			yAlign = Enum.TextYAlignment.Bottom,
-			shadow = false,
 			zIndex = 5,
 		})
 		label.RichText = true

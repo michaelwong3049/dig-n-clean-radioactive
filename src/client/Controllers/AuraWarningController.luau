@@ -135,14 +135,10 @@ local function textWidth(text: string, size: number): number
 	return TextService:GetTextSize(text, size, FONT, Vector2.new(4000, 200)).X
 end
 
---- Put a label (and the shadow UIKit hung beside it) at `x`, `width` wide.
-local function place(label: TextLabel, shadow: TextLabel?, x: number, width: number)
+--- Put a label at `x`, `width` wide.
+local function place(label: TextLabel, x: number, width: number)
 	label.Size = UDim2.fromOffset(width, WARNING_H)
 	label.Position = UDim2.fromOffset(x, 0)
-	if shadow then
-		shadow.Size = label.Size
-		shadow.Position = label.Position + UDim2.fromOffset(UIKit.TextShadow.offset.X, UIKit.TextShadow.offset.Y)
-	end
 end
 
 --- "!!" and the words side by side, centred as a pair whatever the words' width, with
@@ -151,8 +147,8 @@ local function layoutRow()
 	local bangW = textWidth(ui.badge.Text, BANG_SIZE)
 	local titleW = textWidth(ui.title.Text, TITLE_SIZE)
 	local x = (WARNING_W - (bangW + GAP + titleW)) / 2
-	place(ui.badge, ui.badgeShadow, x, bangW)
-	place(ui.title, ui.titleShadow, x + bangW + GAP, titleW)
+	place(ui.badge, x, bangW)
+	place(ui.title, x + bangW + GAP, titleW)
 	ui.ignore.Position = UDim2.new(0, x + bangW + GAP + titleW + IGNORE_GAP, 0.5, 0)
 end
 
@@ -256,11 +252,9 @@ local function build(): ScreenGui
 	local throbScale = Instance.new("UIScale")
 	throbScale.Parent = group
 
-	-- Red with UIKit's heavy ink outline and drop shadow, so it reads over bright sky
-	-- and the RadFx whiteout alike. Plain ASCII "!" on purpose — the warning-sign glyphs
-	-- render as colour emoji or boxes in Roblox. Laid out by hand (layoutRow), not by a
-	-- UIListLayout: UIKit's shadow is a SIBLING label, and a list layout would line it
-	-- up as another word.
+	-- Red with UIKit's heavy ink outline, so it reads over bright sky and the RadFx
+	-- whiteout alike. Plain ASCII "!" on purpose — the warning-sign glyphs render as
+	-- colour emoji or boxes in Roblox. Laid out by hand (layoutRow).
 	local function word(name: string, text: string, size: number): TextLabel
 		return UIKit.label(group, {
 			name = name,
@@ -270,7 +264,6 @@ local function build(): ScreenGui
 			textSize = size,
 			color = RED,
 			xAlign = Enum.TextXAlignment.Center,
-			shadow = true,
 		})
 	end
 	local badge = word("Bang", "!!", BANG_SIZE)
@@ -288,7 +281,6 @@ local function build(): ScreenGui
 		fillTransparency = 0.25,
 		strokeThickness = 1.5,
 		cornerRadius = UDim.new(0.5, 0),
-		shadow = false,
 		zIndex = 3,
 	})
 	ignore.MouseEnter:Connect(function()
@@ -309,9 +301,7 @@ local function build(): ScreenGui
 		scale = scale,
 		throbScale = throbScale,
 		title = title,
-		titleShadow = group:FindFirstChild("TitleShadow"),
 		badge = badge,
-		badgeShadow = group:FindFirstChild("BangShadow"),
 		ignore = ignore,
 	}
 	layoutRow()
@@ -352,9 +342,6 @@ local function step(dt: number)
 		ui.throbScale.Scale = 1 + 0.035 * math.abs(math.sin(throb))
 		local wobble = math.sin(throb * 1.3) * 8
 		ui.badge.Rotation = wobble
-		if ui.badgeShadow then
-			ui.badgeShadow.Rotation = wobble
-		end
 	else
 		throb = 0
 	end
