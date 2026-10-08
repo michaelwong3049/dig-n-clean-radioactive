@@ -64,6 +64,29 @@ function Reforge.rollStat(u: number): number
 	return math.floor(value * 1000 + 0.5) / 1000
 end
 
+--- The qualities one reforge can still add to a copy that already carries `have`
+--- (Rarity.qualities), each with its chance per reforge: QUALITY_CHANCE split by
+--- Rarity.MODIFIERS weight among the ones it lacks. Empty when it has them all.
+function Reforge.qualityOdds(have: { string }): { { name: string, chance: number } }
+	local Rarity = require(script.Parent.Rarity)
+	local pool: { { name: string, chance: number } } = {}
+	local total = 0
+	for _, name in Reforge.QUALITIES do
+		if not table.find(have, name) then
+			local weight = Rarity.MODIFIERS[name].weight
+			table.insert(pool, { name = name, chance = weight })
+			total += weight
+		end
+	end
+	if total <= 0 then
+		return {}
+	end
+	for _, entry in pool do
+		entry.chance = Reforge.QUALITY_CHANCE * entry.chance / total
+	end
+	return pool
+end
+
 --- A stat multiplier as the panel's signed percent: 1.18 -> "+18%", 0.9 -> "-10%".
 function Reforge.percentText(mult: number): string
 	local pct = math.floor((mult - 1) * 100 + 0.5)
