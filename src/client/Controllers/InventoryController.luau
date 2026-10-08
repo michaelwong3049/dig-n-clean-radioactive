@@ -95,7 +95,8 @@ local SLOT_MAX = 64
 local SLOT_MIN = 48
 local SLOT_GAP = 6
 local BORDER_PADDING = 3
-local SLOT_FILL = Color3.fromHex("090C10")
+-- See-through black, so the world shows through every slot (hotbar, bag, BAG tile).
+local SLOT_FILL = Color3.fromHex("000000")
 local SLOT_SELECTED = Color3.fromHex("18221C")
 local SLOT_BORDER = Color3.fromHex("505B66")
 -- A held item's rarity border: thick enough to read the colour at a glance, thicker
@@ -161,10 +162,9 @@ local BAG_HEADER = 56 -- title, filter pills, SORT, count, close
 local BAG_ROW_GAP = 12 -- the hotbar row (top) to the backpack grid under it
 local BAG_FOOTER = 28 -- the controls hint along the bottom
 local BAG_VISIBLE_ROWS = 4
--- Bag cells are see-through black over the studded panel; the hotbar keeps its
--- near-solid fill so it reads over the world.
-local BAG_CELL_TRANSPARENCY = 0.45
-local SLOT_TRANSPARENCY = 0.05
+local SLOT_TRANSPARENCY = 0.45
+-- The held item's slot is a touch more solid, so the selection still reads.
+local SELECTED_TRANSPARENCY = 0.25
 -- The bag's filter pills, left to right. A cell that doesn't match is shaded, not
 -- hidden, so slots never jump around under the cursor (and drags still land).
 local BAG_FILTERS = {
@@ -383,7 +383,7 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	slot.Name = `Slot{index}`
 	slot.AutoButtonColor = false
 	slot.BackgroundColor3 = SLOT_FILL
-	slot.BackgroundTransparency = 0.05
+	slot.BackgroundTransparency = SLOT_TRANSPARENCY
 	slot.BorderSizePixel = 0
 	slot.Text = ""
 	slot.LayoutOrder = index
@@ -549,7 +549,6 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		shade = shade,
 		heart = heart,
 		heartScale = heartScale,
-		fill = SLOT_TRANSPARENCY,
 		inBag = false,
 		touched = false,
 		uid = nil :: string?,
@@ -606,7 +605,7 @@ local function buildBagTile(row: Frame)
 	tile.Name = "BagTile"
 	tile.AutoButtonColor = false
 	tile.BackgroundColor3 = SLOT_FILL
-	tile.BackgroundTransparency = 0.05
+	tile.BackgroundTransparency = SLOT_TRANSPARENCY
 	tile.BorderSizePixel = 0
 	tile.Text = ""
 	tile.LayoutOrder = HOTBAR_SLOTS + 1
@@ -1628,7 +1627,7 @@ local function paintSlot(slot: any, index: number)
 		slot.name.Text = ""
 		slot.kg.Text = ""
 		slot.button.BackgroundColor3 = SLOT_FILL
-		slot.button.BackgroundTransparency = slot.fill
+		slot.button.BackgroundTransparency = SLOT_TRANSPARENCY
 		tint(slot.stroke, "Color", SLOT_BORDER)
 		slot.stroke.Thickness = 1.5
 		return
@@ -1639,7 +1638,7 @@ local function paintSlot(slot: any, index: number)
 	ItemArt.paint(slot.viewport, item, 1)
 	slot.kg.Text = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""
 	slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
-	slot.button.BackgroundTransparency = if item.uid == selected then SLOT_TRANSPARENCY else slot.fill
+	slot.button.BackgroundTransparency = if item.uid == selected then SELECTED_TRANSPARENCY else SLOT_TRANSPARENCY
 	tint(slot.stroke, "Color", itemColour(item), itemRarity(item))
 	slot.stroke.Thickness = if item.uid == selected then RARITY_STROKE_SELECTED else RARITY_STROKE
 end
@@ -1716,7 +1715,6 @@ local function renderBag()
 				end
 			end)
 			cell.button.Size = UDim2.fromOffset(BAG_CELL, BAG_CELL)
-			cell.fill = BAG_CELL_TRANSPARENCY
 			cell.inBag = true
 			bagCells[index] = cell
 		end
