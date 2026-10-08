@@ -22,7 +22,7 @@ local ORDER = {
 	"PromptStyleService", -- every world ProximityPrompt replicates as Custom, so Roblox's grey prompt never draws under the glass card
 	"DataService", -- everything downstream needs a profile
 	"PlayerCollisionService", -- players phase through each other; standalone
-	"SfxService", -- one-shot sound cues for one player + the SOUND EFFECTS setting; needs Data
+	"SfxService", -- one-shot sound cues for one player
 	"PrefsService", -- the Settings panel's prefs (graphics, shake, rad effects, flashing, volumes, rare drops); needs Data
 	"IdentifyService", -- "???" -> a name; the index write lives here and nowhere else
 	"StageService", -- who is standing where; exposure and digging both read it

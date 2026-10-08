@@ -15,15 +15,15 @@
 	                         returns a handle you `set(true/false)` every frame for free
 	                         and `destroy()` once.
 
-	THE MUTE IS A SOUNDGROUP, NOT A FLAG IN EACH CALLER. Every sound this module makes
-	joins one of four groups (sfx / ui / ambient / geiger) under a master group, and the
-	Settings switch (Net.SfxMuted, saved on the profile) zeroes the master. The Settings
-	volume sliders (Config/Prefs vol*) set the master and the groups the same way. A sound that is
-	already playing goes quiet the same frame; nothing needs to remember to check.
+	VOLUME IS A SOUNDGROUP, NOT A FLAG IN EACH CALLER. Every sound this module makes
+	joins one of five groups (sfx / ui / ambient / geiger / music) under a master group.
+	Settings' two sliders (Config/Prefs volSfx, musicLevel) set them: SOUND EFFECTS
+	drives every group but music. A sound that is already playing changes the same
+	frame; nothing needs to remember to check.
 
 	The Geiger bed, the detonation boom/fuse and the crate reels keep their own Sound
 	instances (they predate this file), but they join the same master group through
-	`Sfx.adopt`, so the one switch mutes the lot.
+	`Sfx.adopt`, so the one slider covers the lot.
 
 	SOURCES. Every id is a free Creator Store asset, checked loading in Studio on
 	2026-09-27; most are Pro Sound Effects' library. Ids are ids, not taste: any of them
@@ -125,9 +125,6 @@ local folder: Folder? = nil
 local master: SoundGroup? = nil
 local groups: { [string]: SoundGroup } = {}
 local lastPlayed: { [string]: number } = {}
-local muted = false
--- Settings' master volume (Config/Prefs volMaster); the mute zeroes it on top.
-local masterVolume = 1
 
 local function ensure(): Folder
 	if folder then
@@ -138,7 +135,7 @@ local function ensure(): Folder
 
 	local top = Instance.new("SoundGroup")
 	top.Name = "Master"
-	top.Volume = if muted then 0 else masterVolume
+	top.Volume = 1
 	top.Parent = root
 	master = top
 
@@ -160,35 +157,18 @@ local function groupFor(def: Def): SoundGroup
 	return groups[def.group or "sfx"]
 end
 
---- Mute or unmute everything this module (and anything adopted) plays.
-function Sfx.setMuted(on: boolean)
-	muted = on
+--- Settings' two volume sliders (Config/Prefs), each 0..1. SOUND EFFECTS covers every
+--- group but music: effects, UI clicks, the ambient hums and the Geiger.
+function Sfx.setVolumes(sfx: number, music: number)
 	ensure()
-	if master then
-		master.Volume = if on then 0 else masterVolume
-	end
-end
-
---- Settings' volume sliders (Config/Prefs), each 0..1. `ambient` follows the effects
---- slider: it is the hum and drone under them, not a channel anyone asked for.
-function Sfx.setVolumes(master_: number, sfx: number, ui: number, geiger: number, music: number)
-	masterVolume = master_
-	ensure()
-	if master then
-		master.Volume = if muted then 0 else masterVolume
-	end
 	groups.sfx.Volume = sfx
 	groups.ambient.Volume = sfx
-	groups.ui.Volume = ui
-	groups.geiger.Volume = geiger
+	groups.ui.Volume = sfx
+	groups.geiger.Volume = sfx
 	groups.music.Volume = music
 end
 
-function Sfx.muted(): boolean
-	return muted
-end
-
---- Put a Sound some other controller built under the same mute switch.
+--- Put a Sound some other controller built under the same volume sliders.
 function Sfx.adopt(sound: Sound, group: Group?)
 	ensure()
 	sound.SoundGroup = groups[group or "sfx"]
