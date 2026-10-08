@@ -23,8 +23,8 @@
 	DISPLAYED NUKES ARE RATIONED. A `hover` nuke is 20-190 parts, and PivotTo moves
 	every one of them each frame: a full three-floor base was 1,948 part moves and
 	2.24 ms a frame on a dev PC, before the bases beside it. So only the nearest
-	HOVER budget of them inside HOVER range turn and bob (the same tier ItemFxController
-	gives full effects); the rest hold whatever pose they had. The world streams
+	Config/ItemFx DETAIL fullBudget of them inside fullRange of the player turn and bob
+	(the stands StandNukeController gives the full model); the rest hold their pose. The world streams
 	(Workspace.StreamingEnabled), so tagged instances come and go: the builders stream
 	each spinning Model atomically, a streamed-out one simply drops off the list, and a
 	streamed-back one arrives at its server pose and is captured fresh. A world built
@@ -37,6 +37,10 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local ItemFx = require(ReplicatedStorage.Shared.ItemFx)
+local ItemFxConfig = require(ReplicatedStorage.Shared.Config.ItemFx)
 local Prefs = require(script.Parent.Parent.Prefs)
 
 local StationMotion = {}
@@ -48,13 +52,8 @@ local MOTION_TAG = "StationMotion"
 --- across; past this they are a handful of pixels and nobody can see a fan turn.
 local NEAR = 90
 
---- Displayed nukes (`hover`): per Settings GRAPHICS, how many of the nearest turn
---- and bob, and inside what range. Matches ItemFxController's full tier ("low" holds
---- everything still anyway).
-local HOVER = {
-	high = { range = 45, budget = 12 },
-	med = { range = 30, budget = 6 },
-}
+--- Radians per second through the hover's bob (~4 s a cycle).
+local HOVER_BOB_RATE = 1.5
 
 --- Seconds between re-sorting what is near. Walking pace covers a couple of studs in
 --- that time, which is nothing against NEAR.
@@ -93,6 +92,10 @@ type Entry = {
 	amp: number,
 	seed: number,
 	angle: number,
+	-- hover: where the bob is in its cycle. Advances only while the entry animates,
+	-- like `angle`, so a nuke that was held still carries on from where it stopped
+	-- instead of jumping to wherever the clock says the bob should be.
+	phase: number,
 	nextRipple: number,
 	rings: number,
 }
@@ -111,22 +114,41 @@ end
 
 local function register(target: Instance)
 	local kind = target:GetAttribute("Motion")
-	local home = pivotOf(target)
+	-- `MotionHome` when the owner gives one (StandNukeController): this runs deferred,
+	-- after the frame that tagged the model, and by then a swapped-in copy has already
+	-- been turned to match the one it replaced. Taking that as home turned it twice.
+	local given = target:GetAttribute("MotionHome")
+	local home = if typeof(given) == "CFrame" then given else pivotOf(target)
 	if type(kind) ~= "string" or home == nil then
 		return
 	end
 	local axisName = target:GetAttribute("MotionAxis")
+	local amp = (target:GetAttribute("MotionAmp") :: number?) or 0.3
+	-- Start from the pose it is actually in, so the first frame it animates doesn't
+	-- snap it round. An owner swapping one copy for another passes the old copy's
+	-- state (StationMotion.stateOf) as MotionAngle / MotionPhase.
+	local angle = target:GetAttribute("MotionAngle") :: number?
+	local phase = target:GetAttribute("MotionPhase") :: number?
+	local pose = pivotOf(target)
+	if kind == "hover" and pose then
+		if angle == nil then
+			local _, y, _ = (pose.Rotation * (home :: CFrame).Rotation:Inverse()):ToEulerAnglesYXZ()
+			angle = y
+		end
+		if phase == nil then
+			phase = math.asin(math.clamp((pose.Position.Y - (home :: CFrame).Position.Y) / math.max(amp, 1e-3), -1, 1))
+		end
+	end
 	entries[target] = {
 		target = target,
 		kind = kind,
 		home = home :: CFrame,
 		axis = AXES[if type(axisName) == "string" then axisName else "Y"] or Vector3.yAxis,
 		rate = (target:GetAttribute("MotionRate") :: number?) or 1,
-		amp = (target:GetAttribute("MotionAmp") :: number?) or 0.3,
-		-- Optional, for a model that replaces another mid-turn (StandNukeController's
-		-- still/full swap): carry on from the same angle and bob phase.
-		seed = (target:GetAttribute("MotionSeed") :: number?) or rng:NextNumber(0, 1000),
-		angle = (target:GetAttribute("MotionAngle") :: number?) or rng:NextNumber(0, math.pi * 2),
+		amp = amp,
+		seed = rng:NextNumber(0, 1000),
+		angle = angle or rng:NextNumber(0, math.pi * 2),
+		phase = phase or rng:NextNumber(0, math.pi * 2),
 		nextRipple = 0,
 		rings = 0,
 	}
@@ -140,12 +162,12 @@ end
 
 local function resort()
 	table.clear(active)
-	local camera = Workspace.CurrentCamera
-	if camera == nil then
+	if Workspace.CurrentCamera == nil then
 		return
 	end
-	local eye = camera.CFrame.Position
-	local hover = HOVER[Prefs.get("graphics")] or HOVER.med
+	local eye = ItemFx.viewerPosition()
+	local detail = ItemFxConfig.DETAIL[Prefs.get("graphics")] or ItemFxConfig.DETAIL.med
+	local hover = { range = detail.fullRange, budget = detail.fullBudget }
 	local hovers: { { entry: Entry, distance: number } } = {}
 	for target, entry in entries do
 		if target.Parent == nil then
@@ -166,6 +188,22 @@ local function resort()
 	for index = 1, math.min(#hovers, hover.budget) do
 		table.insert(active, hovers[index].entry)
 	end
+end
+
+--- A displayed nuke's pose: turned `angle` about world up through its pivot and bobbed
+--- `amp` studs either side of rest at `phase` in the bob's cycle.
+function StationMotion.hoverPose(home: CFrame, angle: number, phase: number, amp: number): CFrame
+	return CFrame.new(home.Position + Vector3.new(0, math.sin(phase) * amp, 0)) * CFrame.Angles(0, angle, 0) * home.Rotation
+end
+
+--- A tagged hover model's current angle and bob phase, for an owner that replaces it
+--- with another copy (StandNukeController) and wants the motion to carry straight on.
+function StationMotion.stateOf(target: Instance): (number?, number?)
+	local entry = entries[target]
+	if entry == nil then
+		return nil, nil
+	end
+	return entry.angle, entry.phase
 end
 
 local function turn(entry: Entry, angle: number)
@@ -253,12 +291,8 @@ local function step(dt: number)
 			-- A displayed nuke: a slow turn about world up through its pivot, plus a
 			-- gentle bob of `amp` studs either side of rest (~4s period).
 			entry.angle = (entry.angle + entry.rate * dt) % (math.pi * 2)
-			local bob = math.sin(now * 1.5 + entry.seed) * entry.amp
-			local home = entry.home
-			local turned = CFrame.new(home.Position + Vector3.new(0, bob, 0))
-				* CFrame.Angles(0, entry.angle, 0)
-				* home.Rotation;
-			(entry.target :: PVInstance):PivotTo(turned)
+			entry.phase = (entry.phase + HOVER_BOB_RATE * dt) % (math.pi * 2);
+			(entry.target :: PVInstance):PivotTo(StationMotion.hoverPose(entry.home, entry.angle, entry.phase, entry.amp))
 		elseif kind == "ripples" then
 			if now >= entry.nextRipple then
 				entry.nextRipple = now + rng:NextNumber(RIPPLE.gapMin, RIPPLE.gapMax)

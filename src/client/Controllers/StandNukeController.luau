@@ -9,8 +9,11 @@
 	STILL BY DEFAULT, FULL UP CLOSE. Every stand shows its item's still copy: ~7
 	meshes, finish baked in, no motion of its own. A few times a second the stands are
 	ranked by distance to the camera, and the nearest Config/ItemFx DETAIL fullBudget
-	inside fullRange (the same numbers ItemFxController's full tier uses) swap to the
-	full model, where the spins, pulses and particles run. One that drops out of that
+	inside fullRange of the player (Shared/ItemFx.viewerPosition: the character, not
+	the camera behind it; the same numbers ItemFxController's full tier uses) swap to
+	the full model, where the spins, pulses and particles run. Stands a little further
+	out (PREFETCH_MARGIN) already fetch and preload their full model, so the swap
+	happens as soon as the player is in range. One that drops out of that
 	set keeps its full model FULL_KEEP longer, so a stand at the edge doesn't flicker
 	between the two. FAST MODE keeps every stand on its still copy.
 
@@ -23,8 +26,8 @@
 	SWAPS DON'T POP. The full model is painted (Shared/ItemFx.applyLook: finish,
 	Fused/Irradiated colour) before it is parented, so its glowing parts are already
 	lit on the first frame, not after ItemFxController gets round to activating it.
-	It takes over the still copy's exact pose and hover phase (StationMotion's
-	MotionAngle / MotionSeed), so the turn carries on through the swap. The copy it
+	It takes over the still copy's exact hover angle and bob phase
+	(StationMotion.stateOf), so the turn carries on through the swap. The copy it
 	replaces stays underneath for SWAP_OVERLAP, because a freshly cloned model can take
 	a few frames to reach the screen and the stand blinked empty in between.
 
@@ -50,6 +53,7 @@ local ItemModels = require(Shared.ItemModels)
 local Items = require(Shared.Config.Items)
 local StandNuke = require(Shared.StandNuke)
 local Prefs = require(script.Parent.Parent.Prefs)
+local StationMotion = require(script.Parent.StationMotionController)
 
 local StandNukeController = {}
 
@@ -59,6 +63,10 @@ local RETIER_INTERVAL = 0.25
 --- A stand that drops out of the full set keeps its full model this long (matches
 --- ItemFxController's FX_KEEP).
 local FULL_KEEP = 5
+
+--- Stands this much further out than fullRange already fetch and preload their full
+--- model, so it is ready by the time the player gets there.
+local PREFETCH_MARGIN = 40
 
 --- How long the copy being replaced stays up under its replacement (see build).
 local SWAP_OVERLAP = 0.3
@@ -88,8 +96,6 @@ type Stand = {
 	shown: Kind?,
 	shownVersion: number,
 	model: Model?,
-	-- The hover's bob phase, kept for the stand's life so a swap doesn't jump.
-	seed: number,
 	distance: number,
 	connections: { RBXScriptConnection },
 }
@@ -98,9 +104,11 @@ local stands: { [BasePart]: Stand } = {}
 local rng = Random.new()
 local retierAt = 0
 
--- Template keys whose meshes are downloaded, and keys being preloaded right now.
+-- Template keys whose meshes are downloaded, keys being preloaded right now, and keys
+-- whose template has been asked for and not arrived yet.
 local loaded: { [string]: boolean } = {}
 local loading: { [string]: boolean } = {}
+local fetching: { [string]: boolean } = {}
 
 local function keyOf(itemId: string, kind: Kind): string
 	return if kind == "still" then ItemModels.stillKey(itemId) else itemId
@@ -114,9 +122,14 @@ local function readyToShow(key: string): boolean
 	end
 	local template = ItemModels.template(key)
 	if template == nil then
-		ItemModels.onArrived(key, function()
-			retierAt = 0
-		end)
+		-- Asked every retier for every stand in prefetch range, so wait just once.
+		if not fetching[key] then
+			fetching[key] = true
+			ItemModels.onArrived(key, function()
+				fetching[key] = nil
+				retierAt = 0
+			end)
+		end
 		return false
 	end
 	if not loading[key] then
@@ -131,13 +144,6 @@ local function readyToShow(key: string): boolean
 		end)
 	end
 	return false
-end
-
---- The hover angle a model is at, relative to the stand's published pose.
-local function angleOf(model: Model, home: CFrame): number
-	local turn = model:GetPivot().Rotation * home.Rotation:Inverse()
-	local _, y, _ = turn:ToEulerAnglesYXZ()
-	return y
 end
 
 local function clear(stand: Stand)
@@ -164,25 +170,36 @@ local function build(stand: Stand, kind: Kind)
 	if stand.scale ~= 1 then
 		model:ScaleTo(model:GetScale() * stand.scale)
 	end
-	model:PivotTo(pivot)
 
+	-- Where the hover is: carried over from the copy this replaces (the same nuke),
+	-- or a fresh random start. The model is posed there now and StationMotion carries
+	-- on from exactly that state, so neither a swap nor the hover starting up moves it.
 	local old = stand.model
-	local current = if old and stand.shownVersion == stand.version then old:GetPivot() else nil
+	local same = old ~= nil and stand.shownVersion == stand.version
+	local angle, phase = nil, nil
+	if same then
+		angle, phase = StationMotion.stateOf(old :: Model)
+		if angle == nil then
+			-- Not registered yet (StationMotion's tag signal is deferred): read the
+			-- old copy's pose instead.
+			local pose = (old :: Model):GetPivot()
+			local _, y, _ = (pose.Rotation * pivot.Rotation:Inverse()):ToEulerAnglesYXZ()
+			angle = y
+			phase = math.asin(math.clamp((pose.Position.Y - pivot.Position.Y) / math.max(stand.amp, 1e-3), -1, 1))
+		end
+	end
+	angle = angle or rng:NextNumber(0, math.pi * 2)
+	phase = phase or rng:NextNumber(0, math.pi * 2)
+	model:PivotTo(StationMotion.hoverPose(pivot, angle :: number, phase :: number, stand.amp))
 	model:SetAttribute("Motion", "hover")
+	model:SetAttribute("MotionHome", pivot)
 	model:SetAttribute("MotionRate", stand.rate)
 	model:SetAttribute("MotionAmp", stand.amp)
-	model:SetAttribute("MotionSeed", stand.seed)
-	if old and current then
-		model:SetAttribute("MotionAngle", angleOf(old, pivot))
-	end
+	model:SetAttribute("MotionAngle", angle)
+	model:SetAttribute("MotionPhase", phase)
 	CollectionService:AddTag(model, MOTION_TAG)
 	model.Parent = stand.display
-	-- StationMotion took the published pose as home when the tag landed; start from
-	-- the old copy's exact pose so a stand that isn't hovering right now doesn't snap.
-	if current then
-		model:PivotTo(current)
-	end
-	if old and current then
+	if old and same then
 		-- The same nuke swapping copies: a fresh model can take a few frames to reach
 		-- the screen, and dropping the old one at once left the stand blank for
 		-- those frames. Both sit in the same pose with the same look, so the old one
@@ -248,7 +265,6 @@ local function track(instance: Instance)
 		shown = nil,
 		shownVersion = -1,
 		model = nil,
-		seed = rng:NextNumber(0, 1000),
 		distance = math.huge,
 		connections = {},
 	}
@@ -302,6 +318,11 @@ local function retier(eye: Vector3, now: number)
 			stand.fullUntil = 0
 		end
 		stand.want = if now < stand.fullUntil then "full" else "still"
+		-- Fetch and preload the full model ahead of time for anything that may want
+		-- it soon, so walking up swaps it in at once instead of waiting on a download.
+		if not fast and stand.distance <= detail.fullRange + PREFETCH_MARGIN then
+			readyToShow(keyOf(stand.itemId :: string, "full"))
+		end
 	end
 end
 
@@ -353,8 +374,7 @@ function StandNukeController.start()
 		local now = os.clock()
 		if now >= retierAt then
 			retierAt = now + RETIER_INTERVAL
-			local camera = Workspace.CurrentCamera
-			retier(if camera then camera.CFrame.Position else Vector3.zero, now)
+			retier(ItemFx.viewerPosition(), now)
 		end
 		local deadline = now + SETUP_BUDGET
 		local built = false

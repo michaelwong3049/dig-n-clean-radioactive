@@ -149,6 +149,23 @@ function ItemFx.tag(model: Model, itemId: string?, modifier: string?)
 	CollectionService:AddTag(model, ItemFx.TAG)
 end
 
+-- ── Distance ──────────────────────────────────────────────────────────────
+
+--- Where "near" is measured from on a client: the camera's focus (the character, in
+--- the normal follow camera) rather than the camera itself, which sits up to ~30
+--- studs behind the player and made everything count as far. A scripted camera (the
+--- wash bay, cutscenes) is measured from the camera.
+function ItemFx.viewerPosition(): Vector3
+	local camera = workspace.CurrentCamera
+	if camera == nil then
+		return Vector3.zero
+	end
+	if camera.CameraType == Enum.CameraType.Scriptable then
+		return camera.CFrame.Position
+	end
+	return camera.Focus.Position
+end
+
 -- ── Part looks ────────────────────────────────────────────────────────────
 -- Client-side paint, shared by ItemFxController (at activation) and
 -- StandNukeController (before a full model replaces a stand's still copy). Each one

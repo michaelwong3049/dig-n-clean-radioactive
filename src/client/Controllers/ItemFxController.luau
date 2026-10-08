@@ -1940,8 +1940,7 @@ function Controller.start()
 		if next(entries) == nil then
 			return
 		end
-		local camera = Workspace.CurrentCamera
-		local cameraPosition = if camera then camera.CFrame.Position else Vector3.zero
+		local cameraPosition = ItemFx.viewerPosition()
 		local now = os.clock()
 		setupDeadline = now + SETUP_BUDGET
 		setupUsed = false
