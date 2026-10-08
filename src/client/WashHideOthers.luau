@@ -10,7 +10,7 @@
 	WHAT IS HIDDEN, AND HOW EACH IS GIVEN BACK. Parts and decals take
 	LocalTransparencyModifier = 1 (render-only, never replicated, and Roblox's own
 	TransparencyController only touches the LOCAL character, so unlike your own body it
-	does not need re-asserting every frame). Name tags, the HP bar and star badge
+	does not need re-asserting every frame). Name tags and the HP bar
 	(NameTagController parents them into the character), aura sparkles and lights have
 	no such modifier, so their `Enabled` is turned off and the ORIGINAL value is kept
 	and restored, never stamped back to true.

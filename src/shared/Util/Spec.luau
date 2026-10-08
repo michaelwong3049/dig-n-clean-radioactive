@@ -648,10 +648,10 @@ function Spec.run(): boolean
 				and Rarity.stars("Rare", nil, 0.9) == 3.5
 		)
 		do
-			-- The overhead badge counts Merge Reactor stars on top, so it can read past 10.
+			-- The bag average counts Merge Reactor stars on top, so it can read past 10.
 			local plain = { rarity = "Rare", modifier = "None" }
 			local merged = { rarity = "Rare", modifier = "None", merge = Merge.MAX_LEVEL }
-			check("§stars the bag badge adds merge stars on top of the rating", Bombing.averageStars({ merged })
+			check("§stars the bag average adds merge stars on top of the rating", Bombing.averageStars({ merged })
 				== Bombing.averageStars({ plain }) + Merge.MAX_LEVEL)
 		end
 

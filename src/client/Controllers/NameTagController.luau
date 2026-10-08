@@ -7,15 +7,7 @@
 	version instead. Each client builds tags for every character, so names remain
 	visible to everyone without replicating UI instances from the server.
 
-	THE STAR BADGE sits over the name: "★ 4.2", the average star rating of
-	the best three nukes that player is carrying (the BagStars / BagNukes attributes CarryService
-	publishes on the Player), Merge Reactor stars counted on top so it can read
-	past 10. A bomb death drops the whole bag for anyone to grab
-	(ExposureService), so this is how a bomber sizes up a target (Services/BombService).
-	Its own billboard, reaching further than the name, so you can pick a target from
-	across a field. Hidden while the bag holds no nukes.
-
-	THE HP BAR sits between the two: a chunky outlined red pill of that player's health
+	THE HP BAR sits over the name: a chunky outlined red pill of that player's health
 	with "72 / 100" printed across it (the Health / MaxHealth attributes ExposureService
 	publishes on the Player). Other players only -- your own health is already on the
 	vitals HUD.
@@ -30,8 +22,6 @@ local NameTags = {}
 
 local TAG_NAME = "QuietNameTag"
 local TAG_COLOR = Color3.fromHex("B7C0B8")
-local BADGE_NAME = "BagStarBadge"
-local BADGE_COLOR = Color3.fromHex("FFD34D")
 local BAR_NAME = "HealthBar"
 -- The vitals HUD's health red and track (HudController STYLE), so the bar reads as
 -- the same health everywhere.
@@ -42,21 +32,19 @@ local BAR_INK = Color3.fromHex("1A1A1A")
 local BAR_SHINE = Color3.fromHex("FF8A96")
 local BAR_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- ONE ANCHOR, STACKED IN PIXELS. The three billboards are pixel-sized, so spacing
+-- ONE ANCHOR, STACKED IN PIXELS. The billboards are pixel-sized, so spacing
 -- them by stud offsets only works at one distance: further out the studs shrink on
--- screen while the pixels don't, and the pill ends up on top of the name. All three
+-- screen while the pixels don't, and the pill ends up on top of the name. Both
 -- sit on the same anchor and lift themselves with SizeOffset instead -- measured in
 -- their own size, so the stack holds its gaps at any range.
 local TAG_ANCHOR = Vector3.new(0, 2.9, 0)
 local TAG_SIZE = Vector2.new(180, 26)
 local BAR_SIZE = Vector2.new(116, 24)
-local BADGE_SIZE = Vector2.new(200, 26)
 -- Centre-to-centre lifts over the name, in pixels.
 local BAR_LIFT = TAG_SIZE.Y / 2 + BAR_SIZE.Y / 2
-local BADGE_LIFT = BAR_LIFT + BAR_SIZE.Y / 2 + BADGE_SIZE.Y / 2
 
 local function removeTag(character: Model)
-	for _, name in { TAG_NAME, BADGE_NAME, BAR_NAME } do
+	for _, name in { TAG_NAME, BAR_NAME } do
 		local existing = character:FindFirstChild(name, true)
 		if existing then
 			existing:Destroy()
@@ -64,52 +52,7 @@ local function removeTag(character: Model)
 	end
 end
 
---- The star badge over the name, kept current off the player's BagStars/BagNukes.
-local function addBadge(player: Player, character: Model, head: BasePart)
-	local gui = Instance.new("BillboardGui")
-	gui.Name = BADGE_NAME
-	gui.Adornee = head
-	gui.StudsOffsetWorldSpace = TAG_ANCHOR
-	gui.SizeOffset = Vector2.new(0, BADGE_LIFT / BADGE_SIZE.Y)
-	gui.MaxDistance = 120
-	gui.AlwaysOnTop = false
-	gui.LightInfluence = 0 -- same reason as the name tag's, below
-	gui.Parent = character
-	local canvas = UIKit.billboardCanvas(gui, BADGE_SIZE)
-
-	local label = UIKit.label(canvas, {
-		name = "Stars",
-		size = UDim2.fromScale(1, 1),
-		font = Enum.Font.GothamBold,
-		textSize = 17,
-		color = BADGE_COLOR,
-		xAlign = Enum.TextXAlignment.Center,
-	})
-
-	local function refresh()
-		local stars = player:GetAttribute("BagStars")
-		local count = player:GetAttribute("BagNukes")
-		local nukes = if typeof(count) == "number" then count else 0
-		gui.Enabled = nukes > 0
-		if nukes > 0 then
-			local average = if typeof(stars) == "number" then stars else 0
-			label.Text = `\u{2605} {string.format("%.1f", average)}`
-		end
-	end
-
-	local connections = {
-		player:GetAttributeChangedSignal("BagStars"):Connect(refresh),
-		player:GetAttributeChangedSignal("BagNukes"):Connect(refresh),
-	}
-	gui.Destroying:Connect(function()
-		for _, connection in connections do
-			connection:Disconnect()
-		end
-	end)
-	refresh()
-end
-
---- The HP bar between the name and the star badge, kept current off the player's
+--- The HP bar over the name, kept current off the player's
 --- Health/MaxHealth attributes.
 local function addBar(player: Player, character: Model, head: BasePart)
 	local gui = Instance.new("BillboardGui")
@@ -238,7 +181,6 @@ local function addTag(player: Player, character: Model)
 		text = player.DisplayName,
 	})
 
-	addBadge(player, character, head :: BasePart)
 	if player ~= Players.LocalPlayer then
 		addBar(player, character, head :: BasePart)
 	end
