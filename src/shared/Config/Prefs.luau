@@ -79,13 +79,13 @@ Prefs.DEFS = {
 	-- (client InventoryController); its "Don't show again" box turns this off.
 	confirmDrop = { kind = "flag", default = true },
 
-	-- FAST MODE (client FastModeController). On = the nukes standing on OTHER players'
-	-- bases are hidden from you, along with their effects: far less to draw on a busy
-	-- server. Your own base is untouched.
+	-- HIDE OTHERS' NUKES (was "Fast mode"; client FastModeController). On = the nukes
+	-- standing on OTHER players' bases are hidden from you, along with their effects: far
+	-- less to draw on a busy server. Your own base is untouched.
 	fastMode = { kind = "flag", default = true },
 
-	-- SUPER FAST MODE (client FastModeController): an add-on to FAST MODE. While both are
-	-- on, YOUR OWN nukes are hidden too (their name cards stay). Does nothing by itself.
+	-- HIDE YOUR NUKES (was "Super fast mode"; client FastModeController). On = YOUR OWN
+	-- nukes are hidden (their name cards stay). Works on its own, with or without fastMode.
 	superFast = { kind = "flag", default = false },
 
 	-- SHOW AURAS (client AuraController). Off = no aura is drawn, yours or anyone's, so
