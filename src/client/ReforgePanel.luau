@@ -730,7 +730,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = "Pick a washed nuke below. Each reforge rolls new damage and radius \u{2014} keep them or revert, the cash is spent either way. Every reforge of the same nuke costs more.",
+		text = "Pick a cleaned nuke. Reforge for stronger and rarer nukes.",
 		ink = false,
 	})
 
@@ -770,7 +770,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 		size = UDim2.new(1, -24, 0, 16),
 		textSize = 13,
 		color = SKIN.dim,
-		text = "YOUR WASHED NUKES (bag + locker) \u{00B7} pick one to reforge",
+		text = "YOUR CLEANED NUKES (bag + locker)",
 		ink = false,
 	})
 	local grid = Instance.new("ScrollingFrame")
@@ -802,7 +802,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.muted,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = "No washed nukes in your bag or locker. Wash a find at a cleansing station first.",
+		text = "No cleaned nukes",
 		ink = false,
 	})
 
