@@ -242,7 +242,6 @@ local function build(): ScreenGui
 		font = STYLE.valueFont,
 		textSize = BOOST_PILL.textSize,
 		color = WHITE,
-		shadow = false,
 		text = "",
 		zIndex = 13,
 	})
@@ -366,7 +365,6 @@ local function popup(delta: number, quiet: boolean)
 		textSize = style.textSize,
 		color = if positive then STYLE.gain else STYLE.spend,
 		xAlign = Enum.TextXAlignment.Left,
-		shadow = false,
 		text = popupText(delta),
 		zIndex = 6,
 	})

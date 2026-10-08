@@ -1234,8 +1234,6 @@ local function build(): ScreenGui
 			color = C.dim,
 			fillTransparency = 1,
 			cornerRadius = UDim.new(0, 12),
-			-- The drop-shadow child would sit inside the icon padding and draw a ghost copy.
-			shadow = false,
 			zIndex = 13,
 		})
 		tabButton.TextXAlignment = Enum.TextXAlignment.Left

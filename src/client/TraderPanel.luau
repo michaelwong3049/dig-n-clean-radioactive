@@ -176,7 +176,6 @@ local function text(parent: Instance, props: { [string]: any }): TextLabel
 		wrapped = props.wrapped,
 		text = props.text,
 		outline = false,
-		shadow = false,
 		strokeTransparency = 1,
 	})
 end
@@ -389,7 +388,6 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		strokeColor = SKIN.ink,
 		strokeThickness = 2,
 		outline = false,
-		shadow = false,
 	})
 	sortPill.AnchorPoint = Vector2.new(0.5, 0.5)
 	-- Back by half the header's left padding, so it centres on the box, not the inset.

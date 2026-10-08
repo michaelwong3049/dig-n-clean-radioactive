@@ -212,7 +212,6 @@ local function build(): ScreenGui
 		textSize = L.captionTextSize,
 		color = STYLE.caption,
 		xAlign = Enum.TextXAlignment.Left,
-		shadow = false,
 		text = "Walk Speed",
 		zIndex = 11,
 	})

@@ -214,7 +214,7 @@ local function buildBanner(canvas: Frame)
 	local scale = Instance.new("UIScale")
 	scale.Parent = banner
 
-	-- UIKit's default outline and drop shadow keep the words crisp on the pill.
+	-- UIKit's default outline keeps the words crisp on the pill.
 	local title = UIKit.label(banner, {
 		name = "Title",
 		size = UDim2.fromScale(0, 1),

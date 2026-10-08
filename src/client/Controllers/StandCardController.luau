@@ -322,7 +322,6 @@ local function text(
 		xAlign = p.xAlign or Enum.TextXAlignment.Center,
 		outline = stroke > 0,
 		strokeTransparency = 1,
-		shadow = false,
 		zIndex = p.z or 4,
 	})
 	local outline = label:FindFirstChildOfClass("UIStroke")

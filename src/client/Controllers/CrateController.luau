@@ -220,7 +220,6 @@ local function pill(parent: Instance, name: string, text: string, textSize: numb
 		xAlign = Enum.TextXAlignment.Center,
 		outline = textColour ~= INK,
 		strokeTransparency = 1,
-		shadow = false,
 	})
 	label.AutomaticSize = Enum.AutomaticSize.X
 	return frame, label
@@ -656,8 +655,6 @@ local function buildSheet(root: Frame)
 		text = "",
 		font = UIKit.Font.hero,
 		textSize = 40,
-		-- No drop-shadow copy: it keeps its first TextSize, and the name shrinks to fit.
-		shadow = false,
 	})
 	ui.sheetName.AutomaticSize = Enum.AutomaticSize.X
 	ui.sheetName.LayoutOrder = 1
@@ -691,7 +688,6 @@ local function buildSheet(root: Frame)
 				textSize = STAR_SIZE,
 				color = colour,
 				xAlign = Enum.TextXAlignment.Center,
-				shadow = false,
 			})
 			label.TextTransparency = transparency
 			return label
@@ -757,7 +753,6 @@ local function buildResult(root: Frame)
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.header,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 		zIndex = 5,
 	})
 	ui.cycle = UIKit.label(root, {
@@ -769,7 +764,6 @@ local function buildResult(root: Frame)
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.title,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 		zIndex = 5,
 	})
 	ui.cycleHome = ui.cycle.Position

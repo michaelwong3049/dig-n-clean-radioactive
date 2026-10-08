@@ -177,7 +177,6 @@ local function inkLabel(parent: Instance, props: any): TextLabel
 		textSize = props.textSize,
 		color = props.color or WHITE,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 		zIndex = props.zIndex,
 	})
 	local stroke = label:FindFirstChildOfClass("UIStroke")
@@ -199,7 +198,6 @@ local function plainLabel(parent: Instance, props: any): TextLabel
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 		zIndex = props.zIndex,
 	})
 end

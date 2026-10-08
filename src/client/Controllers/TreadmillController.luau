@@ -188,7 +188,6 @@ local function text(parent: Instance, name: string, rect: { number }, props: any
 		textSize = props.textSize,
 		color = props.color or WHITE,
 		xAlign = props.xAlign or Enum.TextXAlignment.Left,
-		shadow = false,
 		text = props.text or "",
 		zIndex = props.zIndex or 5,
 	})

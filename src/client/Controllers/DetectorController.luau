@@ -158,8 +158,7 @@ local READOUT_WIDTH = SHAFT_X - SHAFT_STROKE - READOUT_GAP
 local RELEASE_WIDTH = 120 -- the red LET GO plate, right-aligned in the readout column
 local READOUT_TOP = 96 -- the rarity word's row; everything else hangs below it
 local METRES_TEXT = 50 -- the "1.9 m" headline: the number being watched
--- "%.1f" metres, the unit at half size. RichText, so the label is built without the
--- kit's sibling drop shadow (which would print the tags).
+-- "%.1f" metres, the unit at half size. RichText.
 local METRES_FORMAT = '%.1f<font size="24">m</font>'
 
 -- How fast the shaft's nuke chases the server's value (1/seconds). Smoothed rather
@@ -434,12 +433,10 @@ local function buildLockPromptGui(adornee: BasePart)
 	action.Text = ACTION_TEXT
 	action.TextTransparency = 1
 
-	-- UIKit.label hangs a black outline stroke on the label and, for a `title` font, a
-	-- drop-shadow TWIN beside it. Neither fades with TextTransparency, so both have to
-	-- be fetched and driven explicitly -- without this the prompt hides and leaves a
-	-- black ghost of the word hanging over the spot.
+	-- UIKit.label hangs a black outline stroke on the label. It does not fade with
+	-- TextTransparency, so it has to be fetched and driven explicitly -- without this
+	-- the prompt hides and leaves a black ghost of the word hanging over the spot.
 	local actionStroke = action:FindFirstChildOfClass("UIStroke")
-	local actionShadow = card:FindFirstChild(action.Name .. "Shadow")
 
 	-- The billboard is the touch (and mouse) target; see the header. Transparent,
 	-- full-bleed, on top, and OUTSIDE `card` so the bounce never shifts it. It stays the
@@ -473,9 +470,6 @@ local function buildLockPromptGui(adornee: BasePart)
 	}
 	if actionStroke then
 		table.insert(fades, { actionStroke, "Transparency", 0 })
-	end
-	if actionShadow and actionShadow:IsA("TextLabel") then
-		table.insert(fades, { actionShadow, "TextTransparency", UIKit.TextShadow.transparency })
 	end
 
 	return {
@@ -799,7 +793,6 @@ local function build(): ScreenGui
 		strokeThickness = UIKit.Stroke.normal,
 		cornerRadius = UDim.new(0, 10),
 		text = "",
-		shadow = false,
 	})
 	ui.haulButton = haulButton
 	-- Mashed: the shovel crunch is its sound, a UI click on top would be noise.
@@ -846,7 +839,6 @@ local function build(): ScreenGui
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 		text = "E",
 	})
 	-- NO TEXT OUTLINE on the verb: it sits on its own near-opaque plate, and an outline
@@ -859,7 +851,6 @@ local function build(): ScreenGui
 		color = COLOR.text,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 		text = "Reel In",
 	})
 	reelVerb.AutomaticSize = Enum.AutomaticSize.X
@@ -887,7 +878,6 @@ local function build(): ScreenGui
 		strokeThickness = UIKit.Stroke.thick,
 		cornerRadius = UDim.new(0, 10),
 		text = "",
-		shadow = false,
 	})
 	ui.releaseButton = releaseButton
 	-- Border, not Contextual: on a TextButton a Contextual stroke traces the GLYPHS, and
@@ -917,7 +907,6 @@ local function build(): ScreenGui
 		color = COLOR.text,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 		text = "Let Go",
 	})
 	releaseVerb.AutomaticSize = Enum.AutomaticSize.X
@@ -991,7 +980,6 @@ local function build(): ScreenGui
 		textSize = UIKit.TextSize.body,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Right,
-		shadow = false,
 	})
 
 	-- THE READOUT, right-aligned against the shaft: what the detector reads about the
@@ -1038,7 +1026,6 @@ local function build(): ScreenGui
 		textSize = METRES_TEXT,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Right,
-		shadow = false,
 	})
 	ui.haulMetres.RichText = true
 
@@ -1050,7 +1037,6 @@ local function build(): ScreenGui
 		textSize = UIKit.TextSize.body,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Right,
-		shadow = false,
 		text = "to the surface",
 	})
 

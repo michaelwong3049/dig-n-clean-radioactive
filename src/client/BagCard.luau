@@ -59,7 +59,6 @@ function BagCard.build(canvas: Frame, accent: Color3): Card
 		font = Enum.Font.GothamBlack,
 		textSize = 17,
 		color = Color3.new(1, 1, 1),
-		shadow = false,
 	})
 	title.TextTruncate = Enum.TextTruncate.AtEnd
 
@@ -70,7 +69,6 @@ function BagCard.build(canvas: Frame, accent: Color3): Card
 		font = Enum.Font.GothamBlack,
 		textSize = 13,
 		color = BagCard.GREY,
-		shadow = false,
 	})
 	detail.RichText = true
 

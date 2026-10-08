@@ -211,7 +211,6 @@ local function label(parent: Instance, name: string, font: Enum.Font, size: numb
 		textSize = size,
 		color = color,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 	l.LayoutOrder = order
 	if width == 0 then
@@ -317,7 +316,6 @@ local function build(): ScreenGui
 		font = Enum.Font.GothamBlack,
 		textSize = 19,
 		color = RED,
-		shadow = false,
 		text = "Bag stolen!",
 	})
 	toastTitle.AutomaticSize = Enum.AutomaticSize.X
@@ -328,7 +326,6 @@ local function build(): ScreenGui
 		font = Enum.Font.GothamBlack,
 		textSize = 15,
 		color = Color3.new(1, 1, 1),
-		shadow = false,
 	})
 	toastBody.AutomaticSize = Enum.AutomaticSize.X
 	toastBody.RichText = true

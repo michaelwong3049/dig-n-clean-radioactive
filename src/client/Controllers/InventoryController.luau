@@ -424,8 +424,7 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	art.Parent = slot
 	local viewport = ItemArt.newViewport(art)
 
-	-- The name over the lower half of the model. `shadow = false`: UIKit's shadow is a
-	-- sibling copy that never hears a Text change, which is what drew the name twice.
+	-- The name over the lower half of the model.
 	local name = UIKit.label(slot, {
 		name = "ItemName",
 		anchorPoint = Vector2.new(0.5, 1),
@@ -436,7 +435,6 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
 		yAlign = Enum.TextYAlignment.Bottom,
-		shadow = false,
 	})
 	name.TextScaled = true
 	name.TextTruncate = Enum.TextTruncate.AtEnd
@@ -454,7 +452,6 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		font = House.font,
 		textSize = 12,
 		color = KG_GOLD,
-		shadow = false,
 		xAlign = Enum.TextXAlignment.Right,
 		yAlign = Enum.TextYAlignment.Bottom,
 	})
@@ -489,7 +486,6 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		textSize = 16,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 	coolText.Visible = false
 	coolText.ZIndex = 11
@@ -677,7 +673,6 @@ local function buildDropButton(canvas: Frame)
 		fillTransparency = 0,
 		strokeThickness = 3,
 		cornerRadius = UDim.new(0.5, 0),
-		shadow = false,
 	})
 	button.AutoButtonColor = false
 	button.Visible = false
@@ -775,7 +770,6 @@ local function buildNotice(canvas: Frame)
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 	})
 
 	local text = UIKit.label(pill, {
@@ -787,7 +781,6 @@ local function buildNotice(canvas: Frame)
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
 	})
 	text.AutomaticSize = Enum.AutomaticSize.X
 	text.LayoutOrder = 2
@@ -987,7 +980,6 @@ local function buildBag(): ScreenGui
 		strokeThickness = 3,
 		cornerRadius = UDim.new(0, 9),
 		outline = false,
-		shadow = false,
 	})
 	close.ZIndex = 3
 	close.MouseButton1Click:Connect(function()
@@ -1105,7 +1097,6 @@ local function buildBombCard(): ScreenGui
 		size = UDim2.new(1, -2 * CARD_PAD, 0, 20),
 		font = House.font,
 		textSize = 16,
-		shadow = false,
 	})
 	ui.cardTitle.TextTruncate = Enum.TextTruncate.AtEnd
 	ui.cardStars = UIKit.label(card, {
@@ -1115,7 +1106,6 @@ local function buildBombCard(): ScreenGui
 		font = House.font,
 		textSize = 15,
 		color = STAR_GOLD,
-		shadow = false,
 	})
 
 	ui.cardRows = {}
@@ -1140,7 +1130,6 @@ local function buildBombCard(): ScreenGui
 			font = House.font,
 			textSize = 14,
 			xAlign = Enum.TextXAlignment.Right,
-			shadow = false,
 		})
 	end
 
@@ -1152,7 +1141,6 @@ local function buildBombCard(): ScreenGui
 		textSize = 13,
 		color = COLOR.amber,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 
 	-- "ARE YOU SURE?" before a Rare-or-better nuke goes (CONFIRM_FROM). Centred over
@@ -1179,7 +1167,6 @@ local function buildBombCard(): ScreenGui
 		textSize = 26,
 		color = COLOR.red,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 		text = "ARE YOU SURE?",
 	})
 	ui.confirmName = UIKit.label(confirm, {
@@ -1189,7 +1176,6 @@ local function buildBombCard(): ScreenGui
 		font = House.font,
 		textSize = 19,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 	ui.confirmStars = UIKit.label(confirm, {
 		name = "Stars",
@@ -1199,7 +1185,6 @@ local function buildBombCard(): ScreenGui
 		textSize = 16,
 		color = STAR_GOLD,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 	UIKit.label(confirm, {
 		name = "Warning",
@@ -1228,7 +1213,6 @@ local function buildBombCard(): ScreenGui
 			fillTransparency = 0,
 			strokeThickness = 2,
 			cornerRadius = UDim.new(0, 10),
-			shadow = false,
 		})
 	end
 	confirmButton("Cancel", "CANCEL", 0.28, COLOR.empty).MouseButton1Click:Connect(function()
@@ -1252,7 +1236,6 @@ local function buildBombCard(): ScreenGui
 		color = COLOR.dim,
 		fillTransparency = 1,
 		strokeThickness = 0,
-		shadow = false,
 	})
 	ui.confirmSkip = skip
 	skip.MouseButton1Click:Connect(function()
@@ -2304,7 +2287,6 @@ local function buildRateTag(playerGui: Instance)
 		textSize = 20,
 		color = STAR_GOLD,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 	ui.rateTagText = UIKit.label(tag, {
 		name = "Rate",
@@ -2314,7 +2296,6 @@ local function buildRateTag(playerGui: Instance)
 		textSize = 26,
 		color = COLOR.green,
 		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
 	})
 end
 
