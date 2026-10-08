@@ -35,7 +35,10 @@
 	  python tools/studio-migrations/mesh_sink.py merged-nukes
 	DRY_RUN = true only reports the projected mesh counts (no mesh loads, no sink).
 	Progress is on Workspace's StillExportProgress attribute. Resume a broken run
-	with START_BATCH; re-export a few nukes into REDO_FILE with ONLY.
+	with START_BATCH; re-export a few nukes into REDO_FILE with ONLY, then flag
+	their old entries `superseded` in the earlier manifests (the apply step skips
+	those). Meshes owned by another account ("not allowed to be forked":
+	garden_trowel, old_compass) never load, so those nukes get no still copy.
 
 	THEN. Import each stillbatch_NN.obj with the button whose tooltip is "Import
 	content from a file" and run apply-still-nuke-meshes.luau.
@@ -151,31 +154,25 @@ local function groupsOf(template: Model): ({ string }, { [string]: { MeshPart } 
 	return order, groups, groupLook
 end
 
+--- One at a time, five tries each. Loading a nuke's meshes all at once (the first
+--- pass's way) dropped whole colour groups from 7 of 138 nukes on 2026-10-07; every
+--- one of those loaded fine on its own afterwards.
 local function fetchAll(parts: { MeshPart }): { [string]: EditableMesh }
-	local cache, pending = {}, 0
+	local cache = {}
 	for _, part in parts do
 		local id = part.MeshId
 		if cache[id] == nil then
-			cache[id] = false
-			pending += 1
-			task.spawn(function()
-				for attempt = 1, 3 do
-					local ok, mesh = pcall(function()
-						return AssetService:CreateEditableMeshAsync(Content.fromUri(id))
-					end)
-					if ok then
-						cache[id] = mesh
-						break
-					end
-					cache[id] = nil
-					task.wait(attempt)
+			for attempt = 1, 5 do
+				local ok, mesh = pcall(function()
+					return AssetService:CreateEditableMeshAsync(Content.fromUri(id))
+				end)
+				if ok then
+					cache[id] = mesh
+					break
 				end
-				pending -= 1
-			end)
+				task.wait(attempt)
+			end
 		end
-	end
-	while pending > 0 do
-		task.wait(0.05)
 	end
 	return cache
 end

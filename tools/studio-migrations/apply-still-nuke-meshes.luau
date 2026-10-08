@@ -5,6 +5,8 @@
 	NEEDS. Workspace.stillbatch_NN models from importing merged-nukes/stillbatch_NN.obj
 	("Import content from a file"), and mesh_sink.py running so the matching
 	stillbatch_NN.json manifests can be read back (HttpService.HttpEnabled on).
+	Entries flagged `superseded` were re-exported into a later file (ONLY /
+	REDO_FILE in the export) and are skipped.
 
 	WHAT IT DOES, per nuke, only when every one of its meshes is present and the
 	right size:
@@ -77,7 +79,9 @@ local function run(): string
 				seen[name] = true
 				batches += 1
 				for _, entry in HttpService:JSONDecode(HttpService:GetAsync(URL .. name .. ".json")) do
-					if entry.nuke then
+					if entry.superseded then
+						continue
+					elseif entry.nuke then
 						nukes[entry.nuke] = entry
 					else
 						byItem[entry.item] = byItem[entry.item] or {}
