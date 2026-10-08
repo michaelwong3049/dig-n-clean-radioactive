@@ -225,7 +225,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 114 -- faint checker on the front strip (2026-10-08)
+local BUILDER_VERSION = 115 -- camp walls 18 closer behind the bases (2026-10-08)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -432,7 +432,9 @@ local WALL_CLEARANCE = 10
 -- The camp's walls stand where they stood for the open-floor bases (whose back fence
 -- could slide 32 studs out), kept when the stands and floors came back.
 -- 32 -> 24 when the pads grew 8 deeper at the front (PAD_MIN_Z), so the walls stay put.
-local BACK_SPARE = 24
+-- 24 -> 6 on request (2026-10-08, "not so much extra space behind the bases"): the north
+-- and south walls come 18 in, leaving ~13 studs between a back fence and the wall face.
+local BACK_SPARE = 6
 local BACK_REACH = Plots.PAD.maxZ + BACK_SPARE -- origin to the wall's reference line
 Plots.CAMP = {
 	-- The west row's outer edge: the grey floor (Hub.GATE_RECTS) runs out to here, and
