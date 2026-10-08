@@ -6,7 +6,8 @@
 
 	A FORGE AND AN ANVIL: a squat brick furnace at the back with an ember mouth and a
 	chimney, an anvil in front of it with the hammer resting on it, and a quench barrel
-	to one side.
+	to one side. When the place has ServerStorage.StationTemplates.ReforgeStation, that
+	imported model is the look instead (build/ImportedStation).
 
 	AUTHORED FACING +Z (the player walks up from +Z), origin at the deck's top face,
 	centred on the machine. Nothing here moves on the server. The strike (the hammer
@@ -15,7 +16,8 @@
 	ReforgeService writes on this model.
 
 	NAMED PARTS THE CLIENT READS (keep these names):
-	    Hammer         a Model: HammerHandle + HammerHead, pivoted at the handle's end
+	    Hammer         a Model (the import's hammer, or HammerHandle + HammerHead),
+	                   pivoted at the handle's end, its Z the swing axis
 	    StrikePoint    invisible, on the anvil face, where the sparks fly from
 	    Embers         the glow inside the furnace mouth
 	    ForgeStation   StationKind = "reforge", StationId = the camp key, "OpenReforge" prompt
@@ -26,6 +28,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 
+local ImportedStation = require(script.Parent.ImportedStation)
 local Kit = require(script.Parent.Kit)
 
 local ReforgeStation = {}
@@ -39,6 +42,8 @@ ReforgeStation.TAG = "ReforgeStation"
 ReforgeStation.RADIUS = 9
 ReforgeStation.HALF_X = 11
 ReforgeStation.HALF_Z = 7
+--- The imported look is ~0.68 x 0.52 x 0.55 studs as it comes in.
+ReforgeStation.IMPORT_SCALE = 30
 
 local build = Kit.build
 local R = Kit.R
@@ -116,6 +121,34 @@ local function buildFurnace(m: Model, origin: CFrame): BasePart
 	return body
 end
 
+--- The StrikePoint and the Hammer lying across an anvil face whose top is `top`, the
+--- head at (x, z), the handle out to the left. Its pivot is the handle's far end, so the
+--- client swings it from there. `size` scales the hammer.
+local function buildHammer(m: Model, origin: CFrame, x: number, top: number, z: number, size: number)
+	local strike = part(m, origin, "StrikePoint", { x, top + 0.1, z }, { 0.2, 0.2, 0.2 }, COLOR.steel, {
+		transparency = 1,
+		canCollide = false,
+	})
+	strike.CanQuery = false
+	strike.CanTouch = false
+
+	local hammer = Instance.new("Model")
+	hammer.Name = "Hammer"
+	local handleLen = 3.2 * size
+	local headY = top + 0.35 * size
+	local handle = part(hammer, origin, "HammerHandle", { x - handleLen / 2, headY, z }, { handleLen, 0.35 * size, 0.35 * size }, COLOR.wood, {
+		shape = "Cylinder",
+		rot = R.cylAlongX,
+		canCollide = false,
+	})
+	part(hammer, origin, "HammerHead", { x, headY, z }, { 0.9 * size, 0.7 * size, 1.4 * size }, COLOR.steel, {
+		canCollide = false,
+	})
+	hammer.PrimaryPart = handle
+	hammer.WorldPivot = origin * CFrame.new(x - handleLen, headY, z)
+	hammer.Parent = m
+end
+
 local function buildAnvil(m: Model, origin: CFrame)
 	-- Stump, waist, face and horn, iron on a wooden block.
 	part(m, origin, "AnvilStump", { 0, PLINTH_H + 0.9, ANVIL_Z }, { 1.8, 3.2, 3.2 }, COLOR.wood, {
@@ -131,29 +164,7 @@ local function buildAnvil(m: Model, origin: CFrame)
 	})
 	part(m, origin, "AnvilHornTip", { 3.7, ANVIL_TOP - 0.35, ANVIL_Z }, { 0.5, 0.5, 0.5 }, COLOR.steelDark, { shape = "Ball" })
 
-	local strike = part(m, origin, "StrikePoint", { -0.6, ANVIL_TOP + 0.1, ANVIL_Z }, { 0.2, 0.2, 0.2 }, COLOR.steel, {
-		transparency = 1,
-		canCollide = false,
-	})
-	strike.CanQuery = false
-	strike.CanTouch = false
-
-	-- The hammer lies across the face, head on the anvil, handle out to the left. Its
-	-- pivot is the handle's far end, so the client swings it from there.
-	local hammer = Instance.new("Model")
-	hammer.Name = "Hammer"
-	local handleLen = 3.2
-	local handle = part(hammer, origin, "HammerHandle", { -0.6 - handleLen / 2, ANVIL_TOP + 0.35, ANVIL_Z }, { handleLen, 0.35, 0.35 }, COLOR.wood, {
-		shape = "Cylinder",
-		rot = R.cylAlongX,
-		canCollide = false,
-	})
-	part(hammer, origin, "HammerHead", { -0.6, ANVIL_TOP + 0.35, ANVIL_Z }, { 0.9, 0.7, 1.4 }, COLOR.steel, {
-		canCollide = false,
-	})
-	hammer.PrimaryPart = handle
-	hammer.WorldPivot = origin * CFrame.new(-0.6 - handleLen, ANVIL_TOP + 0.35, ANVIL_Z)
-	hammer.Parent = m
+	buildHammer(m, origin, -0.6, ANVIL_TOP, ANVIL_Z, 1)
 end
 
 local function buildBarrel(m: Model, origin: CFrame)
@@ -187,31 +198,105 @@ local function buildIngots(m: Model, origin: CFrame)
 	end
 end
 
+--- The imported forge (ServerStorage.StationTemplates.ReforgeStation): its own plinth,
+--- stump, anvil, hammer, brazier, tongs and bucket. Its hammer is lifted out as the
+--- Hammer the client swings; a StrikePoint under its head and invisible Embers on the
+--- brazier are added. Returns the
+--- part the sign hangs off and the height (above that part) it hangs at.
+local function buildImported(m: Model, origin: CFrame, template: Model): (BasePart, number)
+	local look = ImportedStation.place(template, m, origin, ReforgeStation.IMPORT_SCALE, "plinth_Node")
+	local _, lookSize = look:GetBoundingBox()
+
+	local anvil, anvilSize = ImportedStation.bounds(look, "anvil")
+	local hammer = look:FindFirstChild("hammer", true)
+	local head = hammer and hammer:FindFirstChild("hammer_head", true)
+	local grip = hammer and hammer:FindFirstChild("hammer_grip", true)
+	if hammer and hammer:IsA("Model") and head and head:IsA("BasePart") and grip and grip:IsA("BasePart") then
+		-- The import's own hammer becomes the one the client swings: X along the handle
+		-- (grip to head, level), Y up, pivot at the grip's far end, so a turn about its Z
+		-- lifts the head.
+		local flat = (head.Position - grip.Position) * Vector3.new(1, 0, 1)
+		local along = if flat.Magnitude > 1e-3 then flat.Unit else origin.RightVector
+		local reach = math.max(grip.Size.X, grip.Size.Z) / 2
+		hammer.Name = "Hammer"
+		hammer.WorldPivot = CFrame.fromMatrix(grip.Position - along * reach, along, Vector3.yAxis)
+		hammer.Parent = m
+		for _, d in hammer:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.CanCollide = false
+				d.CanQuery = false
+			end
+		end
+
+		local strike = Instance.new("Part")
+		strike.Name = "StrikePoint"
+		strike.Size = Vector3.new(0.2, 0.2, 0.2)
+		strike.CFrame = CFrame.new(head.Position + Vector3.new(0, head.Size.Y / 2 + 0.1, 0))
+		strike.Transparency = 1
+		strike.Anchored = true
+		strike.CanCollide = false
+		strike.CanQuery = false
+		strike.CanTouch = false
+		strike.Parent = m
+	elseif anvil and anvilSize then
+		if hammer then
+			hammer:Destroy()
+		end
+		local at = origin:PointToObjectSpace(anvil.Position)
+		-- The head sits a little off-centre, towards the horn's root, like the old one.
+		buildHammer(m, origin, at.X - anvilSize.X * 0.1, at.Y + anvilSize.Y / 2, at.Z, 1.6)
+	end
+	local brazier, brazierSize = ImportedStation.bounds(look, "forge_brazier")
+	if brazier and brazierSize then
+		-- The client's flare: a light and Neon on this; invisible, the brazier is the look.
+		local at = origin:PointToObjectSpace(brazier.Position)
+		local embers = part(m, origin, "Embers", { at.X, at.Y + brazierSize.Y / 2, at.Z }, { brazierSize.X * 0.6, 0.2, brazierSize.Z * 0.6 }, COLOR.ember, {
+			transparency = 1,
+			canCollide = false,
+		})
+		embers.CanQuery = false
+		embers.CanTouch = false
+	end
+
+	local plinth = look:FindFirstChild("plinth", true)
+	local body = if plinth and plinth:IsA("BasePart") then plinth else look:FindFirstChildWhichIsA("BasePart", true) :: BasePart
+	return body, lookSize.Y + 4 - (body.Position.Y - origin.Y)
+end
+
 --- Build the forge under `parent` at `origin` (deck top, facing +Z). `campKey` is its
 --- StationId, so a later camp's forge is its own station.
 function ReforgeStation.build(parent: Instance, origin: CFrame, campKey: string): Model
 	local m = Instance.new("Model")
 	m.Name = ReforgeStation.MODEL_NAME
-
-	-- ── Plinth, with hazard tape along its front ──
 	local depth = 2 * ReforgeStation.HALF_Z
-	local width = 2 * ReforgeStation.HALF_X
-	part(m, origin, "Plinth", { 0, PLINTH_H / 2, 0 }, { width, PLINTH_H, depth }, COLOR.plinth, { studs = true })
-	local bands = 11
-	for i = 0, bands - 1 do
-		local w = width / bands
-		part(m, origin, "Tape", { -width / 2 + w * (i + 0.5), PLINTH_H / 2, depth / 2 + 0.05 }, { w, 0.6, 0.1 }, if i % 2 == 0
-			then COLOR.hazYellow
-			else COLOR.hazBlack, { canCollide = false })
+
+	local template = ImportedStation.template(ReforgeStation.MODEL_NAME)
+	local body: BasePart
+	if template then
+		local signHeight
+		body, signHeight = buildImported(m, origin, template)
+		m:SetAttribute("ImportedLook", true)
+		Kit.billboard(body, 260, signHeight, "REFORGE STATION", "Reroll a nuke's damage & radius", COLOR.forge, 60)
+	else
+		-- ── Plinth, with hazard tape along its front ──
+		local width = 2 * ReforgeStation.HALF_X
+		part(m, origin, "Plinth", { 0, PLINTH_H / 2, 0 }, { width, PLINTH_H, depth }, COLOR.plinth, { studs = true })
+		local bands = 11
+		for i = 0, bands - 1 do
+			local w = width / bands
+			part(m, origin, "Tape", { -width / 2 + w * (i + 0.5), PLINTH_H / 2, depth / 2 + 0.05 }, { w, 0.6, 0.1 }, if i % 2 == 0
+				then COLOR.hazYellow
+				else COLOR.hazBlack, { canCollide = false })
+		end
+
+		body = buildFurnace(m, origin)
+		buildAnvil(m, origin)
+		buildBarrel(m, origin)
+		buildIngots(m, origin)
+
+		-- Clear of the chimney's cap (~16 up).
+		Kit.billboard(body, 260, FURNACE.h / 2 + 11, "REFORGE STATION", "Reroll a nuke's damage & radius", COLOR.forge, 60)
 	end
-
-	local body = buildFurnace(m, origin)
-	buildAnvil(m, origin)
-	buildBarrel(m, origin)
-	buildIngots(m, origin)
-
-	-- Clear of the chimney's cap (~16 up).
-	Kit.billboard(body, 260, FURNACE.h / 2 + 11, "REFORGE STATION", "Reroll a nuke's damage & radius", COLOR.forge, 60)
 
 	-- ── The station, in front, with its E ──
 	local station = part(m, origin, ReforgeStation.STATION_NAME, { 0, 2.5, depth / 2 + 1.5 }, { 1, 1, 1 }, COLOR.steel, {
