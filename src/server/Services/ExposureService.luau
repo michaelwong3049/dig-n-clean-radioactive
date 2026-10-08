@@ -18,8 +18,7 @@
 	steal it straight away. Getting back to it first is
 	the race. Every take by someone else is reported to the owner by name
 	(Net.DroppedBag stolenBy, BagTrackerController's toast). A bomb kill is still the
-	sharpest way to go after another player's haul (Services/BombService), and the
-	overhead star badge (NameTagController) is how you pick who is worth it. Supply
+	sharpest way to go after another player's haul (Services/BombService). Supply
 	crates that are already washed (data.crates) stay with you; they are not nukes.
 
 	THE LABEL OVER THE BAG IS DRAWN BY EACH CLIENT (DroppedBagController), not here, so

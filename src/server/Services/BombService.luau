@@ -7,8 +7,7 @@
 	HazardService.detonate after the nuke's own fuse time. The blast hurts everyone in
 	range, you included -- the fuse is your head start. Put someone down with it and
 	their WHOLE bag drops where they fell for anyone to grab (ExposureService.dropBag):
-	that is the point, and the overhead star badge (NameTagController, BagStars) is
-	how you pick a target worth the nuke you are spending.
+	that is the point.
 
 	EVERY NUMBER COMES OUT OF Shared/Bombing, the same function the hotbar's hover card
 	calls, so the damage, radius, fuse and cooldown a player reads before dropping are
