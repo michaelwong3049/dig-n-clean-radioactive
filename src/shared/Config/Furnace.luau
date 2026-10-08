@@ -105,9 +105,9 @@ Furnace.PRIZES = {
 	{ id = "cashBoost", name = "2x Cash 15 min", kind = "cashBoost", seconds = 15 * 60, tier = "Epic", weight = 2.5 },
 	{ id = "cashVault", name = "Cash Vault", kind = "cash", minutes = 45, floor = 1000000, tier = "Legendary", weight = 1.2 },
 	{ id = "legendaryNuke", name = "Legendary Nuke", kind = "nuke", rarity = "Legendary", tier = "Legendary", weight = 1 },
-	{ id = "groundZeroCrate", name = "Ground Zero Crate", kind = "crate", crate = "nuke6", tier = "Mythic", weight = 2.1 },
+	{ id = "groundZeroCrate", name = "Mythic Crate", kind = "crate", crate = "nuke6", tier = "Mythic", weight = 2.1 },
 	{ id = "mythicNuke", name = "Mythic Nuke", kind = "nuke", rarity = "Mythic", tier = "Mythic", weight = 0.3 },
-	{ id = "riftCrate", name = "Rift Crate", kind = "crate", crate = "nuke7", tier = "Anomaly", weight = 0.53 },
+	{ id = "riftCrate", name = "Anomaly Crate", kind = "crate", crate = "nuke7", tier = "Anomaly", weight = 0.53 },
 	{ id = "anomalyNuke", name = "Anomaly Nuke", kind = "nuke", rarity = "Anomaly", tier = "Anomaly", weight = 0.05 },
 } :: { PrizeDef }
 

@@ -46,7 +46,7 @@ export type Gift = {
 
 PlaytimeGifts.GIFTS = {
 	{ minutes = 1, cashMinutes = 1 },
-	{ minutes = 3, potions = { { id = "luck", count = 1 } } },
+	{ minutes = 3, speed = 1_000 },
 	{ minutes = 5, cashMinutes = 2, speed = 1_500 },
 	{ minutes = 8, potions = { { id = "cash", count = 1 } } },
 	{ minutes = 10, cashMinutes = 3, speed = 3_000 },
@@ -81,6 +81,10 @@ PlaytimeGifts.GIFTS = {
 	},
 } :: { Gift }
 
+-- Every gift's cash is this share of its cashMinutes of income (2026-10-08, "slightly
+-- lower the scaling for the cash you get").
+PlaytimeGifts.CASH_SCALE = 0.8
+
 local function clampStage(stage: number): number
 	return math.clamp(math.floor(stage), 1, #DailyRewards.FLOOR_RATE)
 end
@@ -92,7 +96,7 @@ function PlaytimeGifts.cashFor(gift: Gift, stage: number, rate: number): number
 		return 0
 	end
 	local perSecond = math.max(rate, DailyRewards.FLOOR_RATE[clampStage(stage)])
-	return math.floor(perSecond * minutes * 60)
+	return math.floor(perSecond * minutes * 60 * PlaytimeGifts.CASH_SCALE)
 end
 
 --- Every crate id the gift grants at `stage`, one entry per crate.
