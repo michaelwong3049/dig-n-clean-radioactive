@@ -341,6 +341,15 @@ local function giveBagTo(bag: BasePart, taker: Player)
 		return
 	end
 
+	-- Only the living. Resetting drops the bag right under your corpse, and the
+	-- prompt stayed reachable while you lay there waiting to respawn, so a reset
+	-- player could pick their own bag straight back up and lose nothing.
+	local character = taker.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid == nil or humanoid.Health <= 0 then
+		return
+	end
+
 	-- The owner's head start (header, "RECOVER BAG"): nobody else for the first few
 	-- seconds, or while the owner's Recover purchase is open.
 	if bag:GetAttribute("OwnerId") ~= taker.UserId and isProtected(bag) then
