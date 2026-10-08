@@ -203,7 +203,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 79
+local BUILDER_VERSION = 80 -- rivets + fascia stripes as textures (2026-10-07)
 
 local C = Kit.C
 local build = Kit.build
@@ -810,9 +810,18 @@ local function buildRivet(parent: Instance, frame: CFrame, x: number, y: number,
 	rivet.CastShadow = false
 end
 
+--- A row of rivet heads as one texture on `part`'s `face` (Kit.detailTexture): a head
+--- every `pitch` studs along the strip, one of them at face coordinates (headU, headV).
+--- The face must be narrower than `pitch` across the row, so only the one line of
+--- heads lands on it. Replaces a RoofRivet part per head (PART BUDGET: ~1.3k across
+--- the camps); the domed head is painted, lit from above.
+local function rivetRow(part: BasePart, face: Enum.NormalId, pitch: number, headU: number, headV: number)
+	Kit.detailTexture(part, face, Kit.DETAIL_TEXTURE.RIVET, ROOF_RIVET, pitch, pitch, pitch / 2 - headU, pitch / 2 - headV)
+end
+
 --- A straight steel strip: seam straps, fascia frame rails and trim.
-local function buildSteelStrip(parent: Instance, frame: CFrame, name: string, pos: { number }, size: { number })
-	build(parent, frame, {
+local function buildSteelStrip(parent: Instance, frame: CFrame, name: string, pos: { number }, size: { number }): BasePart
+	return build(parent, frame, {
 		name = name,
 		pos = pos,
 		size = size,
@@ -824,48 +833,48 @@ local function buildSteelStrip(parent: Instance, frame: CFrame, name: string, po
 end
 
 --- The hazard fascia hangs where the valance used to, across the roof's low front
---- edge. The stripes are rotated bars, not stepped blocks (straight edges read
---- cleaner from the ground). A bar at 45 degrees pokes a little past the band at
---- the top and bottom. The two steel frame rails are sized to cover that, and the
---- end caps cover the part-stripes at each end.
+--- edge. The stripes are straight 45-degree bands, not stepped blocks (straight edges
+--- read cleaner from the ground), painted as one texture on the band's face (PART
+--- BUDGET: they were a rotated bar each, ~400 across the camps). The two steel frame
+--- rails cover the band's top and bottom, and the end caps its ends.
 local function buildHazardFascia(parent: Instance, origin: CFrame, width: number)
 	local half = ROOF_DEPTH / 2
 	local frontZ = ROOF_CENTER_Z + half
 	local frontY = ROOF_CENTER_Y - math.sin(math.rad(ROOF_TILT)) * half
 	local band = origin * CFrame.new(0, frontY - 0.55, frontZ + 0.2)
 
-	build(parent, band, {
+	local bandWidth = width + 0.4
+	local bandPart = build(parent, band, {
 		name = "HazardBand",
 		pos = { 0, 0, 0 },
-		size = { width + 0.4, FASCIA_HEIGHT, 0.4 },
+		size = { bandWidth, FASCIA_HEIGHT, 0.4 },
 		color = C.hazard,
 		material = "Plastic",
 		studs = true,
 		canCollide = false,
 	})
-
-	local stripeLength = FASCIA_HEIGHT * math.sqrt(2)
+	-- One stripe crosses the band's centre line at `firstX`, the rest every PITCH
+	-- (FASCIA_STRIPE_WIDTH wide square to the stripe: the STRIPE image's band). The
+	-- Back face is the one the plaza sees: u runs +X from the band's -X end, v down
+	-- from its top edge; the image's band centre sits at (0.5, 0) of a tile.
 	local stripeReach = (FASCIA_HEIGHT + FASCIA_STRIPE_WIDTH * math.sqrt(0.5)) / 2
-	local x = -width / 2 + stripeReach - 0.5
-	while x <= width / 2 - stripeReach + 0.5 do
-		build(parent, band, {
-			name = "HazardStripe",
-			pos = { x, 0, 0.22 },
-			size = { FASCIA_STRIPE_WIDTH, stripeLength, 0.06 },
-			color = C.hazardBlack,
-			material = "Plastic",
-			rot = Kit.ang(0, 0, 45),
-			studs = true,
-			canCollide = false,
-		})
-		x += FASCIA_STRIPE_PITCH
-	end
+	local firstX = -width / 2 + stripeReach - 0.5
+	Kit.detailTexture(
+		bandPart,
+		Enum.NormalId.Back,
+		Kit.DETAIL_TEXTURE.STRIPE,
+		C.hazardBlack,
+		FASCIA_STRIPE_PITCH,
+		FASCIA_STRIPE_PITCH,
+		FASCIA_STRIPE_PITCH / 2 - (firstX + bandWidth / 2),
+		-FASCIA_HEIGHT / 2
+	)
 
 	for _, dy in { FASCIA_HEIGHT / 2, -FASCIA_HEIGHT / 2 } do
-		buildSteelStrip(parent, band, "FasciaFrame", { 0, dy, 0.1 }, { width + 0.9, 0.5, 0.62 })
-		for i = 0, math.floor(width / FASCIA_RIVET_PITCH) do
-			buildRivet(parent, band, -width / 2 + i * FASCIA_RIVET_PITCH, dy, 0.44, 0.26)
-		end
+		local frameWidth = width + 0.9
+		local rail = buildSteelStrip(parent, band, "FasciaFrame", { 0, dy, 0.1 }, { frameWidth, 0.5, 0.62 })
+		-- A head every FASCIA_RIVET_PITCH from the stall's -X edge, down the rail's middle.
+		rivetRow(rail, Enum.NormalId.Back, FASCIA_RIVET_PITCH, frameWidth / 2 - width / 2, 0.25)
 	end
 	for _, side in { -1, 1 } do
 		buildSteelStrip(parent, band, "FasciaCap", { side * (width / 2 + 0.2), 0, 0.1 }, { 0.6, FASCIA_HEIGHT + 0.5, 0.64 })
@@ -907,10 +916,10 @@ local function buildPlateRoof(parent: Instance, origin: CFrame, accent: string, 
 	for i = 0, plateCount do
 		local strapWidth = if i == 0 or i == plateCount then 0.6 else 0.42
 		local x = math.clamp(-width / 2 + i * plateWidth, -width / 2 + strapWidth / 2, width / 2 - strapWidth / 2)
-		buildSteelStrip(parent, roof, "RoofSeam", { x, 0.33, 0 }, { strapWidth, 0.22, ROOF_DEPTH })
-		for j = 0, rivetsPerStrap - 1 do
-			buildRivet(parent, roof, x, 0.46, -half + 0.6 + j * (ROOF_DEPTH - 1.2) / (rivetsPerStrap - 1), 0.3)
-		end
+		local strap = buildSteelStrip(parent, roof, "RoofSeam", { x, 0.33, 0 }, { strapWidth, 0.22, ROOF_DEPTH })
+		-- Top face: v runs down the strap from its +Z (front) end, so the heads that
+		-- sat 0.6 in from each end sit at v = 0.6 .. ROOF_DEPTH - 0.6.
+		rivetRow(strap, Enum.NormalId.Top, (ROOF_DEPTH - 1.2) / (rivetsPerStrap - 1), strapWidth / 2, 0.6)
 	end
 	-- The lap between the two rows, and the back edge: one rivet mid-plate on each.
 	for _, z in { 0.15, -half + 0.3 } do

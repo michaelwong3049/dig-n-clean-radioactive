@@ -101,7 +101,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 38 -- flipped checker twins: no shed wall/crown/floor cells (2026-10-07)
+local BUILDER_VERSION = 39 -- seam tape as one strip + checker texture (2026-10-07)
 
 local C = Kit.C
 local build = Kit.build
@@ -588,25 +588,30 @@ local function buildSeam(parent: Instance, L: Layout, name: string, x0: number, 
 	folder.Name = name
 	local rowWidth = SEAM_WIDTH / SEAM_ROWS
 	local minZ, maxZ = -L.corridorHalfZ, L.corridorHalfZ
-	local cols = math.ceil((maxZ - minZ) / SEAM_CELL_Z)
-	for ix = 0, SEAM_ROWS - 1 do
-		for iz = 0, cols - 1 do
-			local z0 = minZ + iz * SEAM_CELL_Z
-			local z1 = math.min(z0 + SEAM_CELL_Z, maxZ)
-			if z1 - z0 <= 1e-3 then
-				continue
-			end
-			local tape = build(folder, CFrame.new(0, 0, 0), {
-				name = "SeamTape",
-				pos = { x0 + (ix + 0.5) * rowWidth, FLOOR_Y + 0.26, (z0 + z1) / 2 },
-				size = { rowWidth, 0.4, z1 - z0 },
-				color = if (ix + iz) % 2 == 0 then bright else dark,
-				material = "SmoothPlastic",
-				canCollide = false,
-			})
-			tape.CanQuery = false
-		end
-	end
+	-- PART BUDGET: one strip in the bright colour with the dark cells painted on as a
+	-- CHECKER texture (Kit.detailTexture), instead of a part per cell (~500 across the
+	-- camps). Cell (ix, iz) is bright when (ix + iz) is even, counted from x0 and minZ.
+	-- Top face: u runs -X from the strip's +X edge, v runs -Z from maxZ; the offsets
+	-- put the image's opaque quadrants on the odd cells.
+	local tape = build(folder, CFrame.new(0, 0, 0), {
+		name = "SeamTape",
+		pos = { x0 + SEAM_WIDTH / 2, FLOOR_Y + 0.26, (minZ + maxZ) / 2 },
+		size = { SEAM_WIDTH, 0.4, maxZ - minZ },
+		color = bright,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	tape.CanQuery = false
+	Kit.detailTexture(
+		tape,
+		Enum.NormalId.Top,
+		Kit.DETAIL_TEXTURE.CHECKER,
+		dark,
+		2 * rowWidth,
+		2 * SEAM_CELL_Z,
+		-(SEAM_ROWS - 1) * rowWidth,
+		-(maxZ - minZ)
+	)
 	folder.Parent = parent
 end
 
