@@ -332,7 +332,6 @@ local STUDDED = {
 	equippedText = Color3.fromHex("D2D6DC"),
 	chip = Color3.fromHex("000000"),
 	chipTransparency = 0.62,
-	closeRed = Color3.fromHex("E5281F"),
 }
 
 -- THE WIDTHS ABOVE ARE A CEILING, NOT A SIZE, and that distinction is load-bearing.
@@ -1020,28 +1019,11 @@ local function build(): ScreenGui
 	-- tracking the panel's own corner by hand instead of getting it for free, hence
 	-- repositionClose() below, re-run whenever the panel moves or resizes (it does
 	-- both: automaticSizeY, and MaxSize swaps between shop/list widths per mode).
-	--
-	-- A PLAIN "X", NOT U+2715. No font this badge could wear has the multiplication
-	-- cross glyph, so it drew as a missing-glyph box on every panel. Gotham Black's X
-	-- is the Robux shop's close badge (ShopController), so the two read as one.
-	local closeButton, closeInk = UIKit.button(canvas, {
-		name = "Close",
-		size = UDim2.fromOffset(40, 40), -- the reference's big red X (STUDDED)
+	local closeButton = UIKit.closeButton(canvas, {
 		anchorPoint = Vector2.new(1, 0),
-		font = FIELD.headline,
-		textSize = 26,
-		color = Color3.new(1, 1, 1),
-		fillColor = STUDDED.closeRed,
-		fillTransparency = 0,
-		cornerRadius = UDim.new(0, 8),
-		strokeThickness = 2,
-		strokeColor = FIELD.ink,
-		text = "X",
+		size = 40,
+		zIndex = 10,
 	})
-	-- UIKit.button's stroke is Contextual, which on a TextButton outlines the GLYPH:
-	-- the ink outline every other piece of field-kit text wears.
-	closeInk.LineJoinMode = Enum.LineJoinMode.Round
-	closeButton.ZIndex = 10
 	ui.closeButton = closeButton
 
 	-- The panel's own shrink-to-fit on a short screen (fitPanel below). The close badge

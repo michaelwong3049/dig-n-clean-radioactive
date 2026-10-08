@@ -1704,20 +1704,10 @@ local function buildPanelTabs(card: Frame)
 		panel.tabs[key] = button
 	end
 
-	local closeKey = UIKit.button(card, {
-		name = "Close",
-		size = UDim2.fromOffset(TAB_H, TAB_H),
+	local closeKey = UIKit.closeButton(card, {
+		size = TAB_H,
 		position = UDim2.new(1, -16, 0, TAB_TOP),
 		anchorPoint = Vector2.new(1, 0),
-		text = "X",
-		font = UIKit.House.font,
-		textSize = UIKit.TextSize.header,
-		color = UIKit.House.white,
-		fillColor = UIKit.House.close,
-		fillTransparency = 0,
-		strokeColor = UIKit.House.ink,
-		strokeThickness = 3,
-		cornerRadius = UDim.new(0, 10),
 	})
 	closeKey.Activated:Connect(function()
 		if panel.onClose then

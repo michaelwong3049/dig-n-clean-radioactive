@@ -1168,6 +1168,77 @@ function UIKit.button(parent: Instance, props: ButtonProps): (TextButton, UIStro
 	return button, stroke
 end
 
+export type CloseButtonProps = {
+	name: string?,
+	size: number?, -- square side in design px; 40 is the panel default
+	position: UDim2?,
+	anchorPoint: Vector2?,
+	zIndex: number?,
+}
+
+--- THE ONE CLOSE "X". Every panel used to hand-roll its own -- some with an ink
+--- border and a bare glyph, some with an outlined glyph and no border, square,
+--- rounder or a disc -- so two open at once looked like two games. This is the
+--- only look now: a House.close square, an ink border, and a white Gotham Black
+--- "X" with its own ink outline. A PLAIN "X", NOT U+2715: Gotham has no cross
+--- glyph and draws a missing-glyph box. Corner, border and type all scale off
+--- `size`, so a small hint chip is the same badge, just smaller.
+function UIKit.closeButton(parent: Instance, props: CloseButtonProps?): TextButton
+	local p: CloseButtonProps = props or {}
+	local side = p.size or 40
+	local zIndex = p.zIndex or 1
+
+	local button = Instance.new("TextButton")
+	button.Name = p.name or "Close"
+	button.AutoButtonColor = false
+	button.Text = ""
+	button.BackgroundColor3 = UIKit.House.close
+	button.BorderSizePixel = 0
+	button.AnchorPoint = p.anchorPoint or Vector2.zero
+	button.Position = p.position or UDim2.fromOffset(0, 0)
+	button.Size = UDim2.fromOffset(side, side)
+	button.ZIndex = zIndex
+	button.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, math.round(side * 0.2))
+	corner.Parent = button
+
+	local border = Instance.new("UIStroke")
+	border.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	border.Color = UIKit.House.ink
+	border.Thickness = if side >= 28 then UIKit.Stroke.normal else UIKit.Stroke.thin
+	border.Parent = button
+
+	-- The glyph is its own label: a UIStroke on the button can outline the box OR
+	-- the text, not both.
+	local textSize = math.round(side * 0.6)
+	local glyph = Instance.new("TextLabel")
+	glyph.Name = "Glyph"
+	glyph.BackgroundTransparency = 1
+	glyph.Size = UDim2.fromScale(1, 1)
+	glyph.Font = UIKit.House.font
+	glyph.Text = "X"
+	glyph.TextSize = textSize
+	glyph.TextColor3 = UIKit.House.white
+	glyph.TextStrokeTransparency = 1
+	glyph.ZIndex = zIndex
+	glyph.Parent = button
+	local ink = Instance.new("UIStroke")
+	ink.Color = UIKit.House.ink
+	ink.Thickness = UIKit.strokeThicknessFor(textSize)
+	ink.LineJoinMode = Enum.LineJoinMode.Round
+	ink.Parent = glyph
+
+	-- Callers often raise ZIndex after building; under Global ZIndexBehavior the
+	-- glyph would then sink behind its own button.
+	button:GetPropertyChangedSignal("ZIndex"):Connect(function()
+		glyph.ZIndex = button.ZIndex
+	end)
+
+	return button
+end
+
 -- ── Formatting ───────────────────────────────────────────────────────────────────
 
 --- A RECORD weight: "0.12 kg", "16.2 kg", "461 kg". One more digit than the banners'

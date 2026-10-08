@@ -55,7 +55,6 @@ local BAND_FADE = 0.25 -- fraction of the width each side spends fading out
 local POP = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local CLOSE_RED = Color3.fromHex("E5484D")
 
 -- What each track is called in the line, and the colour its word is drawn in.
 local TRACK_LABEL: { [string]: string } = {
@@ -263,21 +262,10 @@ local function popRow(list: Frame, key: string, rung: Rung, order: number)
 	rowLayout.Parent = row
 	label.LayoutOrder = 1
 
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
+	local close = UIKit.closeButton(row, {
+		size = CLOSE,
+	})
 	close.LayoutOrder = 2
-	close.Size = UDim2.fromOffset(CLOSE, CLOSE)
-	close.BackgroundColor3 = CLOSE_RED
-	close.Font = Enum.Font.GothamBlack
-	close.TextSize = 16
-	close.TextColor3 = Color3.new(1, 1, 1)
-	close.Text = "X"
-	close.Parent = row
-	local closeStroke = Instance.new("UIStroke")
-	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	closeStroke.Color = Color3.new(0, 0, 0)
-	closeStroke.Thickness = 2
-	closeStroke.Parent = close
 	close.Activated:Connect(function()
 		Sfx.play("click")
 		closeRow(key)

@@ -747,21 +747,12 @@ local function buildPanel(): ScreenGui
 	})
 
 	-- The big red X, hung over the panel's top-right corner like the shop's.
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.AutoButtonColor = false
-	close.AnchorPoint = Vector2.new(0.5, 0.5)
-	close.Position = UDim2.new(1, PAD - 6, 0, -PAD + 6)
-	close.Size = UDim2.fromOffset(44, 44)
-	close.BackgroundColor3 = PANEL.close
-	close.Font = PANEL.headline
-	close.TextSize = 26
-	close.TextColor3 = PANEL.white
-	close.Text = "X"
-	close.ZIndex = 20
-	close.Parent = panel
-	round(close, UDim.new(0, 10))
-	edge(close, PANEL.ink, 3)
+	local close = UIKit.closeButton(panel, {
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(1, PAD - 6, 0, -PAD + 6),
+		size = 44,
+		zIndex = 20,
+	})
 	close.Activated:Connect(CampWarp.close)
 
 	-- Up only while the player is in a stage (or downed): the reason the button is off.

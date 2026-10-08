@@ -964,24 +964,12 @@ local function buildBag(): ScreenGui
 		Inventory.sortBag()
 	end)
 
-	-- A PLAIN "X", NOT U+2715 (see StationController's close badge).
-	local close = UIKit.button(panel, {
-		name = "Close",
+	local close = UIKit.closeButton(panel, {
 		anchorPoint = Vector2.new(1, 0.5),
 		position = UDim2.new(1, -BAG_PAD + 4, 0, BAG_HEADER / 2),
-		size = UDim2.fromOffset(34, 34),
-		text = "X",
-		font = House.font,
-		textSize = UIKit.TextSize.header,
-		color = House.white,
-		fillColor = House.close,
-		fillTransparency = 0,
-		strokeColor = House.ink,
-		strokeThickness = 3,
-		cornerRadius = UDim.new(0, 9),
-		outline = false,
+		size = 34,
+		zIndex = 3,
 	})
-	close.ZIndex = 3
 	close.MouseButton1Click:Connect(function()
 		Inventory.setBagOpen(false)
 	end)

@@ -370,21 +370,12 @@ local function buildPanel(): ScreenGui
 		hint.Visible = (statusLabel :: TextLabel).Text == ""
 	end)
 
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.AutoButtonColor = false
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, -PAD, 0, PAD - 4)
-	close.Size = UDim2.fromOffset(40, 40)
-	close.BackgroundColor3 = PANEL.close
-	close.Font = PANEL.font
-	close.TextSize = 24
-	close.TextColor3 = PANEL.white
-	close.Text = "X"
-	close.ZIndex = 11
-	close.Parent = panel
-	round(close, 6)
-	edge(close, PANEL.ink, 3)
+	local close = UIKit.closeButton(panel, {
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -PAD, 0, PAD - 4),
+		size = 40,
+		zIndex = 11,
+	})
 	close.Activated:Connect(PotionController.close)
 
 	for index, id in Potions.ORDER do

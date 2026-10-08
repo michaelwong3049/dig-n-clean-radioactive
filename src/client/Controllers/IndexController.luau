@@ -581,21 +581,10 @@ local function buildHeader(panel: Frame)
 	ui.recordArt = recordArt
 	ui.recordValue = recordValue
 
-	local close = UIKit.button(header, {
-		name = "Close",
+	local close = UIKit.closeButton(header, {
 		anchorPoint = Vector2.new(1, 0.5),
 		position = UDim2.fromScale(1, 0.5),
-		size = UDim2.fromOffset(36, 36),
-		text = "X",
-		font = UIKit.House.font,
-		textSize = UIKit.TextSize.header,
-		color = UIKit.House.white,
-		fillColor = UIKit.House.close,
-		fillTransparency = 0,
-		strokeColor = UIKit.House.ink,
-		strokeThickness = 3,
-		cornerRadius = UDim.new(0, 9),
-		outline = false,
+		size = 36,
 	})
 	ui.close = close
 end
