@@ -274,14 +274,15 @@ local function shownWalk(): number
 	return Treadmill.chosenWalk(view.walk, pending or view.walkCap)
 end
 
---- What the badge prints: the walk you chose, scaled by the worn aura's bonus -- the
---- speed you actually move at. The slider stays in trained units (what you can pick).
+--- What the badge prints: the walk you chose from what the treadmill has trained. A worn
+--- aura still moves you faster (ExposureService), but its bonus is NOT counted here --
+--- the badge is your treadmill stat, not your live speed.
 local function badgeWalk(): number
 	local walk = shownWalk()
 	if view == nil then
 		return walk
 	end
-	return math.floor((view.override or walk) * (1 + (view.auraSpeed or 0)) + 0.5)
+	return view.override or walk
 end
 
 local function drawPicker()
@@ -296,14 +297,12 @@ local function drawPicker()
 	end
 	ui.pickFill.Size = UDim2.fromScale(alpha, 1)
 	ui.pickKnob.Position = UDim2.fromScale(alpha, 0.5)
-	-- The numbers are printed in the units the badge uses -- the aura's bonus included,
-	-- and the debug /speed pin standing in for the trained top -- so the slider and the
-	-- badge never disagree. The slider itself still works in trained units underneath.
-	local scale = 1 + ((view and view.auraSpeed) or 0)
+	-- Trained units, the same as the badge (no aura bonus), with the debug /speed pin
+	-- standing in for the trained top, so the slider and the badge never disagree.
 	local override = view and view.override
-	ui.pickValue.Text = tostring(if override then math.floor(override * scale + 0.5) else math.floor(walk * scale + 0.5))
-	ui.pickLow.Text = tostring(math.floor(low * scale + 0.5))
-	ui.pickHigh.Text = tostring(if override then math.floor(override * scale + 0.5) else math.floor(high * scale + 0.5))
+	ui.pickValue.Text = tostring(override or walk)
+	ui.pickLow.Text = tostring(low)
+	ui.pickHigh.Text = tostring(override or high)
 	local atMax = walk >= high
 	ui.pickMax.BackgroundColor3 = if atMax then PICKER.track else PICKER.fill
 	ui.pickMax.TextColor3 = if atMax then UIKit.C.dim else UIKit.C.outline
