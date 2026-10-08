@@ -67,9 +67,9 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local HudTile = require(script.Parent.Parent.HudTile)
 local Artwork = require(script.Parent.Parent.HudArtwork)
+local Studded = require(script.Parent.Parent.Studded)
 local Prefs = require(script.Parent.Parent.Prefs)
 local Rarity = require(Shared.Config.Rarity)
-local Stages = require(Shared.Config.Stages)
 local Mastery = require(Shared.Mastery)
 
 local Settings = {}
@@ -84,8 +84,10 @@ local NEUTRAL = Color3.fromHex("7F8388")
 -- on (the chosen tab, an On switch, the chosen option, a slider's fill). No green.
 local House = UIKit.House
 local C = {
-	panel = House.panel,
-	rail = Color3.fromHex("15181C"), -- the tab rail, and the wells behind switches/sliders
+	-- The Shop's studded grey (2026-10-08): the darker House.panel hid the studs.
+	panel = Studded.DARK,
+	tabs = Color3.fromHex("1E2126"), -- the tab rail
+	rail = Color3.fromHex("15181C"), -- the wells behind switches/sliders
 	card = House.card, -- the chosen tab
 	chip = Color3.fromHex("2B3036"), -- an off switch, a tab's icon chip at rest
 	divider = Color3.fromHex("2A2F35"),
@@ -97,15 +99,17 @@ local C = {
 }
 
 local PANEL_SIZE = Vector2.new(720, 470)
+-- The studded backdrop (on request, 2026-10-08): the Shop's dark-panel studs, smaller.
+local STUD_TILE = 16
 local RAIL_W = 190
 -- The page column: inset from the rail's divider and the panel's right edge.
 local PAGE_X = RAIL_W + 3 + 24
 local PAGE_RIGHT = 24
 local PAGE_TOP = 20
-local HEADER_H = 62 -- the page's title + subtitle, above its scrolling rows
-local ROW_H = 62
+local HEADER_H = 44 -- the page's title, above its scrolling rows
+local ROW_H = 52
 local SLIDER_H = 56
-local STAT_H = 48 -- a Stats row with no hint
+local STAT_H = 48
 local GROUP_H = 40 -- a Stats group heading ("Digging", "Combat"...)
 local STATS_REFRESH = 2 -- seconds between asks while the Stats page is open
 
@@ -118,7 +122,7 @@ local SIZE = {
 	row = 20, -- a row's name
 	button = 16, -- values, the reset button
 	option = 15, -- a segmented picker's options
-	hint = 14, -- the line under a row's name
+	hint = 14, -- small dim text: the colour row's status, Stats group headings
 }
 -- A flag's pill switch, and one option of a segmented picker.
 local PILL_W, PILL_H, KNOB = 64, 34, 24
@@ -166,9 +170,8 @@ local ui = {
 	-- Preset hex -> its swatch's UIStroke, plus the rainbow swatch's, lit to match the
 	-- committed colour.
 	presetStrokes = {} :: { [string]: UIStroke },
-	-- Stats key -> its row's value label, and hint label where it has one.
+	-- Stats key -> its row's value label.
 	statValues = {} :: { [string]: TextLabel },
-	statHints = {} :: { [string]: TextLabel },
 }
 
 -- ── Colour helpers ──────────────────────────────────────────────────
@@ -322,29 +325,18 @@ local function pillSwitch(row: Instance, name: string): (TextButton, (boolean, b
 	return button, paint
 end
 
---- A row's title and hint, on the left, leaving `rightW` for its control.
-local function rowText(row: Instance, title: string, hint: string, rightW: number)
+--- A row's title on the left, leaving `rightW` for its control. Centred in the row
+--- unless `top` pins it that far down (the colour row, whose swatches sit under it).
+local function rowText(row: Instance, title: string, rightW: number, top: number?)
 	UIKit.label(row, {
 		name = "SectionTitle",
-		position = UDim2.fromOffset(0, 7),
+		anchorPoint = if top then Vector2.zero else Vector2.new(0, 0.5),
+		position = if top then UDim2.fromOffset(0, top) else UDim2.fromScale(0, 0.5),
 		size = UDim2.new(1, -rightW - 14, 0, 24),
 		font = FONT,
 		textSize = SIZE.row,
 		color = C.text,
 		text = title,
-		zIndex = 12,
-	})
-	UIKit.label(row, {
-		name = "SectionHint",
-		position = UDim2.fromOffset(0, 32),
-		-- Tall enough for two lines: a long hint wraps instead of running under the control.
-		size = UDim2.new(1, -rightW - 14, 0, 30),
-		font = FONT,
-		textSize = SIZE.hint,
-		color = C.dim,
-		text = hint,
-		yAlign = Enum.TextYAlignment.Top,
-		wrapped = true,
 		zIndex = 12,
 	})
 end
@@ -375,7 +367,7 @@ local function toggleSound()
 end
 
 local function buildSoundRow(row: Instance)
-	rowText(row, "Sound effects", "Every sound in the game, for you only", PILL_W)
+	rowText(row, "Sound effects", PILL_W)
 	local switch, paint = pillSwitch(row, "SoundSwitch")
 	switch.MouseButton1Click:Connect(toggleSound)
 	ui.paintSound = paint
@@ -385,8 +377,8 @@ end
 -- ── Pref rows ───────────────────────────────────────────────────────
 
 --- A pill switch for a flag pref.
-local function flagRow(row: Instance, key: string, title: string, hint: string)
-	rowText(row, title, hint, PILL_W)
+local function flagRow(row: Instance, key: string, title: string)
+	rowText(row, title, PILL_W)
 	local button, paint = pillSwitch(row, "Switch")
 	button.MouseButton1Click:Connect(function()
 		Prefs.set(key, not Prefs.get(key))
@@ -397,10 +389,10 @@ local function flagRow(row: Instance, key: string, title: string, hint: string)
 end
 
 --- A segmented picker: one well, one button per option, the chosen one lit.
-local function choiceRow(row: Instance, key: string, title: string, hint: string, options: { { string } })
+local function choiceRow(row: Instance, key: string, title: string, options: { { string } })
 	local pad = 3
 	local width = #options * OPTION_W + (#options - 1) * pad + pad * 2
-	rowText(row, title, hint, width)
+	rowText(row, title, width)
 
 	local well = Instance.new("Frame")
 	well.Name = "Options"
@@ -595,46 +587,43 @@ local function duration(seconds: number): string
 end
 
 -- The Stats page top to bottom: a `group` entry is a heading, the rest are stats keyed
--- by Net.PlayerStats' fields. `hint` adds a dim line under the title; `format` says how
--- the number reads (plain numbers get commas).
-type StatDef = { key: string?, group: string?, title: string?, hint: string?, format: ((number) -> string)? }
+-- by Net.PlayerStats' fields. `format` says how the number reads (plain numbers get commas).
+type StatDef = { key: string?, group: string?, title: string?, format: ((number) -> string)? }
 local STATS: { StatDef } = {
 	{ group = "Overall" },
-	{ key = "playtime", title = "Playtime", hint = "Time spent in game", format = duration },
+	{ key = "playtime", title = "Playtime", format = duration },
 	{
 		key = "cashEarned",
 		title = "Cash earned",
-		hint = "Every dollar you have ever made",
 		format = function(n)
 			return "$" .. Mastery.short(n)
 		end,
 	},
-	{ key = "index", title = "Index found", hint = "Different nukes you have discovered" },
-	{ key = "deepestStage", title = "Deepest stage", hint = "" }, -- the hint is the stage's name
+	{ key = "index", title = "Index found" },
+	{ key = "deepestStage", title = "Deepest stage" },
 	{ group = "Digging" },
 	{ key = "dug", title = "Nukes dug up" },
-	{ key = "rareFinds", title = "Rare finds", hint = "Legendary, Mythic and Anomaly nukes dug up" },
+	{ key = "rareFinds", title = "Rare finds" },
 	{ key = "itemsCleaned", title = "Nukes cleaned" },
 	{ key = "cratesOpened", title = "Crates opened" },
 	{ group = "Combat" },
-	{ key = "bombsDropped", title = "Nukes bombed", hint = "Clean nukes dropped as bombs" },
-	{ key = "kills", title = "Players knocked out", hint = "Players downed by your bombs" },
-	{ key = "bagsStolen", title = "Bags stolen", hint = "Dropped bags you took from other players" },
+	{ key = "bombsDropped", title = "Nukes bombed" },
+	{ key = "kills", title = "Players knocked out" },
+	{ key = "bagsStolen", title = "Bags stolen" },
 	{ key = "deaths", title = "Deaths" },
 	{ group = "Crafting" },
-	{ key = "merges", title = "Merges", hint = "At the Merge Reactor" },
+	{ key = "merges", title = "Merges" },
 	{ key = "rolls", title = "Fluids brewed" },
 }
 
---- One stat: title (and hint) on the left, the number on the right.
+--- One stat: title on the left, the number on the right.
 local function statRow(row: Instance, def: StatDef)
 	local key = def.key :: string
 	local valueW = 200
-	local hinted = def.hint ~= nil
 	UIKit.label(row, {
 		name = "SectionTitle",
-		anchorPoint = if hinted then Vector2.zero else Vector2.new(0, 0.5),
-		position = if hinted then UDim2.fromOffset(0, 5) else UDim2.fromScale(0, 0.5),
+		anchorPoint = Vector2.new(0, 0.5),
+		position = UDim2.fromScale(0, 0.5),
 		size = UDim2.new(1, -valueW - 14, 0, 24),
 		font = FONT,
 		textSize = SIZE.row,
@@ -642,18 +631,6 @@ local function statRow(row: Instance, def: StatDef)
 		text = def.title or "",
 		zIndex = 12,
 	})
-	if hinted then
-		ui.statHints[key] = UIKit.label(row, {
-			name = "SectionHint",
-			position = UDim2.fromOffset(0, 30),
-			size = UDim2.new(1, -valueW - 14, 0, 18),
-			font = FONT,
-			textSize = SIZE.hint,
-			color = C.dim,
-			text = def.hint or "",
-			zIndex = 12,
-		})
-	end
 	ui.statValues[key] = UIKit.label(row, {
 		name = "Value",
 		anchorPoint = Vector2.new(1, 0.5),
@@ -702,8 +679,6 @@ local function onServerStats(payload: any)
 		elseif key == "deepestStage" then
 			local id = math.max(1, num("deepestStage"))
 			label.Text = `Stage {id}`
-			local ok, stage = pcall(Stages.get, id)
-			ui.statHints.deepestStage.Text = if ok and stage then stage.name else ""
 		elseif def.format then
 			label.Text = def.format(num(key))
 		else
@@ -914,7 +889,7 @@ end
 --- The base colour row: title + the live swatch and hex, the preset swatches with
 --- Reset, and the full picker folded under them until the rainbow swatch opens it.
 local function buildColourRow(row: Frame)
-	rowText(row, "Base colour", "Trim, nameplate, station signs", 170)
+	rowText(row, "Base colour", 170, 7)
 
 	ui.hexLabel = UIKit.label(row, {
 		name = "Hex",
@@ -1128,12 +1103,25 @@ local function build(): ScreenGui
 	})
 	ui.panel = panel
 
+	local function studs(frame: GuiObject, z: number)
+		Studded.pattern(frame, {
+			radius = UIKit.Radius.panel.Offset,
+			tile = STUD_TILE,
+			bands = { 0.15, 0.42, 0.52, 0.58 },
+			bandTransparency = 0.93,
+			studTransparency = 0.1,
+			glow = false,
+			zIndex = z,
+		})
+	end
+	studs(panel, 10)
+
 	-- THE RAIL: rounded on the panel's left corners, squared where it meets the page,
 	-- with an ink line between the two.
 	local rail = Instance.new("Frame")
 	rail.Name = "Tabs"
 	rail.Size = UDim2.new(0, RAIL_W, 1, 0)
-	rail.BackgroundColor3 = C.rail
+	rail.BackgroundColor3 = C.tabs
 	rail.BorderSizePixel = 0
 	rail.ZIndex = 11
 	rail.Parent = panel
@@ -1143,10 +1131,11 @@ local function build(): ScreenGui
 	square.AnchorPoint = Vector2.new(1, 0)
 	square.Position = UDim2.fromScale(1, 0)
 	square.Size = UDim2.new(0, 24, 1, 0)
-	square.BackgroundColor3 = C.rail
+	square.BackgroundColor3 = C.tabs
 	square.BorderSizePixel = 0
-	square.ZIndex = 11
+	square.ZIndex = 10 -- under the rail's studs
 	square.Parent = rail
+	studs(rail, 11)
 	local divider = Instance.new("Frame")
 	divider.Name = "Divider"
 	divider.Position = UDim2.fromOffset(RAIL_W, 0)
@@ -1176,12 +1165,6 @@ local function build(): ScreenGui
 
 	local TABS = { "GENERAL", "GRAPHICS", "AUDIO", "STATS" }
 	local TAB_LABEL = { GENERAL = "General", GRAPHICS = "Graphics", AUDIO = "Audio", STATS = "Stats" }
-	local TAB_SUB = {
-		GENERAL = "Your base and alerts",
-		GRAPHICS = "Lower is smoother on slow devices",
-		AUDIO = "Only changes what you hear",
-		STATS = "Your lifetime numbers",
-	}
 	local pages: { [string]: Frame } = {}
 	local scrollers: { [string]: ScrollingFrame } = {}
 	local tabs: { [string]: { button: TextButton, back: Frame, chip: Frame } } = {}
@@ -1268,16 +1251,6 @@ local function build(): ScreenGui
 			text = TAB_LABEL[name],
 			zIndex = 12,
 		})
-		UIKit.label(page, {
-			name = "Subtitle",
-			position = UDim2.fromOffset(0, 34),
-			size = UDim2.new(1, -56, 0, 18),
-			font = FONT,
-			textSize = SIZE.hint,
-			color = C.dim,
-			text = TAB_SUB[name],
-			zIndex = 12,
-		})
 
 		local scroller = Instance.new("ScrollingFrame")
 		scroller.Name = "Rows"
@@ -1329,24 +1302,24 @@ local function build(): ScreenGui
 
 	-- GENERAL
 	buildColourRow(row("GENERAL", "BaseColour", COLOUR_H))
-	choiceRow(row("GENERAL", "RareDrops"), "rareDrops", "Rare drops", "Which drop alerts you see", {
+	choiceRow(row("GENERAL", "RareDrops"), "rareDrops", "Rare drops", {
 		{ "all", "All" },
 		{ "mine", "Mine" },
 		{ "off", "Off" },
 	})
-	flagRow(row("GENERAL", "ConfirmDrop"), "confirmDrop", "Confirm rare drops", "Ask before bombing a Rare+ nuke")
+	flagRow(row("GENERAL", "ConfirmDrop"), "confirmDrop", "Confirm rare drops")
 
 	-- GRAPHICS
-	choiceRow(row("GRAPHICS", "Graphics"), "graphics", "Graphics", "Low helps slower devices. Also sets radiation effects: less on Low and Med, full on High", {
+	choiceRow(row("GRAPHICS", "Graphics"), "graphics", "Graphics", {
 		{ "low", "Low" },
 		{ "med", "Med" },
 		{ "high", "High" },
 	})
-	flagRow(row("GRAPHICS", "Shake"), "shake", "Screen shake", "Blasts and radiation wobble")
-	flagRow(row("GRAPHICS", "Flashing"), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
-	flagRow(row("GRAPHICS", "Auras"), "auras", "Show auras", "The auras around you and other players")
-	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Hide others' nukes", "Hides the nukes on other bases and stops their effects")
-	flagRow(row("GRAPHICS", "SuperFast"), "superFast", "Hide your nukes", "Hides the nukes on your own base (names stay)")
+	flagRow(row("GRAPHICS", "Shake"), "shake", "Screen shake")
+	flagRow(row("GRAPHICS", "Flashing"), "reduceFlashing", "Reduce flashing")
+	flagRow(row("GRAPHICS", "Auras"), "auras", "Show auras")
+	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Hide others' nukes")
+	flagRow(row("GRAPHICS", "SuperFast"), "superFast", "Hide your nukes")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
 	buildSoundRow(row("AUDIO", "Sound"))
@@ -1364,7 +1337,7 @@ local function build(): ScreenGui
 			heading.Line.Visible = false
 			groupRow(heading, def.group)
 		else
-			statRow(row("STATS", "Stat_" .. (def.key :: string), if def.hint then ROW_H - 4 else STAT_H), def)
+			statRow(row("STATS", "Stat_" .. (def.key :: string), STAT_H), def)
 		end
 	end
 
