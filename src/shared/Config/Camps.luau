@@ -92,9 +92,9 @@ export type CampDef = {
 
 local Camps = {}
 
---- How far east of a stage's east edge a site camp's disc centre sits. With a 225 floor
---- radius (1.5x the first cut, on request) the disc's chord at the clip line is ~153
---- wide either side of z = 0 -- a little past the corridor walls, so two short shoulder
+--- How far east of a stage's east edge a site camp's disc centre sits. With a 190 floor
+--- radius (225 until 2026-10-08, trimmed on request) the disc's chord at the clip line is
+--- ~94 either side of z = 0 -- a little past the corridor walls, so two short shoulder
 --- walls close the gap the same way Base Camp's shoulders meet Stage 1 (build/Scenery
 --- buildCampWallLayer). Twice this is Stages' CAMP_GAP.
 local SITE_CENTRE_OFFSET = 165
@@ -156,9 +156,10 @@ Camps.DEFS = {
 			accent = "C084FC",
 		},
 		center = { TWILIGHT_X, 0 },
-		-- Near Base Camp's ring (Plots.RING_OUTER 230); 1.5x the first cut, lawn only. There are no plots here,
+		-- 190 (was 225, trimmed on request 2026-10-08: the north/south lobes past the decks
+		-- were empty lawn; ~44 studs still clear beyond them). There are no plots here,
 		-- only the plaza, the stalls, the trader and one shared cleansing station.
-		radius = 225,
+		radius = 190,
 		clipX = TWILIGHT_CLIP_X,
 		exitX = TWILIGHT_EXIT_X,
 		mergeReactor = true,
@@ -211,7 +212,7 @@ Camps.DEFS = {
 		-- past Stage 12, moved to the end of Stage 8 and opened up as the lava camp.
 		-- Basalt floor and walls, ember-orange crown. Stage 9 opens out of its east mouth.
 		center = { MAGMA_X, 0 },
-		radius = 225,
+		radius = 190,
 		clipX = MAGMA_CLIP_X,
 		exitX = MAGMA_EXIT_X,
 		furnace = true,
@@ -261,7 +262,7 @@ Camps.DEFS = {
 		-- the Anomaly spectrum (Rarity.ANOMALY_SPECTRUM) on the awnings. No exitX: walled
 		-- shut on the east.
 		center = { RIFT_X, 0 },
-		radius = 225,
+		radius = 190,
 		clipX = RIFT_CLIP_X,
 		comingSoon = true,
 		-- Every pair is a 0.877 two-tone (dark = light x 0.877 per channel), so the
