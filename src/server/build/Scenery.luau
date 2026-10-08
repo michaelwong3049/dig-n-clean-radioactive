@@ -89,6 +89,7 @@ local Stages = require(Shared.Config.Stages)
 local Camps = require(Shared.Config.Camps)
 
 local Kit = require(script.Parent.Kit)
+local CliffWall = require(script.Parent.CliffWall)
 local Hub = require(script.Parent.Hub)
 local Plots = require(script.Parent.Plots)
 local CraterField = require(script.Parent.CraterField)
@@ -106,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 69 -- flipped checker twins + merged scorch runs (2026-10-07)
+local BUILDER_VERSION = 70 -- layered cliff walls round the camp + Stage 1 (2026-10-08)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -328,12 +329,14 @@ local WALL_FOOT_ROWS = 4
 -- `grassDrip` rolls them, so the lip hangs over the edge in uneven turf drips. Every
 -- grass tile stands GRASS_OVERHANG proud of the face (and the crown's face-side cell
 -- reaches out to meet it), so the turf reads as lying OVER the dirt rather than painted
--- on it. See cliffPair / overhangOf. (A four-band strata version was tried and walked
+-- on it. See grassCappedPair / overhangOf. (A four-band strata version was tried and walked
 -- back on request: "keep the wall one combo of brown".)
+-- THE CAMP WALLS AND STAGE 1'S STRETCH NO LONGER USE THIS PATH (2026-10-08): they are
+-- layered slabs from build/CliffWall, same brown + camp-green pairs. Stages 2+ still do.
 --
 -- EVERY STAGE'S WALL NOW CARVES OUT THE SAME LIP, ON REQUEST -- GRASS_LIP_ROWS,
 -- grassDrip and GRASS_OVERHANG are chain-wide geometry constants, not just a camp/
--- Stage 1 thing; see grassCappedPair (the generalised cliffPair) and wallCapPair
+-- Stage 1 thing; see grassCappedPair and wallCapPair
 -- (each stage's own top colour, near campCapPair below -- Stage 1 stays camp green,
 -- every other stage is ITS OWN floor colour, not a green tint). The colour
 -- UNDERNEATH the lip still varies per stage the same way it always has -- see
@@ -490,15 +493,6 @@ local function grassCappedPair(id: number, bodyDark: string, bodyLight: string, 
 		return dark, light, true
 	end
 	return bodyDark, bodyLight, false
-end
-
---- The camp / Stage 1 cliff specifically -- grassCappedPair with the brown cliff body
---- and id 1 (Stage 1's own top colour, which is just campCapPair -- see wallCapPair).
---- Kept as its own name because buildShoulderWall/buildBaseWalls (the camp arc and its
---- two shoulder pieces -- never any other stage) call it directly, without ever going
---- through the per-stage colour resolution wallPair does for the stage chain itself.
-local function cliffPair(col: number, row: number, rows: number, salt: number): (string, string, boolean)
-	return grassCappedPair(1, WALL_BROWN_DARK, WALL_BROWN_LIGHT, col, row, rows, salt)
 end
 
 --- Which way a wall's visible face points along its thickness axis, keyed by the surface
@@ -4095,10 +4089,40 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 	end
 
 	local northZ, southZ = minZ - WALL_THICKNESS / 2, maxZ + WALL_THICKNESS / 2
-	buildWall(folder, "NorthWall", minX, maxX, northZ, "BackSurface", facePairAt)
-	buildWall(folder, "SouthWall", minX, maxX, southZ, "FrontSurface", facePairAt)
-	buildWallCap(folder, "NorthWallCap", minX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
-	buildWallCap(folder, "SouthWallCap", minX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
+
+	-- STAGE 1'S STRETCH IS LAYERED like the camp walls it runs on from (build/CliffWall,
+	-- on request 2026-10-08); the flat checker wall + crown picks up at its east edge.
+	local flatFromX = minX
+	if ids[1] == 1 then
+		local _, _, stage1MaxX = Stages.bounds(1)
+		flatFromX = stage1MaxX
+		local capDark, capLight = wallCapPair(1)
+		for _, side in { { "NorthWall", northZ, "BackSurface", 0 }, { "SouthWall", southZ, "FrontSurface", 1 } } do
+			local atZ = side[2] :: number
+			CliffWall.build(folder, {
+				name = side[1] :: string,
+				frameAt = function(s: number): CFrame
+					return CFrame.new(s, 0, atZ)
+				end,
+				face = side[3] :: string,
+				s0 = minX,
+				s1 = stage1MaxX,
+				height = STAGE_WALL.height,
+				footRows = WALL_FOOT_ROWS,
+				tile = WALL_TILE,
+				thick = WALL_THICKNESS,
+				seed = (CORRIDOR_SALT + (side[4] :: number)) * 100003,
+				body = { WALL_BROWN_DARK, WALL_BROWN_LIGHT },
+				grass = { capDark, capLight },
+			})
+		end
+	end
+	if flatFromX < maxX then
+		buildWall(folder, "NorthWall", flatFromX, maxX, northZ, "BackSurface", facePairAt)
+		buildWall(folder, "SouthWall", flatFromX, maxX, southZ, "FrontSurface", facePairAt)
+		buildWallCap(folder, "NorthWallCap", flatFromX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
+		buildWallCap(folder, "SouthWallCap", flatFromX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
+	end
 
 	-- Invisible barriers on both crowns, ON REQUEST, so nobody can jump up and run
 	-- along the wall tops. Wider than the wall so the lip overhang is covered too;
@@ -4126,7 +4150,7 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 	-- from Stage 1's own stretch to the full chain, each column coloured with its own
 	-- stage's top colour (wallCapPair via `id`). Rolled apart so the two walls do not
 	-- mirror each other (their whole-tile drips share CORRIDOR_SALT via wallPair).
-	for x0 = minX, maxX - WALL_TILE, WALL_TILE do
+	for x0 = flatFromX, maxX - WALL_TILE, WALL_TILE do
 		local xc = x0 + WALL_TILE / 2
 		local id = stageAt(xc)
 		local col = math.floor(xc / WALL_TILE)
@@ -4136,99 +4160,15 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 	end
 end
 
---- A short straight run along Z at a fixed X -- the mirror image of `buildWall`
---- (which runs along X at a fixed Z), swapped axes, for the two shoulder pieces
---- below that bridge the base's curved wall to the corridor's straight one.
---- Same tiling, same checkerboard, same stud treatment; the only real difference
---- is which local face ends up pointing at the walkable interior. `buildWall`'s
---- segments are unrotated and expose the field on their +-Z face (hence
---- Front/BackSurface); these are unrotated too but expose it on their +-X face
---- instead, so they take Left/RightSurface.
----
---- `alongX` turns the same wall the other way for the camp's straight walls: it then
---- runs along X at z = `atX`, from `minZ` to `maxZ` read as X, unrotated, and
---- `faceProperty` is Front/BackSurface like buildWall's.
-local function buildShoulderWall(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, faceProperty: string, height: number, salt: number, alongX: boolean?)
-	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
-	local rows = math.ceil(height / WALL_TILE)
-	-- Built in a frame yawed 90 degrees (local X along the wall, local Z its X thickness
-	-- axis), so this wall's world Left/Right faces are its local Front/Back.
-	local localFace = if alongX then faceProperty else SIDE_TO_LOCAL_FACE[faceProperty]
-	local function frameAt(z: number): CFrame
-		if alongX then
-			return CFrame.new(z, 0, atX)
-		end
-		return CFrame.new(atX, 0, z) * CFrame.Angles(0, math.rad(90), 0)
-	end
-	-- Column index off world Z, so the grass drips run on continuously along the
-	-- shoulder rather than restarting at its own local zero.
-	local function colOf(z0: number, z1: number): number
-		return math.floor((z0 + z1) / 2 / WALL_TILE)
-	end
-
-	-- PART BUDGET: material blocks for the whole columns, see buildWall.
-	local whole: { { number } } = {}
-	local colAt: { [number]: number } = {}
-	for iz = 0, cols - 1 do
-		local z0 = minZ + iz * WALL_TILE
-		if z0 + WALL_TILE <= maxZ + 1e-3 then
-			table.insert(whole, { z0, z0 + WALL_TILE, iz })
-			colAt[iz] = colOf(z0, z0 + WALL_TILE)
-		end
-	end
-	local skipped = Kit.materialWall(parent, {
-		name = name,
-		frameAt = frameAt,
-		face = localFace,
-		columns = whole,
-		baseY = Stages.SURFACE_Y,
-		footRows = WALL_FOOT_ROWS,
-		rows = rows,
-		tile = WALL_TILE,
-		thick = WALL_THICKNESS,
-		overhang = GRASS_OVERHANG,
-		pairAt = function(iz: number, iy: number)
-			return cliffPair(colAt[iz], iy, rows, salt)
-		end,
-	})
-
-	local plainIz: { [number]: boolean } = {}
-	for _, i in skipped do
-		plainIz[whole[i][3]] = true
-	end
-
-	local slabs = newSlabRun(parent, name, localFace, frameAt)
-	for iz = 0, cols - 1 do
-		local z0 = minZ + iz * WALL_TILE
-		local z1 = math.min(z0 + WALL_TILE, maxZ)
-		local d = z1 - z0
-		if d <= 1e-3 then
-			continue
-		end
-
-		local col = colOf(z0, z1)
-		local colFrame = frameAt((z0 + z1) / 2)
-		if d < WALL_TILE - 1e-3 or plainIz[iz] then
-			slabs.add(z0, z1, wallColumn(parent, name, colFrame, d, localFace, rows, height, iz, function(iy)
-				return cliffPair(col, iy, rows, salt)
-			end))
-		end
-
-		thinDrips(parent, colFrame, d, FACE_SIGN[faceProperty], grassBottomY(col, rows, salt), salt * 100003 + col, 1)
-	end
-	slabs.finish()
-end
-
 --- `buildWallCap` with the axes swapped -- a thin studded crown sheet running along Z
---- at a fixed X, for the two shoulder pieces, exactly as `buildShoulderWall` is
---- `buildWall` swapped. Flat (dark, light) rather than a per-column resolver: a
+--- at a fixed X (the chain's end wall). Flat (dark, light) rather than a per-column resolver: a
 --- shoulder is a few studs of one stage's edge, not a colour transition.
 local function buildShoulderCap(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, dark: string, light: string, height: number, faceSign: number, alongX: boolean?)
 	local capY = Stages.SURFACE_Y + height + WALL_CAP_THICKNESS / 2 - 0.1
 	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
 	-- Yawed 90 degrees, so local Z (the crown's depth axis) is world +X and faceSign
 	-- carries over unchanged. The whole crown is grass, so every column overhangs.
-	-- `alongX`: unrotated along X at z = atX, as buildShoulderWall.
+	-- `alongX`: unrotated along X at z = atX.
 	local function frameAt(s: number): CFrame
 		if alongX then
 			return CFrame.new(s, 0, atX)
@@ -4261,7 +4201,7 @@ end
 local function buildEndWall(folder: Instance, id: number, atX: number, minZ: number, maxZ: number)
 	local z0 = minZ - WALL_THICKNESS
 	local cols = math.ceil((maxZ - z0 + WALL_THICKNESS) / WALL_TILE)
-	-- Yawed like buildShoulderWall: world LeftSurface is the frame's FrontSurface.
+	-- Yawed 90 degrees: world LeftSurface is the frame's FrontSurface.
 	local function frameAt(z: number): CFrame
 		return CFrame.new(atX, 0, z) * CFrame.Angles(0, math.rad(90), 0)
 	end
@@ -4375,6 +4315,7 @@ type CampWallLayer = {
 	height: number,
 	corridorPad: number, -- how far past the corridor wall's centreline the shoulders run
 	seed: number,
+	recess: { number }?, -- CliffWall face set-backs; the outer layer stays flush so no gap opens behind the inner one
 }
 
 local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
@@ -4401,9 +4342,32 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 
 	-- One straight piece. Along Z: `at` is its centreline X, s0..s1 world Z. Along X:
 	-- `at` is its centreline Z, s0..s1 world X. `face` is the side facing the camp.
-	local function piece(name: string, alongX: boolean, at: number, s0: number, s1: number, face: string)
-		buildShoulderWall(folder, name, at, s0, s1, face, height, layer.seed, alongX)
-		buildShoulderCap(folder, name .. "Cap", at, s0, s1, capDark, capLight, height, FACE_SIGN[face], alongX)
+	-- LAYERED, ON REQUEST (2026-10-08): stepped dirt runs under an overhanging grass slab
+	-- (build/CliffWall), replacing the flat checker face + painted lip + crown sheet.
+	-- `flat` keeps the face flush where something hangs on it (the leaderboards).
+	local function piece(name: string, alongX: boolean, at: number, s0: number, s1: number, face: string, flat: { { number } }?)
+		CliffWall.build(folder, {
+			name = name,
+			frameAt = function(s: number): CFrame
+				if alongX then
+					return CFrame.new(s, 0, at)
+				end
+				return CFrame.new(at, 0, s) * CFrame.Angles(0, math.rad(90), 0)
+			end,
+			-- A wall along Z is yawed +90: its world Left/Right faces are the frame's Front/Back.
+			face = if alongX then face else SIDE_TO_LOCAL_FACE[face],
+			s0 = s0,
+			s1 = s1,
+			height = height,
+			footRows = WALL_FOOT_ROWS,
+			tile = WALL_TILE,
+			thick = t,
+			seed = layer.seed * 1009 + #name * 31 + math.floor(at),
+			body = { WALL_BROWN_DARK, WALL_BROWN_LIGHT },
+			grass = { capDark, capLight },
+			flat = flat,
+			recess = layer.recess,
+		})
 	end
 
 	for _, side in { -1, 1 } do
@@ -4420,7 +4384,8 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 		piece(`WingOuter{tag}`, true, side * (wingZF + t / 2), backF - t, eastF, inward)
 	end
 	-- The back wall, between the two wing outers' corner squares.
-	piece("BackWall", false, backF - t / 2, -wingZF, wingZF, "RightSurface")
+	-- The leaderboards stand flush on the back wall's middle (LeaderboardService, z +/-9.5).
+	piece("BackWall", false, backF - t / 2, -wingZF, wingZF, "RightSurface", { { -24, 24 } })
 end
 
 --- Both camp-wall layers. The inner one stands on the camp outline, its shoulders on
@@ -4444,6 +4409,7 @@ local function buildBaseWalls(parent: Instance)
 			height = OUTER_WALL_HEIGHT,
 			corridorPad = WALL_THICKNESS / 2,
 			seed = 13,
+			recess = { 0 },
 		},
 	}
 	for _, layer in layers do
