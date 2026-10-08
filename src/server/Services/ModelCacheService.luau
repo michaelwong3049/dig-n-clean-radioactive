@@ -65,14 +65,33 @@ end
 --- Nukes never cast shadows. A full server shows ~140 of them at ~76 parts each, and
 --- every shadow caster is drawn a second time into the shadow map. Flipping the
 --- templates once covers every clone: server copies and each player's cache.
+---
+--- Base machines too, the same rule Kit.swap gives the built world: the treadmill is
+--- swapped for its belt rung's model at runtime (Plots.setTreadmillTier), so a clone
+--- would bring the template's shadows back onto all six bases. The locker template is
+--- covered for the same reason should it ever be re-cloned. Set on the server, so the
+--- replicated templates arrive at every client already shadowless.
+local BASE_TEMPLATES = { "TreadmillTemplates", "QuarantineLocker" }
+
 local function stripShadows()
+	local folders: { Instance } = {}
 	for _, name in { ItemModels.SERVER_FOLDER, ItemModels.STILL_SERVER_FOLDER } do
 		local templates = ServerStorage:FindFirstChild(name)
 		if templates then
-			for _, part in templates:GetDescendants() do
-				if part:IsA("BasePart") then
-					part.CastShadow = false
-				end
+			table.insert(folders, templates)
+		end
+	end
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	for _, name in BASE_TEMPLATES do
+		local templates = assets and assets:FindFirstChild(name)
+		if templates then
+			table.insert(folders, templates)
+		end
+	end
+	for _, templates in folders do
+		for _, part in templates:GetDescendants() do
+			if part:IsA("BasePart") then
+				part.CastShadow = false
 			end
 		end
 	end
