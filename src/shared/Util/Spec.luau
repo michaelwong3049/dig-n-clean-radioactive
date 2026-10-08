@@ -647,6 +647,13 @@ function Spec.run(): boolean
 				and Rarity.stars("Rare", nil, 1.3) == 4.5
 				and Rarity.stars("Rare", nil, 0.9) == 3.5
 		)
+		do
+			-- The overhead badge counts Merge Reactor stars on top, so it can read past 10.
+			local plain = { rarity = "Rare", modifier = "None" }
+			local merged = { rarity = "Rare", modifier = "None", merge = Merge.MAX_LEVEL }
+			check("§stars the bag badge adds merge stars on top of the rating", Bombing.averageStars({ merged })
+				== Bombing.averageStars({ plain }) + Merge.MAX_LEVEL)
+		end
 
 		-- The Merge Reactor (Config/Merge): every merge succeeds, luck grows the crit but
 		-- it is capped and only exists while +2 fits, and the result takes the best of
