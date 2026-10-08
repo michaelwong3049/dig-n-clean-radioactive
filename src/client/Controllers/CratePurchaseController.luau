@@ -9,7 +9,8 @@
 	CratePurchase("buy", pad, crateId); the server range-checks it and buys, and its
 	answer ({ kind = "result" }) closes the card with "ADDED TO YOUR BAG!" or prints the
 	reason in red under the buttons. Walking away from the crate closes it. A Robux crate
-	shows "R$ 99" in gold, and its BUY opens Roblox's own purchase window.
+	shows "R$ 99" in gold, and its BUY opens Roblox's own purchase window. It also gets a
+	purple GIFT button between BUY and CANCEL, which opens RobuxGiftController's picker.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,6 +24,9 @@ local Mastery = require(Shared.Mastery)
 local Net = require(Shared.Net)
 local Crates = require(Shared.Config.Crates)
 local Rarity = require(Shared.Config.Rarity)
+
+local RobuxGift = require(script.Parent.RobuxGiftController)
+local RobuxGifts = require(Shared.Config.RobuxGifts)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local Studded = require(script.Parent.Parent.Studded)
@@ -42,6 +46,8 @@ local STYLE = {
 	short = Color3.fromHex("FF6B6B"),
 	buy = UIKit.House.buy,
 	buyHover = UIKit.House.buyHover,
+	gift = UIKit.House.robux, -- the purple of every gift button
+	giftHover = Color3.fromHex("9257F5"),
 	cancel = Color3.fromHex("4A5462"),
 	cancelHover = Color3.fromHex("5D6879"),
 	off = Color3.fromHex("8A8F96"),
@@ -73,6 +79,11 @@ local L = {
 	buyW = 200,
 	cancelW = 160,
 	buttonGap = 14,
+	-- A giftable Robux crate fits three buttons in the same row.
+	giftBuyW = 150,
+	giftW = 126,
+	giftCancelW = 128,
+	giftIcon = 34,
 	statusY = 394,
 	statusSize = 16,
 	closeSize = 34,
@@ -350,9 +361,34 @@ local function open(offer: any)
 		zIndex = 12,
 	})
 
-	local buttonsLeft = (L.cardW - L.buyW - L.buttonGap - L.cancelW) / 2
-	local buy = makeButton(face, "Buy", buttonsLeft, L.buttonsY, L.buyW, L.buttonH, STYLE.buy, "BUY", 28)
-	local cancel = makeButton(face, "Cancel", buttonsLeft + L.buyW + L.buttonGap, L.buttonsY, L.cancelW, L.buttonH, STYLE.cancel, "CANCEL", 24)
+	local giftable = robux and type(offer.productId) == "number" and RobuxGifts.get(offer.productId) ~= nil
+	local buy, cancel
+	local giftButton: TextButton? = nil
+	if giftable then
+		local buttonsLeft = (L.cardW - L.giftBuyW - L.giftW - L.giftCancelW - L.buttonGap * 2) / 2
+		buy = makeButton(face, "Buy", buttonsLeft, L.buttonsY, L.giftBuyW, L.buttonH, STYLE.buy, "BUY", 28)
+		local giftX = buttonsLeft + L.giftBuyW + L.buttonGap
+		local g = makeButton(face, "Gift", giftX, L.buttonsY, L.giftW, L.buttonH, STYLE.gift, "GIFT", 24)
+		-- The gift box beside the word, both centred as one.
+		local caption = g:FindFirstChild("Caption") :: TextLabel
+		caption.Position = UDim2.fromOffset(L.giftIcon / 2 + 2, 2)
+		local icon = Instance.new("ImageLabel")
+		icon.Name = "Icon"
+		icon.BackgroundTransparency = 1
+		icon.Image = Artwork.IMAGE.giftBox
+		icon.ScaleType = Enum.ScaleType.Fit
+		icon.AnchorPoint = Vector2.new(0, 0.5)
+		icon.Position = UDim2.new(0, 8, 0.5, 0)
+		icon.Size = UDim2.fromOffset(L.giftIcon, L.giftIcon)
+		icon.ZIndex = 23
+		icon.Parent = g
+		giftButton = g
+		cancel = makeButton(face, "Cancel", giftX + L.giftW + L.buttonGap, L.buttonsY, L.giftCancelW, L.buttonH, STYLE.cancel, "CANCEL", 24)
+	else
+		local buttonsLeft = (L.cardW - L.buyW - L.buttonGap - L.cancelW) / 2
+		buy = makeButton(face, "Buy", buttonsLeft, L.buttonsY, L.buyW, L.buttonH, STYLE.buy, "BUY", 28)
+		cancel = makeButton(face, "Cancel", buttonsLeft + L.buyW + L.buttonGap, L.buttonsY, L.cancelW, L.buttonH, STYLE.cancel, "CANCEL", 24)
+	end
 	local closeButton = UIKit.closeButton(face, {
 		position = UDim2.fromOffset(L.cardW - L.closeSize - 10, 10),
 		size = L.closeSize,
@@ -419,8 +455,24 @@ local function open(offer: any)
 		c.busy = true
 		status.Text = ""
 		refresh()
+		if c.offer.robux then
+			-- Bought for yourself: forget any gift this crate was pressed for earlier.
+			RobuxGift.clear()
+		end
 		remote:FireServer("buy", offer.pad, offer.crateId)
 	end)
+	if giftButton then
+		hover(giftButton, STYLE.gift, STYLE.giftHover, function()
+			return not c.busy
+		end)
+		giftButton.Activated:Connect(function()
+			if c.busy or c.closing then
+				return
+			end
+			close()
+			RobuxGift.open(offer.productId)
+		end)
+	end
 	cancel.Activated:Connect(close)
 	closeButton.Activated:Connect(close)
 	dim.Activated:Connect(close)

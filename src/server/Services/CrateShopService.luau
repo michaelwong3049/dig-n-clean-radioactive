@@ -136,6 +136,7 @@ local function wirePad(pad: CrateShop.Pad)
 					crateId = offer.crateId,
 					price = offer.cash or robuxPrice[offer.productId or 0] or 0,
 					robux = offer.cash == nil,
+					productId = if offer.cash == nil then offer.productId else nil, -- for the GIFT button
 					cash = if data then data.cash else nil,
 					anchor = anchor,
 				})

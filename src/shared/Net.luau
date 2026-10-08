@@ -359,6 +359,14 @@ local REMOTES: { [string]: string } = {
 	-- ok, message, keep? } after ACCEPT, or { kind = "closed", reason } when it lapses.
 	Gift = "RemoteEvent",
 
+	-- Buying a Robux product FOR someone else (Config/RobuxGifts, Services/RobuxGiftService).
+	-- Client -> server: ("send", productId, recipient), where recipient is a UserId (a
+	-- player picked from the server list) or a typed username. The server checks it and
+	-- opens the purchase prompt itself. Server -> client: { kind = "result", ok, message }
+	-- for the request, { kind = "sent", to, item } once the gift is on its way, and
+	-- { kind = "received", from, item } to whoever got one.
+	RobuxGift = "RemoteEvent",
+
 	-- The bottom-right Boosts widget (Services/BoostsService, BoostsController). Server ->
 	-- client: StatResolver.boosts(data), sent on join and whenever a total or a source
 	-- changes. Countdowns are not in it: the client reads each source's `timer` attribute.
