@@ -49,6 +49,7 @@ local ORDER = {
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedController
 	"TreadmillSignController", -- the upgrade sign beside each treadmill: "Level 1 > Level 2", red cash + purple Robux buttons; fires TreadmillBuy
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
+	"StandNukeController", -- the nuke on every display stand, built here from ExhibitService's StandNuke attributes: still copy far, full model near
 	"MergeReactorController", -- the Merge Reactor's show: nukes into the hoppers, the core charging, the result on the lift; reads the reactor's Merge* attributes
 	"ReforgeStationController", -- the Reforge Station's strike: hammer, sparks, the forge flaring; reads the forge's Reforge* attributes
 	"FurnaceStationController", -- the Slag Furnace's flare: mouth + hopper glow, sparks out of the hopper; reads the furnace's Furnace* attributes

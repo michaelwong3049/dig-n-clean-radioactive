@@ -17,11 +17,11 @@
 	DETAIL BY DISTANCE. A base full of exhibits (and the bases beside it) put a
 	hundred nukes in range at once, each spinning, pulsing and lit every frame. So
 	every few frames the active nukes are ranked by distance to the camera: the
-	nearest FULL_BUDGET inside FULL_RANGE run everything every frame; the rest inside
-	MID_RANGE keep their motion and pulses at MID_STEP but drop particles, glint,
-	bolts and ping; past that a nuke holds its last pose and glow. FAST MODE (the
-	`fastMode` pref) puts every nuke in that last tier. Only the nearest
-	LIGHT_BUDGET keep a PointLight on. Spinning parts move in one BulkMoveTo per
+	nearest fullBudget inside fullRange (Config/ItemFx DETAIL) run everything every
+	frame; the rest inside midRange keep their motion and pulses at MID_STEP but drop
+	particles, glint, bolts and ping; past that a nuke holds its last pose and glow.
+	FAST MODE (the `fastMode` pref) puts every nuke in that last tier. Only the
+	nearest `lights` keep a PointLight on. Spinning parts move in one BulkMoveTo per
 	frame rather than one CFrame write per part.
 
 	BUILT ONLY WHEN NEAR, A FEW PER FRAME. Walking up to a base streams in dozens of
@@ -66,6 +66,7 @@ local Shared = ReplicatedStorage.Shared
 local ItemFx = require(Shared.ItemFx)
 local ItemCrust = require(Shared.ItemCrust)
 local ItemFxConfig = require(Shared.Config.ItemFx)
+local StandNuke = require(Shared.StandNuke)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Prefs = require(script.Parent.Parent.Prefs)
 
@@ -104,27 +105,14 @@ local POLL_INTERVAL = 0.5
 --- The light eases up from nothing over this long, so the reveal visibly switches on.
 local IGNITE_TIME = 0.8
 
---- Detail levels (see the header). Inside FULL_RANGE the nearest FULL_BUDGET nukes
---- get every effect every frame.
-local FULL_RANGE = 45
-local FULL_BUDGET = 12
+--- Detail levels (see the header), per Settings GRAPHICS: Config/ItemFx DETAIL, which
+--- StandNukeController reads too so a stand swaps to its full model exactly when its
+--- effects switch on. Re-read every retier, so a change lands within RETIER_INTERVAL.
+local DETAIL = ItemFxConfig.DETAIL
 
---- Inside this, a nuke that missed the full tier still moves and pulses, MID_STEP
---- apart. Beyond it, animation stops and emitters switch off.
-local MID_RANGE = 90
+--- A nuke that missed the full tier but is inside midRange moves and pulses this far
+--- apart.
 local MID_STEP = 1 / 20
-
---- Only this many of the nearest moving nukes keep their PointLight on.
-local LIGHT_BUDGET = 8
-
---- Settings' GRAPHICS (Config/Prefs) picks the numbers above: "high" is them as
---- tuned, the others pull detail in closer for a slower device. Re-read every retier,
---- so a change lands within RETIER_INTERVAL.
-local DETAIL = {
-	high = { fullRange = FULL_RANGE, fullBudget = FULL_BUDGET, midRange = MID_RANGE, lights = LIGHT_BUDGET },
-	med = { fullRange = 30, fullBudget = 6, midRange = 60, lights = 4 },
-	low = { fullRange = 20, fullBudget = 2, midRange = 40, lights = 2 },
-}
 
 --- How often the nukes are re-ranked by distance.
 local RETIER_INTERVAL = 0.2
@@ -301,6 +289,10 @@ type Entry = {
 	startedAt: number,
 	rng: Random,
 	tier: Tier,
+	-- A stand's still copy (Shared/StandNuke): it only carries a quality's colour and
+	-- light, and never takes a full-tier slot; the stand swaps to the full model
+	-- for that.
+	still: boolean,
 	-- Whether the full-tier extras exist right now, and when the entry was last
 	-- ranked into the full tier.
 	fxBuilt: boolean,
@@ -461,100 +453,13 @@ end
 
 -- ── Finish ───────────────────────────────────────────────────────────────
 
-local function applyFinish(model: Model, def: Def)
-	for _, finish in def.finish or {} do
-		local parts = ItemFx.partsNamed(model, finish.parts)
-		for _, part in parts do
-			if finish.material or finish.color then
-				-- The SurfaceAppearance overrides both material and colour; it has to go
-				-- for either to show.
-				for _, child in part:GetChildren() do
-					if child:IsA("SurfaceAppearance") then
-						child:Destroy()
-					end
-				end
-			end
-			if finish.material then
-				part.Material = (Enum.Material :: any)[finish.material]
-			end
-			if finish.color then
-				part.Color = finish.color
-			end
-			if finish.transparency then
-				part.Transparency = finish.transparency
-			end
-			if finish.reflectance then
-				part.Reflectance = finish.reflectance
-			end
-			if finish.tint then
-				-- Multiplies the painted colour map; the texture's detail stays.
-				local appearance = part:FindFirstChildOfClass("SurfaceAppearance")
-				if appearance then
-					appearance.Color = finish.tint
-				else
-					-- Baked parts (tools/studio-migrations/bake-nuke-texture-colours)
-					-- carry the paint in Part.Color. The untinted colour is kept in an
-					-- attribute so a second pass over the same model can't compound it.
-					local base = part:GetAttribute("FxBaseColor")
-					if typeof(base) ~= "Color3" then
-						base = part.Color
-						part:SetAttribute("FxBaseColor", base)
-					end
-					local tint = finish.tint
-					part.Color = Color3.new(base.R * tint.R, base.G * tint.G, base.B * tint.B)
-				end
-			end
-			local ramp = finish.ramp
-			if ramp then
-				local level = tonumber(string.match(part.Name, "%d+")) or 1
-				local t = if ramp.levels > 1 then (level - 1) / (ramp.levels - 1) else 0
-				part.Transparency = ramp.from + (ramp.to - ramp.from) * math.clamp(t, 0, 1)
-			end
-		end
-	end
-end
-
---- Every part of the model that can be seen, largest first, so [1] is the body
---- rather than some small fitting.
-local function visibleParts(model: Model): { BasePart }
-	local visible: { BasePart } = {}
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("BasePart") and descendant.Transparency < 0.9 then
-			table.insert(visible, descendant)
-		end
-	end
-	table.sort(visible, function(a, b)
-		return a.Size.Magnitude > b.Size.Magnitude
-	end)
-	return visible
-end
-
---- Pull each painted part's colour `amount` of the way to `color` (the Fused bleach,
---- the Irradiated cast). Glowing (Neon) and see-through parts keep their own. The
---- colour before the first pull is kept in an attribute, so a second pass over the
---- same model starts from it again instead of compounding.
-local function pullColour(parts: { BasePart }, color: Color3, amount: number, reflectance: number?)
-	for _, part in parts do
-		if part.Material ~= Enum.Material.Neon and part.Transparency < 0.5 then
-			local appearance = part:FindFirstChildOfClass("SurfaceAppearance")
-			if appearance then
-				-- A colour map can only be multiplied, never lightened; it has to go.
-				-- Every imported map is one flat colour already baked into Part.Color
-				-- (tools/studio-migrations/bake-nuke-texture-colours), so little is lost.
-				appearance:Destroy()
-			end
-			local base = part:GetAttribute("FxQualityBaseColor")
-			if typeof(base) ~= "Color3" then
-				base = part.Color
-				part:SetAttribute("FxQualityBaseColor", base)
-			end
-			part.Color = (base :: Color3):Lerp(color, amount)
-			if reflectance then
-				part.Reflectance = math.max(part.Reflectance, reflectance)
-			end
-		end
-	end
-end
+-- The part looks (Config/ItemFx finish, the Fused bleach and the Irradiated cast) live
+-- in Shared/ItemFx, so StandNukeController can paint a full model before it swaps it
+-- in for the still copy and nothing flashes bare metal for the frames before this
+-- controller activates it. Every one of them is safe to run twice.
+local applyFinish = ItemFx.applyFinish
+local visibleParts = ItemFx.visibleParts
+local pullColour = ItemFx.pullColour
 
 -- ── Particles ────────────────────────────────────────────────────────────
 -- The first four are the shapes of the tool FX in PR #192 (Shared/ToolFX):
@@ -1727,6 +1632,7 @@ local function track(instance: Instance)
 	local pristine = model:GetAttribute(ItemFx.PRISTINE_ATTRIBUTE) == true
 	local fused = model:GetAttribute(ItemFx.FUSED_ATTRIBUTE) == true
 	local irradiated = model:GetAttribute(ItemFx.IRRADIATED_ATTRIBUTE) == true
+	local still = model:GetAttribute(StandNuke.STILL_ATTRIBUTE) == true
 	local def = ItemFx.get(model:GetAttribute(ItemFx.ATTRIBUTE) :: string?)
 	if def == nil then
 		if not (pristine or fused or irradiated) then
@@ -1744,6 +1650,7 @@ local function track(instance: Instance)
 		startedAt = now,
 		rng = Random.new(seedOf(model)),
 		tier = "still",
+		still = still,
 		fxBuilt = false,
 		fullSeenAt = 0,
 		steppedAt = now,
@@ -1862,6 +1769,8 @@ local function retier(cameraPosition: Vector3)
 		local tier: Tier = "still"
 		if fast then
 			tier = "still"
+		elseif entry.still then
+			tier = if entry.distance <= detail.midRange then "mid" else "still"
 		elseif entry.distance <= detail.fullRange and fullLeft > 0 then
 			tier = "full"
 			fullLeft -= 1

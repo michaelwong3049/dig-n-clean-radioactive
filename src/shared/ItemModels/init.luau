@@ -38,6 +38,13 @@
 	PlayerGui.NukeModels. Until one lands, `create` returns nil -- the placeholder path
 	every caller already has -- and `onArrived` lets a caller repaint when it does.
 
+	STILL COPIES. Assets.NukeStillTemplates holds a ~7-mesh copy of most nukes, every
+	effect part merged in with its Config/ItemFx finish baked on (Shared/StandNuke says
+	why). It moves to ServerStorage the same way and is fetched the same way, under the
+	cache name `stillKey(itemId)`. A nuke with no still copy (its meshes belong to
+	another account) gets its full model under that name instead, marked
+	STILL_FALLBACK, so a caller never waits on one that will never come.
+
 	EVERY CLONE IS TAGGED FOR ITS EFFECTS HERE (Shared/ItemFx), because this is the
 	one door every display context comes through. The glow, light and motion itself
 	is client-side (ItemFxController) and waits for the crust to come off.
@@ -54,12 +61,32 @@ local IMPORTED_NUKE_KEY = "ImportedNuke"
 local TEMPLATE_PATH = { "Assets", "ImportedNukeTemplates" }
 local SERVER_FOLDER = "ImportedNukeTemplates" -- ServerStorage, see Services/ModelCacheService
 local CLIENT_CACHE = "NukeModels" -- PlayerGui, one per player
+local STILL_PATH = { "Assets", "NukeStillTemplates" }
+local STILL_SERVER_FOLDER = "NukeStillTemplates" -- ServerStorage, see Services/ModelCacheService
+local STILL_SUFFIX = "@still"
+--- Set by ModelCacheService on a full model it sent in place of a missing still copy.
+local STILL_FALLBACK = "StillFallback"
 
 local ItemModels = {}
 
 ItemModels.SERVER_FOLDER = SERVER_FOLDER
 ItemModels.CLIENT_CACHE = CLIENT_CACHE
 ItemModels.TEMPLATE_PATH = TEMPLATE_PATH
+ItemModels.STILL_PATH = STILL_PATH
+ItemModels.STILL_SERVER_FOLDER = STILL_SERVER_FOLDER
+ItemModels.STILL_FALLBACK = STILL_FALLBACK
+
+--- The cache name a still copy travels under, and the item id back out of one.
+function ItemModels.stillKey(itemId: string): string
+	return itemId .. STILL_SUFFIX
+end
+
+function ItemModels.fromStillKey(key: string): string?
+	if string.sub(key, -#STILL_SUFFIX) == STILL_SUFFIX then
+		return string.sub(key, 1, -#STILL_SUFFIX - 1)
+	end
+	return nil
+end
 
 -- Only a running client asks the server for models. Edit mode reports IsClient()
 -- true (see Shared/Net), so it is ruled out by IsRunning.
@@ -71,9 +98,9 @@ end
 
 --- The folder the templates sit in as this place was saved: Assets in
 --- ReplicatedStorage. The server moves it out at boot; Studio's edit tools still see it.
-local function replicatedFolder(): Instance?
+local function replicatedFolder(path: { string }?): Instance?
 	local folder: Instance = ReplicatedStorage
-	for _, name in TEMPLATE_PATH do
+	for _, name in path or TEMPLATE_PATH do
 		local next_ = folder:FindFirstChild(name)
 		if next_ == nil then
 			return nil
@@ -135,13 +162,51 @@ local function importedNukeTemplate(itemId: string): Model?
 	return if template and template:IsA("Model") then template else nil
 end
 
---- True once `itemId`'s model can be built here without waiting.
-function ItemModels.ready(itemId: string): boolean
-	return importedNukeTemplate(itemId) ~= nil
+--- A still copy by its cache name: ServerStorage or the saved Assets folder (server,
+--- Studio), else what this client was sent (possibly a STILL_FALLBACK full model).
+local function stillTemplate(key: string): Model?
+	local itemId = ItemModels.fromStillKey(key)
+	if itemId == nil then
+		return nil
+	end
+	local template = nil
+	local server = ServerStorage:FindFirstChild(STILL_SERVER_FOLDER)
+	if server then
+		template = server:FindFirstChild(itemId)
+	end
+	if template == nil then
+		local replicated = replicatedFolder(STILL_PATH)
+		template = if replicated then replicated:FindFirstChild(itemId) else nil
+	end
+	if template == nil and cache then
+		template = cache:FindFirstChild(key)
+	end
+	return if template and template:IsA("Model") then template else nil
 end
 
---- Ask the server for these models, ahead of drawing them. Each id is asked for once;
---- ids with no model are simply never sent. A no-op anywhere but a running client.
+--- The template behind a cache name: a still key or a plain item id.
+local function templateFor(key: string): Model?
+	if ItemModels.fromStillKey(key) then
+		return stillTemplate(key)
+	end
+	return importedNukeTemplate(key)
+end
+
+--- The template a clone of `key` comes from, if it is here yet. For callers that
+--- preload its meshes before showing a clone (StandNukeController).
+function ItemModels.template(key: string): Model?
+	return templateFor(key)
+end
+
+--- True once the model behind `key` (an item id, or a stillKey) can be built here
+--- without waiting.
+function ItemModels.ready(key: string): boolean
+	return templateFor(key) ~= nil
+end
+
+--- Ask the server for these models (item ids or stillKeys), ahead of drawing them.
+--- Each is asked for once; ids with no model are simply never sent. A no-op anywhere
+--- but a running client.
 function ItemModels.request(itemIds: { string })
 	if not isPlayClient then
 		return
@@ -149,7 +214,7 @@ function ItemModels.request(itemIds: { string })
 	watchCache()
 	local wanted = {}
 	for _, itemId in itemIds do
-		if type(itemId) == "string" and not requested[itemId] and importedNukeTemplate(itemId) == nil then
+		if type(itemId) == "string" and not requested[itemId] and templateFor(itemId) == nil then
 			requested[itemId] = true
 			table.insert(wanted, itemId)
 		end
@@ -227,6 +292,26 @@ function ItemModels.create(modelKey: string?, itemId: string?, modifier: string?
 
 	warn(`[items] unknown model key "{modelKey}"`)
 	return nil
+end
+
+--- A clone of `itemId`'s still copy, or nil until it is here (asking for it, like
+--- `create`). Tagged for its quality only: its finish is already baked in, and a
+--- Config/ItemFx entry would aim spins and glows at parts it no longer has. A
+--- STILL_FALLBACK (the full model standing in) is tagged like any full clone.
+function ItemModels.createStill(itemId: string, modifier: string?): Model?
+	local key = ItemModels.stillKey(itemId)
+	local template = stillTemplate(key)
+	if template == nil then
+		ItemModels.request({ key })
+		return nil
+	end
+	local clone = template:Clone()
+	if clone:GetAttribute(STILL_FALLBACK) == true then
+		ItemFx.tag(clone, itemId, modifier)
+	else
+		ItemFx.tag(clone, nil, modifier)
+	end
+	return clone
 end
 
 --- Item factories author placement rotations as attributes so a flat object such

@@ -123,8 +123,10 @@ local function register(target: Instance)
 		axis = AXES[if type(axisName) == "string" then axisName else "Y"] or Vector3.yAxis,
 		rate = (target:GetAttribute("MotionRate") :: number?) or 1,
 		amp = (target:GetAttribute("MotionAmp") :: number?) or 0.3,
-		seed = rng:NextNumber(0, 1000),
-		angle = rng:NextNumber(0, math.pi * 2),
+		-- Optional, for a model that replaces another mid-turn (StandNukeController's
+		-- still/full swap): carry on from the same angle and bob phase.
+		seed = (target:GetAttribute("MotionSeed") :: number?) or rng:NextNumber(0, 1000),
+		angle = (target:GetAttribute("MotionAngle") :: number?) or rng:NextNumber(0, math.pi * 2),
 		nextRipple = 0,
 		rings = 0,
 	}
