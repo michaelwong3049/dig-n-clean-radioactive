@@ -70,6 +70,9 @@ local SKIN = {
 	label = Enum.Font.GothamBlack,
 	receipt = Enum.Font.RobotoMono,
 }
+-- The hotbar's heart pink (InventoryController's HEART_RED).
+local HEARTED_CHIP = Color3.fromHex("FF4D6D")
+local HEARTED_W = 74
 
 local HEADER_H = 58
 -- The header box sits this far up into the panel's top padding.
@@ -264,6 +267,22 @@ local function makeRow(parent: Instance, order: number): TextButton
 	})
 	crusted.BackgroundColor3 = SKIN.crustChip
 	crusted.BackgroundTransparency = 0
+
+	-- A hearted nuke (Shared/Bag) can't go on the receipt: this chip takes its tick
+	-- box's place and says why (paintRow shifts the price left to fit it).
+	local hearted = text(row, {
+		name = "Hearted",
+		anchorPoint = Vector2.new(1, 0.5),
+		position = UDim2.new(1, -12, 0.5, 0),
+		size = UDim2.fromOffset(HEARTED_W, 22),
+		textSize = 12,
+		color = SKIN.text,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "HEARTED",
+	})
+	hearted.BackgroundColor3 = HEARTED_CHIP
+	hearted.BackgroundTransparency = 0
+	hearted.Visible = false
 
 	text(row, {
 		name = "Price",
@@ -577,7 +596,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 			rows[index] = row
 			row.MouseButton1Click:Connect(function()
 				local uid = row:GetAttribute("Uid")
-				if type(uid) == "string" then
+				if type(uid) == "string" and not row:GetAttribute("Hearted") then
 					ticked[uid] = if ticked[uid] then nil else true
 					repaint()
 				end
@@ -588,8 +607,12 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 
 	local function paintRow(row: TextButton, item: any)
 		local isTicked = ticked[item.uid] == true
+		local isHearted = item.hearted == true
 		row.Visible = true
 		row:SetAttribute("Uid", item.uid)
+		row:SetAttribute("Hearted", isHearted)
+		row.BackgroundTransparency = if isHearted then 0.45 else 0
+		;(row:FindFirstChild("Hearted") :: TextLabel).Visible = isHearted
 		local color = rarityColor(item.rarity)
 		local stroke = row:FindFirstChild("Edge") :: UIStroke
 		stroke.Enabled = isTicked
@@ -606,8 +629,12 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 			after = kg,
 		})
 		;(row:FindFirstChild("Crusted") :: TextLabel).Visible = not item.clean
-		;(row:FindFirstChild("Price") :: TextLabel).Text = money(item.value or 0)
+		local price = row:FindFirstChild("Price") :: TextLabel
+		price.Text = money(item.value or 0)
+		-- The HEARTED chip is wider than the tick box it replaces; the price makes room.
+		price.Position = UDim2.new(1, -(TICK + 24) - (if isHearted then HEARTED_W - TICK else 0), 0.5, 0)
 		local tick = row:FindFirstChild("Tick") :: Frame
+		tick.Visible = not isHearted
 		;(tick:FindFirstChild("Check") :: Frame).Visible = isTicked
 		tick.BackgroundTransparency = if isTicked then 0 else 1
 		;(tick:FindFirstChild("Edge") :: UIStroke).Color = if isTicked then SKIN.sell else SKIN.muted
@@ -629,7 +656,10 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 
 		local present: { [string]: boolean } = {}
 		for _, item in items do
-			present[item.uid] = true
+			-- Hearted after it was ticked: off the receipt.
+			if item.hearted ~= true then
+				present[item.uid] = true
+			end
 		end
 		for uid in ticked do
 			if not present[uid] then
@@ -648,8 +678,12 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		emptyBag.Visible = #items == 0
 
 		-- The receipt, in the rows' order.
-		local count, sum, blind, cleanCount = 0, 0, 0, 0
+		local count, sum, blind, cleanCount, sellable = 0, 0, 0, 0, 0
 		for _, item in items do
+			if item.hearted == true then
+				continue
+			end
+			sellable += 1
 			if item.clean then
 				cleanCount += 1
 			end
@@ -677,9 +711,9 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		sell.Text = if count > 0 then `SELL {count}` else "SELL"
 		sell.BackgroundColor3 = if count > 0 then SKIN.sell else SKIN.muted
 
-		paintBulk(bulkAll, "Sell all", #items)
+		paintBulk(bulkAll, "Sell all", sellable)
 		paintBulk(bulkClean, "Sell all clean", cleanCount)
-		paintBulk(bulkUnclean, "Sell all unclean", #items - cleanCount)
+		paintBulk(bulkUnclean, "Sell all unclean", sellable - cleanCount)
 
 		wallet.Text = money(state.cash or 0)
 		local capacity = if type(state.capacity) == "number" then state.capacity else #items
@@ -693,7 +727,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		end
 		table.clear(ticked)
 		for _, item in lastState.items or {} do
-			if wants(item) then
+			if item.hearted ~= true and wants(item) then
 				ticked[item.uid] = true
 			end
 		end

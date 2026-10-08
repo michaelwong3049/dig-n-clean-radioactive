@@ -1191,6 +1191,7 @@ local function takeOff(data: any, plot: number, index: number): (boolean, string
 		bonus = entry.bonus,
 		forge = entry.forge,
 		reforges = entry.reforges,
+		hearted = entry.hearted,
 		elapsed = 0,
 		frozen = true,
 		patches = {},
@@ -1284,6 +1285,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 			bonus = displaced.bonus,
 			forge = displaced.forge,
 			reforges = displaced.reforges,
+			hearted = displaced.hearted,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1300,6 +1302,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 		bonus = item.bonus,
 		forge = item.forge,
 		reforges = item.reforges,
+		hearted = item.hearted,
 		placedAt = os.time(),
 	})
 
@@ -1594,6 +1597,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			bonus = entry.bonus,
 			forge = entry.forge,
 			reforges = entry.reforges,
+			hearted = entry.hearted,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1621,6 +1625,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			bonus = item.bonus,
 			forge = item.forge,
 			reforges = item.reforges,
+			hearted = item.hearted,
 			placedAt = now,
 		}
 		table.insert(stays, entry)

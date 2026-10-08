@@ -32,6 +32,7 @@ local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -106,6 +107,9 @@ local function refusal(player: Player, data: any, item: any): string?
 	end
 	if data.heldUid == item.uid and WashService.isWashing(player) then
 		return "finish washing it first"
+	end
+	if Bag.isHearted(item) then
+		return Bag.HEART_REFUSAL
 	end
 	return nil
 end

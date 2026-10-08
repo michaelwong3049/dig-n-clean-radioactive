@@ -747,13 +747,14 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 		local cashNow = if type(state.cash) == "number" then state.cash else 0
 		cash.Text = money(cashNow)
 
-		-- Every washed, unslagged copy you own, grouped by nuke.
+		-- Every washed, unslagged, unhearted copy you own, grouped by nuke. A hearted
+		-- one (Shared/Bag) is the player's keep pile: auto-fill must never reach it.
 		table.clear(groups)
 		table.clear(byUid)
 		local order: { Group } = {}
 		local function add(list: any, where: string)
 			for _, item in list or {} do
-				if item.clean and item.identified and item.itemId and item.modifier ~= "Slagged" then
+				if item.clean and item.identified and item.itemId and item.modifier ~= "Slagged" and item.hearted ~= true then
 					local entry = table.clone(item)
 					entry.where = where
 					entry.merge = if type(item.merge) == "number" then item.merge else 0

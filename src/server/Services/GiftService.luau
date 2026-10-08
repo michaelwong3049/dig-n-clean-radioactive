@@ -103,6 +103,9 @@ local function heldNuke(player: Player, data: any): (any?, number?, string?)
 			if WashService.isWashing(player) then
 				return nil, nil, "finish washing it first"
 			end
+			if Bag.isHearted(item) then
+				return nil, nil, Bag.HEART_REFUSAL
+			end
 			return item, index, nil
 		end
 	end
@@ -280,6 +283,12 @@ local function accept(receiver: Player)
 	end
 	if giverData.heldUid == item.uid and WashService.isWashing(giver) then
 		fail(`{giver.DisplayName} is washing that nuke`)
+		return
+	end
+	-- Hearted after the offer went out: the heart wins.
+	if Bag.isHearted(item) then
+		fail(`{giver.DisplayName} hearted that nuke`)
+		notice(giver, "your gift was cancelled \u{2014} you hearted that nuke")
 		return
 	end
 

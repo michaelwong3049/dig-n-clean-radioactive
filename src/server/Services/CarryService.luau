@@ -64,6 +64,7 @@ local UNKNOWN_NAME = "???"
 local carryRemote: any = nil
 local holdRemote: any = nil
 local slotOrderRemote: any = nil
+local heartRemote: any = nil
 
 -- The longest arrangement SlotOrder will store, and the longest uid in it. Well past
 -- any real bag; it only stops a client from writing junk into the profile.
@@ -203,6 +204,7 @@ function CarryService.describe(item: any, stats: any): any
 		condition = condition.name,
 		elapsed = item.elapsed,
 		frozen = item.frozen,
+		hearted = Bag.isHearted(item),
 	}
 end
 
@@ -270,6 +272,7 @@ end
 ---                `blockedBy` alone does not cover it: swapping Molten Lava for
 ---                Nano-Foam leaves an already-unblocked item unblocked while the
 ---                rescue name on the card changes underneath it.
+---   hearted    — a right-click on a slot (HeartItem) changes nothing else
 ---   perSecond  — depends on stats.yieldMultiplier, which the Index completion bonus
 ---                (DigService.grantStageCompletionBonus) can change mid-session with
 ---                nothing else about the item itself moving
@@ -283,7 +286,7 @@ local function signatureOf(described: { any }, capacity: number): string
 	for _, item in described do
 		table.insert(
 			parts,
-			`{item.uid}:{item.condition}:{item.value}:{item.perSecond}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}:{tostring(item.unlockedByLiquid)}:{tostring(item.rescueLiquid)}`
+			`{item.uid}:{item.condition}:{item.value}:{item.perSecond}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}:{tostring(item.unlockedByLiquid)}:{tostring(item.rescueLiquid)}:{tostring(item.hearted)}`
 		)
 	end
 	return table.concat(parts, "|")
@@ -360,6 +363,21 @@ function CarryService.init()
 	carryRemote = Net.get("CarryState")
 	holdRemote = Net.get("HoldInput")
 	slotOrderRemote = Net.get("SlotOrder")
+	heartRemote = Net.get("HeartItem")
+end
+
+--- Heart or unheart one of your own nukes, in the bag or the locker (Shared/Bag).
+--- The next tick's signature picks the change up and the hotbar redraws.
+local function toggleHeart(player: Player, uid: any)
+	local data = DataService.data(player)
+	if data == nil or type(uid) ~= "string" or #uid > MAX_UID_LENGTH then
+		return
+	end
+	local item = EconomyService.find(data, uid)
+	if item == nil then
+		return
+	end
+	item.hearted = if Bag.isHearted(item) then nil else true
 end
 
 --- Store the client's hotbar/bag arrangement. Display order only, so it is sanitised
@@ -387,6 +405,7 @@ function CarryService.start()
 		CarryService.hold(player, if type(uid) == "string" then uid else nil)
 	end)
 	slotOrderRemote.OnServerEvent:Connect(setSlotOrder)
+	heartRemote.OnServerEvent:Connect(toggleHeart)
 
 	Ticker.every(Tuning.TICK_RATE, function()
 		for _, player in Players:GetPlayers() do
