@@ -35,6 +35,7 @@ local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -80,6 +81,9 @@ local function gather(player: Player, data: any, uids: any): ({ Input }?, string
 		end
 		if item.modifier == "Slagged" then
 			return nil, "slag can't be merged"
+		end
+		if Bag.isHearted(item) then
+			return nil, Bag.HEART_REFUSAL
 		end
 		if data.heldUid == uid and WashService.isWashing(player) then
 			return nil, "finish washing it first"

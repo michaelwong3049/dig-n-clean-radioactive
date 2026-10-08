@@ -32,4 +32,15 @@ function Bag.findCrate(data: any, uid: string): (CrateEntry?, number?)
 	return nil, nil
 end
 
+--- HEARTED NUKES (InventoryController: right-click a slot, or double-tap on touch).
+--- A heart is the player's "keep this": it rides on the item record itself
+--- (`item.hearted`), so it follows the nuke into the locker and onto a stand, and
+--- every way a nuke can leave you for good -- the trader, a gift, the Merge Reactor,
+--- the Slag Furnace, a bomb drop -- asks here and refuses with HEART_REFUSAL.
+Bag.HEART_REFUSAL = "that nuke is hearted \u{2014} right-click it (double-tap on mobile) to unheart"
+
+function Bag.isHearted(item: any): boolean
+	return type(item) == "table" and item.hearted == true
+end
+
 return Bag

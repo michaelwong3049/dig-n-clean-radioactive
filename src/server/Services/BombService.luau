@@ -40,6 +40,7 @@ local Bombing = require(Shared.Bombing)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local StageService = require(script.Parent.StageService)
@@ -184,6 +185,10 @@ local function drop(player: Player)
 	end
 	if not Bombing.canDrop(item, Contamination.isClean(item.patches or {})) then
 		refuse(player, "only clean nukes can be dropped")
+		return
+	end
+	if Bag.isHearted(item) then
+		refuse(player, Bag.HEART_REFUSAL)
 		return
 	end
 

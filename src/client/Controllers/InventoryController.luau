@@ -73,6 +73,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local StarLine = require(script.Parent.Parent.StarLine)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Prefs = require(script.Parent.Parent.Prefs)
+local Studded = require(script.Parent.Parent.Studded)
 local ItemArt = require(script.Parent.Parent.ItemArt)
 local Dock = UIKit.Dock
 
@@ -156,10 +157,31 @@ local BAG_COLS = HOTBAR_SLOTS
 local BAG_CELL = SLOT_MAX
 local BAG_GAP = 6
 local BAG_PAD = 16
-local BAG_HEADER = 46
-local BAG_CAPTION = 20
-local BAG_SECTION_GAP = 12
+local BAG_HEADER = 56 -- title, filter pills, SORT, count, close
+local BAG_ROW_GAP = 12 -- the hotbar row (top) to the backpack grid under it
+local BAG_FOOTER = 28 -- the controls hint along the bottom
 local BAG_VISIBLE_ROWS = 4
+-- Bag cells are see-through black over the studded panel; the hotbar keeps its
+-- near-solid fill so it reads over the world.
+local BAG_CELL_TRANSPARENCY = 0.45
+local SLOT_TRANSPARENCY = 0.05
+-- The bag's filter pills, left to right. A cell that doesn't match is shaded, not
+-- hidden, so slots never jump around under the cursor (and drags still land).
+local BAG_FILTERS = {
+	{ id = "all", text = "ALL", width = 58 },
+	{ id = "hearted", text = "HEARTED", width = 112 },
+	{ id = "clean", text = "CLEAN", width = 72 },
+	{ id = "dirty", text = "???", width = 54 },
+}
+local PILL_IDLE = Color3.fromHex("14181D")
+
+-- HEARTED NUKES (Shared/Bag): right-click a slot, or double-tap it on touch. The
+-- chip sits on the slot's top-right corner; the server refuses to sell, gift, merge,
+-- furnace or bomb anything wearing one.
+local HEART_RED = Color3.fromHex("FF4D6D")
+local HEART_PINK = ColorSequence.new(Color3.fromHex("FF8FA3"), Color3.fromHex("FF4D6D"))
+local HEART_CHIP = 20
+local DOUBLE_TAP = 0.35 -- seconds between two taps on one slot that make a heart
 
 -- The Notice popup over the hotbar: pops in, holds, fades. The group is wider than
 -- any message so the pill (auto-sized to its text) never clips.
@@ -212,6 +234,14 @@ local coolConnection: RBXScriptConnection? = nil
 local cardSlot: any = nil -- the slot the bomb card is showing for
 local confirmUid: string? = nil -- the Rare+ nuke the "are you sure?" is asking about
 local slotOrderRemote: any = nil
+local heartRemote: any = nil
+local bagFilter = "all" -- one of BAG_FILTERS' ids
+-- The last touch tap on a slot, for the double-tap heart: { entry, at, before }, where
+-- `before` is what was held before that tap, so the pair can put it back.
+local lastTap: any = nil
+local bagCloseToken = 0 -- bumping it cancels a pending "picked up, close the bag"
+-- Assigned below with the selection code; the slots' input handlers call through it.
+local toggleHeart: (index: number, restore: boolean?, before: string?) -> () = function() end
 -- The press that may become a drag: { entry, from, start, input, touch, active }.
 local drag: any = nil
 -- A drag that ends over its own slot still fires that slot's click; this eats it.
@@ -314,6 +344,39 @@ local function tint(target: Instance, prop: string, colour: Color3, rarity: stri
 end
 
 -- ── Build ───────────────────────────────────────────────────────────
+
+--- A heart drawn from frames (two round lobes on a square turned 45°), filling
+--- `parent`. No glyph: Gotham has no reliable U+2665 (see the plain "X" on close).
+local function heartIcon(parent: GuiObject, colour: Color3, zIndex: number): Frame
+	local holder = Instance.new("Frame")
+	holder.Name = "HeartIcon"
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.fromScale(1, 1)
+	holder.ZIndex = zIndex
+	holder.Parent = parent
+	local function piece(name: string, x: number, y: number, size: number, round: boolean)
+		local frame = Instance.new("Frame")
+		frame.Name = name
+		frame.AnchorPoint = Vector2.new(0.5, 0.5)
+		frame.Position = UDim2.fromScale(x, y)
+		frame.Size = UDim2.fromScale(size, size)
+		frame.BackgroundColor3 = colour
+		frame.BorderSizePixel = 0
+		frame.ZIndex = zIndex
+		if round then
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0.5, 0)
+			corner.Parent = frame
+		else
+			frame.Rotation = 45
+		end
+		frame.Parent = holder
+	end
+	piece("Point", 0.5, 0.6, 0.5, false)
+	piece("Left", 0.323, 0.423, 0.5, true)
+	piece("Right", 0.677, 0.423, 0.5, true)
+	return holder
+end
 
 local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	local slot = Instance.new("TextButton")
@@ -431,12 +494,47 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	coolText.Visible = false
 	coolText.ZIndex = 11
 
-	slot.MouseButton1Click:Connect(function()
-		if os.clock() < suppressClickUntil then
-			return
-		end
-		onClick()
-	end)
+	-- The bag's filter shade: over everything but the heart, so a hearted nuke
+	-- still says so under HEARTED's opposite.
+	local shade = Instance.new("Frame")
+	shade.Name = "FilterShade"
+	shade.Size = UDim2.fromScale(1, 1)
+	shade.BackgroundColor3 = COOL_SHADE
+	shade.BackgroundTransparency = 0.3
+	shade.BorderSizePixel = 0
+	shade.Visible = false
+	shade.ZIndex = 12
+	shade.Parent = slot
+	local shadeCorner = Instance.new("UICorner")
+	shadeCorner.CornerRadius = UDim.new(0, 7)
+	shadeCorner.Parent = shade
+
+	-- The heart chip: a white disc with an inked rim, top-right, inside the slot so
+	-- the hotbar row's scroller cannot clip it.
+	local heart = Instance.new("Frame")
+	heart.Name = "Heart"
+	heart.AnchorPoint = Vector2.new(1, 0)
+	heart.Position = UDim2.new(1, -2, 0, 2)
+	heart.Size = UDim2.fromOffset(HEART_CHIP, HEART_CHIP)
+	heart.BackgroundColor3 = House.white
+	heart.BorderSizePixel = 0
+	heart.Visible = false
+	heart.ZIndex = 13
+	heart.Parent = slot
+	local heartCorner = Instance.new("UICorner")
+	heartCorner.CornerRadius = UDim.new(0.5, 0)
+	heartCorner.Parent = heart
+	local heartRim = Instance.new("UIStroke")
+	heartRim.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	heartRim.Color = House.ink
+	heartRim.Thickness = 2
+	heartRim.Parent = heart
+	local heartArt = heartIcon(heart, HEART_RED, 14)
+	heartArt.AnchorPoint = Vector2.new(0.5, 0.5)
+	heartArt.Position = UDim2.fromScale(0.5, 0.52)
+	heartArt.Size = UDim2.fromScale(0.68, 0.68)
+	local heartScale = Instance.new("UIScale")
+	heartScale.Parent = heart
 
 	local entry = {
 		index = index,
@@ -448,9 +546,44 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		kg = kg,
 		cool = cool,
 		coolText = coolText,
+		shade = shade,
+		heart = heart,
+		heartScale = heartScale,
+		fill = SLOT_TRANSPARENCY,
+		inBag = false,
+		touched = false,
 		uid = nil :: string?,
 	}
+
+	-- RIGHT-CLICK HEARTS. On touch there is no right button, so two quick taps on the
+	-- same slot do it instead (lastTap); the first tap still picks the nuke up, and
+	-- the second puts back whatever was held before it.
+	slot.MouseButton2Click:Connect(function()
+		toggleHeart(entry.index)
+	end)
+	slot.MouseButton1Click:Connect(function()
+		if os.clock() < suppressClickUntil then
+			return
+		end
+		if entry.touched then
+			local tap = lastTap
+			if tap and tap.entry == entry and os.clock() - tap.at < DOUBLE_TAP then
+				lastTap = nil
+				toggleHeart(entry.index, true, tap.before)
+				return
+			end
+			lastTap = { entry = entry, at = os.clock(), before = selected }
+		end
+		onClick()
+	end)
+
 	slot.InputBegan:Connect(function(input)
+		-- Read by the click handler above, which fires after this for the same press.
+		if input.UserInputType == Enum.UserInputType.Touch then
+			entry.touched = true
+		elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+			entry.touched = false
+		end
 		beginPress(entry, input)
 	end)
 	slot.MouseEnter:Connect(function()
@@ -746,23 +879,43 @@ local function build(): ScreenGui
 	return gui
 end
 
-local function sectionCaption(parent: Instance, name: string, text: string, y: number): TextLabel
-	return UIKit.label(parent, {
-		name = name,
-		position = UDim2.fromOffset(BAG_PAD, y),
-		size = UDim2.new(1, -2 * BAG_PAD, 0, BAG_CAPTION - 4),
-		font = House.font,
-		textSize = 12,
-		color = COLOR.dim,
-		strokeTransparency = 1,
-		outline = false,
-		text = text,
-	})
+--- A rounded inked pill for the bag's header row. `Studded.button` lays the small
+--- studs over it; the caller paints it on/off (paintFilters).
+local function bagPill(parent: Instance, name: string, text: string, width: number, x: number): TextButton
+	local pill = Instance.new("TextButton")
+	pill.Name = name
+	pill.AutoButtonColor = false
+	pill.AnchorPoint = Vector2.new(0, 0.5)
+	pill.Position = UDim2.fromOffset(x, BAG_HEADER / 2)
+	pill.Size = UDim2.fromOffset(width, 32)
+	pill.BackgroundColor3 = PILL_IDLE
+	pill.BorderSizePixel = 0
+	pill.Font = House.font
+	pill.TextSize = 14
+	pill.TextColor3 = House.white
+	pill.Text = text
+	pill.ZIndex = 3
+	pill.Parent = parent
+	local outline = Instance.new("UIStroke")
+	outline.Color = House.ink
+	outline.Thickness = 1.5
+	outline.Parent = pill
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 9)
+	corner.Parent = pill
+	Studded.border(pill, 2.5)
+	Studded.button(pill, 9)
+	return pill
 end
 
 --- The bag panel. Its own ScreenGui so it can sit over the instrument band (the HUD
 --- is 60-100) but under the Index/Shop panels (110), and still gets stowed with every
 --- other LayerCollector when the wash bay hides the HUD.
+---
+--- OPTION 2 OF THE 2026-10-07 MOCK-UPS: the dark studded backdrop the Shop wears, a
+--- header of filter pills (ALL / HEARTED / CLEAN / ???) and a SORT button, then ONE
+--- ten-wide grid whose top row is the hotbar (keys 1-0) and whose rows under it are
+--- the backpack. Cells are see-through black so the studs show between the nukes.
 local function buildBag(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "BagPanel"
@@ -780,30 +933,44 @@ local function buildBag(): ScreenGui
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.new(0.5, 0, 0.5, -30),
 		size = UDim2.fromOffset(gridWidth + 2 * BAG_PAD, 200),
-		color = COLOR.panel,
-		transparency = 0.04,
-		strokeThickness = 2,
+		transparency = 0,
+		strokeColor = House.ink,
+		strokeThickness = 3,
+		cornerRadius = UDim.new(0, 18),
 	})
+	Studded.darkPanel(panel, 18)
 	ui.bagPanel = panel
 
-	UIKit.label(panel, {
+	local title = UIKit.label(panel, {
 		name = "Title",
 		position = UDim2.fromOffset(BAG_PAD, 0),
-		size = UDim2.fromOffset(80, BAG_HEADER),
+		size = UDim2.fromOffset(64, BAG_HEADER),
 		font = House.font,
 		textSize = UIKit.TextSize.header,
-		text = "Bag",
+		text = "BAG",
+		zIndex = 3,
 	})
-	ui.bagCount = UIKit.label(panel, {
-		name = "Count",
-		position = UDim2.fromOffset(BAG_PAD + 70, 0),
-		size = UDim2.fromOffset(160, BAG_HEADER),
-		font = House.font,
-		textSize = 16,
-		color = COLOR.dim,
-		outline = false,
-		strokeTransparency = 1,
-	})
+	title.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- FILTERS. Shade, never hide (BAG_FILTERS' note).
+	ui.bagPills = {}
+	local x = BAG_PAD + 70
+	for _, filter in BAG_FILTERS do
+		local pill = bagPill(panel, `Filter_{filter.id}`, filter.text, filter.width, x)
+		pill.MouseButton1Click:Connect(function()
+			Inventory.setBagFilter(filter.id)
+		end)
+		ui.bagPills[filter.id] = pill
+		x += filter.width + 6
+	end
+
+	-- SORT: a one-shot rearrange of the backpack rows (hotbar untouched), hearted
+	-- first, then rarity, then value. It moves the saved slots, so it sticks.
+	local sort = bagPill(panel, "Sort", "SORT", 70, x + 10)
+	Studded.fill(sort, Studded.GOLD)
+	sort.MouseButton1Click:Connect(function()
+		Inventory.sortBag()
+	end)
 
 	-- A PLAIN "X", NOT U+2715 (see StationController's close badge).
 	local close = UIKit.button(panel, {
@@ -823,18 +990,30 @@ local function buildBag(): ScreenGui
 		outline = false,
 		shadow = false,
 	})
+	close.ZIndex = 3
 	close.MouseButton1Click:Connect(function()
 		Inventory.setBagOpen(false)
 	end)
 
-	-- HOTBAR: the row, slot for slot, with its number keys.
-	local hotbarTop = BAG_HEADER
-	sectionCaption(panel, "HotbarCaption", "HOTBAR", hotbarTop)
+	ui.bagCount = UIKit.label(panel, {
+		name = "Count",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -BAG_PAD - 40, 0, 0),
+		size = UDim2.fromOffset(80, BAG_HEADER),
+		font = House.font,
+		textSize = 16,
+		color = House.dim,
+		xAlign = Enum.TextXAlignment.Right,
+		zIndex = 3,
+	})
+
+	-- HOTBAR: the grid's top row, slot for slot, with its number keys.
 	local hotbarRow = Instance.new("Frame")
 	hotbarRow.Name = "HotbarRow"
 	hotbarRow.BackgroundTransparency = 1
-	hotbarRow.Position = UDim2.fromOffset(BAG_PAD, hotbarTop + BAG_CAPTION)
+	hotbarRow.Position = UDim2.fromOffset(BAG_PAD, BAG_HEADER)
 	hotbarRow.Size = UDim2.fromOffset(gridWidth, BAG_CELL)
+	hotbarRow.ZIndex = 3
 	hotbarRow.Parent = panel
 	local hotbarLayout = Instance.new("UIListLayout")
 	hotbarLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -846,20 +1025,20 @@ local function buildBag(): ScreenGui
 	-- BACKPACK: slots 11 and up, wrapping at the hotbar's width and scrolling past
 	-- BAG_VISIBLE_ROWS. The scroller is a few px wider than the grid so the cells'
 	-- outer strokes are not clipped.
-	local backpackTop = hotbarTop + BAG_CAPTION + BAG_CELL + BAG_SECTION_GAP
+	local backpackTop = BAG_HEADER + BAG_CELL + BAG_ROW_GAP
 	ui.bagBackpackTop = backpackTop
-	sectionCaption(panel, "BackpackCaption", "BACKPACK", backpackTop)
 	local scroller = Instance.new("ScrollingFrame")
 	scroller.Name = "Backpack"
 	scroller.BackgroundTransparency = 1
 	scroller.BorderSizePixel = 0
-	scroller.Position = UDim2.fromOffset(BAG_PAD - BORDER_PADDING, backpackTop + BAG_CAPTION - BORDER_PADDING)
+	scroller.Position = UDim2.fromOffset(BAG_PAD - BORDER_PADDING, backpackTop - BORDER_PADDING)
 	scroller.Size = UDim2.fromOffset(gridWidth + 2 * BORDER_PADDING + 6, BAG_CELL)
 	scroller.CanvasSize = UDim2.new()
 	scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroller.ScrollingDirection = Enum.ScrollingDirection.Y
 	scroller.ScrollBarThickness = 4
-	scroller.ScrollBarImageColor3 = COLOR.dim
+	scroller.ScrollBarImageColor3 = House.dim
+	scroller.ZIndex = 3
 	scroller.Parent = panel
 	local scrollPadding = Instance.new("UIPadding")
 	scrollPadding.PaddingTop = UDim.new(0, BORDER_PADDING)
@@ -873,6 +1052,24 @@ local function buildBag(): ScreenGui
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = scroller
 	ui.bagScroller = scroller
+
+	-- How to drive it, for whichever hands are on the device.
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	ui.bagHint = UIKit.label(panel, {
+		name = "Hint",
+		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(0, BAG_PAD, 1, -6),
+		size = UDim2.new(1, -2 * BAG_PAD, 0, BAG_FOOTER - 8),
+		font = House.font,
+		textSize = 12,
+		color = House.dim,
+		strokeTransparency = 1,
+		outline = false,
+		zIndex = 3,
+		text = if touchOnly
+			then "TAP: HOLD   |   DOUBLE-TAP: HEART   |   PRESS + DRAG: MOVE   |   HEARTED CAN'T BE SOLD OR GIFTED"
+			else "CLICK: HOLD   |   RIGHT-CLICK: HEART   |   DRAG: MOVE   |   HEARTED CAN'T BE SOLD OR GIFTED",
+	})
 
 	return gui
 end
@@ -1260,6 +1457,11 @@ function Inventory.dropBomb(confirmed: boolean?)
 		Inventory.notice("hold a clean nuke to drop it")
 		return
 	end
+	if held.hearted == true then
+		Inventory.cancelDrop()
+		Inventory.notice("that nuke is hearted \u{2014} unheart it to drop it")
+		return
+	end
 	if bombSecondsLeft() > 0 then
 		Inventory.cancelDrop()
 		Inventory.notice("bomb still cooling down")
@@ -1372,18 +1574,61 @@ local function slotWidth(): number
 end
 
 --- Paints one slot (hotbar or bag cell) for bag index `index`.
+--- Does this slot's contents pass the bag's filter pill? Empty slots only pass ALL.
+local function matchesFilter(item: any): boolean
+	if bagFilter == "all" then
+		return true
+	elseif item == nil then
+		return false
+	elseif bagFilter == "hearted" then
+		return item.hearted == true
+	elseif bagFilter == "clean" then
+		return item.clean == true
+	elseif bagFilter == "dirty" then
+		return item.identified == false
+	end
+	return true
+end
+
+--- The pills: the chosen one lit (HEARTED in pink, the rest gold), the others idle.
+--- HEARTED carries its count.
+local function paintFilters()
+	local hearted = 0
+	for _, item in state.items do
+		if item.hearted == true then
+			hearted += 1
+		end
+	end
+	for _, filter in BAG_FILTERS do
+		local pill = ui.bagPills[filter.id]
+		local on = bagFilter == filter.id
+		local gradient = pill:FindFirstChild("Fill")
+		if on then
+			Studded.fill(pill, if filter.id == "hearted" then HEART_PINK else Studded.GOLD)
+		else
+			if gradient then
+				gradient:Destroy()
+			end
+			pill.BackgroundColor3 = PILL_IDLE
+		end
+		pill.Text = if filter.id == "hearted" then `{filter.text} {hearted}` else filter.text
+	end
+end
+
 local function paintSlot(slot: any, index: number)
 	slot.key.Text = keyText(index)
 
 	local item = state.slots[index]
 	slot.uid = if item then item.uid else nil
+	slot.heart.Visible = item ~= nil and item.hearted == true
+	slot.shade.Visible = slot.inBag and not matchesFilter(item)
 
 	if item == nil then
 		ItemArt.clear(slot.viewport)
 		slot.name.Text = ""
 		slot.kg.Text = ""
 		slot.button.BackgroundColor3 = SLOT_FILL
-		slot.button.BackgroundTransparency = 0.05
+		slot.button.BackgroundTransparency = slot.fill
 		tint(slot.stroke, "Color", SLOT_BORDER)
 		slot.stroke.Thickness = 1.5
 		return
@@ -1394,7 +1639,7 @@ local function paintSlot(slot: any, index: number)
 	ItemArt.paint(slot.viewport, item, 1)
 	slot.kg.Text = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""
 	slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
-	slot.button.BackgroundTransparency = 0.05
+	slot.button.BackgroundTransparency = if item.uid == selected then SLOT_TRANSPARENCY else slot.fill
 	tint(slot.stroke, "Color", itemColour(item), itemRarity(item))
 	slot.stroke.Thickness = if item.uid == selected then RARITY_STROKE_SELECTED else RARITY_STROKE
 end
@@ -1444,20 +1689,36 @@ local function renderBag()
 		return
 	end
 	ui.bagCount.Text = `{#state.items}/{state.limit}`
+	paintFilters()
 
 	local capacity = state.capacity
 	for index = 1, math.max(#bagCells, capacity) do
 		if bagCells[index] == nil and index <= capacity then
 			local parent = if index <= HOTBAR_SLOTS then ui.bagHotbarRow else ui.bagScroller
-			bagCells[index] = makeSlot(parent, index, function()
+			local cell
+			cell = makeSlot(parent, index, function()
 				Inventory.select(index)
 				-- Picking something up is "grab and go": put the bag away. Putting the
-				-- held item back down leaves it open.
+				-- held item back down leaves it open. On touch it waits out the
+				-- double-tap window, so a second tap can heart instead (and cancel this).
 				if selected ~= nil then
-					Inventory.setBagOpen(false)
+					if cell.touched then
+						bagCloseToken += 1
+						local token = bagCloseToken
+						task.delay(DOUBLE_TAP, function()
+							if token == bagCloseToken and selected ~= nil then
+								Inventory.setBagOpen(false)
+							end
+						end)
+					else
+						Inventory.setBagOpen(false)
+					end
 				end
 			end)
-			bagCells[index].button.Size = UDim2.fromOffset(BAG_CELL, BAG_CELL)
+			cell.button.Size = UDim2.fromOffset(BAG_CELL, BAG_CELL)
+			cell.fill = BAG_CELL_TRANSPARENCY
+			cell.inBag = true
+			bagCells[index] = cell
 		end
 		local cell = bagCells[index]
 		if cell == nil then
@@ -1480,7 +1741,7 @@ local function renderBag()
 	ui.bagScroller.ScrollBarThickness = if rows > BAG_VISIBLE_ROWS then 4 else 0
 	ui.bagPanel.Size = UDim2.fromOffset(
 		ui.bagPanel.Size.X.Offset,
-		ui.bagBackpackTop + BAG_CAPTION + gridHeight + BAG_PAD
+		ui.bagBackpackTop + gridHeight + BORDER_PADDING + BAG_FOOTER
 	)
 end
 
@@ -1900,6 +2161,101 @@ function Inventory.select(index: number)
 	renderSlots()
 end
 
+--- Heart or unheart the nuke in slot `index` (Shared/Bag). Painted at once, the
+--- server's CarryState confirms it a tick later. `restore` (the touch double-tap)
+--- puts the hands back to `before`, undoing the pick-up the first tap did.
+toggleHeart = function(index: number, restore: boolean?, before: string?)
+	local item = state.slots[index]
+	-- A washed crate rides on its own list the server never hearts.
+	if item == nil or item.crate then
+		return
+	end
+	if restore then
+		bagCloseToken += 1 -- the first tap's "close the bag" no longer applies
+		if selected ~= before then
+			selected = before
+			if holdRemote then
+				holdRemote:FireServer(selected)
+			end
+		end
+	end
+	item.hearted = not item.hearted
+	if heartRemote then
+		heartRemote:FireServer(item.uid)
+	end
+	Sfx.play("click")
+	Inventory.notice(
+		if item.hearted then "hearted \u{2014} it can't be sold or gifted" else "unhearted",
+		if item.hearted then "success" else "info"
+	)
+	renderSlots()
+
+	-- A little pop on every slot showing it (the hotbar and the bag can both be up).
+	if item.hearted then
+		for _, list in { slots, bagCells } do
+			for _, entry in list do
+				if entry.uid == item.uid then
+					entry.heartScale.Scale = 0.4
+					TweenService:Create(entry.heartScale, NOTICE_IN, { Scale = 1 }):Play()
+				end
+			end
+		end
+	end
+end
+
+--- One of BAG_FILTERS' ids: shade every bag cell that doesn't match it.
+function Inventory.setBagFilter(id: string)
+	bagFilter = id
+	Sfx.play("click")
+	renderSlots()
+end
+
+--- SORT: rearrange the backpack rows (slot 11 on) -- hearted first, then rarest,
+--- then most valuable -- leaving the hotbar's ten where the player put them. It
+--- rewrites the saved order, so it sticks like a drag does.
+function Inventory.sortBag()
+	local order = state.order
+	if order == nil then
+		return
+	end
+	local list = {}
+	for index = HOTBAR_SLOTS + 1, state.capacity do
+		local item = state.slots[index]
+		if item then
+			table.insert(list, item)
+		end
+	end
+	local function rank(item: any): number
+		local def = Rarity.DEFS[item.rarity]
+		return if def then def.order else 0
+	end
+	table.sort(list, function(a, b)
+		local ha, hb = a.hearted == true, b.hearted == true
+		if ha ~= hb then
+			return ha
+		end
+		local ra, rb = rank(a), rank(b)
+		if ra ~= rb then
+			return ra > rb
+		end
+		local va, vb = tonumber(a.value) or 0, tonumber(b.value) or 0
+		if va ~= vb then
+			return va > vb
+		end
+		return a.uid < b.uid
+	end)
+	for index = HOTBAR_SLOTS + 1, state.capacity do
+		local item = list[index - HOTBAR_SLOTS]
+		order[index] = if item then item.uid else ""
+	end
+	layoutSlots()
+	renderSlots()
+	Sfx.play("click")
+	if slotOrderRemote then
+		slotOrderRemote:FireServer(state.order)
+	end
+end
+
 -- ── Held rate tag ───────────────────────────────────────────────────
 
 --- Star rating + "+$X/s" over the nuke in YOUR hands. The BillboardGui lives in your PlayerGui and
@@ -2019,6 +2375,7 @@ function Inventory.start()
 	holdRemote = Net.get("HoldInput")
 	bombRemote = Net.get("BombDrop")
 	slotOrderRemote = Net.get("SlotOrder")
+	heartRemote = Net.get("HeartItem")
 
 	Net.get("Notice").OnClientEvent:Connect(function(message, kind)
 		Inventory.notice(tostring(message), if type(kind) == "string" then kind else nil)
@@ -2057,6 +2414,7 @@ function Inventory.start()
 					name = crate.short,
 					rarity = crate.tier,
 					weight = crate.pullWeight,
+					crate = true,
 				})
 			end
 		end

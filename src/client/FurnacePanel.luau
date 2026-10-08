@@ -603,13 +603,14 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		local rolls = if type(state.furnaceRolls) == "number" then state.furnaceRolls else 0
 		rollsText.Text = tostring(rolls)
 
-		-- Every washed or Slagged nuke you own, with where it lives.
+		-- Every washed or Slagged nuke you own, with where it lives. Not hearted ones
+		-- (Shared/Bag): the server refuses them, so they never get a card here.
 		table.clear(owned)
 		table.clear(byUid)
 		local function add(list: any, where: string)
 			for _, item in list or {} do
 				local usable = (item.clean and item.identified and item.itemId) or item.modifier == "Slagged"
-				if usable and item.crateId == nil then
+				if usable and item.crateId == nil and item.hearted ~= true then
 					local entry = table.clone(item)
 					entry.where = where
 					table.insert(owned, entry)

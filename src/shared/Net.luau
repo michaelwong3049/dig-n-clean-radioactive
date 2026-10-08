@@ -108,6 +108,10 @@ local REMOTES: { [string]: string } = {
 	-- Client -> server { uid or "" } by slot; saved as data.slotOrder and handed back
 	-- on CarryState (`order`) so the arrangement survives a rejoin.
 	SlotOrder = "RemoteEvent",
+	-- Heart / unheart one of your nukes (right-click a slot, double-tap on touch).
+	-- Client -> server, the uid. A hearted nuke can't be sold, gifted, merged,
+	-- furnaced or bombed (Shared/Bag.isHearted); CarryState carries `hearted` back.
+	HeartItem = "RemoteEvent",
 
 	-- Supply crates (Config/Crates). CrateOpen asks to open the crate in your hands; a
 	-- nuke crate answers on CrateOpened (the reel popup), a liquid crate on FluidSpin.

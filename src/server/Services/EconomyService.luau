@@ -34,6 +34,7 @@ local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local IdentifyService = require(script.Parent.IdentifyService)
@@ -169,6 +170,9 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	if item == nil or list == nil or index == nil then
 		return false, "you aren't carrying that"
 	end
+	if Bag.isHearted(item) then
+		return false, Bag.HEART_REFUSAL
+	end
 
 	local value, clean, name = takeSale(player, data, item, list, index, StatResolver.get(data))
 	EconomyService.pushCash(player, "sell")
@@ -184,16 +188,25 @@ end
 --- Every item goes through the same takeSale as a single SELL, so the price, the 12%
 --- and the "???" reveal cannot drift between the two.
 ---
---- `wants(item, clean)` picks what goes. Returns the count, the total and how many of
---- them went blind.
-local function sweepBag(player: Player, data: any, wants: (item: any, clean: boolean) -> boolean): (number, number, number)
+--- `wants(item, clean)` picks what goes. A hearted nuke (Shared/Bag) never does, so
+--- SELL ALL and the receipt walk straight past it. Returns the count, the total, how
+--- many of them went blind and how many hearted ones were skipped.
+local function sweepBag(
+	player: Player,
+	data: any,
+	wants: (item: any, clean: boolean) -> boolean
+): (number, number, number, number)
 	local stats = StatResolver.get(data)
-	local total, count, reveals = 0, 0, 0
+	local total, count, reveals, kept = 0, 0, 0, 0
 	-- Backwards, so removing an entry never skips the one after it.
 	for index = #data.carry, 1, -1 do
 		local item = data.carry[index]
 		local _, clean = EconomyService.valueOf(item, stats)
 		if not wants(item, clean) then
+			continue
+		end
+		if Bag.isHearted(item) then
+			kept += 1
 			continue
 		end
 		local value, _, _ = takeSale(player, data, item, data.carry, index, stats)
@@ -206,7 +219,7 @@ local function sweepBag(player: Player, data: any, wants: (item: any, clean: boo
 	if count > 0 then
 		EconomyService.pushCash(player, "sellAll")
 	end
-	return count, total, reveals
+	return count, total, reveals, kept
 end
 
 local function soldMessage(count: number, total: number, blind: number): string
@@ -229,10 +242,13 @@ function EconomyService.sellAll(player: Player, which: string): (boolean, string
 	end
 
 	local wantClean = which == "clean"
-	local count, total, blind = sweepBag(player, data, function(_, clean)
+	local count, total, blind, kept = sweepBag(player, data, function(_, clean)
 		return clean == wantClean
 	end)
 	if count == 0 then
+		if kept > 0 then
+			return false, "everything left is hearted"
+		end
 		return false, if wantClean then "nothing clean to sell" else "nothing crusted to sell"
 	end
 	return true, soldMessage(count, total, blind)
@@ -258,9 +274,12 @@ function EconomyService.sellMany(player: Player, uids: { any }): (boolean, strin
 		end
 	end
 
-	local count, total, blind = sweepBag(player, data, function(item, _)
+	local count, total, blind, kept = sweepBag(player, data, function(item, _)
 		return wanted[item.uid] == true
 	end)
+	if count == 0 and kept > 0 then
+		return false, Bag.HEART_REFUSAL
+	end
 	if count == 0 then
 		return false, "nothing on the receipt is in your bag"
 	end
