@@ -284,16 +284,13 @@ local REMOTES: { [string]: string } = {
 
 	-- Sound effects (client Sfx.luau). Sfx: server -> client, a cue NAME the client
 	-- plays for its own player only ("denied", "robux") -- for the moments only the
-	-- server sees. SfxMuted: Settings' SOUND EFFECTS switch, the same once-on-load-then-
-	-- echo shape as HideAura; a profile setting (data.sfxMuted), client -> server a
-	-- bare boolean.
+	-- server sees.
 	Sfx = "RemoteEvent",
-	SfxMuted = "RemoteEvent",
 
 	-- The rest of the Settings panel (Config/Prefs). Server -> client the WHOLE prefs
 	-- table, once on load and again as the confirmed echo after every change. Client ->
 	-- server { key = string, value = any } to change one, or nil to ask for the table
-	-- (the same "ask rather than wait" as SfxMuted). PrefsService sanitizes every value
+	-- (the same "ask rather than wait" as HideAura). PrefsService sanitizes every value
 	-- against Config/Prefs; a rejected or rate-limited change just echoes what stuck.
 	Prefs = "RemoteEvent",
 

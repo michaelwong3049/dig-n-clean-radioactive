@@ -7,8 +7,8 @@
 
 	  * THE SERVER'S CUES (Net.Sfx): a named one-shot for this player -- a purchase
 	    refused for want of cash, a Robux product granted.
-	  * THE SWITCH (Net.SfxMuted): Settings' SOUND EFFECTS, saved on the profile. The
-	    mute itself happens here, so it holds even if the Settings panel never builds.
+	  * THE SLIDERS (Config/Prefs volSfx, musicLevel): Settings' two volumes, applied
+	    here so they hold even if the Settings panel never builds.
 	  * OTHER PLAYERS, HEARD. Three attributes the server stamps on each character --
 	    DigTick (a counter, bumped per accepted yank), Hauling and HoseSpraying -- are
 	    all a client needs to put a dig crunch, a magnet hum or a hose hiss on someone
@@ -272,15 +272,12 @@ function SfxController.start()
 			Sfx.play(name)
 		end
 	end)
-	Net.get("SfxMuted").OnClientEvent:Connect(function(muted)
-		Sfx.setMuted(muted == true)
-	end)
-	-- The volume sliders (Config/Prefs). Here rather than in the panel, like the mute,
-	-- so they hold even if the Settings panel never builds.
+	-- The volume sliders (Config/Prefs). Here rather than in the panel, so they hold
+	-- even if the Settings panel never builds.
 	local function applyVolumes()
-		Sfx.setVolumes(Prefs.get("volMaster"), Prefs.get("volSfx"), Prefs.get("volUi"), Prefs.get("volGeiger"), Prefs.get("musicLevel"))
+		Sfx.setVolumes(Prefs.get("volSfx"), Prefs.get("musicLevel"))
 	end
-	for _, key in { "volMaster", "volSfx", "volUi", "volGeiger", "musicLevel" } do
+	for _, key in { "volSfx", "musicLevel" } do
 		Prefs.observe(key, applyVolumes)
 	end
 

@@ -58,12 +58,10 @@ Prefs.DEFS = {
 	-- are skipped or dimmed and the Anomaly colour cycle slows right down.
 	reduceFlashing = { kind = "flag", default = true },
 
-	-- VOLUME. Master scales everything; the rest are client/Sfx.luau's groups. The
-	-- Geiger clicks have their own because they are the one sound people want quieter.
-	volMaster = { kind = "volume", default = 1 },
+	-- SOUND EFFECTS volume: every client/Sfx.luau group but music (effects, UI clicks,
+	-- ambient hums, the Geiger). Master / UI / Geiger had sliders of their own until
+	-- 2026-10-08; those keys are ignored now.
 	volSfx = { kind = "volume", default = 1 },
-	volUi = { kind = "volume", default = 1 },
-	volGeiger = { kind = "volume", default = 1 },
 	-- The background playlist (MusicController). ON at 50% by default: MusicController's
 	-- track volume is set so 50% is the intended quiet bed. Key history: `volMusic` (old
 	-- saves held 1) → `musicVol` (opt-in, default 0) → `musicLevel`. Each rename is

@@ -4,7 +4,7 @@
 
 	  GENERAL   base colour, rare drop alerts, confirm rare drops
 	  GRAPHICS  graphics level (also the radiation effects), screen shake, reduce flashing, show auras, hide others' nukes, hide your nukes
-	  AUDIO     sound effects (the mute) and the master / effects / UI / Geiger / music sliders
+	  AUDIO     two sliders: music and sound effects
 	  STATS     your lifetime numbers, read only: playtime, nukes dug, cash earned, kills...
 
 	THE LOOK (on request, mockup "2 Sidebar"): House slate, ink outlines, rows split by
@@ -12,16 +12,11 @@
 	choices. Landscape (720x470) so it fits short phone screens; each page scrolls if
 	it outgrows the panel. No green on the chrome (#651 still holds) — "on" is steel.
 
-	EVERYTHING BUT THE COLOUR, AURA AND MUTE IS A PREF (Config/Prefs, client/Prefs). The
+	EVERYTHING BUT THE COLOUR AND AURA IS A PREF (Config/Prefs, client/Prefs). The
 	rows here only show and set them; each one is applied by the file that owns the
 	effect (ItemFxController, RadFx, DetonationController, Sfx...), off Prefs.observe, so
 	it holds even if this panel never builds. Prefs apply the same frame and save behind;
-	the colour, aura and mute keep their older wait-for-the-echo shape.
-
-	SOUND EFFECTS is the same shape as the colour: a profile setting
-	(data.sfxMuted) the server owns and echoes on Net.SfxMuted. The mute itself is
-	SfxController's (it zeroes Sfx.luau's master group); this panel only shows and
-	flips it.
+	the colour and aura keep their older wait-for-the-echo shape.
 
 	WHY A COLOUR PICKER LIVES HERE. Every plot is built in one neutral grey
 	(build/Plots' `C.plotNeutral`), and the accent — the two side Trim strips, the
@@ -153,14 +148,6 @@ local state = {
 	-- The plot's default hue, which the base wears while nothing is committed. nil
 	-- until the server says (and if the player holds no plot).
 	fallback = nil :: Color3?,
-}
-
--- SOUND EFFECTS, as the server last confirmed it. `known` stays false until the load
--- echo, and the switch ignores clicks until then rather than guessing.
-local sound = {
-	muted = false,
-	known = false,
-	pending = false,
 }
 
 local ui = {
@@ -341,39 +328,6 @@ local function rowText(row: Instance, title: string, rightW: number, top: number
 	})
 end
 
--- ── Sound effects ───────────────────────────────────────────────────
-
-local function applySound()
-	if ui.paintSound then
-		ui.paintSound(not sound.muted, sound.pending or not sound.known)
-	end
-end
-
---- The server's confirmed value: once on load, then after every toggle.
-local function onServerSfxMuted(muted: any)
-	sound.muted = muted == true
-	sound.known = true
-	sound.pending = false
-	applySound()
-end
-
-local function toggleSound()
-	if not sound.known or sound.pending then
-		return
-	end
-	sound.pending = true
-	applySound()
-	Net.get("SfxMuted"):FireServer(not sound.muted)
-end
-
-local function buildSoundRow(row: Instance)
-	rowText(row, "Sound effects", PILL_W)
-	local switch, paint = pillSwitch(row, "SoundSwitch")
-	switch.MouseButton1Click:Connect(toggleSound)
-	ui.paintSound = paint
-	applySound()
-end
-
 -- ── Pref rows ───────────────────────────────────────────────────────
 
 --- A pill switch for a flag pref.
@@ -439,7 +393,7 @@ end
 --- A 0..100% slider for a volume pref. Drags apply live (the sound moves under your
 --- finger) and save once, on release.
 local function volumeRow(row: Instance, key: string, title: string)
-	local labelW, valueW = 130, 56
+	local labelW, valueW = 160, 56
 
 	UIKit.label(row, {
 		name = "SectionTitle",
@@ -1321,13 +1275,9 @@ local function build(): ScreenGui
 	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Hide others' nukes")
 	flagRow(row("GRAPHICS", "SuperFast"), "superFast", "Hide your nukes")
 
-	-- AUDIO: the mute first (it predates the sliders), then the sliders.
-	buildSoundRow(row("AUDIO", "Sound"))
-	volumeRow(row("AUDIO", "Master", SLIDER_H), "volMaster", "Master")
-	volumeRow(row("AUDIO", "Effects", SLIDER_H), "volSfx", "Effects")
-	volumeRow(row("AUDIO", "Interface", SLIDER_H), "volUi", "Interface")
-	volumeRow(row("AUDIO", "Geiger", SLIDER_H), "volGeiger", "Geiger")
+	-- AUDIO: just two sliders (on request, 2026-10-08).
 	volumeRow(row("AUDIO", "Music", SLIDER_H), "musicLevel", "Music")
+	volumeRow(row("AUDIO", "Effects", SLIDER_H), "volSfx", "Sound effects")
 
 	-- STATS: read only. A heading has no line of its own; the one under the row before
 	-- it marks the break.
@@ -1380,10 +1330,6 @@ function Settings.start()
 	-- Fired once on load with the saved value, and again after every change as the
 	-- server-confirmed echo — same channel both ways (Shared/Net.PlotColor).
 	Net.get("PlotColor").OnClientEvent:Connect(onServerColor)
-	-- And for SOUND EFFECTS (SfxService). SfxController applies the mute off the same echo.
-	Net.get("SfxMuted").OnClientEvent:Connect(onServerSfxMuted)
-	-- Ask rather than wait: SfxController connected first and took the queued load echo.
-	Net.get("SfxMuted"):FireServer(nil)
 
 	-- STATS: asked on open (choose / toggle call askStats), then kept fresh while it shows.
 	local statsRemote = Net.get("PlayerStats")

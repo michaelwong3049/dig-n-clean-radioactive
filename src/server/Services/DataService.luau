@@ -193,10 +193,6 @@ local TEMPLATE = {
 	-- protects (its stats come from gear.aura). Set via Net.HideAura -> AuraService.
 	hideAura = false,
 
-	-- Settings' SOUND EFFECTS switch. true = the client mutes every effect (Sfx.luau's
-	-- master SoundGroup). Set via Net.SfxMuted -> SfxService.
-	sfxMuted = false,
-
 	-- The rest of the Settings panel (Config/Prefs: graphics, shake, rad effects,
 	-- flashing, volumes, rare drop lines). All client-side in effect; the server only
 	-- stores and echoes them. Set via Net.Prefs -> PrefsService.
