@@ -101,7 +101,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 37
+local BUILDER_VERSION = 38 -- flipped checker twins: no shed wall/crown/floor cells (2026-10-07)
 
 local C = Kit.C
 local build = Kit.build

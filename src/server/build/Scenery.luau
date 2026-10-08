@@ -106,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 68
+local BUILDER_VERSION = 69 -- flipped checker twins + merged scorch runs (2026-10-07)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -3556,20 +3556,36 @@ local function buildStageCheckerboard(parent: Instance, id: number)
 		-- A stage with craters on it (Stage 6) scorches its board round each one.
 		local colorAt = CraterField.groundColorAt(id, stageDark, stageLight)
 		if colorAt then
+			-- PART BUDGET: neighbouring blocks of one tint along X merge into one slab.
+			-- Every block is a whole CHECKER_TILE from maxX, so the run's own maxX is
+			-- still on the board's grid and its checker stays in register.
 			local flat = stageLight:ToHex()
-			local x1 = maxX
-			while x1 - minX > 1e-3 do
-				local x0 = math.max(x1 - tile, minX)
-				local z1 = maxZ
-				while z1 - minZ > 1e-3 do
-					local z0 = math.max(z1 - tile, minZ)
+			local z1 = maxZ
+			while z1 - minZ > 1e-3 do
+				local z0 = math.max(z1 - tile, minZ)
+				local runX1: number?, runX0, runColor = nil, 0, ""
+				local x1 = maxX
+				while x1 - minX > 1e-3 do
+					local x0 = math.max(x1 - tile, minX)
 					local _, light = colorAt((x0 + x1) / 2, (z0 + z1) / 2)
-					if light ~= flat then
-						slab("ScorchBlock", x0, x1, z0, z1, light, SCORCH_LIFT)
+					if runX1 and light == runColor then
+						runX0 = x0
+					else
+						if runX1 then
+							slab("ScorchBlock", runX0, runX1, z0, z1, runColor, SCORCH_LIFT)
+						end
+						if light ~= flat then
+							runX1, runX0, runColor = x1, x0, light
+						else
+							runX1 = nil
+						end
 					end
-					z1 = z0
+					x1 = x0
 				end
-				x1 = x0
+				if runX1 then
+					slab("ScorchBlock", runX0, runX1, z0, z1, runColor, SCORCH_LIFT)
+				end
+				z1 = z0
 			end
 		end
 	end
