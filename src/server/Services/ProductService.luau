@@ -25,7 +25,7 @@
 	product, the receipt is not granted to them. It is sent to the recipient's save as
 	a message (that step yields), and only then is the PurchaseId recorded on the
 	BUYER's save. A crash between the two resends the message on retry. The recipient
-	keeps the PurchaseId in their OWN `receipts` when they open it, so a second copy
+	keeps "gift:<PurchaseId>" in their OWN `receipts` when they open it, so a second copy
 	grants nothing.
 ]]
 

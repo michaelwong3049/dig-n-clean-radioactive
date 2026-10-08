@@ -12,8 +12,9 @@
 	   works online or not) with the receipt's PurchaseId, and the buyer is told the
 	   gift is on its way.
 	3. THE DELIVERY. Every loaded profile has a message handler. A gift message runs
-	   that product's own ProductService grant on the RECIPIENT, records the
-	   PurchaseId in their `receipts` (so a resent copy grants nothing), marks the
+	   that product's own ProductService grant on the RECIPIENT, records
+	   "gift:<PurchaseId>" in their `receipts` (so a resent copy grants nothing; the
+	   prefix keeps it apart from the buyer's own record of the same id), marks the
 	   message processed and saves. They get a "<name> gifted you <item>!" popup.
 
 	The intent expires after RobuxGifts.INTENT_SECONDS. It is also cleared when the
@@ -221,7 +222,8 @@ local function deliver(player: Player, profile: any, message: any, processed: ()
 		processed()
 		return
 	end
-	if ProductService.hasReceipt(data, purchaseId) then
+	local key = `gift:{purchaseId}`
+	if ProductService.hasReceipt(data, key) then
 		processed() -- a resent copy of one already opened
 		return
 	end
@@ -236,7 +238,7 @@ local function deliver(player: Player, profile: any, message: any, processed: ()
 		warn(`[robuxgift] gift grant for {player.Name} product {productId} errored: {err}; left queued`)
 		return
 	end
-	ProductService.remember(data, purchaseId)
+	ProductService.remember(data, key)
 	processed()
 	profile:Save()
 
