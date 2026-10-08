@@ -101,7 +101,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 39 -- seam tape as one strip + checker texture (2026-10-07)
+local BUILDER_VERSION = 40 -- radius 225 -> 190, wash yard 24 south (2026-10-08)
 
 local C = Kit.C
 local build = Kit.build
@@ -180,10 +180,12 @@ end
 --- octagon, clear of its diagonal side. A paved spur runs north to it off the west
 --- entry path, so a player coming in dirty from the stage washes before the plaza.
 --- Every edge is ox/oz + (2 mod 4), on a tile line; the bay keeps the wash deck's
---- 20 studs of deck in front of the tub for WashService's stand-off.
+--- 20 studs of deck in front of the tub for WashService's stand-off. Moved 24 south
+--- (was z 94..126) when the camp radius went 225 -> 190, so its far corner (~178 out)
+--- stays clear of the wall; its near corner is still ~11 off the octagon's diagonal.
 local YARD_MIN_X, YARD_MAX_X = -146, -102
-local YARD_MIN_Z, YARD_MAX_Z = 94, 126
-local YARD_BAY_X, YARD_BAY_Z = -124, 114
+local YARD_MIN_Z, YARD_MAX_Z = 70, 102
+local YARD_BAY_X, YARD_BAY_Z = -124, 90
 local SPUR_MIN_X, SPUR_MAX_X = -134, -114
 
 --- The perimeter wall. Height matches the stage corridor's (Scenery WALL_HEIGHT), so
