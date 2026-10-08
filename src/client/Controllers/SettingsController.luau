@@ -1167,20 +1167,10 @@ local function build(): ScreenGui
 		zIndex = 12,
 	})
 
-	local close = UIKit.button(panel, {
-		name = "Close",
+	local close = UIKit.closeButton(panel, {
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.new(1, -16, 0, 16),
-		size = UDim2.fromOffset(40, 40),
-		text = "X",
-		font = FONT,
-		textSize = SIZE.row,
-		color = House.white,
-		fillColor = House.close,
-		fillTransparency = 0,
-		strokeColor = House.ink,
-		strokeThickness = 3,
-		cornerRadius = UIKit.Radius.slot,
+		size = 40,
 		zIndex = 14,
 	})
 

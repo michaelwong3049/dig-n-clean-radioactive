@@ -317,21 +317,12 @@ local function buildPanel(pack: Packs.Pack): ScreenGui
 	once.Size = UDim2.new(1, -PAD * 2 - 50, 0, 18)
 	once.Position = UDim2.fromOffset(PAD + 2, PAD + 40)
 
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.AutoButtonColor = false
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, -PAD, 0, PAD - 4)
-	close.Size = UDim2.fromOffset(40, 40)
-	close.BackgroundColor3 = COLOR.close
-	close.Font = Enum.Font.GothamBlack
-	close.TextSize = 24
-	close.TextColor3 = COLOR.white
-	close.Text = "X"
-	close.ZIndex = 11
-	close.Parent = panel
-	round(close, 6)
-	stroke(close, 3, true)
+	local close = UIKit.closeButton(panel, {
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -PAD, 0, PAD - 4),
+		size = 40,
+		zIndex = 11,
+	})
 	close.Activated:Connect(function()
 		Sfx.play("click")
 		closePanel()
@@ -535,21 +526,12 @@ function StarterOfferController.start()
 	end)
 
 	-- The X, a red disc hung on the card's top-right corner.
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.AutoButtonColor = false
-	close.AnchorPoint = Vector2.new(0.5, 0.5)
-	close.Position = UDim2.new(1, -4, 0, 4)
-	close.Size = UDim2.fromOffset(CLOSE, CLOSE)
-	close.BackgroundColor3 = COLOR.close
-	close.Font = Enum.Font.GothamBlack
-	close.Text = "X"
-	close.TextSize = 16
-	close.TextColor3 = COLOR.white
-	close.ZIndex = 8
-	close.Parent = body
-	round(close, CLOSE)
-	stroke(close, 3, true)
+	local close = UIKit.closeButton(body, {
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(1, -4, 0, 4),
+		size = CLOSE,
+		zIndex = 8,
+	})
 	close.MouseEnter:Connect(function()
 		TweenService:Create(close, HOVER, { BackgroundColor3 = COLOR.closeHover }):Play()
 	end)

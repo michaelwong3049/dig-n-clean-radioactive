@@ -353,7 +353,11 @@ local function open(offer: any)
 	local buttonsLeft = (L.cardW - L.buyW - L.buttonGap - L.cancelW) / 2
 	local buy = makeButton(face, "Buy", buttonsLeft, L.buttonsY, L.buyW, L.buttonH, STYLE.buy, "BUY", 28)
 	local cancel = makeButton(face, "Cancel", buttonsLeft + L.buyW + L.buttonGap, L.buttonsY, L.cancelW, L.buttonH, STYLE.cancel, "CANCEL", 24)
-	local closeButton = makeButton(face, "Close", L.cardW - L.closeSize - 10, 10, L.closeSize, L.closeSize, STYLE.short, "X", 22)
+	local closeButton = UIKit.closeButton(face, {
+		position = UDim2.fromOffset(L.cardW - L.closeSize - 10, 10),
+		size = L.closeSize,
+		zIndex = 21,
+	})
 
 	local status = plainLabel(face, {
 		name = "Status",

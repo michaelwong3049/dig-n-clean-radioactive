@@ -325,27 +325,12 @@ local function build(): Frame?
 		zIndex = 7,
 	})
 
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.AnchorPoint = Vector2.new(0.5, 0.5)
-	close.Position = UDim2.new(1, -2, 0, 2)
-	close.Size = UDim2.fromOffset(L.hintClose, L.hintClose)
-	close.BackgroundColor3 = UIKit.House.close
-	close.AutoButtonColor = true
-	close.Font = UIKit.House.font
-	close.Text = "X"
-	close.TextSize = 13
-	close.TextColor3 = WHITE
-	close.ZIndex = 8
-	close.Parent = hint
-	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = ROUND
-	closeCorner.Parent = close
-	local closeStroke = Instance.new("UIStroke")
-	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	closeStroke.Color = UIKit.House.ink
-	closeStroke.Thickness = 2
-	closeStroke.Parent = close
+	local close = UIKit.closeButton(hint, {
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(1, -2, 0, 2),
+		size = L.hintClose,
+		zIndex = 8,
+	})
 	close.Activated:Connect(dismissHint)
 
 	-- The 2x Speed pass (Config/GamePasses: training x2) right where it pays off, on
