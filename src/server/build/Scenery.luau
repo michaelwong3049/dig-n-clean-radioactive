@@ -3942,35 +3942,6 @@ local function buildWallCap(parent: Instance, name: string, minX: number, maxX: 
 	end)
 end
 
---- Bushes along a camp-green wall crown -- the cartoon cliff's turf, so the skyline over
---- the base reads as grass with things growing on it rather than a ruled edge. The same
---- `bush` the Stage 1 scrub uses, stood on the cap's top face at each spot (world X, Z)
---- that wins a CROWN_BUSH_CHANCE roll. Seeded per wall, so a rebuild never reshuffles
---- them. CanCollide off (bush's own) and CanQuery off like the caps: nothing up here may
---- intercept the detector's range-ring raycast or a dig probe. `topY` is the crown cap's
---- top face for the wall's own height -- see crownTopY.
-local CROWN_BUSH_EVERY = 5 -- wall columns (WALL_TILE studs each) between bush spots
-local CROWN_BUSH_CHANCE = 0.4 -- the rest of the spots are left bare (was 0.7; thinned on request)
-local function crownTopY(height: number): number
-	return Stages.SURFACE_Y + height + WALL_CAP_THICKNESS - 0.1
-end
-local function crownBushes(parent: Instance, name: string, spots: { Vector2 }, seed: number, topY: number)
-	local folder = Instance.new("Folder")
-	folder.Name = name
-	local rng = Random.new(seed)
-	for _, spot in spots do
-		if rng:NextNumber() < CROWN_BUSH_CHANCE then
-			bush(folder, CFrame.new(0, topY, 0), spot.X, spot.Y, rng)
-		end
-	end
-	for _, part in folder:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.CanQuery = false
-		end
-	end
-	folder.Parent = parent
-end
-
 --- Ground cover scattered across the OUTER BAND of the open base plate -- the apron
 --- disc the camp's pads sit on -- not hugging just the perimeter wall (on request,
 --- "apply them randomly around the main base plate, not just the edge") but also never
@@ -4132,19 +4103,8 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 		barrier.Parent = folder
 	end
 
-	-- Stage 1's stretch wears the camp cliff and the camp-green crown, so it carries the
-	-- camp arc's crown bushes on along it (buildBaseWalls). ON REQUEST, that stays
-	-- Stage-1-only even though every stage's crown is grass now -- the grass lip below
-	-- runs the whole chain (see the drip loop just below), bushes do not.
-	if table.find(ids, 1) then
-		local s1MinX, _, s1MaxX = Stages.bounds(1)
-		local spots = {}
-		for x = s1MinX + WALL_TILE * 2, s1MaxX - WALL_TILE, WALL_TILE * CROWN_BUSH_EVERY do
-			table.insert(spots, Vector2.new(x, northZ))
-			table.insert(spots, Vector2.new(x, southZ))
-		end
-		crownBushes(folder, "CrownBushes", spots, CORRIDOR_SALT, crownTopY(STAGE_WALL.height))
-	end
+	-- No crown bushes on the stage walls any more (removed on request, 2026-10-07):
+	-- the grass lip and drips below are the only turf up here.
 
 	-- Thin grass drips under EVERY stage's lip on both walls, ON REQUEST -- widened
 	-- from Stage 1's own stretch to the full chain, each column coloured with its own
@@ -4422,19 +4382,12 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 
 	-- Crown: the apron colour carried up and over, same as the stage walls (buildWallCap).
 	local capDark, capLight = campCapPair()
-	local spots: { Vector2 } = {}
 
 	-- One straight piece. Along Z: `at` is its centreline X, s0..s1 world Z. Along X:
 	-- `at` is its centreline Z, s0..s1 world X. `face` is the side facing the camp.
 	local function piece(name: string, alongX: boolean, at: number, s0: number, s1: number, face: string)
 		buildShoulderWall(folder, name, at, s0, s1, face, height, layer.seed, alongX)
 		buildShoulderCap(folder, name .. "Cap", at, s0, s1, capDark, capLight, height, FACE_SIGN[face], alongX)
-		local step = CROWN_BUSH_EVERY * WALL_TILE
-		local s = s0 + 2.5 * WALL_TILE
-		while s < s1 - WALL_TILE do
-			table.insert(spots, if alongX then Vector2.new(s, at) else Vector2.new(at, s))
-			s += step
-		end
 	end
 
 	for _, side in { -1, 1 } do
@@ -4452,10 +4405,6 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 	end
 	-- The back wall, between the two wing outers' corner squares.
 	piece("BackWall", false, backF - t / 2, -wingZF, wingZF, "RightSurface")
-
-	-- Turf on the cliff top: a bush every few columns along every piece. Seeded, so
-	-- rebuilds do not reshuffle.
-	crownBushes(folder, "CrownBushes", spots, layer.seed, crownTopY(height))
 end
 
 --- Both camp-wall layers. The inner one stands on the camp outline, its shoulders on

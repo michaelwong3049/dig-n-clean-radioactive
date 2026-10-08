@@ -193,8 +193,6 @@ local WALL_H = 48
 local WALL_TILE = 4
 local CAP_T = 2
 local LIP_OVERHANG = 0.5
-local CROWN_BUSH_EVERY = 5
-local CROWN_BUSH_CHANCE = 0.4
 
 --- THE WALL IS TWO LAYERS, ON REQUEST ("like how it is in base 1"): the original ring,
 --- and a taller outer ring standing flush behind it, so from inside the camp the wall
@@ -843,7 +841,7 @@ local function buildWallLayer(parent: Instance, L: Layout, layer: WallLayer)
 		table.insert(arcs, { w, 180 - w })
 	end
 
-	local ix = 0 -- counts on across both arcs, so the checker and the bushes never restart
+	local ix = 0 -- counts on across both arcs, so the checker never restarts
 	for _, arc in arcs do
 		local startB, total = arc[1], arc[2] - arc[1]
 		local cols = math.max(1, math.ceil(total / math.deg(WALL_TILE / rw)))
@@ -866,11 +864,6 @@ local function buildWallLayer(parent: Instance, L: Layout, layer: WallLayer)
 			-- The crown: two radial cells, the inner one reaching over the lip (local -Z
 			-- points at the centre).
 			materialCrownStrip(folder, columnFrame, { { -chord / 2, chord / 2, ix } }, capY, -LIP_OVERHANG, p)
-
-			if ix % CROWN_BUSH_EVERY == 2 and hash01(ix, layer.salt + 18) < CROWN_BUSH_CHANCE then
-				local bx, bz = L.cx + rMid * math.sin(aMid), L.cz + rMid * math.cos(aMid)
-				bush(folder, bx, FLOOR_Y + layer.height + CAP_T - 0.1, bz, p, ix + layer.salt * 1000)
-			end
 			ix += 1
 		end
 	end
