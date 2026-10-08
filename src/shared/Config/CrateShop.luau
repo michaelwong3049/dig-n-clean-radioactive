@@ -92,7 +92,7 @@ local function campPads(campKey: string, label: string, nuke: string, nukeCash: 
 	return {
 		{
 			name = `{label}CashCratePad`,
-			title = "CRATE SHOP",
+			title = "Crate Shop",
 			camp = campKey,
 			offset = Vector3.new(CAMP_PAD_X, 0, CAMP_PAD_Z),
 			facing = -Vector3.xAxis,
@@ -103,7 +103,7 @@ local function campPads(campKey: string, label: string, nuke: string, nukeCash: 
 		},
 		{
 			name = `{label}RobuxCratePad`,
-			title = "PREMIUM CRATES",
+			title = "Premium Crates",
 			camp = campKey,
 			offset = Vector3.new(CAMP_PAD_X, 0, -CAMP_PAD_Z),
 			facing = -Vector3.xAxis,
@@ -118,7 +118,7 @@ end
 CrateShop.PADS = {
 	{
 		name = "CashCratePad",
-		title = "CRATE SHOP",
+		title = "Crate Shop",
 		position = Vector3.new(CHEST_X, FLOOR_Y, -PAD_Z),
 		facing = Vector3.xAxis,
 		offers = {
@@ -128,7 +128,7 @@ CrateShop.PADS = {
 	},
 	{
 		name = "RobuxCratePad",
-		title = "PREMIUM CRATES",
+		title = "Premium Crates",
 		position = Vector3.new(CHEST_X, FLOOR_Y, PAD_Z),
 		facing = Vector3.xAxis,
 		offers = {

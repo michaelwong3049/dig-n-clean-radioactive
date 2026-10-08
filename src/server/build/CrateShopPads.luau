@@ -47,9 +47,21 @@ local TAG_DISTANCE = 50
 
 local PAD_BLACK = Color3.fromHex("1E1F24")
 local PAD_GREY = Color3.fromHex("5A5E66")
-local CASH_GREEN = Color3.fromHex("5BE36B")
-local ROBUX_GREEN = Color3.fromHex("3FD17A")
+local PRICE_GREEN = Color3.fromHex("7CF25A") -- UIKit.House.cash
 local SOON_GREY = Color3.fromHex("B8BCC4")
+
+-- The pad sign's title, top to bottom (user's pick, 2026-10-08): white into green over
+-- the cash pad, cream into orange over the Robux one.
+local CASH_TITLE = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromHex("FFFFFF")),
+	ColorSequenceKeypoint.new(0.45, Color3.fromHex("B8FF8F")),
+	ColorSequenceKeypoint.new(1, Color3.fromHex("3FD17A")),
+})
+local PREMIUM_TITLE = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromHex("FFF6C8")),
+	ColorSequenceKeypoint.new(0.45, Color3.fromHex("FFD34D")),
+	ColorSequenceKeypoint.new(1, Color3.fromHex("FF9A1F")),
+})
 
 local function studded(p: BasePart)
 	p.Material = Enum.Material.Plastic
@@ -86,6 +98,17 @@ local function label(parent: Instance, name: string, text: string, y: number, h:
 	l.TextStrokeColor3 = Color3.new(0, 0, 0)
 	l.Parent = parent
 	return l
+end
+
+--- A heavier outline than TextStroke: a UIStroke, which a UIGradient on the label leaves
+--- black (a gradient tints the legacy TextStroke along with the text).
+local function outline(l: TextLabel, thickness: number)
+	l.TextStrokeTransparency = 1
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.new(0, 0, 0)
+	stroke.Thickness = thickness
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = l
 end
 
 --- The price as it reads before the service has asked Roblox for a Robux price.
@@ -174,14 +197,16 @@ local function buildOffer(model: Model, offer: CrateShop.Offer, base: Vector3, p
 	tag.Name = "PriceTag"
 	-- Sized in studs, not pixels, so from across the camp the tags shrink with their
 	-- crates instead of piling into one another.
-	tag.Size = UDim2.fromScale(4.2, 1.35)
-	tag.StudsOffsetWorldSpace = Vector3.new(0, CrateShop.HOVER_HEIGHT + 1.6, 0)
+	-- 6 wide leaves a gap between the two tags (crates sit 2 x SPREAD = 6.6 apart).
+	tag.Size = UDim2.fromScale(6, 2.2)
+	tag.StudsOffsetWorldSpace = Vector3.new(0, CrateShop.HOVER_HEIGHT + 2, 0)
 	tag.MaxDistance = TAG_DISTANCE
 	tag.LightInfluence = 0
 	tag.Adornee = anchor
-	label(tag, "Name", short, 0, 0.5, Color3.new(1, 1, 1))
-	local priceColour = if offer.cash then CASH_GREEN elseif (offer.productId or 0) == 0 then SOON_GREY else ROBUX_GREEN
-	label(tag, "Price", CrateShopPads.priceText(offer), 0.52, 0.48, priceColour)
+	-- The name in the crate's own colour, the price under it a size up.
+	outline(label(tag, "Name", short, 0, 0.45, colour), 2)
+	local priceColour = if offer.cash or (offer.productId or 0) ~= 0 then PRICE_GREEN else SOON_GREY
+	outline(label(tag, "Price", CrateShopPads.priceText(offer), 0.45, 0.55, priceColour), 2.5)
 	tag.Parent = anchor
 
 	slot.Parent = model
@@ -232,12 +257,22 @@ function CrateShopPads.build(pad: CrateShop.Pad): Model
 	hub.Parent = model
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
-	sign.Size = UDim2.fromScale(11, 2)
-	sign.StudsOffsetWorldSpace = Vector3.new(0, CrateShop.HOVER_HEIGHT + 6.5, 0)
+	sign.Size = UDim2.fromScale(14, 3.2)
+	sign.StudsOffsetWorldSpace = Vector3.new(0, CrateShop.HOVER_HEIGHT + 7.6, 0)
 	sign.MaxDistance = 70
 	sign.LightInfluence = 0
 	sign.Adornee = hub
-	label(sign, "Title", pad.title, 0, 1, Color3.fromHex("F5C542"))
+	-- A black copy a notch lower is the drop shadow; the title proper is white under a
+	-- top-to-bottom gradient.
+	local shadow = label(sign, "TitleShadow", pad.title, 0.06, 0.94, Color3.new(0, 0, 0))
+	outline(shadow, 3)
+	local title = label(sign, "Title", pad.title, 0, 0.94, Color3.new(1, 1, 1))
+	outline(title, 3)
+	local robuxPad = pad.offers[1] ~= nil and pad.offers[1].cash == nil
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = if robuxPad then PREMIUM_TITLE else CASH_TITLE
+	gradient.Rotation = 90
+	gradient.Parent = title
 	sign.Parent = hub
 
 	model.PrimaryPart = hub
