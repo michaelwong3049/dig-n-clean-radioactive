@@ -719,9 +719,15 @@ end
 --- top corner, and the cell touching that corner is the DARK one. Two parts stay in
 --- register only when their maxX and maxZ differ by multiples of KIT.CHECKER_TILE.
 --- Set TopSurface Smooth on these parts: the Studs surface would stud them twice.
+---
+--- THE FLIP. Every map has a twin rolled one cell (`<name>Flip`) whose anchor cell is
+--- LIGHT. A run whose anchor lands on light wears the twin instead of shedding a column
+--- and a cell as plain parts to move its anchor onto dark (PART BUDGET: that shedding
+--- was ~2k parts across the camps, stage walls and floors). Same pixels either way.
 Kit.CHECKER_MATERIAL = "StudChecker"
 Kit.CHECKER_TILE = 8 -- studs per repeat: two 4-stud cells
 local CHECKER_COLOR_MAP = "rbxassetid://128199580536085"
+local CHECKER_FLIP_MAP = "rbxassetid://105255682719797"
 local CHECKER_NORMAL_MAP = "rbxassetid://103372228995272"
 
 --- Make sure MaterialService carries a checker MaterialVariant called `name` wearing
@@ -743,8 +749,11 @@ local function ensureChecker(name: string, colorMap: string): string
 	return v.Name
 end
 
---- The 0.877 checker every stage floor (twoTone) wears.
-function Kit.checkerMaterial(): string
+--- The 0.877 checker every stage floor (twoTone) wears; `flipped` for its light-anchored twin.
+function Kit.checkerMaterial(flipped: boolean?): string
+	if flipped then
+		return ensureChecker(Kit.CHECKER_MATERIAL .. "Flip", CHECKER_FLIP_MAP)
+	end
 	return ensureChecker(Kit.CHECKER_MATERIAL, CHECKER_COLOR_MAP)
 end
 
@@ -756,26 +765,26 @@ end
 --- A pair with no entry returns nil, and the caller lays plain tiles as before -- so a
 --- palette edit never paints the wrong colours; it only costs parts until a map is made
 --- for the new pair and an entry is added here.
-local PAIR_MAPS: { [string]: { name: string, map: string } } = {
-	["619347|65994B"] = { name = "StudCheckerLawn", map = "rbxassetid://86044813325840" },
-	["DCCBA3|EADCBA"] = { name = "StudCheckerPath", map = "rbxassetid://119019800025977" },
-	["C9A37A|D4B088"] = { name = "StudCheckerPaver", map = "rbxassetid://103456859820757" },
-	["9C7A52|A6835B"] = { name = "StudCheckerKerb", map = "rbxassetid://99092311096523" },
-	["2B1A45|331F52"] = { name = "StudCheckerTwilightGround", map = "rbxassetid://129181632415769" },
-	["CBBBE9|D8CBF0"] = { name = "StudCheckerTwilightPath", map = "rbxassetid://104307201753316" },
-	["7C5AB0|8966BD"] = { name = "StudCheckerTwilightPaver", map = "rbxassetid://137642650996250" },
-	["4A3A52|55465C"] = { name = "StudCheckerDeck", map = "rbxassetid://121321642134723" },
+local PAIR_MAPS: { [string]: { name: string, map: string, flip: string } } = {
+	["619347|65994B"] = { name = "StudCheckerLawn", map = "rbxassetid://86044813325840", flip = "rbxassetid://121799302621454" },
+	["DCCBA3|EADCBA"] = { name = "StudCheckerPath", map = "rbxassetid://119019800025977", flip = "rbxassetid://96890897018386" },
+	["C9A37A|D4B088"] = { name = "StudCheckerPaver", map = "rbxassetid://103456859820757", flip = "rbxassetid://119055298438741" },
+	["9C7A52|A6835B"] = { name = "StudCheckerKerb", map = "rbxassetid://99092311096523", flip = "rbxassetid://108197527888645" },
+	["2B1A45|331F52"] = { name = "StudCheckerTwilightGround", map = "rbxassetid://129181632415769", flip = "rbxassetid://102842937918617" },
+	["CBBBE9|D8CBF0"] = { name = "StudCheckerTwilightPath", map = "rbxassetid://104307201753316", flip = "rbxassetid://87145048100161" },
+	["7C5AB0|8966BD"] = { name = "StudCheckerTwilightPaver", map = "rbxassetid://137642650996250", flip = "rbxassetid://108799423941204" },
+	["4A3A52|55465C"] = { name = "StudCheckerDeck", map = "rbxassetid://121321642134723", flip = "rbxassetid://121217405181672" },
 	-- Walls: the camp cliff's brown body, and Toxic Twilight's wall and turf lip.
-	["8D4B2B|9B5331"] = { name = "StudCheckerCliff", map = "rbxassetid://73992162942632" },
-	["3E2A5C|473166"] = { name = "StudCheckerTwilightWall", map = "rbxassetid://137431332067267" },
-	["319585|3AA493"] = { name = "StudCheckerTwilightLip", map = "rbxassetid://101915155414081" },
+	["8D4B2B|9B5331"] = { name = "StudCheckerCliff", map = "rbxassetid://73992162942632", flip = "rbxassetid://113911919956107" },
+	["3E2A5C|473166"] = { name = "StudCheckerTwilightWall", map = "rbxassetid://137431332067267", flip = "rbxassetid://87835159600035" },
+	["319585|3AA493"] = { name = "StudCheckerTwilightLip", map = "rbxassetid://101915155414081", flip = "rbxassetid://99851736748494" },
 	-- Bright stages whose light colour clamps at 255 on a channel, so the pair is not
 	-- 0.877 there: Stage 5 (pink), 9 (ice) and 12 (orange) walls and lips.
-	["E093A7|FFA8BE"] = { name = "StudCheckerStage5Wall", map = "rbxassetid://138323140232675" },
-	["EFABB5|FFC2CE"] = { name = "StudCheckerStage5Lip", map = "rbxassetid://92660618290716" },
-	["ABE1E3|C3FFFF"] = { name = "StudCheckerStage9Wall", map = "rbxassetid://127013463457730" },
-	["EF7F43|FF914D"] = { name = "StudCheckerStage12Wall", map = "rbxassetid://79748730946741" },
-	["EF6318|FF711C"] = { name = "StudCheckerStage12Lip", map = "rbxassetid://70538731759386" },
+	["E093A7|FFA8BE"] = { name = "StudCheckerStage5Wall", map = "rbxassetid://138323140232675", flip = "rbxassetid://115600454016350" },
+	["EFABB5|FFC2CE"] = { name = "StudCheckerStage5Lip", map = "rbxassetid://92660618290716", flip = "rbxassetid://104979371620272" },
+	["ABE1E3|C3FFFF"] = { name = "StudCheckerStage9Wall", map = "rbxassetid://127013463457730", flip = "rbxassetid://81566208555686" },
+	["EF7F43|FF914D"] = { name = "StudCheckerStage12Wall", map = "rbxassetid://79748730946741", flip = "rbxassetid://119082206507454" },
+	["EF6318|FF711C"] = { name = "StudCheckerStage12Lip", map = "rbxassetid://70538731759386", flip = "rbxassetid://101093732960676" },
 }
 
 --- The checker MaterialVariant for one (dark, light) pair, or nil if none is made. A
@@ -797,13 +806,17 @@ local function isTwoTone(dark: string, light: string): boolean
 	return true
 end
 
-function Kit.checkerMaterialFor(dark: string, light: string): string?
+--- `flipped` returns the twin whose anchor cell is light (see THE FLIP above).
+function Kit.checkerMaterialFor(dark: string, light: string, flipped: boolean?): string?
 	local entry = PAIR_MAPS[`{string.upper(dark)}|{string.upper(light)}`]
 	if entry then
+		if flipped then
+			return ensureChecker(entry.name .. "Flip", entry.flip)
+		end
 		return ensureChecker(entry.name, entry.map)
 	end
 	if isTwoTone(dark, light) then
-		return Kit.checkerMaterial()
+		return Kit.checkerMaterial(flipped)
 	end
 	return nil
 end
@@ -819,7 +832,6 @@ end
 
 local SMOOTH_FACES = { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" }
 local MATERIAL_FACE_SIGN: { [string]: number } = { FrontSurface = -1, BackSurface = 1 }
-local OPPOSITE: { [string]: string } = { FrontSurface = "BackSurface", BackSurface = "FrontSurface" }
 
 local function materialBlock(parent: Instance, frame: CFrame, name: string, pos: { number }, size: { number }, light: string, variant: string, canCollide: boolean): BasePart
 	local part = Kit.build(parent, frame, {
@@ -856,8 +868,7 @@ end
 --- grass everywhere, so the gap is behind the turf. The GRASS (lip plus whole-tile
 --- drips) is one block per run of columns sharing a pair and a depth, `overhang` proud
 --- of the face and 0.05 short of the back so it never z-fights the body's back face. A
---- grass run whose anchor cell is light sheds its anchor column, which goes down as its
---- top cell (a plain studded part) plus a block for the rest.
+--- grass run whose anchor cell is light wears the pair's flipped twin (THE FLIP).
 export type WallStrip = {
 	name: string,
 	frameAt: (number) -> CFrame,
@@ -991,33 +1002,11 @@ function Kit.materialWall(parent: Instance, w: WallStrip): { number }
 		end
 		local c = cols[a]
 		local lo, top = w.rows - c.depth, w.rows - 1
-		if (anchorIx(a, b) + top) % 2 == 0 then
-			block(a, b, lo, top, c.grassL, c.grassV, true)
-		else
-			-- Shed the anchor column: the rest's anchor moves one column, onto dark.
-			local shed = if anchorAtHighS then b else a
-			if b > a then
-				if anchorAtHighS then
-					block(a, b - 1, lo, top, c.grassL, c.grassV, true)
-				else
-					block(a + 1, b, lo, top, c.grassL, c.grassV, true)
-				end
-			end
-			if top - 1 >= lo then
-				block(shed, shed, lo, top - 1, c.grassL, c.grassV, true)
-			end
-			local sc = cols[shed]
-			local cell = Kit.build(parent, w.frameAt((sc.s0 + sc.s1) / 2), {
-				name = w.name,
-				pos = { 0, (yOf(top) + yOf(top + 1)) / 2, grassOff },
-				size = { sc.s1 - sc.s0, tile, grassThick },
-				color = c.grassL,
-				material = "Plastic",
-				canCollide = true,
-			});
-			(cell :: any)[w.face] = Enum.SurfaceType.Studs;
-			(cell :: any)[OPPOSITE[w.face]] = Enum.SurfaceType.Studs
-		end
+		-- An anchor on light wears the pair's flipped twin (THE FLIP), so the run
+		-- stays one block. Both variants exist whenever grassV does.
+		local onDark = (anchorIx(a, b) + top) % 2 == 0
+		local variant = if onDark then c.grassV else Kit.checkerMaterialFor(c.grassD, c.grassL, true) :: string
+		block(a, b, lo, top, c.grassL, variant, true)
 		a = b + 1
 	end
 	return skipped
@@ -1026,9 +1015,8 @@ end
 --- A wall crown -- the thin sheet over the wall's top -- as material: one sheet per run
 --- of columns sharing a pair, anchored on its (+X, +Z) top corner (local frame). Cells
 --- run two deep across the crown, iz 0 at local -Z; the cell parity is (ix + iz). A run
---- whose anchor cell is light sheds its anchor column, which the caller lays as plain
---- cells: the returned list holds those columns' indices into `columns`, along with
---- any column whose pair has no material.
+--- whose anchor cell is light wears the flipped twin (THE FLIP). Returns the indices into
+--- `columns` of any column whose pair has no material, for the caller to lay as plain cells.
 ---
 ---   columns  { s0, s1, ix } ascending s; pairAt(ix) -> (dark, light)
 ---   z0, z1   the crown's depth span in the local frame (overhang included)
@@ -1079,23 +1067,18 @@ function Kit.materialCrown(parent: Instance, c: CrownStrip): { number }
 		end
 		local lo, hi = a, runEnd
 		local anchorCol = if anchorAtHighS then hi else lo
+		-- An anchor on light wears the flipped twin (THE FLIP) instead of shedding.
+		local variant = pairs[lo][3]
 		if (c.columns[anchorCol][3] + anchorIz) % 2 ~= 0 then
-			table.insert(shed, anchorCol)
-			if anchorAtHighS then
-				hi -= 1
-			else
-				lo += 1
-			end
+			variant = Kit.checkerMaterialFor(pairs[lo][1], pairs[lo][2], true) :: string
 		end
-		if hi >= lo then
-			local sa, sb = c.columns[lo][1], c.columns[hi][2]
-			local part = materialBlock(parent, c.frameAt((sa + sb) / 2), c.name, {
-				0,
-				c.y,
-				(c.z0 + c.z1) / 2,
-			}, { sb - sa, c.thick, c.z1 - c.z0 }, pairs[lo][2], pairs[lo][3], false)
-			part.CanQuery = false
-		end
+		local sa, sb = c.columns[lo][1], c.columns[hi][2]
+		local part = materialBlock(parent, c.frameAt((sa + sb) / 2), c.name, {
+			0,
+			c.y,
+			(c.z0 + c.z1) / 2,
+		}, { sb - sa, c.thick, c.z1 - c.z0 }, pairs[lo][2], variant, false)
+		part.CanQuery = false
 		a = runEnd + 1
 	end
 	return shed

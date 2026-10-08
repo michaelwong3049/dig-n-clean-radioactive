@@ -85,7 +85,7 @@ local GroupReward = require(ReplicatedStorage.Shared.Config.GroupReward)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 42 -- respawn ring round the Trader kiosk again (2026-10-04)
+local BUILDER_VERSION = 43 -- flipped checker twins, no shed tiles (2026-10-07)
 
 local C = Kit.C
 local build = Kit.build
@@ -718,7 +718,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	-- PART BUDGET: whole cells whose pair has a checker material (Kit.checkerMaterialFor)
 	-- are not built in this loop; they are collected by (pair, top) and laid afterwards
 	-- as merged material slabs -- see "Material slabs" below.
-	type Cell = { key: string, light: string, top: number, variant: string }
+	type Cell = { key: string, light: string, top: number, variant: string, flip: string }
 	local cells: { [number]: { [number]: Cell } } = {}
 
 	for ix = ix0, ixMax do
@@ -792,7 +792,13 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 					column = {}
 					cells[ix] = column
 				end
-				column[iz] = { key = `{tileDark}|{tileLight}|{tileTop}`, light = tileLight, top = tileTop, variant = variant }
+				column[iz] = {
+				key = `{tileDark}|{tileLight}|{tileTop}`,
+				light = tileLight,
+				top = tileTop,
+				variant = variant,
+				flip = Kit.checkerMaterialFor(tileDark, tileLight, true) :: string,
+			}
 				continue
 			end
 
@@ -808,14 +814,13 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	-- slab's (+X, +Z) corner with the DARK cell there (Kit), and every slab edge is a
 	-- grid line, so the board stays in register with the plain tiles and every other
 	-- slab -- provided that corner cell IS dark on the global parity. When it is light,
-	-- the slab gives up its last column (whose own corner is then dark), that column
-	-- gives up its top cell, and the cell goes down as a plain tile.
+	-- the slab wears the pair's flipped twin instead (Kit, THE FLIP).
 	local function cellAt(ix: number, iz: number): Cell?
 		local column = cells[ix]
 		return if column then column[iz] else nil
 	end
 
-	local function slab(ixA: number, ixB: number, izA: number, izB: number, cell: Cell)
+	local function slab(ixA: number, ixB: number, izA: number, izB: number, cell: Cell, variant: string)
 		local xA, xB = p.minX + ixA * size, p.minX + (ixB + 1) * size
 		local zA, zB = p.minZ + izA * size, p.minZ + (izB + 1) * size
 		local part = build(parent, origin, {
@@ -825,24 +830,14 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 			color = cell.light,
 			material = "Plastic",
 		})
-		part.MaterialVariant = cell.variant
+		part.MaterialVariant = variant
 		part.TopSurface = Enum.SurfaceType.Smooth -- the material carries the studs
 		part.CastShadow = false
 		built += 1
 	end
 
 	local function lay(ixA: number, ixB: number, izA: number, izB: number, cell: Cell)
-		if (ixB + izB) % 2 == 0 then
-			slab(ixA, ixB, izA, izB, cell)
-			return
-		end
-		if ixB > ixA then
-			slab(ixA, ixB - 1, izA, izB, cell)
-		end
-		if izB > izA then
-			slab(ixB, ixB, izA, izB - 1, cell)
-		end
-		tile(p.minX + (ixB + 0.5) * size, p.minZ + (izB + 0.5) * size, size, size, cell.top, cell.light)
+		slab(ixA, ixB, izA, izB, cell, if (ixB + izB) % 2 == 0 then cell.variant else cell.flip)
 	end
 
 	type Run = { ixA: number, ixB: number, izA: number, izB: number, cell: Cell }

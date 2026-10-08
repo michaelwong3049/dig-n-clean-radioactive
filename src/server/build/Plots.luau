@@ -225,7 +225,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 112 -- thinner black walkways (2026-10-05)
+local BUILDER_VERSION = 113 -- flipped checker twins, no shed tiles (2026-10-07)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
