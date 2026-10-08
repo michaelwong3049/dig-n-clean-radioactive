@@ -21,20 +21,18 @@
 	             using one ends the walkthrough (no "You're set!" card, removed on request)
 
 	THE TRAIL IS CLIENT-ONLY PARTS in a local Workspace folder, so nobody else sees
-	anyone's trail. The route is PathfindingService's, recomputed every couple of seconds
-	while you move (sooner once you stray), and it falls back to a straight line when
-	there is no path (the target inside a tub, say). The ribbon's near end is joined to
-	your feet every frame, straight to the furthest corner you have a clear line to
-(SIGHT_*), so it moves with you, never with the repaths.
-	Every ribbon point is raycast onto whatever floor is really there. It is built from plain parts and a SurfaceGui, with no uploaded
-	textures, and no Neon: it is guidance, not an effect.
+	anyone's trail. ON REQUEST it is a DEAD STRAIGHT LINE from your feet to the target,
+	rebuilt every frame: no pathfinding, and nothing in the world bends it, lifts it onto
+	a roof or hides it. Walls, fences and props are ignored, and the arrows draw through
+	them (an AlwaysOnTop Highlight). Only the ring is raycast onto the floor at the target.
+	It is built from plain parts and a SurfaceGui, with no uploaded textures, and no Neon:
+	it is guidance, not an effect.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local PathfindingService = game:GetService("PathfindingService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local Workspace = game:GetService("Workspace")
 
@@ -103,49 +101,13 @@ local RIBBON_LIFT = 0.12 -- over the floor, clear of z-fighting
 local RIBBON_TRANSPARENCY = 1 -- ON REQUEST: no amber ribbon, the chevrons alone are the trail
 local TRAIL_START = 3.5 -- studs ahead of your feet, so it never draws under you
 local ARRIVED = 9 -- inside this, the ribbon and the marker step aside; the ring stays
--- How far the target may drift before the route is thrown away and redrawn. Stage 1's
--- target slides along its edge with you, and the nearest empty stand can change as you
--- walk; neither is worth a fresh ribbon every frame.
+-- How far the target may drift before it is re-measured. Stage 1's target slides
+-- along its edge with you, and the nearest empty stand can change as you walk.
 local RETARGET = 6
 -- How far you may walk along Stage 1's edge before the "head to the first stage" goal
 -- slides to follow you.
 local STAGE_DRIFT = 30
--- A fresh route every REPATH_SECONDS while you move, sooner (but not more than every
--- OFF_ROUTE_SECONDS) once you have strayed OFF_ROUTE studs from the one on screen.
--- Pathfinding snaps to a 4-stud grid, so every new route lies a little differently from
--- the last one. Asking less often is most of what keeps the trail still under you, and
--- the rest is ROUTE_BLEND.
-local REPATH_SECONDS = 1.2
-local REPATH_MOVE = 3 -- studs moved before a repath is worth it
-local OFF_ROUTE = 4
-local OFF_ROUTE_SECONDS = 0.5
--- A new route does not replace the old one in a frame: every point glides from where
--- the old route had it (matched by distance from the target) to its new place.
-local ROUTE_BLEND = 0.35
--- How fast the point where the ribbon joins the route catches up with where you are
--- on it (per second, exponential). High enough to feel attached, low enough to
--- swallow a step's wobble or a fresh route's different length.
-local HEAD_EASE = 10
--- THE RIBBON IS JOINED TO YOUR FEET EVERY FRAME (ON REQUEST: it used to sit on the last
--- computed route and catch up only when the next one landed, which read as a trail
--- that jumped every half second). It runs from your feet to the route JOIN_AHEAD studs
--- past the point you are level with, then follows the route. Pathfinding only shapes
--- the far part, so a slow or late route never holds the near end still.
-local JOIN_AHEAD = 6
--- LINE OF SIGHT (ON REQUEST: the arrows have to point where you really need to go and
--- follow you live). Pathfinding's 4-stud grid left the arrows wandering a couple of
--- studs off the true line and a few degrees off the goal. So every route is pulled
--- tight (pullTight) to straight runs wherever nothing solid is in the way, and EVERY
--- FRAME the trail runs from your feet straight to the furthest corner of the route you
--- have a clear line to, which is usually the target itself. The test is a sphere swept
--- at waist height that only collidable parts can stop, so kerbs and see-through props
--- don't count but walls and fences do.
-local SIGHT_LIFT = 2.4
-local SIGHT_RADIUS = 1.2
-local SIGHT_CHECKS = 6 -- corners tested per frame, furthest first
-local PULL_WINDOW = 16 -- waypoints looked ahead per corner when pulling a route tight
-local SIGHT_EASE = 16 -- how fast the trail swings to a newly seen corner (per second)
--- The last arrow stops this far short of the route's end, clear of the ring.
+-- The last arrow stops this far short of the trail's end, clear of the ring.
 local CHEVRON_END_PAD = 1.5
 local CHEVRON_GAP = 4
 local CHEVRON_SPEED = 7 -- studs/sec along the ribbon
@@ -468,8 +430,8 @@ end
 local guide: Folder? = nil
 local ribbonPool: { BasePart } = {}
 local jointPool: { BasePart } = {}
--- How many of each pool the current route uses. The rest of the pool stays hidden,
--- which setGuideVisible has to respect or a stale leg of the last route reappears.
+-- How many of each pool the current trail uses. The rest of the pool stays hidden,
+-- which setGuideVisible has to respect or a stale leg of the last trail reappears.
 local liveLegs = 0
 local liveJoints = 0
 local chevrons: { { BasePart } } = {}
@@ -480,30 +442,7 @@ local ringPulses: { Frame } = {}
 local marker: Model? = nil
 local markerLabel: TextLabel? = nil
 
---- The route, as world points on the floor from just ahead of you to the target,
---- with the cumulative length at each point.
-local route: { Vector3 } = {}
-local routeLen: { number } = {}
--- `route` is what is DRAWN. While a new route blends in it is rebuilt every frame from
--- `baseRoute` (the new one) and `fromRoute` (the one it is replacing); afterwards it
--- simply equals `baseRoute`.
-local baseRoute: { Vector3 } = {}
-local baseLen: { number } = {}
-local fromRoute: { Vector3 } = {}
-local fromLen: { number } = {}
-local blendAt = -math.huge
 local target: Vector3? = nil
-local lastPathAt = -math.huge
-local lastPathFrom: Vector3? = nil
-local pathBusy = false
---- How much of `route` is left from the point you are level with, eased, in studs.
---- Measured from the END because that is what a new route shares with the old one
---- (blendRoute matches points by distance from the target), so it stays continuous
---- when a route is replaced. -1 means "not measured yet".
-local headLeft = -1
---- Where the ribbon meets the route, in the world, eased (HEAD_EASE). A fresh route can
---- lie a few studs to one side of the old one near you; this glides across instead.
-local joinPoint: Vector3? = nil
 --- What is drawn this frame: from TRAIL_START ahead of your feet to the target, with
 --- the running length at each point. Rebuilt every frame by buildView.
 local view: { Vector3 } = {}
@@ -542,10 +481,13 @@ local function ensureGuide(): Folder
 	local model = Instance.new("Model")
 	model.Name = "Arrows"
 	local outline = Instance.new("Highlight")
-	outline.FillTransparency = 1
+	-- ON REQUEST: walls and props must not hide the arrows, so the outline AND a fill in
+	-- the arrows' own colour draw on top of everything in the way.
+	outline.FillColor = CHEVRON_COLOR
+	outline.FillTransparency = 1 - CHEVRON_OPACITY
 	outline.OutlineColor = SKIN.ink
 	outline.OutlineTransparency = 0
-	outline.DepthMode = Enum.HighlightDepthMode.Occluded
+	outline.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	outline.Parent = model
 	model.Parent = folder
 	arrows = model
@@ -712,23 +654,13 @@ local function clearGuide()
 	table.clear(chevrons)
 	table.clear(ringPulses)
 	arrows = nil
-	table.clear(route)
-	table.clear(routeLen)
-	table.clear(baseRoute)
-	table.clear(baseLen)
-	table.clear(fromRoute)
-	table.clear(fromLen)
 	table.clear(view)
 	table.clear(viewLen)
-	blendAt = -math.huge
 	liveLegs, liveJoints = 0, 0
-	headLeft = -1
-	joinPoint = nil
 	ring = nil
 	marker = nil
 	markerLabel = nil
 	target = nil
-	lastPathFrom = nil
 end
 
 local rayParams = RaycastParams.new()
@@ -762,65 +694,6 @@ local function floorAt(p: Vector3): Vector3
 		rayParams.FilterDescendantsInstances = ignore
 	end
 	return p
-end
-
--- Line of sight: only collidable parts block it (RespectCanCollide), so the guide's
--- own parts, see-through Display cubes and decor that players walk through never do.
-local sightParams = RaycastParams.new()
-sightParams.FilterType = Enum.RaycastFilterType.Exclude
-sightParams.RespectCanCollide = true
-
---- Keep every character out of the sight tests. Called before each batch of them.
-local function refreshSight()
-	local ignore: { Instance } = {}
-	for _, other in Players:GetPlayers() do
-		if other.Character then
-			table.insert(ignore, other.Character)
-		end
-	end
-	sightParams.FilterDescendantsInstances = ignore
-end
-
---- Could you walk straight from floor point `a` to floor point `b`? A sphere swept at
---- waist height: walls and fences stop it, kerbs and steps below it do not.
-local function clearLine(a: Vector3, b: Vector3): boolean
-	local lift = Vector3.new(0, SIGHT_LIFT, 0)
-	local delta = b - a
-	if delta.Magnitude < 0.5 then
-		return true
-	end
-	return Workspace:Spherecast(a + lift, SIGHT_RADIUS, delta, sightParams) == nil
-end
-
---- The floor right under an arrow, one ray, so arrows on a straight run over a bump
---- or a step sit on it instead of sinking in or floating.
-local function snapFloor(p: Vector3): Vector3
-	local hit = Workspace:Raycast(p + Vector3.new(0, 3, 0), Vector3.new(0, -7, 0), sightParams)
-	return if hit then hit.Position else p
-end
-
---- Pull a pathfinding route tight: from each corner, jump to the furthest later
---- waypoint (up to PULL_WINDOW ahead) with a clear straight line to it. What is left
---- is the real corners, joined by true straight runs.
-local function pullTight(points: { Vector3 }): { Vector3 }
-	if #points <= 2 then
-		return points
-	end
-	refreshSight()
-	local out = { points[1] }
-	local i = 1
-	while i < #points do
-		local k = i + 1
-		for j = math.min(#points, i + PULL_WINDOW), i + 2, -1 do
-			if clearLine(points[i], points[j]) then
-				k = j
-				break
-			end
-		end
-		table.insert(out, points[k])
-		i = k
-	end
-	return out
 end
 
 -- ── Targets ─────────────────────────────────────────────────────────────────────
@@ -888,7 +761,7 @@ local function targetFor(step: Tutorial.StepId, from: Vector3): Vector3?
 	return nil
 end
 
--- ── Route ───────────────────────────────────────────────────────────────────────
+-- ── Trail ───────────────────────────────────────────────────────────────────────
 --- Copy `points` into `into`, with the running length at each point in `lens`.
 local function fill(into: { Vector3 }, lens: { number }, points: { Vector3 })
 	table.clear(into)
@@ -918,125 +791,20 @@ local function alongIn(pts: { Vector3 }, lens: { number }, d: number): (Vector3,
 	return pts[1] or Vector3.zero, Vector3.new(0, 0, -1)
 end
 
---- The point `d` studs along the DRAWN route.
-local function along(d: number): (Vector3, Vector3)
-	return alongIn(route, routeLen, d)
-end
-
---- Rebuild the drawn route for this frame. Mid-blend, each of the new route's points
---- sits part-way between its own place and the point the OLD route had at the same
---- distance from the target, so the whole trail slides into its new shape; the ends
---- (the target, and near you) barely move because both routes share them.
-local function blendRoute(now: number)
-	local alpha = math.clamp((now - blendAt) / ROUTE_BLEND, 0, 1)
-	if alpha >= 1 or #fromRoute < 2 then
-		if #route ~= #baseRoute or route[#route] ~= baseRoute[#baseRoute] or route[1] ~= baseRoute[1] then
-			fill(route, routeLen, baseRoute)
-		end
-		return
-	end
-	local eased = 1 - (1 - alpha) * (1 - alpha)
-	local baseTotal = baseLen[#baseLen] or 0
-	local fromTotal = fromLen[#fromLen] or 0
-	local mixed: { Vector3 } = {}
-	for i, p in baseRoute do
-		local fromEnd = baseTotal - baseLen[i]
-		local old = alongIn(fromRoute, fromLen, math.max(0, fromTotal - fromEnd))
-		table.insert(mixed, old:Lerp(p, eased))
-	end
-	fill(route, routeLen, mixed)
-end
-
---- How far along the route the point nearest `p` is, in studs, measured flat. Only the
---- first PROJECT_REACH studs are searched: a route that doubles back past you must not
---- let your nearest point jump to its far end.
-local PROJECT_REACH = 60
-
-local function project(p: Vector3): (number, number)
-	local best, bestDist = 0, math.huge
-	for i = 2, #route do
-		if routeLen[i - 1] > PROJECT_REACH then
-			break
-		end
-		local a, b = route[i - 1], route[i]
-		local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
-		local ap = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
-		local len2 = ab:Dot(ab)
-		local t = if len2 > 1e-6 then math.clamp(ap:Dot(ab) / len2, 0, 1) else 0
-		local dist = (ap - ab * t).Magnitude
-		if dist < bestDist then
-			best, bestDist = routeLen[i - 1] + t * (routeLen[i] - routeLen[i - 1]), dist
-		end
-	end
-	return best, bestDist
-end
-
---- Lay the ribbon along `route`: one flat slab per leg, and a flat disc at each real
---- bend so the corner reads as one strip. Pathfinding hands back a waypoint every 4
---- studs even on a straight run, and every seam between two see-through slabs shows
---- as a darker blot where they overlap, so straight runs are merged into one leg
---- first (simplify).
-local BEND_DOT = math.cos(math.rad(10))
-
-local function simplify(points: { Vector3 }): { Vector3 }
-	if #points <= 2 then
-		return points
-	end
-	local out = { points[1] }
-	for i = 2, #points - 1 do
-		local a, b, c = out[#out], points[i], points[i + 1]
-		local ab, bc = b - a, c - b
-		local straight = ab.Magnitude > 1e-3
-			and bc.Magnitude > 1e-3
-			and ab.Unit:Dot(bc.Unit) >= BEND_DOT
-		if not straight then
-			table.insert(out, b)
-		end
-	end
-	table.insert(out, points[#points])
-	return out
-end
-
---- Build this frame's `view`: your feet, straight to `join` (on the route `joinAt` studs
---- along it, give or take its easing), then the rest of the route, with the first
+--- Build this frame's `view`: straight from your feet to the target, with the first
 --- TRAIL_START studs cut off so it never draws under you.
-local function buildView(feet: Vector3, join: Vector3, joinAt: number)
-	local total = routeLen[#routeLen] or 0
-	local raw: { Vector3 } = { feet }
-	if #route > 1 then
-		table.insert(raw, join)
-		for i = 2, #route do
-			if routeLen[i] > joinAt + 0.05 then
-				table.insert(raw, route[i])
-			end
-		end
-	elseif total <= 0 and target then
-		table.insert(raw, target)
-	end
-	local lens: { number } = { 0 }
-	for i = 2, #raw do
-		lens[i] = lens[i - 1] + (raw[i] - raw[i - 1]).Magnitude
-	end
-
+local function buildView(feet: Vector3, goal: Vector3)
 	table.clear(view)
 	table.clear(viewLen)
-	local rawTotal = lens[#lens] or 0
-	if #raw < 2 or rawTotal <= TRAIL_START then
+	local total = (goal - feet).Magnitude
+	if total <= TRAIL_START then
 		return
 	end
-	local cut = {}
-	table.insert(cut, (alongIn(raw, lens, TRAIL_START)))
-	for i = 2, #raw do
-		if lens[i] > TRAIL_START + 0.05 then
-			table.insert(cut, raw[i])
-		end
-	end
-	fill(view, viewLen, cut)
+	fill(view, viewLen, { feet:Lerp(goal, TRAIL_START / total), goal })
 end
 
 --- Lay the ribbon along `view`, every frame: the near end follows you as you walk
---- instead of waiting for a new route. A simplified route is a handful of legs, so
---- resizing them per frame costs nothing.
+--- with no lag. It is a single leg, so resizing it per frame costs nothing.
 local function drawRibbon()
 	local folder = ensureGuide()
 	local legs = math.max(0, #view - 1)
@@ -1076,67 +844,9 @@ local function drawRibbon()
 	end
 end
 
-local function repath(from: Vector3, goal: Vector3)
-	if pathBusy then
-		return
-	end
-	pathBusy = true
-	lastPathAt = os.clock()
-	lastPathFrom = from
-	task.spawn(function()
-		local points: { Vector3 } = {}
-		local ok = pcall(function()
-			local path = PathfindingService:CreatePath({
-				AgentRadius = 2,
-				AgentHeight = 5,
-				AgentCanJump = true,
-				WaypointSpacing = 4,
-			})
-			path:ComputeAsync(from, goal)
-			if path.Status == Enum.PathStatus.Success then
-				for _, wp in path:GetWaypoints() do
-					table.insert(points, wp.Position)
-				end
-			end
-		end)
-		if not ok or #points < 2 then
-			-- No route (or a target inside something): a straight line, in 4-stud steps
-			-- so it still hugs the floor on the way.
-			table.clear(points)
-			local flat = Vector3.new(goal.X - from.X, 0, goal.Z - from.Z)
-			local steps = math.max(1, math.ceil(flat.Magnitude / 4))
-			for i = 0, steps do
-				table.insert(points, from + flat * (i / steps))
-			end
-		end
-
-		-- The whole route, from your feet. The ribbon's start is cut off per frame
-		-- (drawRibbon), measured from where you are NOW rather than where you were when
-		-- this was asked for.
-		for i, p in points do
-			points[i] = floorAt(p)
-		end
-
-		pathBusy = false
-		if target == nil or (target - goal).Magnitude > 0.5 then
-			return -- the step moved on while this was computing
-		end
-		-- Blend from whatever is on screen right now (itself possibly mid-blend).
-		if #route > 1 then
-			fill(fromRoute, fromLen, route)
-			blendAt = os.clock()
-		else
-			table.clear(fromRoute)
-			table.clear(fromLen)
-		end
-		-- headLeft is NOT reset: it is measured from the target, which both routes share.
-		fill(baseRoute, baseLen, simplify(pullTight(points)))
-	end)
-end
-
 --- Once a frame while a step with a target is up: move the chevrons along the
---- ribbon, pulse the ring, bob the marker, and ask for a new route when it is due.
-local function stepGuide(dt: number)
+--- ribbon, pulse the ring and bob the marker.
+local function stepGuide(_dt: number)
 	local s = state
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -1155,25 +865,11 @@ local function stepGuide(dt: number)
 	local folder = ensureGuide()
 	local fresh = floorAt(goal)
 	if target == nil or (target - fresh).Magnitude > RETARGET then
-		-- The old route stays drawn until the new one lands (repath), so a moved goal
-		-- bends the trail rather than blinking it out and back.
 		target = fresh
-		lastPathAt = -math.huge
-		lastPathFrom = nil
 	end
 	local ground = target :: Vector3
 
 	local now = os.clock()
-	blendRoute(now)
-
-	local from = root.Position - Vector3.new(0, 2.5, 0)
-	local onRoute, offBy = project(root.Position)
-	local since = now - lastPathAt
-	local moved = lastPathFrom == nil or (from - lastPathFrom).Magnitude >= REPATH_MOVE
-	local strayed = #route < 2 or offBy > OFF_ROUTE
-	if moved and (since >= REPATH_SECONDS or (strayed and since >= OFF_ROUTE_SECONDS)) then
-		repath(from, ground)
-	end
 	local flatDist = Vector3.new(ground.X - root.Position.X, 0, ground.Z - root.Position.Z).Magnitude
 	local arrived = flatDist <= ARRIVED
 
@@ -1200,54 +896,17 @@ local function stepGuide(dt: number)
 		markerLabel.Text = `{math.floor(flatDist / Stages.STUDS_PER_METRE + 0.5)}m`
 	end
 
-	-- Where you are on the route (as route LEFT, see headLeft), eased so a step, a
-	-- wobble or a fresh route of a different length slides the join rather than
-	-- snapping it. The ribbon itself starts at your feet this frame regardless.
-	local routeTotal = routeLen[#routeLen] or 0
-	local left = math.max(0, routeTotal - onRoute)
-	if headLeft < 0 then
-		headLeft = left
-	else
-		headLeft += (left - headLeft) * (1 - math.exp(-HEAD_EASE * dt))
-	end
-	local joinAt = math.clamp(routeTotal - (headLeft - JOIN_AHEAD), 0, routeTotal)
-	local joinWanted = along(joinAt)
-	local ease = HEAD_EASE
-	-- Your feet's height from the character itself, not a raycast: a ray here lands on
-	-- every pebble and fence rail you pass and pops the ribbon's end up and down.
+	-- STRAIGHT AT THE TARGET from your feet, every frame. Your feet's height comes from
+	-- the character itself, not a raycast: a ray here lands on every pebble and fence
+	-- rail you pass and pops the trail's end up and down.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local hip = if humanoid then humanoid.HipHeight else 2
 	local feet = root.Position - Vector3.new(0, root.Size.Y / 2 + hip, 0)
-	-- LIVE LINE OF SIGHT: the furthest of the next few corners ahead of you that you
-	-- could walk straight to. The trail runs dead straight at it from wherever you are
-	-- this frame, so it swings with you as you walk, and on an open run that corner
-	-- is the target itself.
-	refreshSight()
-	local checked = 0
-	for i = 2, #route do
-		if routeLen[i] > onRoute + 0.5 then
-			if checked >= SIGHT_CHECKS then
-				break
-			end
-			checked += 1
-			if clearLine(feet, route[i]) then
-				joinWanted, joinAt, ease = route[i], routeLen[i], SIGHT_EASE
-			end
-		end
-	end
-	local joinNow = joinPoint
-	if joinNow == nil then
-		joinNow = joinWanted
-	else
-		joinNow = joinNow:Lerp(joinWanted, 1 - math.exp(-ease * dt))
-	end
-	joinPoint = joinNow
-	buildView(feet, joinNow, joinAt)
+	buildView(feet, ground)
 	drawRibbon()
 
 	-- Chevrons running along the ribbon toward the target, COUNTED BACK FROM THE END
-	-- rather than out from the start. The target end is the part of the route that
-	-- stays put when a fresh route replaces the old one, or when the start slides
+	-- rather than out from the start. The target end stays put while the start slides
 	-- with you, so the arrows keep flowing instead of all jumping at once.
 	local total = viewLen[#viewLen] or 0
 	local start = 0
@@ -1282,7 +941,6 @@ local function stepGuide(dt: number)
 			continue
 		end
 		local p, dir = alongIn(view, viewLen, d)
-		p = snapFloor(p)
 		-- Fade in over the first two studs of ribbon and out over the last arrow gap.
 		local fade = math.clamp(math.min((d - start) / 2, (total - CHEVRON_END_PAD - d) / CHEVRON_GAP * 3), 0, 1)
 		local lifted = p + Vector3.new(0, CHEVRON_BODY_HEIGHT, 0)
