@@ -1038,8 +1038,7 @@ COMMANDS["/robuxgift"] = {
 			for _, gift in RobuxGifts.GIFTS do
 				table.insert(lines, `{gift.id} {gift.name}`)
 			end
-			return table.concat(lines, "
-")
+			return table.concat(lines, "\n")
 		end
 		local productId = tonumber(args[1]) or 0
 		local gift = RobuxGifts.get(productId)
