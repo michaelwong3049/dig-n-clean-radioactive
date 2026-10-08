@@ -71,6 +71,7 @@ local ORDER = {
 	"FastModeController", -- FAST MODE (Settings > Graphics): hides the nukes on other players' bases; reads the fastMode pref
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
 	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute
+	"ConsoleController", -- lists the debug chat commands in autocomplete, console users only; reads LocalPlayer's ConsoleAccess attribute
 }
 
 local loaded: { [string]: any } = {}

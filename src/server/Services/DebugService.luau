@@ -1168,7 +1168,9 @@ local function registerCommands()
 		local command = Instance.new("TextChatCommand")
 		command.Name = `Debug_{string.gsub(alias, "/", "")}`
 		command.PrimaryAlias = alias
-		command.AutocompleteVisible = true
+		-- Hidden from the chat autocomplete for everyone; ConsoleController turns it
+		-- back on locally for a client the server flagged with ConsoleAccess.
+		command.AutocompleteVisible = false
 
 		-- `text` arrives as the whole typed line, alias included.
 		command.Triggered:Connect(function(source: TextSource, text: string)
@@ -1195,6 +1197,13 @@ function DebugService.start()
 	DataService.onLoaded(function(player, _data)
 		sandboxes[player] = { ready = true }
 		attachScriptableHook(player)
+		-- Display only: tells this player's client to list the commands in chat
+		-- autocomplete. Every command still re-checks mayUseConsole on the server.
+		task.spawn(function()
+			if mayUseConsole(player) and player.Parent then
+				player:SetAttribute("ConsoleAccess", true)
+			end
+		end)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
