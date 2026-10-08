@@ -1084,6 +1084,36 @@ function Kit.materialCrown(parent: Instance, c: CrownStrip): { number }
 	return shed
 end
 
+--- SMALL REPEATED DETAIL AS A TEXTURE (PART BUDGET): rivet heads, hazard stripes and
+--- tape checkers used to be a part each. One Texture on the face they sat on draws
+--- them all. Uploaded white/grey shapes, tinted by `color`:
+---   RIVET    a domed head, 0.135 of the tile across, centred
+---   STRIPE   a 45-degree band, about half the tile wide, centred on image (0.5, 0),
+---            running along u = v
+---   CHECKER  opaque top-left and bottom-right quadrants
+Kit.DETAIL_TEXTURE = {
+	RIVET = "rbxassetid://131267018368904",
+	STRIPE = "rbxassetid://136875570240538",
+	CHECKER = "rbxassetid://116601941825830",
+}
+
+--- Lay `image` on `part`'s `face`, tiled every tileU x tileV studs. Offsets follow the
+--- engine's rule for a plain Part (measured, see roblox-texture-projection notes): texel
+--- = image((f + offset) / tile), f measured from the face corner at (normal - u - v),
+--- with Top u=-X v=-Z, Back u=+X v=-Y, Front u=-X v=-Y.
+function Kit.detailTexture(part: BasePart, face: Enum.NormalId, image: string, color: string, tileU: number, tileV: number, offU: number, offV: number): Texture
+	local texture = Instance.new("Texture")
+	texture.Texture = image
+	texture.Face = face
+	texture.Color3 = Color3.fromHex(color)
+	texture.StudsPerTileU = tileU
+	texture.StudsPerTileV = tileV
+	texture.OffsetStudsU = offU
+	texture.OffsetStudsV = offV
+	texture.Parent = part
+	return texture
+end
+
 --- Replace `Workspace.<name>` with a freshly built version, atomically.
 ---
 --- `factory` must return a fully-formed, UNPARENTED instance. It is called first
