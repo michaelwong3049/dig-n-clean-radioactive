@@ -125,7 +125,7 @@ export type Spec = {
 	-- Optional: the caption's text size, for a name too long for the default.
 	captionSize: number?,
 	-- Optional: a place in the right-edge column instead (Dock.rightTileCentre: 1 = top).
-	-- The grid's studded look at Dock.RIGHT_TILE_SCALE, picture only. `slot` is then unused.
+	-- The grid's studded look and caption at Dock.RIGHT_TILE_SCALE. `slot` is then unused.
 	right: number?,
 }
 
@@ -199,16 +199,19 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()
 
-		-- With no caption (the right column) the picture sits on the tile's middle.
+		-- The right column is the grid shrunk, caption and all (captions back on request,
+		-- 2026-10-08: "put nukes and potions under nukes and potion gui").
 		local iconSize = math.round(GRID_ICON * shrink)
-		local rise = if right then 0 else GRID_ICON_RISE
+		local rise = GRID_ICON_RISE * shrink
 		icon = Artwork.picture(button, "Icon", spec.image, iconSize, Color3.new(1, 1, 1))
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
 		icon.Position = UDim2.new(0.5, 0, 0.5, -rise + (spec.iconDrop or 0))
 		icon.ZIndex = 6
 
-		if not right then
+		do
 			local captionSize = if spec.captionSize then math.round(spec.captionSize * GRID_SCALE) else GRID_TEXT_SIZE
+			-- Shrunk with the tile, but never below a size Gotham Black still reads at.
+			captionSize = math.max(12, math.round(captionSize * shrink))
 			UIKit.hudNumber(button, {
 				name = "Caption",
 				anchorPoint = Vector2.new(0.5, 1),
