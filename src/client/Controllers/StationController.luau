@@ -113,6 +113,7 @@ local Camps = require(Shared.Config.Camps) -- a locked card's zone number
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial)
 local AuraLook = require(Shared.AuraLook)
+local Mastery = require(Shared.Mastery) -- Mastery.short: the wallet's "$67.1T"
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
@@ -1646,6 +1647,15 @@ local function money(amount: number): string
 	return `${grouped}`
 end
 
+--- The header wallet: full digits while they fit its slot, then "$67.1T". Past
+--- ~$100M the grouped digits ran wider than the slot and over the track name.
+local function walletMoney(amount: number): string
+	if math.abs(amount) < 1e8 then
+		return money(amount)
+	end
+	return "$" .. Mastery.short(amount)
+end
+
 --- Paint one card's stat chips. Chips are reused, so every chip past the track's own
 --- column count is hidden rather than destroyed — see STAT_ROWS — and the ones shown
 --- split the row's width evenly: three across for a Detector, four for the Aura.
@@ -2511,7 +2521,7 @@ local function render()
 			end
 		end
 
-		ui.shopCash.Text = money(cash)
+		ui.shopCash.Text = walletMoney(cash)
 
 		-- Re-pick the focus only on opening (or when the offer first arrives with
 		-- tiers in it); every other tick keeps the card you paged to and just repaints
