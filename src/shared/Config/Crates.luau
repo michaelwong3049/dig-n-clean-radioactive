@@ -334,6 +334,23 @@ for id, image in Crates.IMAGES do
 	Crates.DEFS[id].image = image
 end
 
+--- The picture of the best crate among `ids` (highest tier; the first one listed wins a
+--- tie), for a reward card that shows one crate for the lot. nil when none has one.
+function Crates.bestImage(ids: { string }?): string?
+	local best: CrateDef? = nil
+	local bestRank = -1
+	for _, id in ids or {} do
+		local def = Crates.DEFS[id]
+		if def and def.image then
+			local rank = table.find(Rarity.ORDER, def.tier) or 0
+			if rank > bestRank then
+				best, bestRank = def, rank
+			end
+		end
+	end
+	return if best then best.image else nil
+end
+
 --- Drop weights for variants 1..5 per stage, at detector luck 1. Deeper stages lean
 --- up the ladder. Stages 1-6 drop the early three (Scrap/Field/Void); from Stage 7
 --- the late two (Cobalt/Fusion) take over, with the Void fading out by Stage 12. The
