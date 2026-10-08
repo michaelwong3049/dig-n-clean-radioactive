@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 71 -- camp walls 18 closer behind the bases (2026-10-08)
+local BUILDER_VERSION = 72 -- Stage 1 corridor back to the flat wall (2026-10-08)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -331,8 +331,9 @@ local WALL_FOOT_ROWS = 4
 -- reaches out to meet it), so the turf reads as lying OVER the dirt rather than painted
 -- on it. See grassCappedPair / overhangOf. (A four-band strata version was tried and walked
 -- back on request: "keep the wall one combo of brown".)
--- THE CAMP WALLS AND STAGE 1'S STRETCH NO LONGER USE THIS PATH (2026-10-08): they are
--- layered slabs from build/CliffWall, same brown + camp-green pairs. Stages 2+ still do.
+-- THE CAMP WALLS NO LONGER USE THIS PATH (2026-10-08): they are layered slabs from
+-- build/CliffWall, same brown + camp-green pairs. Stage 1's corridor was layered too and
+-- put back to this flat wall on request ("make stage 1 normal").
 --
 -- EVERY STAGE'S WALL NOW CARVES OUT THE SAME LIP, ON REQUEST -- GRASS_LIP_ROWS,
 -- grassDrip and GRASS_OVERHANG are chain-wide geometry constants, not just a camp/
@@ -4089,40 +4090,10 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 	end
 
 	local northZ, southZ = minZ - WALL_THICKNESS / 2, maxZ + WALL_THICKNESS / 2
-
-	-- STAGE 1'S STRETCH IS LAYERED like the camp walls it runs on from (build/CliffWall,
-	-- on request 2026-10-08); the flat checker wall + crown picks up at its east edge.
-	local flatFromX = minX
-	if ids[1] == 1 then
-		local _, _, stage1MaxX = Stages.bounds(1)
-		flatFromX = stage1MaxX
-		local capDark, capLight = wallCapPair(1)
-		for _, side in { { "NorthWall", northZ, "BackSurface", 0 }, { "SouthWall", southZ, "FrontSurface", 1 } } do
-			local atZ = side[2] :: number
-			CliffWall.build(folder, {
-				name = side[1] :: string,
-				frameAt = function(s: number): CFrame
-					return CFrame.new(s, 0, atZ)
-				end,
-				face = side[3] :: string,
-				s0 = minX,
-				s1 = stage1MaxX,
-				height = STAGE_WALL.height,
-				footRows = WALL_FOOT_ROWS,
-				tile = WALL_TILE,
-				thick = WALL_THICKNESS,
-				seed = (CORRIDOR_SALT + (side[4] :: number)) * 100003,
-				body = { WALL_BROWN_DARK, WALL_BROWN_LIGHT },
-				grass = { capDark, capLight },
-			})
-		end
-	end
-	if flatFromX < maxX then
-		buildWall(folder, "NorthWall", flatFromX, maxX, northZ, "BackSurface", facePairAt)
-		buildWall(folder, "SouthWall", flatFromX, maxX, southZ, "FrontSurface", facePairAt)
-		buildWallCap(folder, "NorthWallCap", flatFromX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
-		buildWallCap(folder, "SouthWallCap", flatFromX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
-	end
+	buildWall(folder, "NorthWall", minX, maxX, northZ, "BackSurface", facePairAt)
+	buildWall(folder, "SouthWall", minX, maxX, southZ, "FrontSurface", facePairAt)
+	buildWallCap(folder, "NorthWallCap", minX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
+	buildWallCap(folder, "SouthWallCap", minX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
 
 	-- Invisible barriers on both crowns, ON REQUEST, so nobody can jump up and run
 	-- along the wall tops. Wider than the wall so the lip overhang is covered too;
@@ -4150,7 +4121,7 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 	-- from Stage 1's own stretch to the full chain, each column coloured with its own
 	-- stage's top colour (wallCapPair via `id`). Rolled apart so the two walls do not
 	-- mirror each other (their whole-tile drips share CORRIDOR_SALT via wallPair).
-	for x0 = flatFromX, maxX - WALL_TILE, WALL_TILE do
+	for x0 = minX, maxX - WALL_TILE, WALL_TILE do
 		local xc = x0 + WALL_TILE / 2
 		local id = stageAt(xc)
 		local col = math.floor(xc / WALL_TILE)
