@@ -1160,7 +1160,7 @@ end
 --- THE TABBED TERMINAL (mockup option 5). A tab strip across the top of the card and
 --- three pages under it:
 ---   BREW   — the loaded fluid (bottle, name, tier, stat chips) and the BREW key.
----   FLUIDS — all fifteen rollable fluids as a collection grid; ones you have never
+---   FLUIDS — all sixteen rollable fluids as a collection grid; ones you have never
 ---            rolled are dark ??? bottles (FluidState `seen`).
 ---   LUCK   — the Upgrade key, with the top fluids' odds now and after the purchase
 ---            (FluidState `rollLuck` and `nextRollLuck`).
@@ -1355,13 +1355,15 @@ local function buildPanelBrew(pg: Frame)
 	})
 end
 
---- FLUIDS page: a 5x3 grid of every rollable fluid, and a discovered count under it.
-local FLUID_TILE = Vector2.new(56, 66)
+--- FLUIDS page: a 5-wide grid of every rollable fluid (four rows since the Anomaly
+--- fluid made it sixteen), and a discovered count under it. The tiles are 60 tall so
+--- the fourth row and the count still fit inside the page.
+local FLUID_TILE = Vector2.new(56, 60)
 local function buildPanelFluids(pg: Frame)
-	local grid = plainFrame(pg, "Grid", UDim2.new(1, -32, 0, 214), UDim2.fromOffset(16, 0), Vector2.zero)
+	local grid = plainFrame(pg, "Grid", UDim2.new(1, -32, 0, 258), UDim2.fromOffset(16, 0), Vector2.zero)
 	local layout = Instance.new("UIGridLayout")
 	layout.CellSize = UDim2.fromOffset(FLUID_TILE.X, FLUID_TILE.Y)
-	layout.CellPadding = UDim2.fromOffset(6, 8)
+	layout.CellPadding = UDim2.fromOffset(6, 6)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = grid
@@ -1381,11 +1383,11 @@ local function buildPanelFluids(pg: Frame)
 			strokeThickness = 2,
 		})
 		tile.LayoutOrder = index
-		local fluid = bottleIcon(tile, UDim2.new(0.5, 0, 0, 5), 0.62, UIKit.C.text)
+		local fluid = bottleIcon(tile, UDim2.new(0.5, 0, 0, 4), 0.56, UIKit.C.text)
 		local label = UIKit.label(tile, {
 			name = "FluidName",
-			size = UDim2.new(1, -6, 0, 20),
-			position = UDim2.new(0.5, 0, 0, 43),
+			size = UDim2.new(1, -6, 0, 18),
+			position = UDim2.new(0.5, 0, 0, 39),
 			anchorPoint = Vector2.new(0.5, 0),
 			text = "???",
 			font = UIKit.Font.title,
@@ -1404,7 +1406,7 @@ local function buildPanelFluids(pg: Frame)
 	panel.seenCount = UIKit.label(pg, {
 		name = "Count",
 		size = UDim2.new(1, -32, 0, 20),
-		position = UDim2.fromOffset(16, 224),
+		position = UDim2.fromOffset(16, 264),
 		text = "",
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.body,

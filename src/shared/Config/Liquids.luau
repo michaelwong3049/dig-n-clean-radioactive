@@ -50,35 +50,36 @@
 	Regenerate this table from Util/TuningReport after touching any weight or bias:
 
 	                     1.0     1.5     2.2     3.1     4.3     6.0     8.0
-	  Soapy Suds        34.67%  30.17%  25.90%  22.12%  18.63%  15.25%  12.54%
-	  Fizzy Pop         17.91%  16.91%  15.67%  14.33%  12.88%  11.28%   9.82%
-	  Pickle Brine      13.29%  13.06%  12.58%  11.91%  11.06%  10.01%   8.97%
-	  Bubblegum Gel     10.98%  11.47%  11.70%  11.66%  11.37%  10.82%  10.12%
-	  Blue Razz Slush    7.22%   7.95%   8.53%   8.88%   9.04%   8.98%   8.73%
-	  Glacier Melt       6.07%   7.01%   7.87%   8.55%   9.05%   9.35%   9.41%
-	  Honey Wax          3.47%   4.35%   5.27%   6.12%   6.92%   7.65%   8.15%
-	  Rust Eater         2.37%   3.09%   3.89%   4.69%   5.47%   6.25%   6.86%
-	  Ghost Mist         1.91%   2.59%   3.39%   4.22%   5.10%   6.02%   6.79%
-	  Molten Lava        0.87%   1.30%   1.88%   2.55%   3.34%   4.28%   5.19%
-	  Plasma Jelly       0.58%   0.91%   1.35%   1.90%   2.57%   3.42%   4.26%
-	  Nano-Foam          0.35%   0.58%   0.91%   1.35%   1.92%   2.68%   3.49%
-	  Atomic Slime       0.20%   0.36%   0.60%   0.93%   1.40%   2.05%   2.78%
-	  Stardust Rinse     0.09%   0.16%   0.29%   0.47%   0.74%   1.15%   1.63%
-	  Antimatter Tonic   0.04%   0.09%   0.17%   0.30%   0.50%   0.82%   1.24%
+	  Soapy Suds         34.66%  30.16%  25.88%  22.09%  18.57%  15.17%  12.43%
+	  Fizzy Pop          17.91%  16.90%  15.65%  14.31%  12.84%  11.21%   9.74%
+	  Pickle Brine       13.29%  13.06%  12.57%  11.89%  11.03%   9.95%   8.89%
+	  Bubblegum Gel      10.98%  11.46%  11.68%  11.64%  11.34%  10.76%  10.04%
+	  Blue Razz Slush     7.22%   7.95%   8.52%   8.87%   9.02%   8.93%   8.65%
+	  Glacier Melt        6.07%   7.01%   7.86%   8.53%   9.02%   9.30%   9.33%
+	  Honey Wax           3.47%   4.34%   5.26%   6.11%   6.90%   7.61%   8.08%
+	  Rust Eater          2.37%   3.09%   3.89%   4.68%   5.46%   6.22%   6.80%
+	  Ghost Mist          1.91%   2.59%   3.39%   4.22%   5.08%   5.99%   6.74%
+	  Molten Lava         0.87%   1.30%   1.88%   2.54%   3.33%   4.26%   5.15%
+	  Plasma Jelly        0.58%   0.90%   1.35%   1.90%   2.57%   3.40%   4.23%
+	  Nano-Foam           0.35%   0.58%   0.91%   1.35%   1.92%   2.67%   3.46%
+	  Atomic Slime        0.20%   0.36%   0.60%   0.93%   1.39%   2.04%   2.76%
+	  Stardust Rinse      0.09%   0.16%   0.29%   0.47%   0.74%   1.14%   1.62%
+	  Antimatter Tonic    0.04%   0.09%   0.17%   0.30%   0.50%   0.82%   1.22%
+	  Void Prism Elixir   0.02%   0.04%   0.09%   0.17%   0.31%   0.55%   0.87%
 
-	  any +1 potency    15.93%  20.44%  25.63%  31.09%  37.01%  43.67%  49.81%
-	  any +2 potency     2.12%   3.40%   5.21%   7.51%  10.47%  14.39%  18.60%
+	  any +1 potency     13.81%  17.04%  20.40%  23.54%  26.46%  29.12%  30.94%
+	  any +2 potency      2.14%   3.44%   5.29%   7.67%  10.75%  14.86%  19.31%
 
 	Three properties of that table are the design, and Util/Spec pins all three:
 
-	  * THE FLOOR NEVER DISAPPEARS. Soapy Suds is still 12.5% at luck 8. A roll you
+	  * THE FLOOR NEVER DISAPPEARS. Soapy Suds is still 12.4% at luck 8. A roll you
 	    can predict is not a roll, and a pad that always pays is a vending machine.
-	  * THE JACKPOT MOVES 28x END TO END (Antimatter Tonic, 1-in-2,300 to 1-in-81).
+	  * THE JACKPOT MOVES 43x END TO END (Void Prism Elixir, 1-in-4,950 to 1-in-115).
 	    That is what the Luck track is actually buying, and it has to be visible in
 	    one sitting or the ladder feels like a tax.
 	  * LUCK MOVES MASS UP THE TABLE, WHICH IS NOT THE SAME AS "EVERYTHING GETS
 	    LIKELIER", and reading the table above carelessly will tell you otherwise.
-	    Fizzy Pop has a positive bias and its share still FALLS, 17.91% -> 9.82%: it
+	    Fizzy Pop has a positive bias and its share still FALLS, 17.91% -> 9.74%: it
 	    gains on Soapy Suds and loses to every entry above it, which is exactly
 	    what a luck curve should do. The property that actually has to hold is that
 	    no adjacent pair ever INVERTS — a rarer liquid must never become relatively
@@ -133,6 +134,7 @@ Liquids.ORDER = {
 	"atomic",
 	"stardust",
 	"antimatter",
+	"prism",
 }
 
 --- The floor. Absent from the profile, absent from the roll table, always available.
@@ -347,6 +349,19 @@ Liquids.DEFS = {
 		potency = 2,
 		rateMult = 6.00,
 		xpMult = 3.20,
+		charges = 3,
+	},
+	prism = {
+		tier = "Anomaly",
+		order = 17,
+		name = "Void Prism Elixir",
+		color = "D8C8FF",
+		flavor = "Light bends wrong inside the vial. The crust comes off in colours it never had.",
+		weight = 0.7,
+		luckBias = 2.30,
+		potency = 2,
+		rateMult = 8.00,
+		xpMult = 4.00,
 		charges = 3,
 	},
 } :: { [string]: LiquidDef }
