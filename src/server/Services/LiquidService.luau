@@ -565,6 +565,15 @@ local function onAction(player: Player, verb: any)
 		choose(player, data, verb == "replace")
 		return
 	end
+	if verb == "skip" then
+		-- The brew popup's SKIP landed the reel early. The roll was granted when it
+		-- started, so this only recolours the bottle now instead of after the spin.
+		if spinning[player] then
+			spinning[player] = nil
+			ExhibitService.refreshBottle(player)
+		end
+		return
+	end
 	if verb ~= "roll" and verb ~= "luck" then
 		return
 	end
