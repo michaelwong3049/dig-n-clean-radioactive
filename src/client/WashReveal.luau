@@ -43,6 +43,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
 local Crates = require(Shared.Config.Crates)
 local Tuning = require(Shared.Config.Tuning)
+local Mastery = require(Shared.Mastery) -- Mastery.short: "$360M"
 
 local UIKit = require(script.Parent.UIKit)
 local StarLine = require(script.Parent.StarLine)
@@ -182,8 +183,12 @@ WashReveal.HOSE_DROP = CFrame.new(0.9, -2.8, -0.4)
 -- ── Formatting ──────────────────────────────────────────────────────
 
 --- "$142,000" -- the whole number, grouped. This is the one time the price is the
---- headline, so it is not abbreviated the way the cash badge's $142.0K is.
+--- headline, so it is not abbreviated the way the cash badge's $142.0K is -- until a
+--- million, where the zeroes stop helping: "$360M".
 local function money(amount: number): string
+	if math.abs(amount) >= 1e6 then
+		return "$" .. Mastery.short(amount) -- "$360M", not "$360,000,000"
+	end
 	local grouped = tostring(math.floor(amount + 0.5))
 	while true do
 		local nextText, count = string.gsub(grouped, "^(%-?%d+)(%d%d%d)", "%1,%2")

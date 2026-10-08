@@ -1617,6 +1617,9 @@ end
 --- `$150000` is a number; `$150,000` is a price. Eight of them stacked in a grid are
 --- read against each other, and unseparated digits at that length are read wrong.
 local function money(amount: number): string
+	if math.abs(amount) >= 1e6 then
+		return "$" .. Mastery.short(amount) -- "$360M", not "$360,000,000"
+	end
 	local text = tostring(math.floor(amount))
 	local grouped = text
 	while true do
@@ -1629,13 +1632,10 @@ local function money(amount: number): string
 	return `${grouped}`
 end
 
---- The header wallet: full digits while they fit its slot, then "$67.1T". Past
---- ~$100M the grouped digits ran wider than the slot and over the track name.
+--- The header wallet: the same as a price, "$950,000" then "$67.1T". Past ~$100M
+--- grouped digits ran wider than the slot and over the track name.
 local function walletMoney(amount: number): string
-	if math.abs(amount) < 1e8 then
-		return money(amount)
-	end
-	return "$" .. Mastery.short(amount)
+	return money(amount)
 end
 
 --- Paint one card's stat chips. Chips are reused, so every chip past the track's own

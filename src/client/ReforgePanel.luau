@@ -35,6 +35,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
 local Reforge = require(Shared.Config.Reforge)
 local Bombing = require(Shared.Bombing)
+local Mastery = require(Shared.Mastery) -- Mastery.short: "$360M"
 
 local UIKit = require(script.Parent.UIKit)
 local StarLine = require(script.Parent.StarLine)
@@ -100,6 +101,9 @@ local SLIDE = TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.O
 local POP = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 local function money(amount: number): string
+	if math.abs(amount) >= 1e6 then
+		return "$" .. Mastery.short(amount) -- "$360M", not "$360,000,000"
+	end
 	local grouped = tostring(math.floor(amount))
 	while true do
 		local nextText, count = string.gsub(grouped, "^(%-?%d+)(%d%d%d)", "%1,%2")
