@@ -225,7 +225,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 113 -- flipped checker twins, no shed tiles (2026-10-07)
+local BUILDER_VERSION = 114 -- faint checker on the front strip (2026-10-08)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -328,7 +328,13 @@ end
 --- the deck's own colour and finish (PadFloor), on request (2026-10-04: "same color as
 --- the one the stands are on"); it was the walkways' black for a moment before that. The apron still paves the strip grey underneath (Hub.setPadFronts);
 --- this lies a hair above it and a hair under the border, so neither z-fights.
+--- A VERY FAINT CHECKER on top (2026-10-08, on request): Kit's CHECKER detail texture in
+--- a darker grey at FRONT_CHECKER_ALPHA, 4-stud cells (the plaza's tile), centred on the
+--- pad's middle line. A Texture, not tiles, so the strip stays one part and keeps its studs.
 local FRONT_PATH_TOP = Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.03
+local FRONT_CHECKER_CELL = 4
+local FRONT_CHECKER_COLOR = "6E7378"
+local FRONT_CHECKER_ALPHA = 0.8
 local function buildFrontPath(parent: Instance, origin: CFrame)
 	local part = build(parent, origin, {
 		name = "FrontPath",
@@ -340,6 +346,19 @@ local function buildFrontPath(parent: Instance, origin: CFrame)
 	})
 	part.CanQuery = false
 	part.CanTouch = false
+	local tile = 2 * FRONT_CHECKER_CELL
+	local checker = Kit.detailTexture(
+		part,
+		Enum.NormalId.Top,
+		Kit.DETAIL_TEXTURE.CHECKER,
+		FRONT_CHECKER_COLOR,
+		tile,
+		tile,
+		(tile - (Plots.PAD.width / 2) % tile) % tile,
+		0
+	)
+	checker.Name = "FaintChecker"
+	checker.Transparency = FRONT_CHECKER_ALPHA
 	return part
 end
 
