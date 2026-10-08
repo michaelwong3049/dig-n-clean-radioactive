@@ -106,14 +106,14 @@ local function textWidth(text: string, size: number, font: Enum.Font): number
 	return TextService:GetTextSize(text, size, font, Vector2.new(4000, 400)).X
 end
 
---- "$400,320" in full up to the millions, where the commas stop helping: "$12.4M".
+--- "$400,320" in full under a million, then short: "$1.2M", "$12.4M".
 local function formatAmount(amount: number): string
 	amount = math.floor(amount + 0.5)
 	if amount >= 1_000_000_000_000 then
 		return string.format("$%.2fT", amount / 1_000_000_000_000)
 	elseif amount >= 1_000_000_000 then
 		return string.format("$%.2fB", amount / 1_000_000_000)
-	elseif amount >= 10_000_000 then
+	elseif amount >= 1_000_000 then
 		return string.format("$%.1fM", amount / 1_000_000)
 	end
 	local digits = tostring(amount)

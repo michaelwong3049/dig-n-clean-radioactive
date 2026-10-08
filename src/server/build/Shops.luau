@@ -186,6 +186,7 @@ local ToolModels = require(Shared.ToolModels)
 local ToolFX = require(Shared.ToolFX)
 local MagnetHang = require(Shared.MagnetHang)
 local AuraLook = require(Shared.AuraLook)
+local Mastery = require(Shared.Mastery) -- Mastery.short: "$360M"
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -1503,10 +1504,14 @@ local PRICE_GOLD = "FFD84A" -- the cash badge's gold, so a price reads as the sa
 -- name with no space to split at ("Electromagnet") stays one line and shrinks a little.
 local NAME_ONE_LINE_MAX = 11
 
---- "$320,000", not "$320000": every other price in the game is grouped.
+--- "$320,000", not "$320000": every other price in the game is grouped. "$360M" from a
+--- million up, where the zeroes stop helping.
 local function priceText(price: number): string
 	if price <= 0 then
 		return "FREE"
+	end
+	if math.abs(price) >= 1e6 then
+		return "$" .. Mastery.short(price) -- "$360M", not "$360,000,000"
 	end
 	local grouped = tostring(math.floor(price))
 	while true do

@@ -144,8 +144,17 @@ export type TreadmillTier = {
 --- and a $0 unlock there is one press of the console.
 Treadmill.UNLOCK_PRICE = 0
 
---- "$25,000": a price as every sign, prompt and notice prints it.
+--- "$25,000": a price as every sign, prompt and notice prints it. A million and up is
+--- short instead, "$360M" / "$1.2B" (Mastery.short's ladder, inlined: Config requires nothing).
 function Treadmill.priceText(amount: number): string
+	for _, step in { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" } } do
+		local size, suffix = step[1] :: number, step[2] :: string
+		if math.abs(amount) >= size then
+			local scaled = amount / size
+			local text = if scaled >= 100 then string.format("%d", math.floor(scaled)) else string.format("%.1f", math.floor(scaled * 10) / 10)
+			return "$" .. (string.gsub(text, "%.0$", "")) .. suffix
+		end
+	end
 	local digits = tostring(math.floor(amount))
 	local grouped = string.reverse((string.gsub(string.reverse(digits), "(%d%d%d)", "%1,")))
 	return "$" .. (string.gsub(grouped, "^,", ""))

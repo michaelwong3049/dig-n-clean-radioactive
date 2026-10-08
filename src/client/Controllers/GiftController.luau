@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Gift = require(Shared.Config.Gift)
 local Rarity = require(Shared.Config.Rarity)
+local Mastery = require(Shared.Mastery) -- Mastery.short: "$360M"
 local ItemModels = require(Shared.ItemModels)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -148,6 +149,9 @@ end
 -- ── The card ─────────────────────────────────────────────────────────
 
 local function withCommas(n: number): string
+	if math.abs(n) >= 1e6 then
+		return "$" .. Mastery.short(n) -- "$360M", not "$360,000,000"
+	end
 	local digits = tostring(math.floor(n))
 	local grouped = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse()
 	return "$" .. grouped:gsub("^,", "")

@@ -32,6 +32,7 @@ local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Merge = require(Shared.Config.Merge)
 local Payload = require(Shared.Config.Payload)
+local Mastery = require(Shared.Mastery) -- Mastery.short: "$360M"
 
 local UIKit = require(script.Parent.UIKit)
 local StarLine = require(script.Parent.StarLine)
@@ -91,6 +92,9 @@ local PICK_TEXT = `Tap a nuke with a READY chip. Its best {Merge.INPUTS} copies 
 local POP = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 local function money(amount: number): string
+	if math.abs(amount) >= 1e6 then
+		return "$" .. Mastery.short(amount) -- "$360M", not "$360,000,000"
+	end
 	local grouped = tostring(math.floor(amount + 0.5))
 	while true do
 		local nextText, count = string.gsub(grouped, "^(%-?%d+)(%d%d%d)", "%1,%2")
