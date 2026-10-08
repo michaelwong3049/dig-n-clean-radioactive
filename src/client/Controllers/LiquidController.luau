@@ -725,6 +725,40 @@ local function build()
 	buildFlask(root)
 	buildResult(root)
 
+	-- SKIP, under the result, on request: the first press lands the reel now, the
+	-- second (or a press once it has landed) closes the brew without the hold. Hidden
+	-- while TAKE / LEAVE is up, which sits in the same row. Styled like the crate reel's.
+	local skip, skipStroke = UIKit.button(root, {
+		name = "Skip",
+		size = UDim2.fromOffset(150, 44),
+		position = UDim2.fromOffset(FLASK_X, BULB_Y + BULB / 2 + 58 + 190),
+		anchorPoint = Vector2.new(0.5, 0),
+		text = "SKIP",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		fillColor = Color3.new(0, 0, 0),
+		fillTransparency = 0.35,
+		strokeColor = HOT_STROKE,
+		strokeThickness = 2.5,
+		zIndex = 6,
+		visible = false,
+	})
+	skipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	skip.TextStrokeColor3 = INK
+	skip.TextStrokeTransparency = 0
+	skip.MouseEnter:Connect(function()
+		skip.BackgroundTransparency = 0.15
+	end)
+	skip.MouseLeave:Connect(function()
+		skip.BackgroundTransparency = 0.35
+	end)
+	skip.Activated:Connect(function()
+		if ui.onSkip then
+			ui.onSkip()
+		end
+	end)
+	ui.skip = skip
+
 	local flash = Instance.new("Frame")
 	flash.Name = "Flash"
 	flash.BorderSizePixel = 0
@@ -936,6 +970,7 @@ local function reveal(payload: any, token: number)
 
 	if payload.choose then
 		-- Held open until the player answers; close() runs off the button press.
+		ui.skip.Visible = false
 		ui.replace.Text = "TAKE"
 		ui.keep.Text = "LEAVE"
 		ui.choice.Visible = true
@@ -1037,6 +1072,24 @@ local function play(payload: any)
 	local lastTile = from
 	local lastPosition = from
 	local landed = false
+
+	-- SKIP mid-reel lands it on the result now (and tells the server, so the bottle
+	-- recolours without waiting out the spin); once landed, it closes the brew.
+	ui.skip.Visible = true
+	ui.skip.BackgroundTransparency = 0.35
+	ui.onSkip = function()
+		if token ~= spinToken then
+			return
+		end
+		if not landed then
+			landed = true
+			Net.get("FluidAction"):FireServer("skip")
+			reveal(payload, token)
+		elseif not payload.choose then
+			ui.skip.Visible = false
+			close(token)
+		end
+	end
 	ui.connection = RunService.RenderStepped:Connect(function(dt)
 		if token ~= spinToken then
 			return
@@ -1116,6 +1169,8 @@ local FLUID_TAG = "FluidSpin"
 local BREW_READY = UIKit.C.green
 local BREW_LIP = Color3.fromHex("13733A")
 local IDLE_LIP = Color3.fromHex("0A0C08")
+--- The banked-brews count badge on the BREW key.
+local COUNT_YELLOW = Color3.fromHex("FFD21F")
 
 local panel: any = {}
 --- The last FluidState, and when it arrived, so the BREW countdown runs locally.
@@ -1301,6 +1356,21 @@ local function buildPanelBrew(pg: Frame)
 	flame.ZIndex = 4
 	flame.Parent = brew
 	panel.flame = flame
+
+	-- How many brews are banked, on request: a yellow count badge tipped over the key's
+	-- top-right corner instead of "x22" in the same white as BREW, so the two read
+	-- apart. Shown past one brew.
+	local count, countText = pill(brew, "Count", "", 22, 30, COUNT_YELLOW, INK)
+	count.AnchorPoint = Vector2.new(1, 0.5)
+	count.Position = UDim2.new(1, 8, 0, 0)
+	count.Rotation = 6
+	count.ZIndex = 6
+	countText.ZIndex = 7
+	countText.Font = UIKit.Font.hero
+	outline(count, UIKit.C.outline, UIKit.Stroke.normal)
+	count.Visible = false
+	panel.count = count
+	panel.countText = countText
 	RunService.RenderStepped:Connect(function()
 		if flame.Visible and panel.card and panel.card.Visible then
 			local t = os.clock()
@@ -1819,9 +1889,8 @@ local function paintBrew()
 		panel.brew.TextColor3 = UIKit.C.dim
 		panel.lip.BackgroundColor3 = IDLE_LIP
 	else
-		panel.brew.Text = if ready > 1 then `BREW x{ready}` else "BREW"
-		-- The flame sits left of the word; "BREW x12" is wider, so it steps out further.
-		panel.flame.Position = UDim2.new(0.5, if ready > 1 then -92 else -62, 0.5, -1)
+		panel.brew.Text = "BREW"
+		panel.countText.Text = `x{ready}`
 		panel.brew.TextSize = 28
 		panel.brew.BackgroundColor3 = BREW_READY
 		panel.brew.TextColor3 = UIKit.C.text
@@ -1836,6 +1905,7 @@ local function paintBrew()
 	panel.lip.Size = UDim2.new(1, -32 - room, 0, 60)
 	panel.sheen.Visible = not waiting
 	panel.flame.Visible = not waiting
+	panel.count.Visible = ready > 1
 	if os.clock() > noticeUntil then
 		panel.notice.Text = ""
 	end
