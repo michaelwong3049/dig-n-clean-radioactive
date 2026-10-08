@@ -53,8 +53,13 @@ local function canSteal(): boolean
 	return typeof(deepest) == "number" and deepest >= Tuning.STEAL_MIN_STAGE
 end
 
+-- Dead players can't take bags (ExposureService.giveBagTo refuses them), so their
+-- prompts are switched off until the next character spawns.
+local alive = true
+
 local function wordPrompt(bag: Instance, prompt: Instance)
 	if prompt:IsA("ProximityPrompt") then
+		prompt.Enabled = alive
 		prompt.ActionText = if isMine(bag)
 			then "Recover bag"
 			-- The owner's head start (ExposureService, "RECOVER BAG").
@@ -151,14 +156,32 @@ function DroppedBagController.start()
 		add(bag)
 	end
 
-	-- Reaching Stage 4 re-words every bag already lying out there.
-	Players.LocalPlayer:GetAttributeChangedSignal("DeepestStage"):Connect(function()
+	local function rewordAll()
 		for bag in entries do
 			for _, child in bag:GetChildren() do
 				wordPrompt(bag, child)
 			end
 		end
-	end)
+	end
+
+	-- Reaching Stage 4 re-words every bag already lying out there.
+	Players.LocalPlayer:GetAttributeChangedSignal("DeepestStage"):Connect(rewordAll)
+
+	local function watchCharacter(character: Model)
+		alive = true
+		rewordAll()
+		local humanoid = character:WaitForChild("Humanoid", 10)
+		if humanoid and humanoid:IsA("Humanoid") then
+			humanoid.Died:Connect(function()
+				alive = false
+				rewordAll()
+			end)
+		end
+	end
+	Players.LocalPlayer.CharacterAdded:Connect(watchCharacter)
+	if Players.LocalPlayer.Character then
+		task.spawn(watchCharacter, Players.LocalPlayer.Character)
+	end
 
 	local since = 0
 	RunService.Heartbeat:Connect(function(dt)
