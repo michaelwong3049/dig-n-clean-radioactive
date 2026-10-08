@@ -58,10 +58,10 @@ local WORD_GAP = 11
 
 -- The drop's buffs (Config/RareDrop.buffWords), each its own colour in the line, and
 -- none of them a rarity's colour (Legendary is amber, Mythic red, Epic violet) so a
--- quality never reads as a second rarity. GIGA and OVERSIZED never appear together.
+-- quality never reads as a second rarity. GIGA and HUGE never appear together.
 local QUALITY_COLOR: { [string]: Color3 } = {
 	GIGA = Color3.fromHex("FACC15"), -- gold
-	OVERSIZED = Color3.fromHex("FDE68A"), -- pale gold
+	HUGE = Color3.fromHex("FDE68A"), -- pale gold
 	PRISTINE = Color3.fromHex("7DF9FF"), -- ice cyan
 	IRRADIATED = Color3.fromHex("A3FF3C"), -- toxic lime
 	FUSED = Color3.fromHex("FF6FB5"), -- hot pink

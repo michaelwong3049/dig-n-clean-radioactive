@@ -167,7 +167,7 @@ Rarity.STAR_MODIFIER = {
 
 -- Payload roll bands, checked in order: the first band the roll clears (`min`) or
 -- falls under (`below`) sets the nudge; a roll matching none moves nothing. The two
--- upper edges are Payload.CALLOUTS' GIGA and OVERSIZED, so a stickered find always
+-- upper edges are Payload.CALLOUTS' GIGA and HUGE, so a stickered find always
 -- reads as more stars.
 Rarity.STAR_SIZE = {
 	{ min = 2.2, stars = 2 },

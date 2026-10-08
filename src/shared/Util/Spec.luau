@@ -438,7 +438,7 @@ function Spec.run(): boolean
 		end
 		check("§raredrop every drop rolls 1-4 distinct buffs, best quality first", ok and seen[1] and seen[2] and seen[3] and seen[4] or false)
 		local reach = true
-		for _, size in { "GIGA", "OVERSIZED" } do
+		for _, size in { "GIGA", "HUGE" } do
 			local range = RareDrop.SIZE_RANGES[size]
 			if range.min >= Payload.MAX or Payload.calloutFor(range.min) ~= size then
 				reach = false

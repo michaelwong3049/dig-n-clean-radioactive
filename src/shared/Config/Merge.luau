@@ -30,7 +30,7 @@
 	WHAT COMES OUT is not just the best copy bumped: it wears the best quality modifier
 	among the three (MODIFIER_RANK) and the biggest payload roll among the three (its
 	uid, since Config/Payload derives size from uid). Merging a Pristine with an
-	OVERSIZED copy is how you get a Pristine OVERSIZED. Merge.result is that rule, and
+	HUGE copy is how you get a Pristine HUGE. Merge.result is that rule, and
 	both MergeService (the write) and the panel (the preview) call it.
 ]]
 

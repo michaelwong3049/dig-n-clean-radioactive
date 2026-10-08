@@ -974,7 +974,7 @@ local function buildDetail(panel: Frame)
 	local function frac(mult: number): number
 		return math.clamp((mult - Payload.MIN) / span, 0, 1)
 	end
-	-- Zones from Payload.CALLOUTS, lowest first: plain, then OVERSIZED, then GIGA.
+	-- Zones from Payload.CALLOUTS, lowest first: plain, then HUGE, then GIGA.
 	local thresholds = {}
 	for _, tier in Payload.CALLOUTS do
 		table.insert(thresholds, tier.min)

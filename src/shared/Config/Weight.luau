@@ -84,7 +84,7 @@ end
 -- up to where the very biggest stop reading any bigger. Past either end it saturates.
 -- PIVOT is roughly an ordinary dig (a mid-weight nuke at a ~1x roll): up to it the
 -- cracks follow the gentle log curve, past it they GROW -- a power curve, so an
--- OVERSIZED / GIGA roll on a heavy nuke throws a spot several times the usual size.
+-- HUGE / GIGA roll on a heavy nuke throws a spot several times the usual size.
 Weight.CRACK_SIZE_MIN = 0.25
 Weight.CRACK_SIZE_PIVOT = 1.5
 Weight.CRACK_SIZE_MAX = 6
