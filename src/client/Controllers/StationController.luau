@@ -322,9 +322,9 @@ local STUDDED = {
 	backdrop = Color3.fromHex("2B2F36"),
 	cash = UIKit.House.cash,
 	-- Buttons are white under a UIGradient, so one gradient per state is the fill.
-	-- A pure, saturated green sampled off a reference button the user sent (2026-10-04),
-	-- in place of the old yellow-lime; the key keeps its name so the paint states don't move.
-	lime = ColorSequence.new(Color3.fromHex("85FF01"), Color3.fromHex("3FFE01")),
+	-- A flat chartreuse (#7FFF00) off a swatch the user sent (2026-10-08), after the
+	-- 10-04 green gradient; the key keeps its name so the paint states don't move.
+	lime = ColorSequence.new(Color3.fromHex("7FFF00")),
 	equipped = ColorSequence.new(Color3.fromHex("43474F"), Color3.fromHex("33363C")),
 	dear = ColorSequence.new(Color3.fromHex("9AA3B0"), Color3.fromHex("7C8594")),
 	locked = ColorSequence.new(Color3.fromHex("5A6272"), Color3.fromHex("454C5A")),
@@ -1512,7 +1512,7 @@ local function build(): ScreenGui
 	})
 
 	-- The row's SORT and SHOW pills, centred in the header between the title and the
-	-- wallet. Each press steps its pref to the next option (prefs `shopSort`,
+	-- wallet. Each press steps its pref to the next option (prefs `gearSort`,
 	-- `shopShow`); their text is painted by paintShopFilters.
 	local filters = Instance.new("Frame")
 	filters.Name = "ShopFilters"
@@ -2018,10 +2018,10 @@ local function tierIndex(tiers: { any }, tier: number): number?
 end
 
 --- The offer's ladder in the player's chosen order (the header's SORT pill, pref
---- `shopSort`): a sorted COPY, so the server's worst-first list that the rack reads is
+--- `gearSort`): a sorted COPY, so the server's worst-first list that the rack reads is
 --- left alone. Equal prices fall back on the tier, so the order never shuffles a tick.
 local function sortedTiers(tiers: { any }): { any }
-	local cheapFirst = Prefs.get("shopSort") == "low"
+	local cheapFirst = Prefs.get("gearSort") ~= "high"
 	local out = table.clone(tiers)
 	table.sort(out, function(a, b)
 		local pa, pb = a.price or 0, b.price or 0
@@ -2039,7 +2039,7 @@ local SHOW_TEXT = { all = "SHOW: ALL", unowned = "SHOW: NOT OWNED", affordable =
 --- The header pills' text, off the current prefs. Hidden on a rack card.
 local function paintShopFilters(visible: boolean)
 	ui.shopFilters.Visible = visible
-	ui.shopSort.Text = SORT_TEXT[Prefs.get("shopSort")] or SORT_TEXT.high
+	ui.shopSort.Text = SORT_TEXT[Prefs.get("gearSort")] or SORT_TEXT.low
 	ui.shopShow.Text = SHOW_TEXT[Prefs.get("shopShow")] or SHOW_TEXT.all
 end
 
@@ -2692,12 +2692,12 @@ function Station.start()
 		Prefs.set(key, options[at % #options + 1])
 	end
 	ui.shopSort.MouseButton1Click:Connect(function()
-		stepPref("shopSort", { "high", "low" })
+		stepPref("gearSort", { "low", "high" })
 	end)
 	ui.shopShow.MouseButton1Click:Connect(function()
 		stepPref("shopShow", { "all", "unowned", "affordable" })
 	end)
-	for _, key in { "shopSort", "shopShow" } do
+	for _, key in { "gearSort", "shopShow" } do
 		Prefs.observe(key, function()
 			if ui.panel.Visible and state.station == "shop" then
 				carousel.openedFor = nil -- the row moved under you: open on the next upgrade again
