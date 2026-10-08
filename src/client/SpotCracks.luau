@@ -75,6 +75,9 @@ type Ray = {
 	seqs: { NumberSequence },
 	rate: number,
 	tint: number,
+	-- Anomaly only: this ray's offset round the spectrum (0..1, from where it stands in
+	-- the fan), so the fan shows every colour at once instead of one at a time.
+	spread: number,
 }
 
 -- Tier signatures (on request, mockup round 1 "6"): each rarity from Rare up adds one
@@ -256,6 +259,26 @@ local SIG_Y = 0.2 -- signature rings sit between the scorch and the gashes
 
 local function rayColor(hue: Color3, tint: number): ColorSequence
 	return ColorSequence.new(hue:Lerp(WHITE, tint), hue:Lerp(WHITE, math.min(tint + 0.3, 1)))
+end
+
+-- RAINBOW FAN (on request: one ray colour at a time read as flat for the top tier).
+-- An Anomaly ray is its own slice of the spectrum, and shades on into the next slice
+-- up its length, so the whole fan is every colour at once and still cycles.
+local ANOMALY_RAY_SHADE = 0.2 -- how far round the spectrum a ray shades foot to tip
+
+local function anomalyRayColor(phase: number, tint: number): ColorSequence
+	local foot = Rarity.anomalyHue(phase)
+	local tip = Rarity.anomalyHue(phase + ANOMALY_RAY_SHADE)
+	return ColorSequence.new(foot:Lerp(WHITE, tint), tip:Lerp(WHITE, math.min(tint + 0.3, 1)))
+end
+
+-- Embers carry the whole spectrum, shifted by `phase`, so each spark drifts through it.
+local function anomalyEmberColor(phase: number): ColorSequence
+	local keys = {}
+	for k = 0, 4 do
+		keys[k + 1] = ColorSequenceKeypoint.new(k / 4, Rarity.anomalyHue(phase + k / 4):Lerp(WHITE, 0.3))
+	end
+	return ColorSequence.new(keys)
 end
 
 local function ringAdornment(anchor: BasePart, radius: number, width: number, angle: number, color: Color3): CylinderHandleAdornment
@@ -525,7 +548,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 	local rng = Random.new(seedFor(surface) + 1)
 	local spin = rng:NextNumber() * 2 * math.pi
 
-	local function addRay(from: Attachment, reach: Vector3, w0: number, w1: number, seqs: { NumberSequence }, rate: number, tint: number, spins: boolean)
+	local function addRay(from: Attachment, reach: Vector3, w0: number, w1: number, seqs: { NumberSequence }, rate: number, tint: number, spins: boolean, around: number)
 		-- Starts collapsed onto its foot; stepRays grows it out to `reach`.
 		local tip = Instance.new("Attachment")
 		tip.Position = from.Position
@@ -560,6 +583,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 			seqs = seqs,
 			rate = rate,
 			tint = tint,
+			spread = ((around - spin) / (2 * math.pi)) % 1,
 		})
 	end
 
@@ -571,7 +595,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 	for i = 1, HAZE do
 		local around = spin + (i - 1) / HAZE * 2 * math.pi
 		local reach = lean(around, math.rad(6)) * row.rayHeight * HAZE_HEIGHT
-		addRay(foot, reach, HAZE_FOOT * row.rayWidth, HAZE_SPREAD * row.rayWidth, HAZE_SEQUENCES, HAZE_RATE, 0, true)
+		addRay(foot, reach, HAZE_FOOT * row.rayWidth, HAZE_SPREAD * row.rayWidth, HAZE_SEQUENCES, HAZE_RATE, 0, true, around)
 	end
 
 	local shafts = row.rays * SHAFTS_PER_RAY
@@ -580,7 +604,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		local tilt = RAY_TILT_MIN + rng:NextNumber() * (RAY_TILT_MAX - RAY_TILT_MIN)
 		local height = row.rayHeight * (0.7 + rng:NextNumber() * 0.45)
 		local w = RAY_FOOT * row.rayWidth * SHAFT_WIDTH
-		addRay(foot, lean(around, tilt) * height, w, RAY_SPREAD * row.rayWidth * SHAFT_WIDTH * (0.7 + rng:NextNumber() * 0.6), RAY_SEQUENCES, 1, 0, true)
+		addRay(foot, lean(around, tilt) * height, w, RAY_SPREAD * row.rayWidth * SHAFT_WIDTH * (0.7 + rng:NextNumber() * 0.6), RAY_SEQUENCES, 1, 0, true, around)
 	end
 	if rng:NextNumber() < 0.5 then
 		burst.raySpin = -burst.raySpin
@@ -612,7 +636,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 			crownFoot.Parent = anchor
 			local height = row.rayHeight * (if i % 2 == 0 then 0.4 else 0.55)
 			local w = RAY_FOOT * row.rayWidth * 0.45
-			addRay(crownFoot, lean(around, math.rad(18)) * height, w, w * 3.5, RAY_SEQUENCES, 1, if i % 2 == 0 then 0.25 else 0, false)
+			addRay(crownFoot, lean(around, math.rad(18)) * height, w, w * 3.5, RAY_SEQUENCES, 1, if i % 2 == 0 then 0.25 else 0, false, around)
 		end
 	end
 	local moteCount = MOTES[rarity]
@@ -717,13 +741,16 @@ end
 
 --- Anomaly: walk the whole spot round the spectrum, one quantised step at a time, so
 --- a recolour (a ColorSequence per ray) happens a few times a second, not per frame.
+--- The cracks and halo carry the one cycling hue; the rays, rune arcs, motes and embers
+--- are each spread round the spectrum from it, so every colour is up at once.
 local function stepAnomaly(burst: Burst, now: number)
 	local step = math.floor((now / Rarity.ANOMALY_CYCLE) % 1 * ANOMALY_STEPS)
 	if step == burst.hueStep then
 		return
 	end
 	burst.hueStep = step
-	local hue = Rarity.anomalyHue(step / ANOMALY_STEPS)
+	local phase = step / ANOMALY_STEPS
+	local hue = Rarity.anomalyHue(phase)
 	burst.hue = hue
 	burst.dim = hue:Lerp(GASH, 0.55)
 	burst.bright = hue:Lerp(WHITE, 0.3)
@@ -731,19 +758,23 @@ local function stepAnomaly(burst: Burst, now: number)
 		segment.level = -1
 	end
 	for _, ray in burst.rays do
-		ray.beam.Color = rayColor(hue, ray.tint)
+		ray.beam.Color = anomalyRayColor(phase + ray.spread, ray.tint)
 	end
-	burst.embers.Color = ColorSequence.new(hue:Lerp(WHITE, 0.6), hue)
+	burst.embers.Color = anomalyEmberColor(phase)
 	if burst.halo then
 		burst.halo.Color3 = hue
 	end
 	for r, ring in burst.runes do
-		for _, arc in ring.arcs do
-			arc.Color3 = if r == 1 then hue else hue:Lerp(WHITE, 0.35)
+		-- The second ring runs half a spectrum ahead, so the two never match.
+		local offset = if r == 1 then 0 else 0.5
+		for i, arc in ring.arcs do
+			local arcHue = Rarity.anomalyHue(phase + offset + (i - 1) / #ring.arcs)
+			arc.Color3 = if r == 1 then arcHue else arcHue:Lerp(WHITE, 0.35)
 		end
 	end
-	for _, mote in burst.motes do
-		mote.Color3 = hue:Lerp(WHITE, 0.6)
+	local count = #burst.motes
+	for i, mote in burst.motes do
+		mote.Color3 = Rarity.anomalyHue(phase + (i - 1) / count):Lerp(WHITE, 0.4)
 	end
 end
 
