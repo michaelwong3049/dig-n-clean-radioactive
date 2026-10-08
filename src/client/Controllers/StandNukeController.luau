@@ -24,7 +24,9 @@
 	Fused/Irradiated colour) before it is parented, so its glowing parts are already
 	lit on the first frame, not after ItemFxController gets round to activating it.
 	It takes over the still copy's exact pose and hover phase (StationMotion's
-	MotionAngle / MotionSeed), so the turn carries on through the swap.
+	MotionAngle / MotionSeed), so the turn carries on through the swap. The copy it
+	replaces stays underneath for SWAP_OVERLAP, because a freshly cloned model can take
+	a few frames to reach the screen and the stand blinked empty in between.
 
 	BUDGETED. Building copies shares SETUP_BUDGET per frame; at least one stand is
 	built per frame, so walking onto a full base fills in over a few frames instead
@@ -57,6 +59,9 @@ local RETIER_INTERVAL = 0.25
 --- A stand that drops out of the full set keeps its full model this long (matches
 --- ItemFxController's FX_KEEP).
 local FULL_KEEP = 5
+
+--- How long the copy being replaced stays up under its replacement (see build).
+local SWAP_OVERLAP = 0.3
 
 --- Seconds per frame spent building copies. One stand always goes through.
 local SETUP_BUDGET = 0.002
@@ -177,7 +182,15 @@ local function build(stand: Stand, kind: Kind)
 	if current then
 		model:PivotTo(current)
 	end
-	if old then
+	if old and current then
+		-- The same nuke swapping copies: a fresh model can take a few frames to reach
+		-- the screen, and dropping the old one at once left the stand blank for
+		-- those frames. Both sit in the same pose with the same look, so the old one
+		-- just stays underneath for SWAP_OVERLAP.
+		task.delay(SWAP_OVERLAP, function()
+			old:Destroy()
+		end)
+	elseif old then
 		old:Destroy()
 	end
 	stand.model = model
