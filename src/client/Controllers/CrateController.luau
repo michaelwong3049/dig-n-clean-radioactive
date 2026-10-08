@@ -142,6 +142,8 @@ local ui: any = {}
 --- CrateSkip (client -> server): the reel's SKIP button. Set in start().
 local skipRemote: any = nil
 local spinToken = 0
+--- Fades the open out; defined below, but the sheet's SKIP (built first) calls it.
+local close: (token: number) -> ()
 
 local function round(parent: Instance, radius: UDim)
 	local corner = Instance.new("UICorner")
@@ -865,6 +867,39 @@ local function build()
 	end)
 	ui.skip = skip
 
+	-- The result sheet's own SKIP, under the sheet: closes it now instead of waiting
+	-- out HOLD_SECONDS. The nuke is already in your hands by then.
+	local sheetSkip, sheetSkipStroke = UIKit.button(root, {
+		name = "SheetSkip",
+		size = UDim2.fromOffset(150, 44),
+		position = UDim2.fromOffset(SHEET_X + SHEET_W / 2, SHEET_VIEW_Y + SHEET_H / 2 + 14),
+		anchorPoint = Vector2.new(0.5, 0),
+		text = "SKIP",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		fillColor = Color3.new(0, 0, 0),
+		fillTransparency = 0.35,
+		strokeColor = HOT_STROKE,
+		strokeThickness = 2.5,
+		zIndex = 6,
+		visible = false,
+	})
+	sheetSkipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	sheetSkip.TextStrokeColor3 = INK
+	sheetSkip.TextStrokeTransparency = 0
+	sheetSkip.MouseEnter:Connect(function()
+		sheetSkip.BackgroundTransparency = 0.15
+	end)
+	sheetSkip.MouseLeave:Connect(function()
+		sheetSkip.BackgroundTransparency = 0.35
+	end)
+	sheetSkip.Activated:Connect(function()
+		if ui.sheetSkipToken then
+			close(ui.sheetSkipToken)
+		end
+	end)
+	ui.sheetSkip = sheetSkip
+
 	local flash = Instance.new("Frame")
 	flash.Name = "Flash"
 	flash.BorderSizePixel = 0
@@ -987,11 +1022,13 @@ local function burst(primary: Color3, secondary: Color3, count: number, spread: 
 	end
 end
 
-local function close(token: number)
+function close(token: number)
 	if token ~= spinToken or ui.gui == nil then
 		return
 	end
 	ui.opening = false
+	ui.sheetSkipToken = nil
+	ui.sheetSkip.Visible = false
 	tween(ui.scale, FADE_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { Scale = 0.92 })
 	tween(ui.dim, FADE_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { BackgroundTransparency = 1 })
 	task.delay(FADE_SECONDS, function()
@@ -1198,6 +1235,8 @@ local function reveal(payload: any, token: number)
 	ui.land:Play()
 
 	paintSheet(payload, colour)
+	ui.sheetSkipToken = token
+	ui.sheetSkip.Visible = true
 
 	task.delay(HOLD_SECONDS, close, token)
 end
@@ -1309,6 +1348,8 @@ local function play(payload: any)
 	ui.header.Text = string.upper(crate.name)
 	ui.header.TextColor3 = Color3.fromHex(crate.color)
 	ui.sheet.Visible = false
+	ui.sheetSkip.Visible = false
+	ui.sheetSkipToken = nil
 	ui.cycle.Visible = false
 	ui.cycleTier.Visible = false
 	ui.viewHolder.Position = ui.viewHome
