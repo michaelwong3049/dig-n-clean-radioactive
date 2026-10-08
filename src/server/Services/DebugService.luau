@@ -69,6 +69,8 @@ local AwayEarningsService = require(script.Parent.AwayEarningsService)
 local DailyRewardService = require(script.Parent.DailyRewardService)
 local PlaytimeGiftService = require(script.Parent.PlaytimeGiftService)
 local GroupRewardService = require(script.Parent.GroupRewardService)
+local ProductService = require(script.Parent.ProductService)
+local RobuxGifts = require(Shared.Config.RobuxGifts)
 local Tuning = require(Shared.Config.Tuning)
 
 local Workspace = game:GetService("Workspace")
@@ -1018,6 +1020,44 @@ COMMANDS["/pass"] = {
 			GamePassService.set(player, data, k, owned)
 		end
 		return `{table.concat(keys, ", ")} {if owned then "on" else "off"}`
+	end,
+}
+
+COMMANDS["/robuxgift"] = {
+	-- A Robux gift without Robux: plants the intent the gift button would (skipping
+	-- the recipient checks, so it can target yourself) and runs a made-up receipt
+	-- through ProductService, so the message, delivery and both toasts all run.
+	help = "/robuxgift <productId|list> [userId] — send a giftable Robux product (default: to yourself) through the real gift path",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		if args[1] == "list" or args[1] == nil then
+			local lines = {}
+			for _, gift in RobuxGifts.GIFTS do
+				table.insert(lines, `{gift.id} {gift.name}`)
+			end
+			return table.concat(lines, "
+")
+		end
+		local productId = tonumber(args[1]) or 0
+		local gift = RobuxGifts.get(productId)
+		if gift == nil then
+			return `{args[1]} isn't giftable (try /robuxgift list)`
+		end
+		local to = tonumber(args[2]) or player.UserId
+		data.giftIntent = { productId = productId, to = to, toName = if to == player.UserId then player.Name else tostring(to), at = os.time() }
+		task.spawn(function()
+			local decision = ProductService.debugReceipt({
+				PlayerId = player.UserId,
+				ProductId = productId,
+				PurchaseId = `debug-{player.UserId}-{os.clock()}`,
+				CurrencySpent = 0,
+			})
+			print(`[robuxgift] debug receipt for {gift.name} -> {decision}`)
+		end)
+		return `gifting {gift.name} to {to}`
 	end,
 }
 

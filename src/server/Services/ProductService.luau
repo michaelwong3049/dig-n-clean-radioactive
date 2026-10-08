@@ -159,6 +159,11 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 	return decision or Enum.ProductPurchaseDecision.NotProcessedYet
 end
 
+--- Run a made-up receipt through the real path (DebugService's /robuxgift). YIELDS.
+function ProductService.debugReceipt(receipt: any): Enum.ProductPurchaseDecision
+	return processReceipt(receipt)
+end
+
 function ProductService.start()
 	MarketplaceService.ProcessReceipt = processReceipt
 end
