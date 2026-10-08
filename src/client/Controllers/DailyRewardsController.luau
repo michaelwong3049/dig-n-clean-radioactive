@@ -279,6 +279,8 @@ local function fillLines(card: Card, reward: any, big: boolean)
 		local def = Crates.get(crateId)
 		line(`{counts[crateId]}x {def.short}`, Color3.fromHex(def.color):Lerp(PANEL.white, 0.25))
 	end
+	-- The card's picture: the day's best crate, on request, else the gift box.
+	card.gift.Image = Crates.bestImage(seen) or Artwork.IMAGE.gift
 	if (tonumber(reward.luckSeconds) or 0) > 0 then
 		line(`{minutes(reward.luckSeconds)} 2x Luck`, PANEL.luck)
 	end

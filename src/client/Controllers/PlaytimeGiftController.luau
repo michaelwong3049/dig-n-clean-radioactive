@@ -21,6 +21,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Potions = require(Shared.Config.Potions)
+local Crates = require(Shared.Config.Crates)
 local PlaytimeGifts = require(Shared.Config.PlaytimeGifts)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -417,7 +418,11 @@ local function paintGifts()
 	for index, card in cards do
 		local gift = s.gifts[index]
 		if gift then
-			card.icon.Image = PlaytimeGifts.iconFor(PlaytimeGifts.GIFTS[index]) or Artwork.IMAGE.gift
+			-- The real crate this gift hands you (it follows your stage), when it has one;
+			-- otherwise the gift's own icon.
+			card.icon.Image = Crates.bestImage(gift.crateIds)
+				or PlaytimeGifts.iconFor(PlaytimeGifts.GIFTS[index])
+				or Artwork.IMAGE.gift
 			local lines = linesFor(gift)
 			for row, label in card.lines do
 				local line = lines[row]
