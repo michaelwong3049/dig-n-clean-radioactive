@@ -36,7 +36,7 @@ export type PotionDef = {
 	short: string, -- the HUD timer chip
 	blurb: string, -- what it does, in the panel
 	color: string, -- hex: the liquid, the card edge, the timer pill
-	image: string, -- rbxassetid (tools/hud-icons/potion_<id>.svg)
+	image: string, -- rbxassetid (tools/potion-art/potion_<id>.png)
 	mult: number,
 }
 
@@ -46,8 +46,8 @@ Potions.DURATION = 10 * 60
 --- A sanity ceiling on one potion's banked time, not a design lever.
 Potions.MAX_BANKED_SECONDS = 6 * 60 * 60
 
---- The potion panel tile's own picture (tools/hud-icons/potions_tile.svg).
-Potions.TILE_IMAGE = "rbxassetid://137386317510309"
+--- The potion panel tile's own picture (tools/potion-art/potions_tile.png).
+Potions.TILE_IMAGE = "rbxassetid://105843290204890"
 
 --- Stable order: the panel's rows, the HUD chips, and the crate roll.
 Potions.ORDER = { "luck", "cash", "speed", "strength", "clean" }
@@ -59,7 +59,7 @@ Potions.DEFS = {
 		short = "Luck",
 		blurb = "x2 luck on digs and the wash pad",
 		color = "3FC94F",
-		image = "rbxassetid://109888002736859",
+		image = "rbxassetid://102610653225140",
 		mult = 2,
 	},
 	cash = {
@@ -68,7 +68,7 @@ Potions.DEFS = {
 		short = "Cash",
 		blurb = "x2 cash from sales and stands",
 		color = "FFBE21",
-		image = "rbxassetid://120916555692019",
+		image = "rbxassetid://135807018599371",
 		mult = 2,
 	},
 	speed = {
@@ -77,7 +77,7 @@ Potions.DEFS = {
 		short = "Speed",
 		blurb = "+25% walk speed",
 		color = "3F74FF",
-		image = "rbxassetid://113485053938419",
+		image = "rbxassetid://102604994530727",
 		mult = 1.25,
 	},
 	strength = {
@@ -86,7 +86,7 @@ Potions.DEFS = {
 		short = "Strength",
 		blurb = "x2 magnet power, so hauls come up faster",
 		color = "F04A2E",
-		image = "rbxassetid://119308481222971",
+		image = "rbxassetid://105112452283545",
 		mult = 2,
 	},
 	clean = {
@@ -95,7 +95,7 @@ Potions.DEFS = {
 		short = "Clean",
 		blurb = "x2 wash speed on crusted finds",
 		color = "25D3C9",
-		image = "rbxassetid://97159203394716",
+		image = "rbxassetid://134432513884402",
 		mult = 2,
 	},
 } :: { [string]: PotionDef }
