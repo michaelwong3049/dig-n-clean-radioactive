@@ -95,8 +95,9 @@ Prefs.DEFS = {
 	-- GEAR SHOP ORDER + FILTER (client StationController): the two pills in the shop
 	-- panel's header. "high" = most expensive card first; "low" = cheapest first. SHOW
 	-- narrows the row: "unowned" drops tiers you own, "affordable" keeps only tiers you
-	-- can buy right now. Set from the panel itself, not shown in Settings.
-	shopSort = { kind = "choice", default = "high", options = { "high", "low" } },
+	-- can buy right now. Set from the panel itself, not shown in Settings. The sort was
+	-- `shopSort` (default "high") until 2026-10-08; renamed so cheapest-first reaches old saves.
+	gearSort = { kind = "choice", default = "low", options = { "low", "high" } },
 	shopShow = { kind = "choice", default = "all", options = { "all", "unowned", "affordable" } },
 
 	-- TRADER ORDER (client TraderPanel): the SORT pill in the trader's header. "high" =
