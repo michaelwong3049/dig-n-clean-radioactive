@@ -52,6 +52,9 @@ local actionRemote: any = nil
 local resultRemote: any = nil
 local furnaceRemote: any = nil
 local lastRoll: { [Player]: number } = {}
+--- A jackpot nuke's "new find" announce, held until the reel lands: run by the
+--- reel's SKIP (furnaceSkip) or the ROLL_SECONDS timer, whichever comes first.
+local pendingAnnounce: { [Player]: () -> () } = {}
 local rng = Random.new()
 
 --- The jackpot pools, rarity -> item ids stocked on Furnace.JACKPOT_STAGES. Built once.
@@ -232,11 +235,17 @@ local function grant(player: Player, data: any, prize: Furnace.PrizeDef): any
 		Decay.freeze(carried)
 		table.insert(data.carry, carried)
 		local first, previous = IdentifyService.identify(player, carried)
-		task.delay(Furnace.ROLL_SECONDS, function()
+		local function announce()
+			if pendingAnnounce[player] ~= announce then
+				return
+			end
+			pendingAnnounce[player] = nil
 			if player.Parent then
 				IdentifyService.announce(player, carried, first, { staged = true, previousBest = previous })
 			end
-		end)
+		end
+		pendingAnnounce[player] = announce
+		task.delay(Furnace.ROLL_SECONDS, announce)
 		card.itemId = itemId
 		card.uid = carried.uid
 		card.name = def.name
@@ -262,6 +271,20 @@ local function fillerCard(): any
 		end
 	end
 	return card
+end
+
+--- The reel's SKIP landed it early. The prize was granted when the roll started, so
+--- this only fires a held nuke announce now and lifts the cooldown (which exists to
+--- cover the reel), so the next ROLL works straight away.
+function FurnaceService.skip(player: Player)
+	if lastRoll[player] == nil then
+		return
+	end
+	lastRoll[player] = nil
+	local announce = pendingAnnounce[player]
+	if announce then
+		announce()
+	end
 end
 
 --- Spend one banked roll. Returns (ok, message) for the station toast.
@@ -325,6 +348,9 @@ function FurnaceService.start()
 			ok, message = FurnaceService.dump(player, request.uids)
 		elseif request.action == "furnaceRoll" then
 			ok, message = FurnaceService.roll(player)
+		elseif request.action == "furnaceSkip" then
+			FurnaceService.skip(player)
+			return
 		else
 			return
 		end
@@ -339,6 +365,7 @@ function FurnaceService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastRoll[player] = nil
+		pendingAnnounce[player] = nil
 	end)
 end
 
