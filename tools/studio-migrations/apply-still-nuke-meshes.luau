@@ -171,14 +171,25 @@ local function run(): string
 		end
 		root.Transparency = 1
 		inert(root)
+		-- The original's pivot is its PrimaryPart's CFrame times a PivotOffset. With a
+		-- PrimaryPart set, WorldPivot is ignored, so the offset has to go on the part;
+		-- without it every still copy pivoted on the root and sat up to 2.4 studs off
+		-- the full model once posed on a stand.
+		root.PivotOffset = root.CFrame:ToObjectSpace(pivot)
 		root.Parent = model
 		model.PrimaryPart = root
-		model.WorldPivot = pivot
 
 		local bounds, extent = model:GetBoundingBox()
 		local wantCentre = pivot:PointToWorldSpace(vec(info.bboxCentre))
 		local wantSize = vec(info.bboxSize)
-		if not close(extent, wantSize, BBOX_TOLERANCE) or (bounds.Position - wantCentre).Magnitude > wantSize.Magnitude * BBOX_TOLERANCE then
+		-- Checked against the model's own pivot, not just world space: a copy can sit
+		-- in exactly the right place and still pose wrongly if its pivot is off.
+		local pivotOff = (model:GetPivot().Position - pivot.Position).Magnitude
+		if
+			not close(extent, wantSize, BBOX_TOLERANCE)
+			or (bounds.Position - wantCentre).Magnitude > wantSize.Magnitude * BBOX_TOLERANCE
+			or pivotOff > 0.01
+		then
 			table.insert(skipped, fmt("%s (bbox %s at %s, expected %s)", item, tostring(extent), tostring(bounds.Position - wantCentre), tostring(wantSize)))
 			model:Destroy()
 			continue

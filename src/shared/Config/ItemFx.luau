@@ -283,10 +283,11 @@ ItemFx.IRRADIATED = {
 -- (StandNukeController); the rest inside `midRange` keep their motion at a lower
 -- rate; only the nearest `lights` keep a PointLight. FAST MODE puts every nuke in
 -- the still tier whatever this says.
+-- Measured from the player (Shared/ItemFx.viewerPosition), not the camera behind them.
 ItemFx.DETAIL = {
-	high = { fullRange = 45, fullBudget = 12, midRange = 90, lights = 8 },
-	med = { fullRange = 30, fullBudget = 6, midRange = 60, lights = 4 },
-	low = { fullRange = 20, fullBudget = 2, midRange = 40, lights = 2 },
+	high = { fullRange = 60, fullBudget = 16, midRange = 100, lights = 8 },
+	med = { fullRange = 40, fullBudget = 8, midRange = 70, lights = 4 },
+	low = { fullRange = 25, fullBudget = 3, midRange = 45, lights = 2 },
 }
 
 ItemFx.DEFS = {
