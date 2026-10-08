@@ -7,7 +7,8 @@
 	A BLAST FURNACE: three stepped basalt courses with an ember crown, a hopper on top
 	that a ramp climbs to (where the nukes go in), a glowing mouth at the front, a spout
 	pouring into a slag channel that runs to a mould, a heat gauge, two chimneys and a
-	pile of cooled slag beside it.
+	pile of cooled slag beside it. When the place has ServerStorage.StationTemplates.
+	SlagFurnace, that imported model is the look instead (build/ImportedStation).
 
 	AUTHORED FACING +Z (the player walks up from +Z), origin at the deck's top face,
 	centred on the machine. Nothing here moves on the server. The flare (the mouth and
@@ -27,6 +28,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 
+local ImportedStation = require(script.Parent.ImportedStation)
 local Kit = require(script.Parent.Kit)
 
 local SlagFurnace = {}
@@ -40,6 +42,8 @@ SlagFurnace.TAG = "SlagFurnace"
 SlagFurnace.RADIUS = 10
 SlagFurnace.HALF_X = 13
 SlagFurnace.HALF_Z = 8
+--- The imported look is ~0.88 x 1.09 x 0.64 studs as it comes in.
+SlagFurnace.IMPORT_SCALE = 30
 
 local build = Kit.build
 local R = Kit.R
@@ -229,33 +233,83 @@ local function buildSlagPile(m: Model, origin: CFrame)
 	end
 end
 
+--- An invisible marker the client lights or sparks from, at `at` (world).
+local function marker(m: Model, name: string, at: Vector3, size: Vector3)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = CFrame.new(at)
+	p.Color = Color3.fromHex(COLOR.ember)
+	p.Material = Enum.Material.SmoothPlastic
+	p.Transparency = 1
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Parent = m
+end
+
+--- The imported furnace (ServerStorage.StationTemplates.SlagFurnace): its own plinth,
+--- fanged mouth, chimney, lava basin and chains. Only the invisible Embers (in the
+--- mouth) and SparkPoint (over the chimney's fire) the client flares are added. Returns
+--- the part the sign hangs off and the height (above that part) it hangs at.
+local function buildImported(m: Model, origin: CFrame, template: Model): (BasePart, number)
+	local look = ImportedStation.place(template, m, origin, SlagFurnace.IMPORT_SCALE, "plinth_Node")
+	local _, lookSize = look:GetBoundingBox()
+
+	local mouth, mouthSize = ImportedStation.bounds(look, "mouth_lava")
+	if mouth and mouthSize then
+		-- Just proud of the lava face, toward the player, so the light spills out.
+		marker(m, "Embers", mouth.Position + origin.LookVector * 0.5, Vector3.new(mouthSize.X * 0.8, mouthSize.Y * 0.4, 0.2))
+	end
+	local fire = ImportedStation.bounds(look, "chimney_fire")
+	if fire then
+		marker(m, "SparkPoint", fire.Position + Vector3.new(0, 1, 0), Vector3.new(0.2, 0.2, 0.2))
+	end
+
+	local plinth = look:FindFirstChild("plinth", true)
+	local body = if plinth and plinth:IsA("BasePart") then plinth else look:FindFirstChildWhichIsA("BasePart", true) :: BasePart
+	return body, lookSize.Y + 4 - (body.Position.Y - origin.Y)
+end
+
 --- Build the furnace under `parent` at `origin` (deck top, facing +Z). `campKey` is its
 --- StationId, so a later camp's furnace is its own station.
 function SlagFurnace.build(parent: Instance, origin: CFrame, campKey: string): Model
 	local m = Instance.new("Model")
 	m.Name = SlagFurnace.MODEL_NAME
 
-	-- ── Plinth, with hazard tape along its front ──
 	local depth = 2 * SlagFurnace.HALF_Z
-	local width = 2 * SlagFurnace.HALF_X
-	part(m, origin, "Plinth", { 0, PLINTH_H / 2, 0 }, { width, PLINTH_H, depth }, COLOR.plinth, { studs = true })
-	local bands = 13
-	for i = 0, bands - 1 do
-		local w = width / bands
-		part(m, origin, "Tape", { -width / 2 + w * (i + 0.5), PLINTH_H / 2, depth / 2 + 0.05 }, { w, 0.6, 0.1 }, if i % 2 == 0
-			then COLOR.hazYellow
-			else COLOR.hazBlack, { canCollide = false })
+
+	local template = ImportedStation.template(SlagFurnace.MODEL_NAME)
+	local body: BasePart
+	if template then
+		local signHeight
+		body, signHeight = buildImported(m, origin, template)
+		m:SetAttribute("ImportedLook", true)
+		Kit.billboard(body, 260, signHeight, "SLAG FURNACE", "Burn nukes, fill the meter, roll prizes", COLOR.molten, 60)
+	else
+		-- ── Plinth, with hazard tape along its front ──
+		local width = 2 * SlagFurnace.HALF_X
+		part(m, origin, "Plinth", { 0, PLINTH_H / 2, 0 }, { width, PLINTH_H, depth }, COLOR.plinth, { studs = true })
+		local bands = 13
+		for i = 0, bands - 1 do
+			local w = width / bands
+			part(m, origin, "Tape", { -width / 2 + w * (i + 0.5), PLINTH_H / 2, depth / 2 + 0.05 }, { w, 0.6, 0.1 }, if i % 2 == 0
+				then COLOR.hazYellow
+				else COLOR.hazBlack, { canCollide = false })
+		end
+
+		local hopperTop
+		body, hopperTop = buildBody(m, origin)
+		buildMouth(m, origin)
+		buildChannel(m, origin)
+		buildRamp(m, origin, hopperTop)
+		buildChimneys(m, origin, hopperTop)
+		buildSlagPile(m, origin)
+
+		-- Clear of the chimney caps.
+		Kit.billboard(body, 260, hopperTop + 6, "SLAG FURNACE", "Burn nukes, fill the meter, roll prizes", COLOR.molten, 60)
 	end
-
-	local body, hopperTop = buildBody(m, origin)
-	buildMouth(m, origin)
-	buildChannel(m, origin)
-	buildRamp(m, origin, hopperTop)
-	buildChimneys(m, origin, hopperTop)
-	buildSlagPile(m, origin)
-
-	-- Clear of the chimney caps.
-	Kit.billboard(body, 260, hopperTop + 6, "SLAG FURNACE", "Burn nukes, fill the meter, roll prizes", COLOR.molten, 60)
 
 	-- ── The station, in front, with its E ──
 	local station = part(m, origin, SlagFurnace.STATION_NAME, { 0, 2.5, depth / 2 + 1.5 }, { 1, 1, 1 }, COLOR.steel, {
