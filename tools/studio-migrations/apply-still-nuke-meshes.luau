@@ -134,7 +134,10 @@ local function run(): string
 		local model = Instance.new("Model")
 		model.Name = item
 		for key, value in (template :: Model):GetAttributes() do
-			model:SetAttribute(key, value)
+			-- RBX_ attributes (the importer's RBX_ReimportId) are engine-only.
+			if string.sub(key, 1, 4) ~= "RBX_" then
+				model:SetAttribute(key, value)
+			end
 		end
 		model:SetAttribute("StillCopy", true)
 		for index, entry in entries do
