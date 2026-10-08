@@ -15,6 +15,9 @@
 	               diamond slides to the new roll, the new number stands beside the old
 	               (green better, red worse) with its grade, and REFORGE splits into
 	               KEEP NEW and REVERT.
+	  the odds     EFFECT CHANCE: the chance one reforge adds a quality, over a bar split
+	               into the qualities the copy can still get (Reforge.qualityOdds), each
+	               segment in its WashReveal colour with its own percent.
 	  the copies   every washed nuke you own, bag and Quarantine Locker together.
 
 	The numbers are Shared/Bombing.statsFor over the described copy, with the new `forge`
@@ -66,12 +69,13 @@ ReforgePanel.WIDTH = 860
 
 local HEADER_H = 58
 local WALLET_INSET = 44
-local TOP_H = 250
+local TOP_H = 322
 local PICK_W = 220
 local GRID_H = 230
 local TILE_W = 92
 local TILE_H = 108
 local ROW_H = 80
+local EFFECT_H = 64
 
 -- The roll meter's zones, as cuts across Reforge.grade (0 = ROLL_MIN, 1 = ROLL_MAX): the
 -- band's colour in each and the grade tag a roll landing there wears.
@@ -446,6 +450,119 @@ local function makeRow(parent: Instance, name: string, y: number): StatRow
 	}
 end
 
+type EffectRow = {
+	frame: Frame,
+	total: TextLabel,
+	bar: Frame,
+	segments: { [string]: Frame },
+	full: TextLabel,
+}
+
+--- A chance as a short percent: 0.03 -> "3%", 0.0086 -> "0.9%".
+local function percent(chance: number): string
+	local pct = chance * 100
+	return if pct >= 10 or math.abs(pct - math.floor(pct + 0.5)) < 0.05
+		then `{math.floor(pct + 0.5)}%`
+		else string.format("%.1f%%", pct)
+end
+
+--- The forge card's EFFECT CHANCE row: the total chance a reforge adds a quality, over
+--- a bar split into one segment per quality the copy can still get, sized by its share.
+local function makeEffectRow(parent: Instance, y: number): EffectRow
+	local row = frame(parent, "EffectChance")
+	row.Position = UDim2.fromOffset(12, y)
+	row.Size = UDim2.new(1, -24, 0, EFFECT_H)
+	text(row, {
+		name = "Label",
+		size = UDim2.fromOffset(260, 30),
+		font = SKIN.headline,
+		textSize = 20,
+		text = "EFFECT CHANCE",
+	})
+	local total = text(row, {
+		name = "Total",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.fromScale(1, 0),
+		size = UDim2.fromOffset(240, 30),
+		font = SKIN.headline,
+		textSize = 22,
+		color = SKIN.gold,
+		xAlign = Enum.TextXAlignment.Right,
+		rich = true,
+	})
+
+	local meter = frame(row, "Meter", SKIN.well)
+	meter.Position = UDim2.fromOffset(0, 36)
+	meter.Size = UDim2.new(1, 0, 0, 26)
+	corner(meter, 8)
+	edge(meter, SKIN.ink, 3)
+	local bar = frame(meter, "Segments")
+	bar.Size = UDim2.fromScale(1, 1)
+	bar.ClipsDescendants = true
+	corner(bar, 7)
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = bar
+	local segments: { [string]: Frame } = {}
+	for index, name in Reforge.QUALITIES do
+		local segment = frame(bar, name, QUALITY_COLOR[name] or SKIN.dim)
+		segment.LayoutOrder = index
+		local divider = frame(segment, "Divider", SKIN.ink)
+		divider.Size = UDim2.new(0, 2, 1, 0)
+		local label = text(segment, {
+			name = "Text",
+			position = UDim2.fromOffset(6, 0),
+			size = UDim2.new(1, -12, 1, 0),
+			textSize = 12,
+			color = SKIN.ink,
+			xAlign = Enum.TextXAlignment.Center,
+			ink = false,
+		})
+		label.TextTruncate = Enum.TextTruncate.AtEnd
+		segments[name] = segment
+	end
+	local full = text(meter, {
+		name = "Full",
+		size = UDim2.fromScale(1, 1),
+		textSize = 12,
+		color = SKIN.muted,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "HAS EVERY EFFECT \u{2014} NOTHING LEFT TO ADD",
+		ink = false,
+	})
+	return { frame = row, total = total, bar = bar, segments = segments, full = full }
+end
+
+local function paintEffectRow(row: EffectRow, item: any)
+	local odds = Reforge.qualityOdds(Rarity.qualities(item.modifier, item.bonus))
+	local chances: { [string]: number } = {}
+	local sum = 0
+	for _, entry in odds do
+		chances[entry.name] = entry.chance
+		sum += entry.chance
+	end
+	row.total.Text = if sum > 0
+		then `{percent(sum)} <font size="13" color="#{SKIN.dim:ToHex()}">per reforge</font>`
+		else `<font color="#{SKIN.muted:ToHex()}">0%</font>`
+	row.full.Visible = sum <= 0
+	row.bar.Visible = sum > 0
+	local first = true
+	for _, name in Reforge.QUALITIES do
+		local segment = row.segments[name]
+		local chance = chances[name] or 0
+		segment.Visible = chance > 0
+		if chance > 0 then
+			segment.Size = UDim2.fromScale(chance / sum, 1)
+			local label = segment:FindFirstChild("Text") :: TextLabel
+			label.Text = `{string.upper(name)} {percent(chance)}`
+			local divider = segment:FindFirstChild("Divider") :: Frame
+			divider.Visible = not first
+			first = false
+		end
+	end
+end
+
 local function deltaColor(new: number, old: number): Color3
 	if math.abs(new - old) < 0.0005 then
 		return SKIN.dim
@@ -587,6 +704,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 	edge(card, SKIN.edge, 2)
 	local damageRow = makeRow(card, "Damage", 12)
 	local radiusRow = makeRow(card, "Radius", 12 + ROW_H + 8)
+	local effectRow = makeEffectRow(card, 12 + 2 * (ROW_H + 8))
 
 	local buttonY = TOP_H - 10 - 44
 	local reforgeButton = bigButton(card, "ReforgeButton")
@@ -828,6 +946,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 		for _, row in { damageRow, radiusRow } do
 			row.frame.Visible = item ~= nil
 		end
+		effectRow.frame.Visible = item ~= nil
 		canReforge = false
 		-- Each button's Visible is written ONCE per paint, never false-then-true: this
 		-- repaints at the StationState tick (~10 Hz), and hiding a button for even a
@@ -855,6 +974,7 @@ function ReforgePanel.new(parent: Instance, layoutOrder: number): Panel
 			then `Reforged {count} time{if count == 1 then "" else "s"}`
 			else "Never reforged"
 		effects.Text = effectsText(item)
+		paintEffectRow(effectRow, item)
 		ItemArt.paint(pickViewport, item, (PICK_W - 20) / 96)
 
 		local nowDmg, nowRad = Bombing.forgeOf(item)
