@@ -67,7 +67,7 @@ local GAP = 10
 local IGNORE_W = 62
 local IGNORE_H = 22
 local IGNORE_GAP = 14
-local FONT = Enum.Font.LuckiestGuy
+local FONT = Enum.Font.GothamBlack
 
 -- The top-of-screen pieces the warning must not sit on: ScreenGui name -> the frame in
 -- it that is drawn only while showing (StageBannerController, TutorialController,
