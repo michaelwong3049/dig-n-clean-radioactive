@@ -14,6 +14,7 @@ local Cfg = require(Config.Bombing)
 local Rarity = require(Config.Rarity)
 local Payload = require(Config.Payload)
 local Items = require(Config.Items)
+local Merge = require(Config.Merge)
 local Detonation = require(script.Parent.Detonation)
 
 local Bombing = {}
@@ -132,11 +133,13 @@ local BADGE_TOP = 3
 
 --- The average star rating of a bag's best BADGE_TOP nukes, 0 for an empty one (the
 --- overhead badge). The count is every nuke in the bag, not just the ones averaged.
+--- Merge Reactor stars count on top of the 1..10 rating (on request), so a bag of
+--- merged 10-star nukes reads past 10 -- up to 10 + Merge.MAX_LEVEL.
 function Bombing.averageStars(items: { any }): (number, number)
 	local stars = {}
 	for _, item in items do
 		if item.crateId == nil then
-			table.insert(stars, Bombing.starsOf(item))
+			table.insert(stars, Bombing.starsOf(item) + Merge.levelOf(item))
 		end
 	end
 	table.sort(stars, function(a, b)

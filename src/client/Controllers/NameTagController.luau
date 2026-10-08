@@ -9,7 +9,8 @@
 
 	THE STAR BADGE sits over the name: "★ 4.2", the average star rating of
 	the best three nukes that player is carrying (the BagStars / BagNukes attributes CarryService
-	publishes on the Player). A bomb death drops the whole bag for anyone to grab
+	publishes on the Player), Merge Reactor stars counted on top so it can read
+	past 10. A bomb death drops the whole bag for anyone to grab
 	(ExposureService), so this is how a bomber sizes up a target (Services/BombService).
 	Its own billboard, reaching further than the name, so you can pick a target from
 	across a field. Hidden while the bag holds no nukes.
