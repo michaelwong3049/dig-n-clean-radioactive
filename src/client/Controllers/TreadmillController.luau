@@ -47,6 +47,7 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Speed = require(script.Parent.SpeedController)
 local RobuxButton = require(script.Parent.Parent.RobuxButton)
+local Studded = require(script.Parent.Parent.Studded)
 
 local Treadmill = {}
 
@@ -131,9 +132,11 @@ local LAYOUT = {
 	hintTextSize = 15,
 	hintClose = 22, -- the X badge on its top-right corner
 	height = 52,
-	stripeGap = 22, -- px between the fill's diagonal hazard stripes
-	stripeW = 9,
-	stripeSpeed = 30, -- px/sec the stripes crawl along the fill
+	-- Moulded square studs over the fill and the trough (on request, 2026-10-08, after a
+	-- yellow studded level bar the user sent): three rows across the bar.
+	studTile = 12,
+	studTransparency = 0.35,
+	troughStudTransparency = 0.7,
 	textStroke = 2.5,
 	shoe = 28,
 	gainTextSize = 22,
@@ -250,37 +253,10 @@ local function build(): Frame?
 	ui.shine.Size = UDim2.new(1, -16, 0, 9)
 	ui.shine.BackgroundTransparency = 0.55
 
-	-- Diagonal stripes across the fill. Rotated frames ignore ClipsDescendants, so they
-	-- live in a CanvasGroup (which does clip them) laid out at the full bar width: the
-	-- fill grows over them rather than squashing them.
-	local stripes = Instance.new("CanvasGroup")
-	stripes.Name = "Stripes"
-	stripes.Size = UDim2.fromScale(1, 1)
-	stripes.BackgroundTransparency = 1
-	stripes.ZIndex = 5
-	stripes.Parent = ui.fill
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = SQUARE
-	corner.Parent = stripes
-	-- The stripes ride on a holder that slides one gap and wraps, so they crawl forever.
-	ui.stripes = Instance.new("Frame")
-	ui.stripes.Name = "Holder"
-	ui.stripes.Size = UDim2.fromScale(1, 1)
-	ui.stripes.BackgroundTransparency = 1
-	ui.stripes.Parent = stripes
-	for x = -L.barH, L.barW + L.barH + L.stripeGap, L.stripeGap do
-		local stripe = Instance.new("Frame")
-		stripe.Name = "Stripe"
-		stripe.AnchorPoint = Vector2.new(0.5, 0.5)
-		stripe.Position = UDim2.fromOffset(x, L.barH / 2)
-		stripe.Size = UDim2.fromOffset(L.stripeW, L.barH * 2)
-		stripe.Rotation = 35
-		stripe.BackgroundColor3 = WHITE
-		stripe.BackgroundTransparency = 0.78
-		stripe.BorderSizePixel = 0
-		stripe.ZIndex = 5
-		stripe.Parent = ui.stripes
-	end
+	-- Studs on both sides of the bar. They tile from the left edge at a fixed size, so
+	-- the fill grows over them rather than squashing them.
+	Studded.tile(ui.fill, Studded.STUDS, L.studTile, L.studTransparency, 3).ZIndex = 4
+	Studded.tile(trough, Studded.STUDS, L.studTile, L.troughStudTransparency, 3).ZIndex = 3
 
 	ui.need = text(trough, "Need", { 0, 0, L.barW, L.barH }, {
 		font = STYLE.valueFont,
@@ -379,8 +355,6 @@ local function paint()
 	ui.fill.Size = UDim2.fromScale(progress, 1)
 	-- The shine is inset 8 px each side, so a sliver of fill would turn it inside out.
 	ui.shine.Visible = progress * LAYOUT.barW > 28
-	local gap = LAYOUT.stripeGap
-	ui.stripes.Position = UDim2.fromOffset((os.clock() * LAYOUT.stripeSpeed) % gap - gap, 0)
 end
 
 -- ── The popups ────────────────────────────────────────────────────────────
