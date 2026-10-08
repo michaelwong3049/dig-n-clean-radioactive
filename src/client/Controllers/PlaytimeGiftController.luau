@@ -73,16 +73,16 @@ local PAD = 16
 local HEADER_H = 54
 local FOOTER_H = 50
 local CARD_W = 184
-local CARD_H = 136
+local CARD_H = 152
 local CARD_GAP = 10
 -- Inside a card: the picture on top, the timer pill on the bottom, and the gift's lines
 -- centred in the strip between them (so a one-line gift has no hole under it).
-local ICON = 46
+local ICON = 58
 local ICON_Y = 4
 local PILL_H = 30
 local PILL_INSET = 6
 local LINE_ROWS = 3
-local LINE_H = 16
+local LINE_H = 18
 local COLS = 4
 local ROWS = 3
 local PANEL_W = PAD * 2 + CARD_W * COLS + CARD_GAP * (COLS - 1)
@@ -341,14 +341,14 @@ local function buildCard(parent: Instance, index: number, position: Vector2): Ca
 		local label = inked(textBox, {
 			Name = `Line{row}`,
 			Text = "",
-			TextSize = 15,
+			TextSize = 18,
 			TextScaled = true,
 			LayoutOrder = row,
 			Size = UDim2.new(1, 0, 0, LINE_H),
 			ZIndex = 12,
 		})
 		local cap = Instance.new("UITextSizeConstraint")
-		cap.MaxTextSize = 15
+		cap.MaxTextSize = 18
 		cap.Parent = label
 		lines[row] = label
 	end

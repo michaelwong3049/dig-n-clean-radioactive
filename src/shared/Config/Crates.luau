@@ -22,7 +22,7 @@
 	    into the player's stash, every potion equally likely. It drops just as often
 	    on every stage and ignores detector luck (Crates.dropId).
 
-	THE JACKPOT CRATES (nuke6 Ground Zero = Mythic, nuke7 Rift = Anomaly) sit off the
+	THE JACKPOT CRATES (nuke6 Mythic Crate, nuke7 Anomaly Crate; were Ground Zero / Rift) sit off the
 	ladder. Each rolls EVERY nuke of its one rarity in the game, Stage 1 to 12, with a
 	later stage's nukes rarer (`stageFalloff` per stage after the first). They never
 	come out of the ordinary crate roll: they are their own very rare dig drop on
@@ -199,8 +199,8 @@ Crates.DEFS = {
 		id = "nuke6",
 		kind = "nuke",
 		variant = 6,
-		name = "Ground Zero Crate",
-		short = "Ground Zero",
+		name = "Mythic Crate",
+		short = "Mythic Crate",
 		flavor = "A mushroom cloud frozen under glass, the case cracked with magma. Every Mythic ever dug is in the draw.",
 		color = "EF4444",
 		tier = "Mythic",
@@ -216,8 +216,8 @@ Crates.DEFS = {
 		id = "nuke7",
 		kind = "nuke",
 		variant = 7,
-		name = "Rift Crate",
-		short = "Rift Crate",
+		name = "Anomaly Crate",
+		short = "Anomaly Crate",
 		flavor = "A portal held open in a steel frame, stars pouring through. Every Anomaly ever dug is on the other side.",
 		color = "FFFFFF",
 		tier = "Anomaly",
