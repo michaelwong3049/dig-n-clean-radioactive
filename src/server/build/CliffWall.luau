@@ -123,6 +123,11 @@ function CliffWall.build(parent: Instance, o: Opts)
 		-- Runs break on the tile grid, so every block's anchor cell is a whole cell.
 		local nextGrid = (math.floor(s / tile + 1e-3) + rng:NextInteger(RUN_TILES.min, RUN_TILES.max)) * tile
 		local e = math.min(nextGrid, o.s1)
+		-- An off-grid end (the camp shoulders stop 1 stud into the corridor wall) would leave
+		-- a sub-tile sliver run with its own recess and slab: fold it into this run instead.
+		if o.s1 - e < tile then
+			e = o.s1
+		end
 		local anchorIx = math.floor((if anchorAtHighS then e - tile / 2 else s + tile / 2) / tile)
 
 		local recess = if isFlat(s, e) then 0 else pick(rng, o.recess or RECESS)

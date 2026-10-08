@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 72 -- Stage 1 corridor back to the flat wall (2026-10-08)
+local BUILDER_VERSION = 73 -- no sliver run / flush face at the Stage 1 corner (2026-10-08)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4346,10 +4346,17 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 		-- Interior is toward z = 0: a north piece faces -Z (Front), a south one +Z (Back).
 		local inward = if side < 0 then "BackSurface" else "FrontSurface"
 		-- East: the wing's outer corner square is this piece's (it runs to wingZF + t).
+		-- The run at the corridor end stays flush, so its face meets Stage 1's wall at the
+		-- corner instead of stepping back from it. The inner layer runs right up to the
+		-- corridor's inner face (a hair shy, so the end faces never z-fight): stopping on the
+		-- centreline left a 4-stud notch, two vertical edges where the corner should be one.
+		local SHY = 0.1
 		if side < 0 then
-			piece("ShoulderWallNeg", false, eastF + t / 2, -wingZF - t, corridorMinZ + OVERLAP, "LeftSurface")
+			local e = if layer.corridorPad == 0 then stageMinZ - SHY else corridorMinZ + OVERLAP
+			piece("ShoulderWallNeg", false, eastF + t / 2, -wingZF - t, e, "LeftSurface", { { e - 0.01, e } })
 		else
-			piece("ShoulderWallPos", false, eastF + t / 2, corridorMaxZ - OVERLAP, wingZF + t, "LeftSurface")
+			local e = if layer.corridorPad == 0 then stageMaxZ + SHY else corridorMaxZ - OVERLAP
+			piece("ShoulderWallPos", false, eastF + t / 2, e, wingZF + t, "LeftSurface", { { e, e + 0.01 } })
 		end
 		-- Wing outer: owns its west corner square (from backF - t), stops at the east piece.
 		piece(`WingOuter{tag}`, true, side * (wingZF + t / 2), backF - t, eastF, inward)
