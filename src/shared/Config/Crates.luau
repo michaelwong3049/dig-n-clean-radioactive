@@ -91,6 +91,10 @@ export type CrateDef = {
 	-- Visual size nudge on top of the shared crate footprint (CrateModels), for a model
 	-- that reads small next to the others. 1 when absent.
 	sizeMult: number?,
+	-- The crate's picture (tools/crate-art/crate_<id>.png, set from Crates.IMAGES below):
+	-- every 2D spot a crate shows (hotbar, bag, reels, shop, offers) draws this instead
+	-- of rendering the 3D model in a viewport.
+	image: string?,
 }
 
 --- One in this many spawned signals is a crate instead of a nuke.
@@ -308,6 +312,27 @@ Crates.DEFS = {
 		pullWeight = 60,
 	},
 } :: { [string]: CrateDef }
+
+--- Each crate's picture, on request (2026-10-08): the user's AI crate art with the
+--- white background cut out, 512x512 (tools/crate-art).
+Crates.IMAGES = {
+	nuke1 = "rbxassetid://110943154893005",
+	nuke2 = "rbxassetid://89771862781115",
+	nuke3 = "rbxassetid://111339322979744",
+	nuke4 = "rbxassetid://138340475194178",
+	nuke5 = "rbxassetid://70848925473815",
+	nuke6 = "rbxassetid://117182713481345",
+	nuke7 = "rbxassetid://138263067071021",
+	liquid1 = "rbxassetid://87548059959283",
+	liquid2 = "rbxassetid://117050988206747",
+	liquid3 = "rbxassetid://103980106023210",
+	liquid4 = "rbxassetid://138432481087528",
+	liquid5 = "rbxassetid://108404964594991",
+	potion1 = "rbxassetid://91093973499188",
+} :: { [string]: string }
+for id, image in Crates.IMAGES do
+	Crates.DEFS[id].image = image
+end
 
 --- Drop weights for variants 1..5 per stage, at detector luck 1. Deeper stages lean
 --- up the ladder. Stages 1-6 drop the early three (Scrap/Field/Void); from Stage 7

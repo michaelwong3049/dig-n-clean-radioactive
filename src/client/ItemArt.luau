@@ -145,6 +145,35 @@ function ItemArt.paint(viewport: ViewportFrame, item: any, aspect: number)
 			child:Destroy()
 		end
 	end
+
+	-- A clean crate with a picture (Config/Crates `image`): the picture, laid over the
+	-- empty viewport, instead of rendering the 3D crate.
+	local picture = viewport:FindFirstChild("CratePicture") :: ImageLabel?
+	local crate = if item.crateId and item.identified == nil and Crates.has(item.crateId)
+		then Crates.get(item.crateId)
+		else nil
+	if crate and crate.image then
+		if picture == nil then
+			local made = Instance.new("ImageLabel")
+			made.Name = "CratePicture"
+			made.BackgroundTransparency = 1
+			made.ScaleType = Enum.ScaleType.Fit
+			made.AnchorPoint = Vector2.new(0.5, 0.5)
+			made.Position = UDim2.fromScale(0.5, 0.5)
+			made.Size = UDim2.fromScale(0.94, 0.94)
+			made.ZIndex = viewport.ZIndex + 1
+			made.Parent = viewport
+			picture = made
+		end
+		local shown = picture :: ImageLabel
+		shown.Image = crate.image
+		shown.Visible = true
+		return
+	end
+	if picture then
+		picture.Visible = false
+	end
+
 	local model = modelFor(item)
 	model.Parent = viewport
 	frameModel(viewport.CurrentCamera :: Camera, model, aspect)
@@ -178,6 +207,10 @@ function ItemArt.clear(viewport: ViewportFrame)
 		if child:IsA("Model") then
 			child:Destroy()
 		end
+	end
+	local picture = viewport:FindFirstChild("CratePicture")
+	if picture and picture:IsA("ImageLabel") then
+		picture.Visible = false
 	end
 end
 

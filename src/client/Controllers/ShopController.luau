@@ -146,13 +146,9 @@ local PASS_TINT: { [string]: Color3 } = {
 	instantClean = Color3.fromHex("1E88E5"),
 	health = Color3.fromHex("C2185B"),
 }
--- Flat pictures of crates (art/crates), drawn instead of the live 3D model so the card
--- never sits blank waiting on meshes. A crate with none falls back to the viewport.
-local CRATE_IMAGE: { [string]: string } = {
-	nuke2 = "rbxassetid://123850927941919", -- Field Nuke Crate
-	nuke3 = "rbxassetid://117104417851806", -- Void Nuke Crate
-	liquid2 = "rbxassetid://107641217252136", -- Isotope Chem Crate
-}
+-- Flat pictures of crates (Config/Crates `image`), drawn instead of the live 3D model so
+-- the card never sits blank waiting on meshes. A crate with none falls back to the viewport.
+local CRATE_IMAGE: { [string]: string } = Crates.IMAGES
 
 --- A crate picture filling `well`, `inset` in from its edges.
 local function crateImage(well: Frame, image: string, inset: number, z: number)

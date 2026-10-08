@@ -75,12 +75,8 @@ local COLOR = {
 	closeHover = Color3.fromHex("FF6A6E"),
 }
 
--- Crate pictures (ShopController's CRATE_IMAGE); a crate without one is drawn live.
-local CRATE_IMAGE: { [string]: string } = {
-	nuke2 = "rbxassetid://123850927941919", -- Field Nuke Crate
-	nuke3 = "rbxassetid://117104417851806", -- Void Nuke Crate
-	liquid2 = "rbxassetid://107641217252136", -- Isotope Chem Crate
-}
+-- Crate pictures (Config/Crates `image`); a crate without one is drawn live.
+local CRATE_IMAGE: { [string]: string } = Crates.IMAGES
 
 -- THE CONTENTS PANEL the offer opens: what is in the pack, one tile each, and the R$
 -- button under them. Centred like every other HUD panel, one open at a time (HudTile).
