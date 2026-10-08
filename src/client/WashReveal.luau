@@ -21,7 +21,7 @@
 	    (none on a repeat) -- and the words land in the lower third: the name, rarity
 	    and weight, and the price and what it pays per second on a stand counting up,
 	  * and once they are down, its quality (Pristine, Cracked...) slams onto the nuke as a
-	    rubber stamp with what it does to the price, and a big size roll (OVERSIZED / GIGA)
+	    rubber stamp with what it does to the price, and a big size roll (HUGE / GIGA)
 	    slams a second one just under it.
 
 	WashController drives it. `play` is called when a staged ItemIdentified arrives,
@@ -128,7 +128,7 @@ local MODIFIER_COLOR: { [string]: Color3 } = {
 }
 local CALLOUT_COLOR: { [string]: Color3 } = {
 	GIGA = Color3.fromHex("FACC15"),
-	OVERSIZED = Color3.fromHex("F59E0B"),
+	HUGE = Color3.fromHex("F59E0B"),
 }
 
 -- Where each stamp lands on the canvas: X in design px right of centre (the nuke is

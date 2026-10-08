@@ -68,7 +68,7 @@ RareDrop.TIER_WEIGHTS = {
 
 -- ── Buffs ──────────────────────────────────────────────────────────────────────
 -- An announced drop is never a plain copy: it always carries at least one buff, and
--- often more. The buffs are a big size (OVERSIZED or GIGA, Config/Payload's callouts)
+-- often more. The buffs are a big size (HUGE or GIGA, Config/Payload's callouts)
 -- and the good qualities (Rarity.MODIFIERS), STACKED -- the first quality is the
 -- copy's `modifier`, the rest ride in its `bonus` list (Rarity.qualities), and every
 -- one multiplies the value. So 4 buffs = GIGA + Pristine + Irradiated + Fused.
@@ -83,19 +83,19 @@ RareDrop.BUFF_COUNT_WEIGHTS = {
 -- The qualities a drop can stack, best first (Merge.MODIFIER_RANK's order), so the
 -- best one picked is always the copy's `modifier`.
 RareDrop.QUALITIES = { "Pristine", "Irradiated", "Fused" }
--- When the size buff is picked, the share of drops that come up GIGA, not OVERSIZED.
+-- When the size buff is picked, the share of drops that come up GIGA, not HUGE.
 RareDrop.GIGA_SHARE = 0.25
 -- The payload ranges each size outcome lands in (Payload.CALLOUTS' edges). A drop
 -- that did NOT pick the size buff still lands at a full 1x or more -- never a
 -- shrunken copy, and never a size sticker it did not roll.
 RareDrop.SIZE_RANGES = {
 	GIGA = { min = 2.2, max = math.huge },
-	OVERSIZED = { min = 1.6, max = 2.2 },
+	HUGE = { min = 1.6, max = 2.2 },
 	plain = { min = 1.0, max = 1.6 },
 }
 
 export type Buffs = {
-	size: string?, -- "GIGA" / "OVERSIZED", nil for no size buff
+	size: string?, -- "GIGA" / "HUGE", nil for no size buff
 	qualities: { string }, -- best first; [1] is the modifier, the rest the bonus
 }
 
@@ -133,7 +133,7 @@ function RareDrop.rollBuffs(rng: Random): Buffs
 			table.insert(qualities, name)
 		end
 	end
-	local size = if picked.size then (if rng:NextNumber() < RareDrop.GIGA_SHARE then "GIGA" else "OVERSIZED") else nil
+	local size = if picked.size then (if rng:NextNumber() < RareDrop.GIGA_SHARE then "GIGA" else "HUGE") else nil
 	return { size = size, qualities = qualities }
 end
 

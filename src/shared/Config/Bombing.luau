@@ -40,11 +40,11 @@ Bombing.VARIANCE = 0.12
 
 -- Seconds from the drop to the bang: an average per rarity (indexed by Rarity order,
 -- Scrap..Anomaly), so the rarer the nuke the less time to run. Each copy rolls within
--- FUSE_SPREAD of its rarity's average (per uid), then an OVERSIZED or GIGA size roll
+-- FUSE_SPREAD of its rarity's average (per uid), then a HUGE or GIGA size roll
 -- (Payload.calloutFor) burns a little longer.
 Bombing.FUSE_BY_RARITY = { 3.0, 3.0, 2.8, 2.6, 2.4, 2.2, 2.0, 1.8 }
 Bombing.FUSE_SPREAD = 0.2
-Bombing.FUSE_SIZE_BONUS = { OVERSIZED = 0.2, GIGA = 0.4 }
+Bombing.FUSE_SIZE_BONUS = { HUGE = 0.2, GIGA = 0.4 }
 
 -- Seconds before you can drop another bomb, flat for every nuke.
 Bombing.COOLDOWN = 3

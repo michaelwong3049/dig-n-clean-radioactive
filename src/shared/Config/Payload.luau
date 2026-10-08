@@ -39,7 +39,7 @@ Payload.MAX = 2.5
 -- first from MIN) to its own, and `chance` is the percent of digs that land in
 -- it -- spread evenly inside the band. Bands must run in order, end at MAX, and
 -- their chances must total 100 (Spec pins all three). Most digs sit around 1x;
--- the OVERSIZED/GIGA bands above 1.6x are ~10% of digs between them.
+-- the HUGE/GIGA bands above 1.6x are ~10% of digs between them.
 Payload.BANDS = {
 	{ upTo = 0.8, chance = 24 },
 	{ upTo = 1.0, chance = 28 },
@@ -57,7 +57,7 @@ Payload.BANDS = {
 -- clear 2.2x.
 Payload.CALLOUTS = {
 	{ min = 2.2, label = "GIGA" },
-	{ min = 1.6, label = "OVERSIZED" },
+	{ min = 1.6, label = "HUGE" },
 }
 
 --- The callout tier a roll earns, or nil for an ordinary-sized dig.

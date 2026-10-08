@@ -88,7 +88,7 @@ local MODIFIER_COLOR: { [string]: Color3 } = {
 -- DetectorController's callout colours, so the sticker matches the dig's own shout.
 local CALLOUT_COLOR: { [string]: Color3 } = {
 	GIGA = Color3.fromHex("FACC15"),
-	OVERSIZED = Color3.fromHex("F59E0B"),
+	HUGE = Color3.fromHex("F59E0B"),
 }
 
 -- How each tier's rarity word is filled. "glint" sweeps a pale band across the base

@@ -68,7 +68,7 @@ local COLOR = UIKit.C
 -- below.
 local LOCK_HOLD_SECONDS = 0.4
 
--- The OVERSIZED / GIGA strip's box. Bottom-centred one band above the inventory's
+-- The HUGE / GIGA strip's box. Bottom-centred one band above the inventory's
 -- Notice pill (which sits at Dock.VITALS_CLEAR and is 50 tall), wide enough that the
 -- auto-sized strip inside never clips. CALLOUT_RISE is how far it slides on the way
 -- in and on the way out.
@@ -1464,12 +1464,12 @@ local function showFind(found)
 	end)
 end
 
---- An "OVERSIZED ×1.8 value" / "GIGA ×2.4 value" strip just above the hotbar when a
+--- A "HUGE ×1.8 value" / "GIGA ×2.4 value" strip just above the hotbar when a
 --- dig rolled a big payload (Config/Payload.CALLOUTS). Slides up and fades in, holds,
 --- then slides on up and fades out -- low and small so it never covers the field.
 local CALLOUT_COLOR = {
 	GIGA = Color3.fromHex("FACC15"),
-	OVERSIZED = COLOR.amber,
+	HUGE = COLOR.amber,
 }
 
 local function showCallout(label: string, mult: number)
