@@ -172,7 +172,7 @@ local DEVICES = {
 	{
 		id = "mobile",
 		label = "MOBILE",
-		sub = "Low graphics, fast mode on",
+		sub = "Low graphics, other bases' nukes hidden",
 		colors = ColorSequence.new(Color3.fromHex("4A5058"), Color3.fromHex("2C3036")),
 		prefs = { graphics = "low", fastMode = true },
 	},

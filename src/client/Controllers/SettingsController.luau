@@ -3,7 +3,7 @@
 	down the left (General / Graphics / Audio / Stats) and the chosen page on the right.
 
 	  GENERAL   base colour, rare drop alerts, confirm rare drops
-	  GRAPHICS  graphics level (also the radiation effects), screen shake, reduce flashing, show auras, fast mode
+	  GRAPHICS  graphics level (also the radiation effects), screen shake, reduce flashing, show auras, hide others' nukes, hide your nukes
 	  AUDIO     sound effects (the mute) and the master / effects / UI / Geiger / music sliders
 	  STATS     your lifetime numbers, read only: playtime, nukes dug, cash earned, kills...
 
@@ -1345,8 +1345,8 @@ local function build(): ScreenGui
 	flagRow(row("GRAPHICS", "Shake"), "shake", "Screen shake", "Blasts and radiation wobble")
 	flagRow(row("GRAPHICS", "Flashing"), "reduceFlashing", "Reduce flashing", "Dims screen flashes, slows rainbows")
 	flagRow(row("GRAPHICS", "Auras"), "auras", "Show auras", "The auras around you and other players")
-	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Fast mode", "Hides other bases' nukes and stops their effects")
-	flagRow(row("GRAPHICS", "SuperFast"), "superFast", "Super fast mode", "Also hides your own nukes (names stay). Needs Fast mode on")
+	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Hide others' nukes", "Hides the nukes on other bases and stops their effects")
+	flagRow(row("GRAPHICS", "SuperFast"), "superFast", "Hide your nukes", "Hides the nukes on your own base (names stay)")
 
 	-- AUDIO: the mute first (it predates the sliders), then the sliders.
 	buildSoundRow(row("AUDIO", "Sound"))

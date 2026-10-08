@@ -1,9 +1,10 @@
 --[[
-	FastModeController — FAST MODE (Settings > Graphics, the `fastMode` pref): while it
+	FastModeController — HIDE OTHERS' NUKES (Settings > Graphics, the `fastMode` pref, once
+	called FAST MODE, the name the code still uses): while it
 	is on, the nukes standing on OTHER players' bases are hidden from you, along with
 	their effects, so a busy server has far less to draw. Your own base is untouched.
-	SUPER FAST MODE (the `superFast` pref) adds YOUR nukes to the hidden ones, while FAST MODE
-	is on; the name cards over them stay, because they are not part of the model.
+	HIDE YOUR NUKES (the `superFast` pref) hides YOUR nukes, on its own or alongside FAST
+	MODE; the name cards over them stay, because they are not part of the model.
 	(Their name cards are StandCardController's and every nuke's effects ItemFxController's;
 	both read the same pref. Auras have their own SHOW AURAS setting, AuraController's.)
 
@@ -50,7 +51,7 @@ type Hidden = {
 }
 
 local enabled = false
--- SUPER FAST MODE: an add-on to FAST MODE that hides your own nukes as well.
+-- HIDE YOUR NUKES (`superFast`): hides your own nukes, with or without FAST MODE.
 local superFast = false
 local myPlot: number? = nil
 -- ItemModel -> the plot it stands on, for every one we are tracking.
@@ -152,10 +153,10 @@ local function showModel(model: Model)
 	end
 end
 
---- Hide the model if FAST MODE is on and it is someone else's, else show it.
+--- Hide someone else's model while FAST MODE is on, and ours while HIDE YOUR NUKES is.
 local function refresh(model: Model)
 	local plot = models[model]
-	if plot ~= nil and enabled and (plot ~= myPlot or superFast) then
+	if plot ~= nil and (if plot == myPlot then superFast else enabled) then
 		hideModel(model)
 	else
 		showModel(model)
