@@ -89,6 +89,9 @@ local panelScale: UIScale? = nil
 local statusLabel: TextLabel? = nil
 local tileBadge: Frame? = nil
 local tileMark: TextLabel? = nil
+-- Potions gained since the panel was last opened; the tile badge shows this, not the stash.
+local unseen = 0
+local lastTotal: number? = nil
 local reveal: { frame: Frame, scale: UIScale, image: ImageLabel, name: TextLabel, blurb: TextLabel }? = nil
 local revealToken = 0
 
@@ -164,10 +167,8 @@ end
 -- ── The panel ───────────────────────────────────────────────────────
 
 local function paint()
-	local total = 0
 	for _, id in Potions.ORDER do
 		local have = stash[id] or 0
-		total += have
 		local row = rows[id]
 		if row then
 			row.count.Text = `x{have}`
@@ -181,9 +182,13 @@ local function paint()
 			row.button.Text = if left > 0 and can then "+10 MIN" else "DRINK"
 		end
 	end
+	-- Looking at the panel counts as seeing everything in it.
+	if panelFrame and panelFrame.Visible then
+		unseen = 0
+	end
 	if tileBadge and tileMark then
-		tileBadge.Visible = total > 0
-		tileMark.Text = tostring(total)
+		tileBadge.Visible = unseen > 0
+		tileMark.Text = tostring(unseen)
 	end
 end
 
@@ -608,6 +613,17 @@ local function onState(payload: any)
 		for _, id in Potions.ORDER do
 			stash[id] = tonumber(payload.stash[id]) or 0
 		end
+		-- Only new potions light the badge; drinking one never does. The first state
+		-- (on join) counts the whole stash so it's flagged once until opened.
+		local total = 0
+		for _, id in Potions.ORDER do
+			total += stash[id] or 0
+		end
+		local gained = total - (lastTotal or 0)
+		if gained > 0 then
+			unseen += gained
+		end
+		lastTotal = total
 	end
 	if statusLabel then
 		statusLabel.Text = if type(payload.notice) == "string" then payload.notice else ""
