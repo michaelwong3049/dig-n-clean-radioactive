@@ -17,7 +17,9 @@
 	ONE PROMPT PER PART (two co-located prompts on one key drop presses), and the
 	default OnePerButton exclusivity shows only the nearest one.
 
-	BUYING. A cash crate: EconomyService.spend (check-and-debit in one call), then
+	BUYING. E on a crate opens a confirm popup on the client (CratePurchase
+	{ kind = "offer" }); its BUY comes back as CratePurchase("buy", pad, crateId), range-
+	checked against the crate's anchor. Then: EconomyService.spend (check-and-debit in one call), then
 	CrateService.give straight into the bag past capacity. A Robux crate: the server
 	opens Roblox's purchase prompt; ProductService runs the grant once per receipt.
 	While its product id is 0 the tag reads COMING SOON and E only says so.
@@ -29,6 +31,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
+local Net = require(Shared.Net)
 local Crates = require(Shared.Config.Crates)
 local CrateShop = require(Shared.Config.CrateShop)
 
@@ -42,8 +45,16 @@ local CrateShopPads = require(script.Parent.Parent.build.CrateShopPads)
 local CrateShopService = {}
 
 local BUY_COOLDOWN = 0.5
+--- A popup BUY from further than this from the crate's anchor is refused. The client
+--- closes the popup at 14, so a real player never hits it.
+local BUY_REACH = 18
 
 local lastBuy: { [Player]: number } = {}
+local purchaseRemote: RemoteEvent = nil
+--- Each cash offer's anchor, by `{pad name}/{crateId}`, for the popup's range check.
+local anchors: { [string]: BasePart } = {}
+--- Each Robux product's price once GetProductInfo has answered, for the popup.
+local robuxPrice: { [number]: number } = {}
 
 -- ── Wiring ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +72,7 @@ local function fillRobuxPrice(offer: CrateShop.Offer, price: TextLabel?, prompt:
 		end
 		if robux then
 			prompt.ObjectText = `{short}  •  R$ {robux}`
+			robuxPrice[productId] = robux
 		end
 	end)
 end
@@ -110,7 +122,25 @@ local function wirePad(pad: CrateShop.Pad)
 		if not offer.cash then
 			fillRobuxPrice(offer, priceLabel, prompt, short)
 		end
+		if anchor and anchor:IsA("BasePart") then
+			anchors[`{pad.name}/{offer.crateId}`] = anchor
+		end
 		prompt.Triggered:Connect(function(player: Player)
+			-- Ask first, on request, cash and Robux crates alike (a Robux BUY then opens
+			-- Roblox's own purchase window). A product not made yet just says so.
+			if anchor and anchor:IsA("BasePart") and (offer.cash or (offer.productId or 0) ~= 0) then
+				local data = DataService.data(player)
+				purchaseRemote:FireClient(player, {
+					kind = "offer",
+					pad = pad.name,
+					crateId = offer.crateId,
+					price = offer.cash or robuxPrice[offer.productId or 0] or 0,
+					robux = offer.cash == nil,
+					cash = if data then data.cash else nil,
+					anchor = anchor,
+				})
+				return
+			end
 			CrateShopService.buy(player, offer)
 		end)
 	end
@@ -128,10 +158,12 @@ local function grantRobux(player: Player, data: any, crateId: string)
 	end)
 end
 
-function CrateShopService.buy(player: Player, offer: CrateShop.Offer)
+--- Buy one crate. Returns (ok, why) for the popup; a Robux crate only opens Roblox's
+--- purchase prompt, so its ok means "asked", not "bought".
+function CrateShopService.buy(player: Player, offer: CrateShop.Offer): (boolean, string?)
 	local now = os.clock()
 	if now - (lastBuy[player] or 0) < BUY_COOLDOWN then
-		return
+		return false, "slow down a moment"
 	end
 	lastBuy[player] = now
 
@@ -139,31 +171,69 @@ function CrateShopService.buy(player: Player, offer: CrateShop.Offer)
 	if offer.cash then
 		local data = DataService.data(player)
 		if data == nil then
-			return
+			return false, "your save hasn't loaded"
 		end
 		local ok, why = EconomyService.spend(player, offer.cash)
 		if not ok then
-			CrateService.notify(player, `Can't buy the {def.name}: {why}`)
-			return
+			return false, why
 		end
 		CrateService.give(data, offer.crateId)
 		SfxService.play(player, "purchase")
 		CrateService.notify(player, `{def.name} added to your bag`)
 		print(`[crateshop] {player.Name} bought {offer.crateId} for ${offer.cash}`)
-		return
+		return true, nil
 	end
 
 	local productId = offer.productId or 0
 	if productId == 0 then
 		CrateService.notify(player, `The {def.name} is coming soon`)
-		return
+		return false, "coming soon"
 	end
 	MarketplaceService:PromptProductPurchase(player, productId)
+	return true, nil
+end
+
+--- The popup's BUY: the offer must be a real crate on that pad, and the player
+--- must still be standing at it.
+local function onPurchase(player: Player, verb: any, padName: any, crateId: any)
+	if verb ~= "buy" or type(padName) ~= "string" or type(crateId) ~= "string" then
+		return
+	end
+	local offer: CrateShop.Offer? = nil
+	for _, pad in CrateShop.PADS do
+		if pad.name == padName then
+			for _, candidate in pad.offers do
+				if candidate.crateId == crateId then
+					offer = candidate
+				end
+			end
+		end
+	end
+	local anchor = anchors[`{padName}/{crateId}`]
+	if offer == nil or anchor == nil then
+		return
+	end
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local ok, why
+	if root == nil or not root:IsA("BasePart") or (root.Position - anchor.Position).Magnitude > BUY_REACH then
+		ok, why = false, "walk back to the crate"
+	else
+		ok, why = CrateShopService.buy(player, offer)
+	end
+	local data = DataService.data(player)
+	purchaseRemote:FireClient(player, {
+		kind = "result",
+		ok = ok,
+		message = why,
+		crateId = crateId,
+		cash = if data then data.cash else nil,
+	})
 end
 
 -- ── Bootstrap ────────────────────────────────────────────────────────────────
 
 function CrateShopService.init()
+	purchaseRemote = Net.get("CratePurchase")
 	-- In init, not start, so no receipt can land before these are registered. Every
 	-- camp's Robux pad sells the same products, so each one registers once.
 	local registered: { [number]: boolean } = {}
@@ -181,6 +251,7 @@ function CrateShopService.init()
 end
 
 function CrateShopService.start()
+	purchaseRemote.OnServerEvent:Connect(onPurchase)
 	for _, pad in CrateShop.PADS do
 		wirePad(pad)
 	end

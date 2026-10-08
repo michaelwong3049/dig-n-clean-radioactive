@@ -63,6 +63,7 @@ local ORDER = {
 	"PurchaseHintController", -- the "You can afford a new <gear>" lines under the warp bar; reads CashState + GearList
 	"BaseMarkerController", -- floating avatar + name + $/s plate over every claimed base
 	"FloorPurchaseController", -- the "Purchase floor" popup a floor sign's E opens: price, BUY / CANCEL; reads FloorPurchase
+	"CratePurchaseController", -- the crate pads' "buy this crate?" popup a pad crate's E opens; reads CratePurchase
 	"GiftController", -- the "Gift nuke" prompt over other players and the ACCEPT / DECLINE gift card; reads Gift
 	"FloorSignController", -- hides a base's "Build Floor N" prompt from anyone but its owner; reads PlotState
 	"OwnStationPromptController", -- hides a base's Wash prompt from anyone but its owner + the white "CLEANING" label over our own tub; reads PlotState

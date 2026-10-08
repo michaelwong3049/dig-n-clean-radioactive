@@ -204,6 +204,13 @@ local REMOTES: { [string]: string } = {
 	-- range-checks it against the live sign and buyFloor does every other check.
 	FloorPurchase = "RemoteEvent",
 	--
+	-- The crate pads' buy popup (CrateShopService, client CratePurchaseController), on
+	-- request: E on a crate no longer buys on the spot. Server -> client:
+	-- { kind = "offer", pad, crateId, price, robux, cash, anchor }, then { kind = "result", ok,
+	-- message, crateId, cash } after a BUY. Client -> server: "buy", pad, crateId -- the
+	-- server finds the offer in Config/CrateShop and range-checks the crate's anchor.
+	CratePurchase = "RemoteEvent",
+	--
 	-- The combined $/s every nuke on the player's stands is paying right now, hourly cap
 	-- applied -- the number the badge prints under the balance. Fired only when that
 	-- rate changes (a stand placed or cleared, a yield or level change), never per tick.
