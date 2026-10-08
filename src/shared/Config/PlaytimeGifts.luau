@@ -27,6 +27,7 @@
 ]]
 
 local DailyRewards = require(script.Parent.DailyRewards)
+local Potions = require(script.Parent.Potions)
 
 local PlaytimeGifts = {}
 
@@ -116,20 +117,11 @@ PlaytimeGifts.ICONS = {
 	cash = "rbxassetid://137557419546476",
 	cashSpeed = "rbxassetid://75832495525149", -- notes + lightning bolt
 	speed = "rbxassetid://96907544325270",
-	potionCash = "rbxassetid://136999519715348",
-	potionSpeed = "rbxassetid://83258439102132",
-	potionLuck = "rbxassetid://82349702544877",
 } :: { [string]: string }
 
-local POTION_ICON: { [string]: string } = {
-	cash = "potionCash",
-	speed = "potionSpeed",
-	luck = "potionLuck",
-}
-
 --- The picture for a gift's card: its best crate if it has one (a bumped crate, else a
---- nuke crate, else the liquid crate), else its first potion (a potion with no picture of
---- its own here gives the spot to the next prize), else Speed, cash and Speed together, or
+--- nuke crate, else the liquid crate), else its first potion's own picture (Config/Potions),
+--- else Speed, cash and Speed together, or
 --- cash. nil when the gift holds none of those.
 function PlaytimeGifts.iconFor(gift: Gift): string?
 	if gift.crates and #gift.crates > 0 then
@@ -145,9 +137,8 @@ function PlaytimeGifts.iconFor(gift: Gift): string?
 		return PlaytimeGifts.ICONS[best]
 	end
 	for _, potion in gift.potions or {} do
-		local key = POTION_ICON[potion.id]
-		if key then
-			return PlaytimeGifts.ICONS[key]
+		if Potions.has(potion.id) then
+			return Potions.get(potion.id).image
 		end
 	end
 	if gift.speed and gift.speed > 0 then
