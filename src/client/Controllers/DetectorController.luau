@@ -43,6 +43,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local HaulRope = require(script.Parent.Parent.HaulRope)
+local HaulSuccess = require(script.Parent.Parent.HaulSuccess)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Dock = UIKit.Dock
 
@@ -163,6 +164,11 @@ local FILL_LERP_RATE = 14
 -- together with LET GO greying out, that is how you know the release has stopped.
 local FUSE_ARMED_PULSE = 7
 
+-- THE SUCCESS MOMENT (HaulSuccess), off the Unearthed remote: for this long the bar
+-- stays up, snapped to 100%, with its outline flashing gold; then it is gone and
+-- "Success!" with its rays plays in its spot.
+local SUCCESS_FLASH = 0.25
+
 type Contact = { dx: number, dz: number, rarity: string?, scale: number? }
 
 local state = {
@@ -228,6 +234,8 @@ local lockHoldTween: Tween? = nil
 -- nothing else -- "are they hauling" is answered by state.locked now, which comes from
 -- the server, rather than by guessing from how recently a key was pressed.
 local lastYankAt = -math.huge
+-- os.clock() of the last Unearthed (a haul landed), while its success moment plays.
+local successAt: number? = nil
 
 -- The spot the pick-up card is currently waiting on, and when that wait started (see
 -- PROMPT_MIN_SHOWN). Cleared by nothing: a new nearest core replaces both.
@@ -719,6 +727,12 @@ local function build(): ScreenGui
 	-- that cannot fit 640 between the side margins it and the hotbar keep. A UIScale
 	-- keeps the Position, and the AnchorPoint is the bottom centre, so it shrinks down
 	-- toward the bars, never off them.
+	-- The "Success!" moment's own layer, placed and scaled exactly like the panel so
+	-- the word lands in the bar's spot (renderFrame plays it; the panel is hidden then).
+	ui.success = HaulSuccess.build(canvas, Dock.HAULPANEL_SIZE, Vector2.new(BAR_X + BAR_WIDTH / 2, BAR_Y + BAR_HEIGHT / 2))
+	local successFit = Instance.new("UIScale")
+	successFit.Parent = ui.success.root
+
 	local haulFit = Instance.new("UIScale")
 	haulFit.Parent = haul
 	local function placeHaul()
@@ -734,6 +748,8 @@ local function build(): ScreenGui
 		)
 		haulFit.Scale = fit
 		haul.Position = UDim2.new(0.5, 0, 1, -Dock.HAULPANEL_BOTTOM)
+		successFit.Scale = fit
+		ui.success.root.Position = haul.Position
 	end
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeHaul)
 	-- The canvas's AbsoluteSize does NOT move when the HUD scale does (its Size is
@@ -879,6 +895,35 @@ local function renderFrame(dt: number)
 	-- outcome -- it confirms a click happened, it does not promise the server honoured it.
 	local sinceYank = os.clock() - lastYankAt
 	local kick = if sinceYank < YANK_KICK_SECONDS then (1 - sinceYank / YANK_KICK_SECONDS) ^ 2 else 0
+
+	if successAt and not state.locked then
+		-- THE SUCCESS MOMENT. A beat of the full bar flashing gold, then "Success!" with
+		-- its rays in the bar's spot (HaulSuccess), then nothing.
+		local since = os.clock() - successAt
+		if since < SUCCESS_FLASH then
+			ui.haul.Visible = true
+			HaulRope.step(ui.rope, {
+				progress = 1,
+				strain = 0,
+				kick = 0,
+				idle = false,
+				now = os.clock(),
+				fuse = nil,
+				alarm = 0,
+				glow = math.sin(since / SUCCESS_FLASH * math.pi),
+			})
+			HaulSuccess.draw(ui.success, nil)
+		else
+			ui.haul.Visible = false
+			local t = since - SUCCESS_FLASH
+			HaulSuccess.draw(ui.success, t)
+			if t >= HaulSuccess.DURATION then
+				successAt = nil
+			end
+		end
+	elseif state.locked then
+		HaulSuccess.draw(ui.success, nil)
+	end
 
 	if state.locked then
 		-- THE NUKE IS THE BAR. Every haul starts it at the rope's dirt end and it slides
@@ -1077,7 +1122,8 @@ local function renderState()
 	if state.locked and not ui.haul.Visible then
 		ui.placeHaul()
 	end
-	ui.haul.Visible = state.locked
+	-- Held up past the lock for the success flash (renderFrame).
+	ui.haul.Visible = state.locked or (successAt ~= nil and os.clock() - successAt < SUCCESS_FLASH)
 	if not state.locked then
 		-- So the next lock's bar grows from empty rather than draining from this one's.
 		shownFuse = 0
@@ -1256,6 +1302,9 @@ end
 --- this is its only reveal and it keeps the full banner.
 local function onUnearthed(found)
 	Sfx.play("unearth")
+	-- The haul landed: play the "Success!" moment where the bar is (renderFrame).
+	successAt = os.clock()
+	ui.haul.Visible = true
 	if found.name then
 		showFind(found)
 		return
