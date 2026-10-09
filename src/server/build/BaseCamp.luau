@@ -487,7 +487,7 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 		canCollide = false,
 	})
 	signAnchor.CanQuery = false
-	Shops.buildSign(signAnchor, "Trader", C.hazard, 1.5)
+	Shops.buildSign(signAnchor, "Sell", C.hazard, 1.5)
 
 	trader.Parent = parent
 	return trader
@@ -679,7 +679,7 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 		canCollide = false,
 	})
 	signAnchor.CanQuery = false
-	Shops.buildSign(signAnchor, "Trader", C.hazard, 2)
+	Shops.buildSign(signAnchor, "Sell", C.hazard, 2)
 
 	-- THE STATION: one invisible anchor in the middle (see the header).
 	local station = build(trader, kiosk, {
