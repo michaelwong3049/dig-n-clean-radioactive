@@ -74,7 +74,7 @@ local PAD_Z = 18
 CrateShop.SPREAD = 3.3 -- pad centre to each crate's centre, along Z
 CrateShop.END_RADIUS = 4.2 -- each round end's radius, centred on its crate
 
-CrateShop.HOVER_HEIGHT = 5.4 -- pad top to each crate's centre (~3 studs of air under it)
+CrateShop.HOVER_HEIGHT = 3.8 -- pad top to each crate's centre (~1.3 studs of air under it; was 5.4)
 CrateShop.CRATE_SCALE = 1.3 -- x the bag-sized crate (CrateModels' 3.2-stud footprint)
 
 -- Studs from the player. Each prompt is on its own part, and the default OnePerButton
