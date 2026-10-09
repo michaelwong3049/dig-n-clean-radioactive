@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 80 -- rivets + fascia stripes as textures (2026-10-07)
+local BUILDER_VERSION = 81 -- gradient-letter stall signs, no plate (2026-10-08)
 
 local C = Kit.C
 local build = Kit.build
@@ -1016,109 +1016,80 @@ local function buildSpine(parent: Instance, origin: CFrame, x0: number, x1: numb
 	end
 end
 
---- The floating stall sign: a TWO-TIER TAG (2026-10-04, option 10 of a round of
---- mockups, replacing the dark glow pill with its icon disc). A small black "SHOP"
---- header sits on a chunky button-style plate in the shop's accent colour, the name in
---- big white FredokaOne with a black outline, a hard black drop shadow under the plate
---- and a darker band along its bottom edge. "Detector Shop" reads as SHOP over
---- "Detector"; a label with no " Shop" on the end ("Trader") is just the plate.
---- `accent` is the shop's hex string. Hung ABOVE the roof (the highest point of
---- `buildPlateRoof`'s plates and rivets is ~10.9 studs up at the stall's own origin, so
---- 11.5 clears it) so it reads over the whole structure instead of hiding behind its
---- own roofline.
-local SIGN_INK = Color3.fromHex(Kit.C.hazardBlack)
-local SIGN_NAME_SIZE = 30
-local SIGN_HEADER_SIZE = 12
-local SIGN_SHADOW = 5 -- px the black shadow drops under the plate
+--- The floating stall sign: GRADIENT LETTERS, NO PLATE (2026-10-08, option 2 of a round
+--- of mockups off a "Pickaxe Shop" reference the user sent). The whole label ("Detector
+--- Shop") in big FredokaOne, filled top-to-bottom from a pale tint of the shop's accent
+--- down to the accent itself, inside a thick outline in a deep shade of the same colour
+--- and a darker copy a few px lower as the drop. It replaced the 10-04 two-tier tag
+--- (black SHOP tab over an accent plate). `accent` is the shop's hex string. Hung ABOVE
+--- the roof (the highest point of `buildPlateRoof`'s plates and rivets is ~10.9 studs up
+--- at the stall's own origin, so 11.5 clears it) so it reads over the whole structure
+--- instead of hiding behind its own roofline.
+local SIGN_NAME_SIZE = 38
+local SIGN_STROKE = 4.5 -- px; the outline round the letters
+local SIGN_DROP = 4 -- px the darker copy sits under the title
 
 local function buildStoreBillboard(adornee: BasePart, label: string, accent: string, offsetY: number?)
-	local accentColor = Color3.fromHex(accent)
-	local name = label:match("^(.-) [Ss]hop$")
-	local header = name and "SHOP" or nil
-	name = name or label
-
-	local nameWidth = TextService:GetTextSize(name, SIGN_NAME_SIZE, Kit.FONT, Vector2.new(1000, 100)).X
-	local plateW, plateH = nameWidth + 36, 44
-	local headerH = header and 18 or 0
+	local textSize = TextService:GetTextSize(label, SIGN_NAME_SIZE, Kit.FONT, Vector2.new(1000, 100))
+	-- Room for the outline on every side and the drop underneath.
+	local pad = math.ceil(SIGN_STROKE) + 2
+	local width, height = textSize.X + pad * 2, textSize.Y + pad * 2 + SIGN_DROP
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(plateW + 10, plateH + headerH + SIGN_SHADOW + 8)
+	gui.Size = UDim2.fromOffset(width, height)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY or 11.5, 0)
 	gui.AlwaysOnTop = true
 	-- Drawn across the whole shop square (~170 wide) so every stall's sign reads from
 	-- anywhere on the plaza, not just the 60 studs nearest it.
 	gui.MaxDistance = 200
+	gui.LightInfluence = 0
+	-- What it was painted from, so a live swap in Studio can rebuild it without a
+	-- full world rebuild (the letters' own colours are pushed off the accent).
+	gui:SetAttribute("Label", label)
+	gui:SetAttribute("Accent", accent)
 	gui.Parent = adornee
 
-	local function plate(frameName: string, y: number, color: Color3): Frame
-		local f = Instance.new("Frame")
-		f.Name = frameName
-		f.AnchorPoint = Vector2.new(0.5, 1)
-		f.Position = UDim2.new(0.5, 0, 1, y)
-		f.Size = UDim2.fromOffset(plateW, plateH)
-		f.BackgroundColor3 = color
-		f.BorderSizePixel = 0
-		f.Parent = gui
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 12)
-		corner.Parent = f
-		local rim = Instance.new("UIStroke")
-		rim.Color = SIGN_INK
-		rim.Thickness = 3
-		rim.Parent = f
-		return f
-	end
-
-	if header then
-		-- Drawn first, so the plate covers its rounded bottom corners.
-		local headerW = TextService:GetTextSize(header, SIGN_HEADER_SIZE, Enum.Font.GothamBlack, Vector2.new(1000, 100)).X + 24
-		local tab = Instance.new("Frame")
-		tab.Name = "Header"
-		tab.AnchorPoint = Vector2.new(0.5, 0)
-		tab.Position = UDim2.fromOffset((plateW + 10) / 2, 2)
-		tab.Size = UDim2.fromOffset(headerW, headerH + 8)
-		tab.BackgroundColor3 = SIGN_INK
-		tab.BorderSizePixel = 0
-		tab.Parent = gui
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 6)
-		corner.Parent = tab
+	-- The outline is a UIStroke, not TextStroke: a UIGradient on the label tints the
+	-- legacy TextStroke along with the letters, but leaves a UIStroke its own colour.
+	local function letters(name: string, y: number, outlineHex: string): TextLabel
 		local text = Instance.new("TextLabel")
-		text.Size = UDim2.new(1, 0, 0, headerH)
+		text.Name = name
+		text.Position = UDim2.fromOffset(0, y)
+		text.Size = UDim2.new(1, 0, 1, -SIGN_DROP)
 		text.BackgroundTransparency = 1
-		text.Font = Enum.Font.GothamBlack
-		text.Text = header
-		text.TextSize = SIGN_HEADER_SIZE
-		text.TextColor3 = Color3.new(1, 1, 1)
-		text.Parent = tab
+		text.Font = Kit.FONT
+		text.Text = label
+		text.TextSize = SIGN_NAME_SIZE
+		text.TextColor3 = Color3.fromHex(outlineHex)
+		text.TextStrokeTransparency = 1
+		text.Parent = gui
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromHex(outlineHex)
+		stroke.Thickness = SIGN_STROKE
+		stroke.LineJoinMode = Enum.LineJoinMode.Round
+		stroke.Parent = text
+		return text
 	end
 
-	plate("Shadow", -4, SIGN_INK)
-	local main = plate("Plate", -4 - SIGN_SHADOW, Color3.new(1, 1, 1))
-	-- Accent face with a darker band along the bottom, the button's lip.
-	local shade = Kit.blendHex(accent, "000000", 0.25)
+	-- The stall accents are muted roof colours, so the letters push the same hue
+	-- brighter and more saturated than the roof: a plain blend of it read dull.
+	local hue, sat, val = Color3.fromHex(accent):ToHSV()
+	local function shade(s: number, v: number): Color3
+		return Color3.fromHSV(hue, math.min(1, sat * s), math.min(1, v))
+	end
+	letters("Shadow", SIGN_DROP, shade(1, 0.18):ToHex())
+	local title = letters("Title", 0, shade(1.2, 0.34):ToHex())
+	title.TextColor3 = Color3.new(1, 1, 1)
 	local fill = Instance.new("UIGradient")
 	fill.Rotation = 90
 	fill.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, accentColor),
-		ColorSequenceKeypoint.new(0.8, accentColor),
-		ColorSequenceKeypoint.new(0.801, Color3.fromHex(shade)),
-		ColorSequenceKeypoint.new(1, Color3.fromHex(shade)),
+		ColorSequenceKeypoint.new(0, shade(0.3, 1)),
+		ColorSequenceKeypoint.new(0.48, shade(1.25, 1)),
+		ColorSequenceKeypoint.new(1, shade(1.4, val * 0.95)),
 	})
-	fill.Parent = main
-
-	local title = Instance.new("TextLabel")
-	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 1, -4)
-	title.BackgroundTransparency = 1
-	title.Font = Kit.FONT
-	title.Text = name
-	title.TextSize = SIGN_NAME_SIZE
-	title.TextColor3 = Color3.new(1, 1, 1)
-	title.Parent = main
-	Kit.textOutline(title, 2.5)
+	fill.Parent = title
 end
 
 -- ── The roof top ─────────────────────────────────────────────────────────────
