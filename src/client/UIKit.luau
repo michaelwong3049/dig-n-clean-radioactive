@@ -791,36 +791,42 @@ Dock.ROBLOX_TOP = 12
 Dock.ROBLOX_GAP = 12
 local ROBLOX_INSET_PAD = 4
 
+-- OUR TOP-LEFT BUTTONS (Settings, Info) a little SMALLER than Roblox's, on request
+-- (2026-10-09, so they crowd the HOME/SELL/WARP bar less on a phone): TOPBAR_LEFT_BUTTON
+-- screen px, centred on the same line as Roblox's buttons, TOPBAR_LEFT_GAP apart.
+Dock.TOPBAR_LEFT_BUTTON = 36
+Dock.TOPBAR_LEFT_GAP = 8
+local TOPBAR_LEFT_TOP = Dock.ROBLOX_TOP + (Dock.ROBLOX_BUTTON - Dock.TOPBAR_LEFT_BUTTON) / 2
+
 --- The centre of top-left button `index` (1 = Settings, 2 = Info right of it): in the
---- topbar band on the LEFT, right after Roblox's own buttons, on request. EXACTLY THEIR
---- SIZE, top and spacing on every screen, on request (2026-10-08: "always scale it so
---- it's the same size"), so measured in screen px and divided by the scale. The inset
---- moves when Roblox adds or drops a button, so re-read it on its change signal
---- (Dock.onTopbarChanged).
+--- topbar band on the LEFT, right after Roblox's own buttons, on request. A FIXED SCREEN
+--- SIZE on every screen (2026-10-08: "always scale it so it's the same size"), so
+--- measured in screen px and divided by the scale. The inset moves when Roblox adds or
+--- drops a button, so re-read it on its change signal (Dock.onTopbarChanged).
 function Dock.topbarLeftCentre(index: number?): UDim2
-	local half = Dock.ROBLOX_BUTTON / 2
-	local step = ((index or 1) - 1) * (Dock.ROBLOX_BUTTON + Dock.ROBLOX_GAP)
+	local half = Dock.TOPBAR_LEFT_BUTTON / 2
+	local step = ((index or 1) - 1) * (Dock.TOPBAR_LEFT_BUTTON + Dock.TOPBAR_LEFT_GAP)
 	local x = GuiService.TopbarInset.Min.X + Dock.ROBLOX_GAP - ROBLOX_INSET_PAD + half + step
 	local scale = UIKit.scale()
-	return UDim2.fromOffset(x / scale, (Dock.ROBLOX_TOP + half) / scale)
+	return UDim2.fromOffset(x / scale, (TOPBAR_LEFT_TOP + half) / scale)
 end
 
 --- The right edge of the last of our `count` top-left buttons, in design px from the
 --- canvas's left. Anything centred along the top (the HOME/SELL/WARP bar) starts past it.
 function Dock.topbarLeftRight(count: number): number
 	local x = GuiService.TopbarInset.Min.X + Dock.ROBLOX_GAP - ROBLOX_INSET_PAD
-		+ count * Dock.ROBLOX_BUTTON + (count - 1) * Dock.ROBLOX_GAP
+		+ count * Dock.TOPBAR_LEFT_BUTTON + (count - 1) * Dock.TOPBAR_LEFT_GAP
 	return x / UIKit.scale()
 end
 
---- What a CORNER_TILE_SIZE tile is scaled by to stand exactly ROBLOX_BUTTON screen px.
+--- What a CORNER_TILE_SIZE tile is scaled by to stand exactly TOPBAR_LEFT_BUTTON screen px.
 function Dock.topbarLeftScale(): number
-	return Dock.ROBLOX_BUTTON / UIKit.scale() / Dock.CORNER_TILE_SIZE
+	return Dock.TOPBAR_LEFT_BUTTON / UIKit.scale() / Dock.CORNER_TILE_SIZE
 end
 
 --- The top-left buttons' bottom edge, in design px from the screen top.
 function Dock.topbarLeftBottom(): number
-	return (Dock.ROBLOX_TOP + Dock.ROBLOX_BUTTON) / UIKit.scale()
+	return (TOPBAR_LEFT_TOP + Dock.TOPBAR_LEFT_BUTTON) / UIKit.scale()
 end
 
 --- Call `listener` now and whenever the scale or Roblox's topbar buttons change.
