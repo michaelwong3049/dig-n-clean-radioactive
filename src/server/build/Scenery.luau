@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 73 -- no sliver run / flush face at the Stage 1 corner (2026-10-08)
+local BUILDER_VERSION = 74 -- corridor wall starts behind the camp shoulders, cliff dirt stops under the slab (2026-10-08)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4089,11 +4089,22 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 		return dark, light, true
 	end
 
+	-- The run that opens off Base Camp starts its walls at the camp shoulders' outer face,
+	-- not at Stage 1's edge: the shoulders (buildCampWallLayer) stand on Plots.CAMP.eastX a
+	-- wall-thickness deep, so they already fill the first tile. Starting at the edge put this
+	-- wall's lip, crown and a drip through the shoulders' grass slab at both corners. One
+	-- whole tile, so the columns stay on the same 4-stud grid.
+	local wallMinX = minX
+	local campFaceX = Plots.CAMP.eastX + WALL_THICKNESS
+	if minX < campFaceX and maxX > campFaceX then
+		wallMinX = campFaceX
+	end
+
 	local northZ, southZ = minZ - WALL_THICKNESS / 2, maxZ + WALL_THICKNESS / 2
-	buildWall(folder, "NorthWall", minX, maxX, northZ, "BackSurface", facePairAt)
-	buildWall(folder, "SouthWall", minX, maxX, southZ, "FrontSurface", facePairAt)
-	buildWallCap(folder, "NorthWallCap", minX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
-	buildWallCap(folder, "SouthWallCap", minX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
+	buildWall(folder, "NorthWall", wallMinX, maxX, northZ, "BackSurface", facePairAt)
+	buildWall(folder, "SouthWall", wallMinX, maxX, southZ, "FrontSurface", facePairAt)
+	buildWallCap(folder, "NorthWallCap", wallMinX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
+	buildWallCap(folder, "SouthWallCap", wallMinX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
 
 	-- Invisible barriers on both crowns, ON REQUEST, so nobody can jump up and run
 	-- along the wall tops. Wider than the wall so the lip overhang is covered too;
@@ -4121,7 +4132,7 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 	-- from Stage 1's own stretch to the full chain, each column coloured with its own
 	-- stage's top colour (wallCapPair via `id`). Rolled apart so the two walls do not
 	-- mirror each other (their whole-tile drips share CORRIDOR_SALT via wallPair).
-	for x0 = minX, maxX - WALL_TILE, WALL_TILE do
+	for x0 = wallMinX, maxX - WALL_TILE, WALL_TILE do
 		local xc = x0 + WALL_TILE / 2
 		local id = stageAt(xc)
 		local col = math.floor(xc / WALL_TILE)

@@ -136,10 +136,11 @@ function CliffWall.build(parent: Instance, o: Opts)
 		local dirtFace = faceZ - faceSign * recess
 		local grassFace = dirtFace + faceSign * rng:NextNumber(OVERHANG.min, OVERHANG.max)
 
-		-- Dirt runs one tile into the slab so its anchor edge (top) sits on the grid.
-		table.insert(parts, slab(parent, o, s, e, footY, grassBottom + tile, math.min(backZ, dirtFace), math.max(backZ, dirtFace), o.body, anchorIx, true))
-		local grassBack = backZ + faceSign * 0.05 -- shy of the dirt's back face: no z-fight
-		local grass = slab(parent, o, s, e, grassBottom, grassTop, math.min(grassBack, grassFace), math.max(grassBack, grassFace), o.grass, anchorIx, true)
+		-- Dirt stops at the slab's underside (on the grid, as bodyTop is). It used to run a
+		-- tile up into the slab, which left the two end faces on one plane: they z-fought
+		-- wherever a run end shows, at the corridor corners and where a recess steps back.
+		table.insert(parts, slab(parent, o, s, e, footY, grassBottom, math.min(backZ, dirtFace), math.max(backZ, dirtFace), o.body, anchorIx, true))
+		local grass = slab(parent, o, s, e, grassBottom, grassTop, math.min(backZ, grassFace), math.max(backZ, grassFace), o.grass, anchorIx, true)
 		grass.CanQuery = false
 		table.insert(parts, grass)
 
