@@ -752,12 +752,29 @@ function World.verify(): (boolean, { string })
 	local function reachOf(part: BasePart): number
 		return (part:GetAttribute("Radius") :: number?) or 12
 	end
+	-- A treadmill only counts you while your feet are over its belt (StationService's
+	-- FOOTPRINT_KINDS, 0.75 margin), so against one the other station's sphere has to
+	-- stay off the belt's box, not off the belt's own sphere.
+	local FOOTPRINT_KINDS = { treadmill = true }
+	local FOOTPRINT_MARGIN = 0.75
+	local function boxGap(box: BasePart, point: Vector3): number
+		local p = box.CFrame:PointToObjectSpace(point)
+		local dx = math.max(math.abs(p.X) - box.Size.X / 2 - FOOTPRINT_MARGIN, 0)
+		local dz = math.max(math.abs(p.Z) - box.Size.Z / 2 - FOOTPRINT_MARGIN, 0)
+		return math.sqrt(dx * dx + dz * dz)
+	end
 	for i = 1, #EDGE_KINDS do
 		for j = i + 1, #EDGE_KINDS do
 			for _, a in edgeStations[EDGE_KINDS[i]] do
 				for _, b in edgeStations[EDGE_KINDS[j]] do
-					local reach = reachOf(a) + reachOf(b)
-					local gap = (a.Position - b.Position).Magnitude
+					local reach, gap
+					if FOOTPRINT_KINDS[EDGE_KINDS[i]] then
+						reach, gap = reachOf(b), boxGap(a, b.Position)
+					elseif FOOTPRINT_KINDS[EDGE_KINDS[j]] then
+						reach, gap = reachOf(a), boxGap(b, a.Position)
+					else
+						reach, gap = reachOf(a) + reachOf(b), (a.Position - b.Position).Magnitude
+					end
 					check(
 						gap > reach,
 						`{a:GetFullName()} and {b:GetFullName()} are {gap // 1} studs apart but reach {reach} — walking between them would fire an edge nobody asked for`
