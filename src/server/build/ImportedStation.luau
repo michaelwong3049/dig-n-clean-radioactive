@@ -6,8 +6,10 @@
 
 	The templates live in the PLACE, not in git: ServerStorage.StationTemplates/<name>,
 	each the import's AuxScene model renamed (it keeps its RBX_ReimportId, so a re-import
-	still finds it). Their colours are vertex colours, so the meshes are left as they
-	came: no Color, Material or TextureID is touched.
+	still finds it). Their colours are vertex colours, and a MeshPart's Color only
+	multiplies them, so a near-black import cannot be lifted by Color. `paint` swaps the
+	named meshes for a Part + SpecialMesh instead (a FileMesh ignores vertex colours and
+	takes the Part's Color); anything a palette does not name keeps the import's colours.
 
 	The imports are authored FACING -Z (the rune plate / furnace mouth is on their -Z
 	side) and a builder authors facing +Z, so `place` turns them half a turn.
@@ -85,6 +87,60 @@ function ImportedStation.place(template: Model, parent: Instance, origin: CFrame
 	end
 	look.Parent = parent
 	return look
+end
+
+--- One palette entry: a hex colour, and whether the piece glows (Neon).
+export type Paint = { color: string, neon: boolean? }
+
+--- Repaint the placed `look`: every MeshPart whose name, less any trailing digits
+--- ("coal12" → "coal"), is a key of `palette` becomes a Part of the same name, box and
+--- collision carrying a SpecialMesh of its mesh, in that colour. Children (none today)
+--- move across. Returns how many were swapped.
+function ImportedStation.paint(look: Model, palette: { [string]: Paint }): number
+	local swapped = 0
+	for _, d in look:GetDescendants() do
+		if not d:IsA("MeshPart") then
+			continue
+		end
+		local entry = palette[d.Name] or palette[(string.gsub(d.Name, "%d+$", ""))]
+		if entry == nil then
+			continue
+		end
+		-- MeshSize is the mesh's native size; the templates come in at it, so the look's
+		-- scale stands in if it cannot be read.
+		local ok, native = pcall(function()
+			return (d :: any).MeshSize :: Vector3
+		end)
+		local scale = if ok and native and native.Magnitude > 0 then d.Size / native else Vector3.one * look:GetScale()
+
+		local p = Instance.new("Part")
+		p.Name = d.Name
+		p.Size = d.Size
+		p.CFrame = d.CFrame
+		p.Color = Color3.fromHex(entry.color)
+		p.Material = if entry.neon then Enum.Material.Neon else Enum.Material.Plastic
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Anchored = true
+		p.CanCollide = d.CanCollide
+		p.CanQuery = d.CanQuery
+		p.CanTouch = false
+		p.CastShadow = d.CastShadow and not entry.neon
+
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.FileMesh
+		mesh.MeshId = d.MeshId
+		mesh.Scale = scale
+		mesh.Parent = p
+
+		for _, child in d:GetChildren() do
+			child.Parent = p
+		end
+		p.Parent = d.Parent
+		d:Destroy()
+		swapped += 1
+	end
+	return swapped
 end
 
 return ImportedStation

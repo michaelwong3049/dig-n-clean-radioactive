@@ -45,6 +45,32 @@ SlagFurnace.HALF_Z = 8
 --- The imported look is ~0.88 x 1.09 x 0.64 studs as it comes in.
 SlagFurnace.IMPORT_SCALE = 30
 
+--- The import is near-black with dull red molten bits; it is repainted to glow red-hot
+--- (ImportedStation.paint): heated red-brown iron with glowing masonry seams, deep red
+--- cracks and vents, the mouth hotter toward its yellow heart, the chimney fire and the
+--- pour orange. Fangs, studs, chains and bones keep the import's colours.
+local IMPORT_PAINT: { [string]: ImportedStation.Paint } = {
+	body = { color = "5A2A1E" },
+	upper_hood = { color = "52261C" },
+	hood_band = { color = "D8340E", neon = true },
+	masonry_line = { color = "C8280A", neon = true },
+	corner_pillar = { color = "40221B" },
+	pillar_cap = { color = "4E2C22" },
+	chimney = { color = "4A261D" },
+	chimney_band = { color = "C8280A", neon = true },
+	plinth = { color = "3E3430" },
+	mouth_lava = { color = "FF2A0A", neon = true },
+	mouth_core = { color = "FF6A14", neon = true },
+	mouth_heart = { color = "FFB43C", neon = true },
+	lava_crack = { color = "FF3A0E", neon = true },
+	lava_crack_branch = { color = "FF3A0E", neon = true },
+	vent_slit = { color = "FF4A12", neon = true },
+	chimney_fire = { color = "FF7A1E", neon = true },
+	sill_lava_drip = { color = "FF5A14", neon = true },
+	lava_pour = { color = "FF6A18", neon = true },
+	basin_lava = { color = "FF5A14", neon = true },
+}
+
 local build = Kit.build
 local R = Kit.R
 
@@ -255,6 +281,7 @@ end
 --- the part the sign hangs off and the height (above that part) it hangs at.
 local function buildImported(m: Model, origin: CFrame, template: Model): (BasePart, number)
 	local look = ImportedStation.place(template, m, origin, SlagFurnace.IMPORT_SCALE, "plinth_Node")
+	ImportedStation.paint(look, IMPORT_PAINT)
 	local _, lookSize = look:GetBoundingBox()
 
 	local mouth, mouthSize = ImportedStation.bounds(look, "mouth_lava")

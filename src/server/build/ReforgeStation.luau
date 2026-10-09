@@ -45,6 +45,61 @@ ReforgeStation.HALF_Z = 7
 --- The imported look is ~0.68 x 0.52 x 0.55 studs as it comes in.
 ReforgeStation.IMPORT_SCALE = 30
 
+--- The import's own colours are near-black iron, too dark on Twilight's deck, so every
+--- piece is repainted (ImportedStation.paint): light stone plinth, wood stump and
+--- handles, bright steel, a copper-rimmed brazier on glowing coals, a hot ingot and
+--- violet runes.
+local IMPORT_PAINT: { [string]: ImportedStation.Paint } = {
+	plinth = { color = "7A7189" },
+	plinth_step = { color = "8E859C" },
+	plinth_block_line = { color = "554D61" },
+	rune_ring = { color = "B57BFF", neon = true },
+	rune_glyph = { color = "D2B0FF", neon = true },
+	stump = { color = "8B5A34" },
+	stump_top = { color = "B07A4C" },
+	stump_ring = { color = "8B5A34" },
+	stump_band = { color = "7E8893" },
+	anvil_foot = { color = "77818C" },
+	anvil_foot_toe = { color = "77818C" },
+	anvil_waist = { color = "8A95A1" },
+	anvil_body = { color = "98A3AF" },
+	anvil_face = { color = "C8D1D9" },
+	anvil_heel = { color = "98A3AF" },
+	anvil_horn = { color = "98A3AF" },
+	horn_step = { color = "8A95A1" },
+	hardy_hole = { color = "3B4048" },
+	pritchel_hole = { color = "3B4048" },
+	anvil_rune = { color = "B57BFF", neon = true },
+	ingot = { color = "FF7A2A", neon = true },
+	ingot_core = { color = "FFC85A", neon = true },
+	hammer_handle = { color = "9A6A3E" },
+	hammer_grip = { color = "5E3D27" },
+	hammer_head = { color = "98A3AF" },
+	hammer_face = { color = "C8D1D9" },
+	hammer_band = { color = "77818C" },
+	brazier_leg = { color = "6F7984" },
+	brazier_foot = { color = "6F7984" },
+	leg_bracket = { color = "8A95A1" },
+	brazier_bowl = { color = "7E8893" },
+	brazier_bottom = { color = "5F6872" },
+	brazier_rim = { color = "C9783A" },
+	coal_bed = { color = "FF5A14", neon = true },
+	coal = { color = "3E3539" },
+	-- A few coals burn through (exact names win over the "coal" key).
+	coal2 = { color = "FF6A1E", neon = true },
+	coal5 = { color = "FF8A2E", neon = true },
+	coal8 = { color = "FF6A1E", neon = true },
+	coal11 = { color = "FF8A2E", neon = true },
+	tong_arm = { color = "77818C" },
+	tong_jaw = { color = "5F6872" },
+	tong_pivot = { color = "C8D1D9" },
+	bucket_body = { color = "8B5A34" },
+	bucket_floor = { color = "6B4426" },
+	bucket_rim = { color = "7E8893" },
+	bucket_hoop = { color = "7E8893" },
+	bucket_water = { color = "4FB8DA" },
+}
+
 local build = Kit.build
 local R = Kit.R
 
@@ -205,6 +260,7 @@ end
 --- part the sign hangs off and the height (above that part) it hangs at.
 local function buildImported(m: Model, origin: CFrame, template: Model): (BasePart, number)
 	local look = ImportedStation.place(template, m, origin, ReforgeStation.IMPORT_SCALE, "plinth_Node")
+	ImportedStation.paint(look, IMPORT_PAINT)
 	local _, lookSize = look:GetBoundingBox()
 
 	local anvil, anvilSize = ImportedStation.bounds(look, "anvil")
