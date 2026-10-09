@@ -290,8 +290,9 @@ function InfoController.start()
 		name = "InfoButton",
 		caption = "Info",
 		slot = 1,
-		-- Right of the Settings gear, in the top-left topbar band.
-		topbarLeft = 2,
+		-- Top-right corner row, left of Masteries, on request (2026-10-09: "move info to
+		-- the top right instead of being next to settings"). It sat right of Settings.
+		corner = 3,
 		color = Color3.fromHex("5AC8FA"),
 		light = Color3.fromHex("CDEEFF"),
 		image = "",

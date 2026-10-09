@@ -43,9 +43,9 @@ local WarpController = {}
 -- it right (and shrinks it) when a narrow one would put it over Settings / Info.
 local SHOWN = UDim2.new(0.5, 0, 0, 10)
 local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
--- Our top-left buttons (Settings, Info) and top-right ones (Daily, Masteries) it keeps clear of.
-local TOPBAR_LEFT_COUNT = 2
-local CORNER_COUNT = 2
+-- Our top-left button (Settings) and top-right ones (Daily, Masteries, Info) it keeps clear of.
+local TOPBAR_LEFT_COUNT = 1
+local CORNER_COUNT = 3
 -- Room kept between the bar and the buttons either side of it.
 local CLEAR = 12
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
