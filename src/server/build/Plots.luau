@@ -223,7 +223,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 115 -- camp walls 18 closer behind the bases (2026-10-08)
+local BUILDER_VERSION = 116 -- locker beside the treadmill, treadmill 9.5 toward the middle (2026-10-08)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -2288,13 +2288,15 @@ end
 ---
 --- WHERE: backed onto the treadmill's fence (-X before buildPlot's `stripFlip`), facing
 --- +X into the aisle beside the front row of stands (moved back over from the cleansing
---- station's fence on request, 2026-10-04): the cleansing-station spot mirrored, so it
---- sits beside the ground flight's foot gate on a north pad just as it did on a south
---- one. World.verify asserts its station's gap to the treadmill's.
+--- station's fence on request, 2026-10-04): the cleansing-station spot mirrored. Then
+--- slid down the fence to stand level with the treadmill, between its belt and the
+--- fence (on request, 2026-10-08: "on the right of treadmill", as you walk in); the
+--- treadmill moved toward the middle to make room (TREADMILL.cx). World.verify asserts
+--- its station's gap to the treadmill's.
 local LOCKER_TUBES_PER_TIER = 4
 local LOCKER = {
 	x = -29.6, -- the rack's centre; its back reaches x ~= -31.1
-	z = -15.5,
+	z = -35, -- level with the treadmill's belt (was -15.5, up by the stair foot gate)
 	yaw = -90, -- turns the authored -Z front to face +X, its back against the -X fence
 	pitch = 1.65, -- tube centre to tube centre, along the rack
 	tubeD = 1.45, -- glass diameter
@@ -2579,12 +2581,13 @@ end
 -- preference. Training is an edge, so overlapping station radii would mean a player at
 -- one machine being registered at another. MOVED TO THE -X SIDE, into the wash pad's
 -- old spot, when the pad was removed on request -- it used to stand in the middle of
--- the strip, on the entrance path. Belt centre sits at plot-local (-21, -31), Radius
+-- the strip, on the entrance path. Belt centre sits at plot-local (-11.5, -31), Radius
 -- up to ~9 on the diamond rung (installTreadmillLook sizes it to the belt):
 --
---   to the Basin  (26, -32), Radius 9 ...... 47.0 studs against an 18-stud combined reach
---   to PlotSpawn  (0, -24), 6x6 ............ 22.1 studs against 12
---   to Stand10    (-20, -6), Radius 7 ...... 25.0 studs against 16
+--   to the Basin  (26, -32), Radius 9 ...... 37.5 studs against an 18-stud combined reach
+--   to the Locker station, Radius 6 ......... 15.2 studs against 14.7
+--   to PlotSpawn  (0, -24), 6x6 ............ 13.5 studs against 12
+--   to Stand10    (-20, -6), Radius 7 ...... 26.4 studs against 16
 --
 -- Keep those gaps if either moves. World.verify() is the actual authority and asserts
 -- the first every rebuild, not this comment.
@@ -2592,7 +2595,11 @@ end
 -- THE RUNNER FACES -Z, out through the entrance arch at the wasteland, with the
 -- console at that end, clear of the spawn pad.
 local TREADMILL = {
-	cx = -21,
+	-- From -21 to -11.5 (2026-10-08) so the Quarantine Locker fits between the belt and
+	-- the fence: the two reaches must not meet on ANY rung, and the diamond belt's is
+	-- ~8.7 (locker 6), so 14.7 against a 15.2 gap. A saved place keeps the old spot
+	-- until it is rebuilt.
+	cx = -11.5,
 	-- Moved back from -35 as the models grew, so the gold rung's console end stays on
 	-- the pad: see `scale`. Then from -33.5 to -31 (2026-10-02), because the diamond
 	-- rung's nose ran 1.2 studs through the front fence. A saved place built at the
