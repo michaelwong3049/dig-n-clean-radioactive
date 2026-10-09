@@ -1,6 +1,6 @@
 --[[
-	HudTile — one HUD tile: the button grid on the middle left (a wide Shop over Index and
-	Gifts) and the right-edge column (Nukes over Potions, a little smaller and with no
+	HudTile — one HUD tile: the button grid on the middle left (the Shop bar over the
+	Index bar) and the right-edge column (Nukes over Potions, a little smaller and with no
 	caption) as coloured studded plates, and the top-right corner buttons
 	(Daily, Masteries) and top-left ones (Settings, Info) in the dark "glow orb" look.
 
@@ -70,14 +70,13 @@ local GRID_STUD_TILE = math.round(18 * GRID_SCALE)
 -- ones, do studded backgrounds", a colour per tile that sits well with its picture).
 -- Picked to frame the picture, not to match it: the pink basket on its handle's blue,
 -- the gold cards on purple, the lime bomb on a deep toxic green, the purple potion on
--- the glass's teal, the gold gift box on red. Keyed by the tile's name; anything not
+-- the glass's teal. Keyed by the tile's name; anything not
 -- listed gets the dark grey panel plate.
 local PLATES: { [string]: ColorSequence } = {
 	ShopButton = ColorSequence.new(Color3.fromHex("6EC8FF"), Color3.fromHex("2C7FE0")),
 	IndexButton = Studded.PURPLE,
 	NukesButton = ColorSequence.new(Color3.fromHex("4FA23A"), Color3.fromHex("1F5A1E")),
 	PotionsButton = ColorSequence.new(Color3.fromHex("5FE3D2"), Color3.fromHex("1C9A9E")),
-	FreeGiftsButton = Studded.RED,
 }
 local DEFAULT_PLATE = ColorSequence.new(Studded.DARK)
 local GRID_ICON = math.round(52 * GRID_SCALE)
@@ -86,6 +85,19 @@ local GRID_ICON_RISE = GRID_ICON / 2 + Dock.SIDE_GRID_POKE - GRID_SIZE / 2
 local GRID_TEXT_SIZE = math.round(15 * GRID_SCALE)
 local GRID_TEXT_STROKE = 3
 local GRID_TEXT_DROP = Vector2.new(1, 2)
+
+-- THE LEFT GRID'S BARS (2026-10-09, on request, from a reference: "make the index and
+-- shop look like this"): a wide pill Dock.SIDE_BAR_HEIGHT tall, the picture on its left
+-- end poking up over the top edge, the name in chunky FredokaOne beside it.
+local BAR_HEIGHT = Dock.SIDE_BAR_HEIGHT
+local BAR_CORNER = math.round(12 * GRID_SCALE)
+local BAR_OUTLINE_THICKNESS = 3
+local BAR_ICON = math.round(52 * GRID_SCALE)
+local BAR_ICON_LEFT = math.round(4 * GRID_SCALE)
+local BAR_ICON_RISE = math.round(5 * GRID_SCALE)
+local BAR_TEXT_SIZE = math.round(25 * GRID_SCALE)
+local BAR_TEXT_STROKE = 3.5
+local BAR_TEXT_DROP = Vector2.new(0, 3)
 
 local HOVER_SCALE = 1.07
 local PRESS_SCALE = 0.94
@@ -146,14 +158,18 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 
 	local right = spec.right
 	local grid = spec.position == nil and spec.corner == nil and spec.topbarLeft == nil
+	-- The left grid's tiles are bars; the right column keeps square tiles.
+	local bar = grid and right == nil
 	local span = spec.span or 1
 	-- The right column is the grid's look shrunk: every grid measure times this.
 	local shrink = if right then Dock.RIGHT_TILE_SCALE else 1
 	local tileSize = if right then Dock.RIGHT_TILE else GRID_SIZE
-	local tileCorner = math.round(GRID_CORNER * shrink)
+	local tileCorner = if bar then BAR_CORNER else math.round(GRID_CORNER * shrink)
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
-		size = if grid then UDim2.fromOffset(tileSize * span + Dock.SIDE_TILE_GAP * (span - 1), tileSize) else UDim2.fromOffset(SIZE, SIZE),
+		size = if grid
+			then UDim2.fromOffset(tileSize * span + Dock.SIDE_TILE_GAP * (span - 1), if bar then BAR_HEIGHT else tileSize)
+			else UDim2.fromOffset(SIZE, SIZE),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		text = "",
 		textSize = UIKit.TextSize.body,
@@ -168,7 +184,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	edge.Transparency = EDGE_TRANSPARENCY
 	if grid then
 		edge.Color = GRID_OUTLINE
-		edge.Thickness = GRID_OUTLINE_THICKNESS
+		edge.Thickness = if bar then BAR_OUTLINE_THICKNESS else GRID_OUTLINE_THICKNESS
 		edge.Transparency = GRID_OUTLINE_TRANSPARENCY
 		-- A solid coloured plate under the glossy L-stud pattern the panels wear.
 		Studded.fill(button, PLATES[spec.name] or DEFAULT_PLATE)
@@ -202,31 +218,53 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()
 
-		-- The right column is the grid shrunk, caption and all (captions back on request,
-		-- 2026-10-08: "put nukes and potions under nukes and potion gui").
-		local iconSize = math.round(GRID_ICON * shrink)
-		local rise = GRID_ICON_RISE * shrink
-		icon = Artwork.picture(button, "Icon", spec.image, iconSize, Color3.new(1, 1, 1))
-		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.Position = UDim2.new(0.5, 0, 0.5, -rise + (spec.iconDrop or 0))
-		icon.ZIndex = 6
-
-		do
-			local captionSize = if spec.captionSize then math.round(spec.captionSize * GRID_SCALE) else GRID_TEXT_SIZE
-			-- Shrunk with the tile, but never below a size Gotham Black still reads at.
-			captionSize = math.max(12, math.round(captionSize * shrink))
+		if bar then
+			-- The picture on the left end, a little taller than the bar so it pokes up over
+			-- the top edge; the name fills the rest, centred beside the picture.
+			icon = Artwork.picture(button, "Icon", spec.image, BAR_ICON, Color3.new(1, 1, 1))
+			icon.AnchorPoint = Vector2.new(0, 0.5)
+			icon.Position = UDim2.new(0, BAR_ICON_LEFT, 0.5, -BAR_ICON_RISE + (spec.iconDrop or 0))
+			icon.ZIndex = 6
+			local textLeft = BAR_ICON_LEFT + BAR_ICON
 			UIKit.hudNumber(button, {
 				name = "Caption",
-				anchorPoint = Vector2.new(0.5, 1),
-				position = UDim2.new(0.5, 0, 1, 1),
-				size = UDim2.new(1, 12, 0, captionSize + 4),
+				anchorPoint = Vector2.new(0, 0.5),
+				position = UDim2.new(0, textLeft, 0.5, -2),
+				size = UDim2.new(1, -textLeft - BAR_ICON_LEFT, 0, BAR_TEXT_SIZE + 6),
 				text = spec.caption,
-				font = Enum.Font.GothamBlack,
-				textSize = captionSize,
+				font = Enum.Font.FredokaOne,
+				textSize = BAR_TEXT_SIZE,
 				color = Color3.new(1, 1, 1),
 				xAlign = Enum.TextXAlignment.Center,
 				zIndex = 8,
-			}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
+			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
+		else
+			-- The right column is the grid shrunk, caption and all (captions back on request,
+			-- 2026-10-08: "put nukes and potions under nukes and potion gui").
+			local iconSize = math.round(GRID_ICON * shrink)
+			local rise = GRID_ICON_RISE * shrink
+			icon = Artwork.picture(button, "Icon", spec.image, iconSize, Color3.new(1, 1, 1))
+			icon.AnchorPoint = Vector2.new(0.5, 0.5)
+			icon.Position = UDim2.new(0.5, 0, 0.5, -rise + (spec.iconDrop or 0))
+			icon.ZIndex = 6
+
+			do
+				local captionSize = if spec.captionSize then math.round(spec.captionSize * GRID_SCALE) else GRID_TEXT_SIZE
+				-- Shrunk with the tile, but never below a size Gotham Black still reads at.
+				captionSize = math.max(12, math.round(captionSize * shrink))
+				UIKit.hudNumber(button, {
+					name = "Caption",
+					anchorPoint = Vector2.new(0.5, 1),
+					position = UDim2.new(0.5, 0, 1, 1),
+					size = UDim2.new(1, 12, 0, captionSize + 4),
+					text = spec.caption,
+					font = Enum.Font.GothamBlack,
+					textSize = captionSize,
+					color = Color3.new(1, 1, 1),
+					xAlign = Enum.TextXAlignment.Center,
+					zIndex = 8,
+				}, GRID_TEXT_STROKE, GRID_TEXT_DROP)
+			end
 		end
 	else
 		local corner = spec.corner

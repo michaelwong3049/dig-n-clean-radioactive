@@ -477,6 +477,8 @@ local function buildButton(): ScreenGui
 		name = "IndexButton",
 		caption = "Index",
 		slot = TILE_SLOT,
+		-- A bar the grid's full width, under the Shop's (2026-10-09).
+		span = 2,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Artwork.IMAGE.cards,
