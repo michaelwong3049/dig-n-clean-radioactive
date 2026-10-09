@@ -10,6 +10,11 @@
 	Anchor carrying the BuyPrompt, and a PriceTag. A top-level Model per pad, named
 	pad.name, straight under Workspace.
 
+	THE IMPORTED PADS (user's import, 2026-10-08): when the place has
+	ServerStorage.StationTemplates.CratePadCash (grey) and .CratePadPremium (gold), each
+	crate hovers over its own copy -- grey under the cash crates, gold under the Robux
+	ones -- in place of the stadium and plinth. Without the template a pad keeps its parts.
+
 	THIS BUILDS LOOKS ONLY. CrateShopService finds each pad at runtime and wires the
 	prompts and the Robux price. If a pad is missing (a place saved before this module
 	existed), the service calls CrateShopPads.build itself, so the crates never vanish.
@@ -37,6 +42,7 @@ local Mastery = require(Shared.Mastery)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
+local ImportedStation = require(script.Parent.ImportedStation)
 
 local CrateShopPads = {}
 
@@ -44,6 +50,12 @@ CrateShopPads.CRATE_ATTR = "ShopCrateId"
 CrateShopPads.PROMPT_NAME = "BuyPrompt"
 
 local TAG_DISTANCE = 50
+
+-- The imported pads (ServerStorage.StationTemplates), scaled so each is this wide: just
+-- under the 2 x SPREAD between two crates, so a pair sits side by side with a seam.
+local CASH_PAD_TEMPLATE = "CratePadCash"
+local PREMIUM_PAD_TEMPLATE = "CratePadPremium"
+local IMPORTED_PAD_WIDTH = 6.3
 
 local PAD_BLACK = Color3.fromHex("1E1F24")
 local PAD_GREY = Color3.fromHex("5A5E66")
@@ -137,22 +149,55 @@ function CrateShopPads.positionOf(pad: CrateShop.Pad): Vector3
 	error(`CrateShopPads: {pad.name} names no camp "{campKey}"`)
 end
 
-local function buildOffer(model: Model, offer: CrateShop.Offer, base: Vector3, padTop: number, facing: Vector3)
+--- The imported pad under one crate, its foot on `ground`. Returns the look and its top.
+local function importedPad(slot: Model, template: Model, ground: Vector3): (Model, number)
+	local _, native = template:GetBoundingBox()
+	local scale = IMPORTED_PAD_WIDTH / math.max(native.X, native.Z)
+	local look = ImportedStation.place(template, slot, CFrame.new(ground), scale)
+	look.Name = "PadLook"
+	for _, d in look:GetDescendants() do
+		if d:IsA("BasePart") then
+			-- Walkable however thin its trim came out.
+			d.CanCollide = true
+			d.CanQuery = true
+		end
+	end
+	local box, size = look:GetBoundingBox()
+	return look, box.Position.Y + size.Y / 2
+end
+
+local function buildOffer(
+	model: Model,
+	offer: CrateShop.Offer,
+	base: Vector3,
+	padTop: number,
+	facing: Vector3,
+	padTemplate: Model?
+)
 	local def = Crates.get(offer.crateId)
-	local floor = Vector3.new(base.X, padTop, base.Z + offer.offset)
 	local colour = Color3.fromHex(def.color)
 
 	local slot = Instance.new("Model")
 	slot.Name = def.short or def.name
 	slot:SetAttribute(CrateShopPads.CRATE_ATTR, offer.crateId)
 
-	-- A plinth in the crate's colour, and a light that reads as the crate glowing.
-	local plinth = disc(slot, "Plinth", 1.9, 0.4, floor + Vector3.new(0, 0.2, 0), colour)
+	-- The crate's own pad (imported) or a plinth in its colour, and a light that reads
+	-- as the crate glowing.
+	local glowFrom: BasePart
+	local floor: Vector3
+	if padTemplate then
+		local look, top = importedPad(slot, padTemplate, Vector3.new(base.X, base.Y, base.Z + offer.offset))
+		floor = Vector3.new(base.X, top, base.Z + offer.offset)
+		glowFrom = look:FindFirstChildWhichIsA("BasePart", true) :: BasePart
+	else
+		floor = Vector3.new(base.X, padTop, base.Z + offer.offset)
+		glowFrom = disc(slot, "Plinth", 1.9, 0.4, floor + Vector3.new(0, 0.2, 0), colour)
+	end
 	local light = Instance.new("PointLight")
 	light.Color = colour
 	light.Brightness = 1.2
 	light.Range = 9
-	light.Parent = plinth
+	light.Parent = glowFrom
 
 	-- The crate: the dig model, scaled up, with nothing on it that says "dug-up crate"
 	-- (CrateId is what crate code keys off) -- only its CrateFx glow and bits stay.
@@ -235,13 +280,17 @@ function CrateShopPads.build(pad: CrateShop.Pad): Model
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 
 	local base = CrateShopPads.positionOf(pad)
-	local R = CrateShop.END_RADIUS
-	stadium(model, "Pad", R, 0.6, base + Vector3.new(0, 0.3, 0), PAD_BLACK)
-	stadium(model, "Inner", R - 1, 0.3, base + Vector3.new(0, 0.75, 0), PAD_GREY)
+	local robuxPad = pad.offers[1] ~= nil and pad.offers[1].cash == nil
+	local padTemplate = ImportedStation.template(if robuxPad then PREMIUM_PAD_TEMPLATE else CASH_PAD_TEMPLATE)
 	local padTop = base.Y + 0.9
+	if padTemplate == nil then
+		local R = CrateShop.END_RADIUS
+		stadium(model, "Pad", R, 0.6, base + Vector3.new(0, 0.3, 0), PAD_BLACK)
+		stadium(model, "Inner", R - 1, 0.3, base + Vector3.new(0, 0.75, 0), PAD_GREY)
+	end
 
 	for _, offer in pad.offers do
-		buildOffer(model, offer, base, padTop, pad.facing)
+		buildOffer(model, offer, base, padTop, pad.facing, padTemplate)
 	end
 
 	-- The pad's own sign, over the middle.
@@ -268,7 +317,6 @@ function CrateShopPads.build(pad: CrateShop.Pad): Model
 	outline(shadow, 3)
 	local title = label(sign, "Title", pad.title, 0, 0.94, Color3.new(1, 1, 1))
 	outline(title, 3)
-	local robuxPad = pad.offers[1] ~= nil and pad.offers[1].cash == nil
 	local gradient = Instance.new("UIGradient")
 	gradient.Color = if robuxPad then PREMIUM_TITLE else CASH_TITLE
 	gradient.Rotation = 90
