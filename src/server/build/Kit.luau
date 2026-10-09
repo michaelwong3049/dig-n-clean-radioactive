@@ -601,8 +601,8 @@ function Kit.billboard(
 	width: number,
 	height: number,
 	title: string,
-	subtitle: string,
-	subColor: string,
+	subtitle: string?,
+	subColor: string?,
 	maxDistance: number?,
 	titleSize: number?,
 	subtitleSize: number?
@@ -616,7 +616,9 @@ function Kit.billboard(
 	local titlePx = titleSize or 22
 	local subPx = subtitleSize or 14
 	local headHeight = titlePx + 8
-	local subHeight = subPx + 6
+	-- No subtitle (the forge/furnace station signs: just the name) -> a title-only box.
+	local hasSub = subtitle ~= nil and subtitle ~= ""
+	local subHeight = if hasSub then subPx + 6 else 0
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Sign"
@@ -645,6 +647,10 @@ function Kit.billboard(
 	head.Parent = gui
 	Kit.textOutline(head, 2.5)
 
+	if not hasSub then
+		return gui
+	end
+
 	local sub = Instance.new("TextLabel")
 	sub.Name = "Subtitle"
 	sub.Position = UDim2.fromOffset(0, headHeight - 2)
@@ -652,7 +658,7 @@ function Kit.billboard(
 	sub.BackgroundTransparency = 1
 	sub.Font = Kit.FONT
 	sub.TextSize = subPx
-	sub.TextColor3 = Color3.fromHex(subColor)
+	sub.TextColor3 = Color3.fromHex(subColor :: string)
 	sub.TextStrokeTransparency = 1
 	sub.Text = subtitle
 	sub.Parent = gui
