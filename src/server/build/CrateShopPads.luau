@@ -56,6 +56,12 @@ local TAG_DISTANCE = 50
 local CASH_PAD_TEMPLATE = "CratePadCash"
 local PREMIUM_PAD_TEMPLATE = "CratePadPremium"
 local IMPORTED_PAD_WIDTH = 6.3
+-- The gold pad's palette texture, recoloured to the user's render (2026-10-08): gold
+-- frame, dark crimson body, hot-pink corners. Source: tools/crate-pad-art.
+local PREMIUM_PAD_TEXTURE = "rbxassetid://116074212400870"
+-- The inner pad of each pair (nearer the chest / plaza axis) sits this much further from
+-- its partner, crate and all, so the two read as separate pads.
+local INNER_PAD_SHIFT = 0.4
 
 local PAD_BLACK = Color3.fromHex("1E1F24")
 local PAD_GREY = Color3.fromHex("5A5E66")
@@ -150,7 +156,7 @@ function CrateShopPads.positionOf(pad: CrateShop.Pad): Vector3
 end
 
 --- The imported pad under one crate, its foot on `ground`. Returns the look and its top.
-local function importedPad(slot: Model, template: Model, ground: Vector3): (Model, number)
+local function importedPad(slot: Model, template: Model, ground: Vector3, texture: string?): (Model, number)
 	local _, native = template:GetBoundingBox()
 	local scale = IMPORTED_PAD_WIDTH / math.max(native.X, native.Z)
 	local look = ImportedStation.place(template, slot, CFrame.new(ground), scale)
@@ -160,6 +166,9 @@ local function importedPad(slot: Model, template: Model, ground: Vector3): (Mode
 			-- Walkable however thin its trim came out.
 			d.CanCollide = true
 			d.CanQuery = true
+		end
+		if texture and d:IsA("MeshPart") then
+			d.TextureID = texture
 		end
 	end
 	local box, size = look:GetBoundingBox()
@@ -172,7 +181,9 @@ local function buildOffer(
 	base: Vector3,
 	padTop: number,
 	facing: Vector3,
-	padTemplate: Model?
+	padTemplate: Model?,
+	padTexture: string?,
+	shift: number
 )
 	local def = Crates.get(offer.crateId)
 	local colour = Color3.fromHex(def.color)
@@ -186,8 +197,9 @@ local function buildOffer(
 	local glowFrom: BasePart
 	local floor: Vector3
 	if padTemplate then
-		local look, top = importedPad(slot, padTemplate, Vector3.new(base.X, base.Y, base.Z + offer.offset))
-		floor = Vector3.new(base.X, top, base.Z + offer.offset)
+		local z = base.Z + offer.offset + shift
+		local look, top = importedPad(slot, padTemplate, Vector3.new(base.X, base.Y, z), padTexture)
+		floor = Vector3.new(base.X, top, z)
 		glowFrom = look:FindFirstChildWhichIsA("BasePart", true) :: BasePart
 	else
 		floor = Vector3.new(base.X, padTop, base.Z + offer.offset)
@@ -289,8 +301,13 @@ function CrateShopPads.build(pad: CrateShop.Pad): Model
 		stadium(model, "Inner", R - 1, 0.3, base + Vector3.new(0, 0.75, 0), PAD_GREY)
 	end
 
+	-- Which way the pad sits off the chest / plaza axis: the inner crate's offset points
+	-- the other way.
+	local side = if pad.position then pad.position.Z else (pad.offset or Vector3.zero).Z
 	for _, offer in pad.offers do
-		buildOffer(model, offer, base, padTop, pad.facing, padTemplate)
+		local inner = padTemplate ~= nil and offer.offset * side < 0
+		local shift = if inner then -math.sign(side) * INNER_PAD_SHIFT else 0
+		buildOffer(model, offer, base, padTop, pad.facing, padTemplate, if robuxPad then PREMIUM_PAD_TEXTURE else nil, shift)
 	end
 
 	-- The pad's own sign, over the middle.
