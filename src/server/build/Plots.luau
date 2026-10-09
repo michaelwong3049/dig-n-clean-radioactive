@@ -2062,8 +2062,11 @@ Plots.buildCleansingStation = buildCleansingStation
 --- the Luck upgrade. The tub's "Wash" E prompt is the only built prompt here. The reach
 --- is kept short (LiquidController's PANEL_REACH) so the wash spot, plot (20, -32),
 --- is well outside it.
+---
+--- A LITTLE FURTHER BACK, on request: x 26 -> 27.5, away from the wash spot. The table
+--- still stands off the tub's -Z face; past the flat's end the tub's corner falls away.
 local BOTTLE = {
-	x = 26,
+	x = 27.5,
 	z = -37.9,
 }
 
