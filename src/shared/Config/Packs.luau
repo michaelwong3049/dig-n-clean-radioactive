@@ -43,7 +43,7 @@ local PACKS: { Pack } = {
 		crates = { "liquid2", "liquid2", "nuke2" }, -- 2x Isotope Chem, 1x Field Nuke
 		luckSeconds = 30 * 60,
 		cashBoostSeconds = 0,
-		image = "rbxassetid://85535915548569", -- cash, clover, Isotope + Field crates
+		image = "rbxassetid://136810529018998", -- cash, clover, Isotope + Field crates
 	},
 	{
 		key = "pro",

@@ -1,7 +1,7 @@
 # Pack art
 
-The user's AI pack pictures, cut out of their ray background (flood-fill from the edges,
-stopped by the dark cartoon outline and the saturated green/blue art), cropped square and
+The user's AI pack pictures, cut out of their background (white: near-white flood-fill from the edges plus large
+enclosed white pockets; rays: flood-fill walled by the dark outline), cropped square and
 saved at 512x512. Uploaded with the Studio MCP `upload_image`.
 
 | File | Used as |
