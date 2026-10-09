@@ -1159,7 +1159,7 @@ local function renderState()
 	ui.releaseButton.BackgroundColor3 = if state.fuseArmed then COLOR.panel else COLOR.red
 	if state.locked then
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on
-		-- the nuke on the rope, and REEL IN's outline. Scope blue only in the brief
+		-- the nuke, and the wash it trails along the bar. Scope blue only in the brief
 		-- frame before the rarity resolves -- the "?" over the rope is that state at
 		-- rest; this is it in colour. The rope's dirt end is the stage's own soil (a
 		-- no-op once set, so safe on every tick).
@@ -1168,20 +1168,6 @@ local function renderState()
 		if state.stageId then
 			HaulRope.paint(ui.rope, state.stageId)
 		end
-		-- The magnet at the rope's end is the one in hand (ToolService stamps its tier on
-		-- the held model); the last one drawn if none is in hand, tier 1 before that.
-		local character = Players.LocalPlayer.Character
-		local magnetTier = ui.rope.magnetTier or 1
-		if character then
-			for _, child in character:GetChildren() do
-				if child:GetAttribute("ToolName") == "Magnet" then
-					magnetTier = tonumber(child:GetAttribute("Tier")) or magnetTier
-					break
-				end
-			end
-		end
-		HaulRope.setMagnet(ui.rope, magnetTier)
-
 		-- The readout spells out what the colour only implies: the rarity word
 		-- (state.rarityHint), on any detector -- exactly what DigService.hintFor sent.
 		-- No "1 in N" under it (on request): rarity + odds pinned down the exact nuke.
