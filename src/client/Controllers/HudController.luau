@@ -22,7 +22,8 @@
 	used to sit under the cash badge. Two slim ink-outlined bars centred over the hotbar
 	(Dock.VITALS_*), rads on top and health under it, 1px apart, with a label row above:
 	  - top left, the COUNTDOWN, only while it means something: SURVIVABLE (green),
-	    RAD SICKNESS (red), AURA FAILING (white), CRATER BURN (crater yellow-green);
+	    RAD SICKNESS (red), AURA FAILING (white), CRATER BURN (crater yellow-green),
+	    followed by "Best: <stage>", the stage your aura is rated for (always, room allowing);
 	  - top right, where you are and how deep ("BASE CAMP · 0 m" in camp: camp shows
 	    the full readout rather than collapsing, asked for explicitly);
 	  - top centre, "Clean at base" while the thing in your hands still has crust on it
@@ -40,9 +41,11 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local Stages = require(Shared.Config.Stages)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -130,6 +133,7 @@ local state = {
 	survivable = -1, -- -1 mirrors DebugService's "never" convention
 	sickness = 0, -- HP/sec of radiation sickness (meter 80%+, out in a stage)
 	threat = "",
+	auraTier = 1, -- the equipped aura's rung (payload.gear.aura)
 }
 
 local ui = {}
@@ -177,6 +181,25 @@ local function clock(seconds: number): string
 	local m = math.floor(seconds / 60)
 	local s = math.floor(seconds % 60)
 	return string.format("%d:%02d", m, s)
+end
+
+--- THE STAGE YOUR AURA IS MADE FOR: the one whose ratedAuraTier is your aura's rung, so
+--- a player with no aura reads "Fading Fields". Past the top of the stages, the last
+--- rated one.
+local function preferredStage(auraTier: number): string
+	local best
+	for _, stage in Stages.DEFS do
+		if stage.ratedAuraTier <= auraTier and (best == nil or stage.ratedAuraTier > best.ratedAuraTier) then
+			best = stage
+		end
+	end
+	return if best then best.name else Stages.get(1).name
+end
+
+--- Width in design px of a label's text with its rich-text tags stripped.
+local function plainWidth(text: string): number
+	local plain = string.gsub(text, "<[^>]->", "")
+	return TextService:GetTextSize(plain, VITALS.labelTextSize, STYLE.font, Vector2.new(4000, 100)).X
 end
 
 -- ── Build ───────────────────────────────────────────────────────────
@@ -528,13 +551,13 @@ local function render(dt: number)
 	-- have their own loud signals (the death screen, the draining arrows), so it stays
 	-- hidden there too rather than repeating the news.
 	local showCountdown = not state.downed and not state.inShower and state.survivable >= 0
-	ui.countdownText.Visible = showCountdown
+	local countdown = ""
 	if showCountdown then
 		local burning = state.threat == "burn"
 		-- Burn with the aura holding means the burn is the crater's, not the aura's.
 		local crater = burning and state.inCrater and not state.failing
 		local label = if crater then "Crater Burn" elseif burning then "Aura Failing" elseif state.sickness > 0 then "Rad Sickness" else "Survivable"
-		ui.countdownText.Text = string.format("%s  %s", label, clock(state.survivable))
+		countdown = string.format("%s  %s", label, clock(state.survivable))
 		ui.countdownText.TextColor3 = if crater
 			then STYLE.crater
 			elseif burning then WHITE
@@ -547,6 +570,28 @@ local function render(dt: number)
 	local held = character and character:FindFirstChild(HELD_ITEM_NAME)
 	local crust = held and held:GetAttribute("Crust")
 	ui.cleanHint.Visible = not state.downed and type(crust) == "number" and crust > 0
+
+	-- Beside the countdown, where your aura belongs ("Best: Fading Fields" with no aura),
+	-- shown in camp too. Dropped whenever it would run into the place readout or the
+	-- centred clean hint: the countdown is the one that matters mid-run.
+	local text = countdown
+	if not state.downed then
+		local best = string.format(
+			'<font color="#%s">Best: %s</font>',
+			STYLE.header:ToHex(),
+			preferredStage(state.auraTier)
+		)
+		local joined = if countdown == "" then best else countdown .. '  <font color="#FFFFFF">\u{00B7}</font>  ' .. best
+		local room = barWidth - plainWidth(ui.place.Text) - 16
+		if ui.cleanHint.Visible then
+			room = math.min(room, (barWidth - plainWidth(ui.cleanHint.Text)) / 2 - 8)
+		end
+		if plainWidth(joined) <= room then
+			text = joined
+		end
+	end
+	ui.countdownText.Text = text
+	ui.countdownText.Visible = text ~= ""
 
 	-- Above the danger threshold the world starts moving. PLAN §3.1 wants vision
 	-- distorted here, not merely tinted — the player should be uncomfortable.
@@ -623,6 +668,7 @@ function Hud.start()
 		state.threat = payload.threat or ""
 		state.inCrater = payload.inCrater == true
 		state.sickness = payload.sickness or 0
+		state.auraTier = if payload.gear and payload.gear.aura then payload.gear.aura else 1
 	end)
 
 	-- Going down is DeathScreen's ("Flatline"), on its own gui over every panel.
