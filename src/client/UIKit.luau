@@ -770,6 +770,11 @@ Dock.CORNER_GAP = 8
 -- The corner row's bottom edge, from the screen top.
 Dock.CORNER_BUTTON_BOTTOM = Dock.CORNER_TOP + Dock.CORNER_TILE_SIZE
 
+--- How far in from the right edge the top-right row's `count` buttons reach, in design px.
+function Dock.cornerRowWidth(count: number): number
+	return Dock.CORNER_SIDE + count * Dock.CORNER_TILE_SIZE + (count - 1) * Dock.CORNER_GAP
+end
+
 --- The centre of corner button `index` (1 = Daily, 2 = Potions left of it),
 --- on a canvas that ignores the topbar inset.
 function Dock.cornerButtonCentre(index: number): UDim2
@@ -798,6 +803,14 @@ function Dock.topbarLeftCentre(index: number?): UDim2
 	local x = GuiService.TopbarInset.Min.X + Dock.ROBLOX_GAP - ROBLOX_INSET_PAD + half + step
 	local scale = UIKit.scale()
 	return UDim2.fromOffset(x / scale, (Dock.ROBLOX_TOP + half) / scale)
+end
+
+--- The right edge of the last of our `count` top-left buttons, in design px from the
+--- canvas's left. Anything centred along the top (the HOME/SELL/WARP bar) starts past it.
+function Dock.topbarLeftRight(count: number): number
+	local x = GuiService.TopbarInset.Min.X + Dock.ROBLOX_GAP - ROBLOX_INSET_PAD
+		+ count * Dock.ROBLOX_BUTTON + (count - 1) * Dock.ROBLOX_GAP
+	return x / UIKit.scale()
 end
 
 --- What a CORNER_TILE_SIZE tile is scaled by to stand exactly ROBLOX_BUTTON screen px.

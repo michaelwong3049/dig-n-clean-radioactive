@@ -39,8 +39,15 @@ local CampWarp = require(script.Parent.CampWarpController)
 
 local WarpController = {}
 
+-- Where the bar's top-centre sits up and away. Centred on a wide screen; `layout` moves
+-- it right (and shrinks it) when a narrow one would put it over Settings / Info.
 local SHOWN = UDim2.new(0.5, 0, 0, 10)
 local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
+-- Our top-left buttons (Settings, Info) and top-right ones (Daily, Masteries) it keeps clear of.
+local TOPBAR_LEFT_COUNT = 2
+local CORNER_COUNT = 2
+-- Room kept between the bar and the buttons either side of it.
+local CLEAR = 12
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local POP = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -121,6 +128,7 @@ type Entry = {
 }
 
 local panel: Frame? = nil
+local panelScale: UIScale? = nil
 local entries: { Entry } = {}
 local shown = false
 local hideToken = 0
@@ -311,8 +319,38 @@ local function build(): ScreenGui
 		x += widthOf(spec) + GAP
 	end
 
+	local scaler = Instance.new("UIScale")
+	scaler.Parent = frame
+	panelScale = scaler
+
 	panel = frame
 	return gui
+end
+
+--- KEEP CLEAR OF THE TOP-LEFT BUTTONS (2026-10-09, on request: on a phone Settings and
+--- Info sat on top of HOME). Centred when the screen has room; otherwise slid right so
+--- it starts past Info, and if even that runs into the top-right row, shrunk to fit the
+--- gap between them.
+local function layout(gui: ScreenGui)
+	local frame, scaler = panel, panelScale
+	if frame == nil or scaler == nil then
+		return
+	end
+	local scale = UIKit.scale()
+	local screenWidth = gui.AbsoluteSize.X / scale
+	if screenWidth < 1 then
+		return
+	end
+	local barWidth = frame.Size.X.Offset
+	local left = UIKit.Dock.topbarLeftRight(TOPBAR_LEFT_COUNT) + CLEAR
+	local right = screenWidth - UIKit.Dock.cornerRowWidth(CORNER_COUNT) - CLEAR
+	local fit = math.clamp((right - left) / barWidth, 0.5, 1)
+	local half = barWidth * fit / 2
+	local centre = math.max(screenWidth / 2, left + half)
+	scaler.Scale = fit
+	SHOWN = UDim2.fromOffset(centre, 10)
+	HIDDEN = UDim2.fromOffset(centre, -100)
+	frame.Position = if shown then SHOWN else HIDDEN
 end
 
 --- Slide the bar in (`next` true) or out. Out finishes with a token-guarded
@@ -358,6 +396,12 @@ function WarpController.start()
 
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")
+	UIKit.Dock.onTopbarChanged(function()
+		layout(gui)
+	end)
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		layout(gui)
+	end)
 
 	-- HOME / SHOPS stay off until the walkthrough's last step, which is about them
 	-- ("navigate", TutorialController points at both), or until it is done or skipped:
