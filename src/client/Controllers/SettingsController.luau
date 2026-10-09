@@ -547,8 +547,8 @@ local function build(): ScreenGui
 
 	-- The button: a small gear tile up in the topbar band on the LEFT, right after
 	-- Roblox's own buttons (the microphone), on request (Dock.topbarLeftCentre). HudTile's glow-orb tile, kept in HudTile's own gui, which
-	-- ignores the topbar inset. The grid keeps below it on short screens
-	-- (Dock.CORNER_BUTTON_BOTTOM).
+	-- ignores the topbar inset, at Roblox's own buttons' size. The grid keeps below it on short screens
+	-- (Dock.topbarLeftBottom).
 	local canvas = UIKit.canvas(gui)
 
 	local tileGui, button = HudTile.build({
