@@ -28,8 +28,8 @@
 	(DigService's over-tier grind); the soil round the nuke cracks in glowing orange and
 	the nuke judders -- harder while nobody is yanking.
 
-	Frames only, no uploaded images, like every other piece of HUD -- the magnet icon is
-	built from a circle, two arms and a punched-out middle.
+	Frames only, like every other piece of HUD, except the magnet icon: that is the
+	user's own glossy horseshoe picture (tools/haul-art/magnet_icon.png, uploaded).
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -54,7 +54,8 @@ local WICK_GAP = 4 -- between the wick row and the bar's top edge
 HaulRope.WICK_ROW = WICK_HEIGHT + WICK_GAP
 local PERCENT_TEXT = 17
 local SHEEN_HEIGHT = 5
-local ICON_FILL = 0.78 -- the magnet icon's share of the cell's height
+local ICON_FILL = 0.92 -- the magnet icon's share of the cell's height
+local MAGNET_IMAGE = "rbxassetid://134150298550869" -- tools/haul-art/magnet_icon.png
 local ICON_X = 0.38 -- the icon's centre across the cell, leaving the right end to the keycap
 local KEYCAP = 15
 
@@ -65,8 +66,6 @@ local DARK = Color3.fromHex("120C08") -- what the soil darkens toward
 local STEEL = Color3.fromHex("4A4F57") -- the rope's magnet end
 local CELL_TOP = Color3.fromHex("5D646E")
 local CELL_BOTTOM = Color3.fromHex("2F343B")
-local MAGNET_RED = Color3.fromHex("E3342F")
-local POLE = Color3.fromHex("DFE6EE")
 -- A floor darker than this (Stage 4's near-black) is lifted first, or the dirt end
 -- vanishes into the black outline.
 local MIN_SOIL_VALUE = 0.46
@@ -217,38 +216,20 @@ local function buildNuke(parent: Instance, scale: number, z: number): (Frame, { 
 	return nuke, accentParts, cracks
 end
 
---- A horseshoe magnet, poles pointing LEFT at the nuke ("⊃"), `size` px square, drawn
---- from frames: a red disc for the bend, two red arms, silver pole tips, and the gap
---- between the arms punched out in the cell's own steel.
+--- The magnet icon: the user's glossy red horseshoe picture, poles pointing LEFT at the
+--- nuke, `size` px square. Cut out of its white background into tools/haul-art (see
+--- the README there) and uploaded; it replaced a horseshoe drawn from frames.
 local function buildMagnetIcon(parent: Instance, size: number, z: number)
-	local icon = Instance.new("Frame")
+	local icon = Instance.new("ImageLabel")
 	icon.Name = "MagnetIcon"
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
 	icon.Position = UDim2.fromScale(ICON_X, 0.5)
 	icon.Size = UDim2.fromOffset(size, size)
 	icon.BackgroundTransparency = 1
+	icon.Image = MAGNET_IMAGE
+	icon.ScaleType = Enum.ScaleType.Fit
 	icon.ZIndex = z
 	icon.Parent = parent
-
-	local u = size / 28 -- drawn on a 28-unit grid
-	local function piece(name: string, x: number, y: number, w: number, h: number, color: Color3, layer: number, round: UDim?): Frame
-		return box(icon, name, x * u, y * u, w * u, h * u, color, z + layer, round)
-	end
-	local arm = 8 -- arm thickness, in grid units
-	-- The black outline first: the same shape grown by one unit all round.
-	piece("OutlineBend", 7, -1, 22, 30, BLACK, 0, OVAL)
-	piece("OutlineTop", -1, -1, 18, arm + 2, BLACK, 0)
-	piece("OutlineBottom", -1, 27 - arm, 18, arm + 2, BLACK, 0)
-	-- Then the red shape over it.
-	piece("Bend", 8, 0, 20, 28, MAGNET_RED, 1, OVAL)
-	piece("ArmTop", 0, 0, 16, arm, MAGNET_RED, 1)
-	piece("ArmBottom", 0, 28 - arm, 16, arm, MAGNET_RED, 1)
-	-- The gap between the arms, in the steel behind. One unit short of each arm, so a
-	-- line of the black outline underneath shows along both inner edges.
-	piece("Gap", -2, arm + 1, 17, 26 - 2 * arm, CELL_BOTTOM:Lerp(CELL_TOP, 0.5), 2)
-	-- Silver pole tips at the open end.
-	piece("PoleTop", 0, 0, 6, arm, POLE, 3)
-	piece("PoleBottom", 0, 28 - arm, 6, arm, POLE, 3)
 end
 
 --- The spark at the wick's burning end: three ovals, orange round yellow round white,
@@ -441,7 +422,7 @@ end
 function HaulRope.showKeycap(rope: Rope, shown: boolean)
 	rope.keycap.Visible = shown
 	local icon = (rope.keycap.Parent :: Instance):FindFirstChild("MagnetIcon")
-	if icon and icon:IsA("Frame") then
+	if icon and icon:IsA("GuiObject") then
 		icon.Position = UDim2.fromScale(if shown then ICON_X else 0.5, 0.5)
 	end
 end
