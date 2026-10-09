@@ -1,50 +1,31 @@
 --[[
 	SettingsController.lua — the player Settings panel: a wide panel with a tab rail
-	down the left (General / Graphics / Audio / Stats) and the chosen page on the right.
+	down the left (Settings / Stats) and the chosen page on the right.
 
-	  GENERAL   base colour, rare drop alerts, confirm rare drops
-	  GRAPHICS  graphics level (also the radiation effects), screen shake, reduce flashing, show auras, hide others' nukes, hide your nukes
-	  AUDIO     two sliders: music and sound effects
+	  SETTINGS  every setting on one page (on request, 2026-10-08): rare drop alerts,
+	            graphics level (also the radiation effects), screen shake, reduce
+	            flashing, show auras, hide others' nukes, hide your nukes, then the
+	            music and sound effects sliders
 	  STATS     your lifetime numbers, read only: playtime, nukes dug, cash earned, kills...
+
+	Base colour and Confirm rare drops are gone from here (on request, 2026-10-08).
+	A plot just wears its default accent; the server's Net.PlotColor path is untouched.
+	confirmDrop is still a pref, set by the drop popup's own "Don't show again".
 
 	THE LOOK (on request, mockup "2 Sidebar"): House slate, ink outlines, rows split by
 	thin lines rather than boxed, pill switches for flags, a segmented picker for
 	choices. Landscape (720x470) so it fits short phone screens; each page scrolls if
 	it outgrows the panel. No green on the chrome (#651 still holds) — "on" is steel.
 
-	EVERYTHING BUT THE COLOUR AND AURA IS A PREF (Config/Prefs, client/Prefs). The
-	rows here only show and set them; each one is applied by the file that owns the
-	effect (ItemFxController, RadFx, DetonationController, Sfx...), off Prefs.observe, so
-	it holds even if this panel never builds. Prefs apply the same frame and save behind;
-	the colour and aura keep their older wait-for-the-echo shape.
-
-	WHY A COLOUR PICKER LIVES HERE. Every plot is built in one neutral grey
-	(build/Plots' `C.plotNeutral`), and the accent — the two side Trim strips, the
-	four bars framing the nameplate, the cleansing-station lamp, the CLEANSING
-	STATION / WASH PAD sign subtitles, and the gallery's arch, plinth bands, fence caps
-	and slot brackets — is RUNTIME state now. The server owns it:
-	`ExhibitService.setPlotColor` validates a hex, stores it on the profile
-	(`data.plotColor`) and repaints via `Plots.setPlotAccent`. Until a player picks, a
-	claimed plot wears its own default hue (build/Plots' `DEFAULT_ACCENTS`), which the
-	server sends alongside every echo so the swatch shows it. This file is the other
-	end of that remote: a row of preset swatches, and behind the rainbow one a full
-	SV square + hue strip for anything else.
-
-	THE CLIENT NEVER PAINTS THE WORLD. Picking a colour fires `Net.PlotColor` and waits;
-	the plot repaints when the server's own render runs. The only thing this file
-	colours is the preview swatch inside the panel. The server echoes the
-	SERVER-CONFIRMED value straight back, so a rejected or rate-limited change reverts
-	the picker to what actually stuck.
-
-	CONFIRMATION IS IN-PANEL, NOT A STATION TOAST. `StationResult` is invisible away
-	from a station panel (see ExhibitService / the wash pad's own note), and this is a
-	screen GUI, not a station — so the status line here says "saved", and the real
-	feedback is your base changing colour behind the panel.
+	EVERY ROW IS A PREF (Config/Prefs, client/Prefs). The rows here only show and set
+	them; each one is applied by the file that owns the effect (ItemFxController,
+	RadFx, DetonationController, Sfx...), off Prefs.observe, so it holds even if this
+	panel never builds. Prefs apply the same frame and save behind.
 
 	SHAPE MIRRORS IndexController: a ScreenGui with a corner button and a centred
 	`UIKit.panel` that toggles. `start()` only — nothing to build in `init()`.
-	Instance names tests drive: Panel.Tabs.<GENERAL|GRAPHICS|AUDIO|STATS> (the rail's
-	buttons) and Panel.<GENERAL|GRAPHICS|AUDIO|STATS> (the pages).
+	Instance names tests drive: Panel.Tabs.<SETTINGS|STATS> (the rail's buttons) and
+	Panel.<SETTINGS|STATS> (the pages).
 
 	STATS IS THE SERVER'S (Services/StatsService, Net.PlayerStats). The page asks when it
 	opens and every STATS_REFRESH seconds while it stays open, and each answer repaints
@@ -68,12 +49,6 @@ local Rarity = require(Shared.Config.Rarity)
 local Mastery = require(Shared.Mastery)
 
 local Settings = {}
-
--- Mirrors build/Kit.luau `C.plotNeutral` — the grey an unclaimed plot (and a claimed
--- one whose owner has never picked) wears. Duplicated rather than shared because Kit
--- lives in ServerScriptService; same small, documented dup as CashController's
--- formatCash. Keep in step if the server value changes.
-local NEUTRAL = Color3.fromHex("7F8388")
 
 -- THE PANEL'S PALETTE: UIKit.House's slate and ink, plus a steel blue for whatever is
 -- on (the chosen tab, an On switch, the chosen option, a slider's fill). No green.
@@ -126,132 +101,20 @@ local OPTION_W, OPTION_H = 64, 30
 -- takes Rarity.ANOMALY_CYCLE fresh each frame).
 local ANOMALY_SLOW = 4
 
--- Base colour: the preset swatches (a lime among them — it is the player's base, not
--- the panel's chrome), then the rainbow one that opens the full picker.
-local PRESETS = { "E5484D", "F5A524", "F2D543", "7CF25A", "3FB3E0", "4C6FFF", "9B5CF6", "F06FC4", "E8ECF0" }
-local SWATCH, SWATCH_GAP = 30, 7
-local COLOUR_H = 106 -- the colour row with the picker closed
-local SV_SIZE = Vector2.new(300, 130)
-local HUE_W = 28
-local GAP = 14
-local PICKER_H = SV_SIZE.Y + 16
-
--- The picker's live HSV, plus whether the COMMITTED base colour is a real hue or the
--- neutral (never-picked / reset) state. `dragging` (any track) makes the preview show
--- the hue under the handles even before it is committed.
-local state = {
-	h = 0,
-	s = 0.72,
-	v = 0.92,
-	committed = false,
-	dragging = false,
-	-- The plot's default hue, which the base wears while nothing is committed. nil
-	-- until the server says (and if the player holds no plot).
-	fallback = nil :: Color3?,
-}
-
 local ui = {
-	-- Every page's ScrollingFrame: a drag on a slider or the picker locks them so a
+	-- Every page's ScrollingFrame: a drag on a slider locks them so a
 	-- touch drag moves the handle, not the page.
 	scrollers = {} :: { ScrollingFrame },
-	-- Preset hex -> its swatch's UIStroke, plus the rainbow swatch's, lit to match the
-	-- committed colour.
-	presetStrokes = {} :: { [string]: UIStroke },
 	-- Stats key -> its row's value label.
 	statValues = {} :: { [string]: TextLabel },
 }
 
--- ── Colour helpers ──────────────────────────────────────────────────
-
-local function currentColor(): Color3
-	return Color3.fromHSV(state.h, state.s, state.v)
-end
-
-local function hexOf(color: Color3): string
-	return string.upper(color:ToHex())
-end
+-- ── Scroll lock ─────────────────────────────────────────────────────
 
 local function lockScroll(locked: boolean)
 	for _, scroller in ui.scrollers do
 		scroller.ScrollingEnabled = not locked
 	end
-end
-
--- ── Render ──────────────────────────────────────────────────────────
-
-local function setStatus(text: string)
-	if ui.status then
-		ui.status.Text = text
-	end
-end
-
---- Light the swatch that matches the committed colour: a preset, else the rainbow
---- one for a custom hue, else none (the base is on its default).
-local function paintPresets()
-	local committed = if state.committed then hexOf(currentColor()) else nil
-	local matched = false
-	for hex, stroke in ui.presetStrokes do
-		if hex ~= "CUSTOM" then
-			local on = committed ~= nil and hexOf(Color3.fromHex(hex)) == committed
-			matched = matched or on
-			stroke.Color = if on then C.text else C.ink
-		end
-	end
-	local custom = ui.presetStrokes.CUSTOM
-	if custom then
-		custom.Color = if committed ~= nil and not matched then C.text else C.ink
-	end
-end
-
---- Push `state` onto every piece of the picker. Cheap; called on every input frame
---- while dragging and once per server echo.
-local function applyPreview()
-	local picked = currentColor()
-
-	ui.hueHandle.Position = UDim2.fromScale(0.5, state.h)
-	ui.svArea.BackgroundColor3 = Color3.fromHSV(state.h, 1, 1)
-	ui.svHandle.Position = UDim2.fromScale(state.s, 1 - state.v)
-
-	local live = state.committed or state.dragging
-	ui.swatch.BackgroundColor3 = if live then picked else (state.fallback or NEUTRAL)
-	ui.hexLabel.Text = if live then "#" .. hexOf(picked) elseif state.fallback then "Auto" else "Not set"
-	if not state.dragging then
-		paintPresets()
-	end
-end
-
--- ── Commit ──────────────────────────────────────────────────────────
-
---- Send the pick to the server. "" resets the base to its default hue. The server echoes the
---- confirmed value back on Net.PlotColor, which `onServerColor` reconciles — so this
---- does NOT optimistically set `state.committed`; it waits for the echo.
-local function commit(hex: string)
-	setStatus(if hex == "" then "Resetting\u{2026}" else "Saving\u{2026}")
-	Net.get("PlotColor"):FireServer(hex)
-end
-
---- The server's authoritative value (fired once on load, and after every change),
---- plus the plot's default hue — what the base wears while `hex` is "".
-local function onServerColor(hex: any, fallback: any)
-	state.fallback = nil
-	if type(fallback) == "string" and fallback ~= "" then
-		local ok, parsed = pcall(Color3.fromHex, fallback)
-		if ok then
-			state.fallback = parsed
-		end
-	end
-	if type(hex) ~= "string" or hex == "" then
-		state.committed = false
-		setStatus("")
-	else
-		local ok, parsed = pcall(Color3.fromHex, hex)
-		if ok then
-			state.h, state.s, state.v = parsed:ToHSV()
-			state.committed = true
-			setStatus("Saved \u{2713}")
-		end
-	end
-	applyPreview()
 end
 
 -- ── Controls ────────────────────────────────────────────────────────
@@ -641,336 +504,12 @@ local function onServerStats(payload: any)
 	end
 end
 
--- ── Draggable tracks ────────────────────────────────────────────────
-
---- Wire a full-bleed transparent `catcher` frame so a press anywhere on it — and any
---- drag that then wanders off it — reports a clamped (fx, fy) in [0, 1] against the
---- catcher's own rect. `onMove` fires every frame of the drag; `onRelease` once at the
---- end. The catcher is topmost and transparent so the gradient layers and the handle
---- underneath it stay purely visual.
----
---- `dragging` is LOCAL to each call — the SV square and the hue strip must not both
---- react to one drag (they did while this flag was shared, and every drag moved both
---- handles). `state.dragging` is still set so applyPreview shows the live colour, but
---- the move/release gating is per-track.
-local function makeDraggable(catcher: GuiObject, onMove: (number, number) -> (), onRelease: () -> ())
-	local dragging = false
-
-	local function fractionFrom(inputPos: Vector3): (number, number)
-		local rel = Vector2.new(inputPos.X, inputPos.Y) - catcher.AbsolutePosition
-		local fx = math.clamp(rel.X / math.max(catcher.AbsoluteSize.X, 1), 0, 1)
-		local fy = math.clamp(rel.Y / math.max(catcher.AbsoluteSize.Y, 1), 0, 1)
-		return fx, fy
-	end
-
-	catcher.InputBegan:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
-			return
-		end
-		dragging = true
-		state.dragging = true
-		lockScroll(true)
-		onMove(fractionFrom(input.Position))
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if not dragging then
-			return
-		end
-		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
-			return
-		end
-		onMove(fractionFrom(input.Position))
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if not dragging then
-			return
-		end
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
-			return
-		end
-		dragging = false
-		state.dragging = false
-		lockScroll(false)
-		onRelease()
-	end)
-end
-
--- ── Base colour ─────────────────────────────────────────────────────
-
-local function gradientFrame(parent: Instance, name: string, color: Color3, transparency: NumberSequence, rotation: number): Frame
-	local frame = Instance.new("Frame")
-	frame.Name = name
-	frame.Size = UDim2.fromScale(1, 1)
-	frame.BackgroundColor3 = color
-	frame.BorderSizePixel = 0
-	frame.ZIndex = 12
-	frame.Parent = parent
-
-	local grad = Instance.new("UIGradient")
-	grad.Color = ColorSequence.new(color)
-	grad.Transparency = transparency
-	grad.Rotation = rotation
-	grad.Parent = frame
-	return frame
-end
-
-local function handleDot(parent: Instance): Frame
-	local dot = Instance.new("Frame")
-	dot.Name = "Handle"
-	dot.Size = UDim2.fromOffset(14, 14)
-	dot.AnchorPoint = Vector2.new(0.5, 0.5)
-	dot.BackgroundColor3 = Color3.new(1, 1, 1)
-	dot.BorderSizePixel = 0
-	dot.ZIndex = 13
-	dot.Parent = parent
-	corner(dot, UDim.new(1, 0))
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.Thickness = 2
-	stroke.Transparency = 0.3
-	stroke.Parent = dot
-	return dot
-end
-
---- The full picker (SV square + hue strip), shown behind the rainbow swatch.
-local function buildColorPicker(section: Instance)
-	-- Saturation / value square. Hue-coloured base, a white gradient across for
-	-- saturation and a black gradient down for value; a transparent catcher on top
-	-- takes the drag.
-	local svArea = Instance.new("Frame")
-	svArea.Name = "SVArea"
-	svArea.Size = UDim2.fromOffset(SV_SIZE.X, SV_SIZE.Y)
-	svArea.BackgroundColor3 = Color3.fromHSV(state.h, 1, 1)
-	svArea.BorderSizePixel = 0
-	svArea.ZIndex = 11
-	svArea.ClipsDescendants = true
-	svArea.Parent = section
-	corner(svArea, UDim.new(0, 8))
-	ui.svArea = svArea
-
-	gradientFrame(
-		svArea,
-		"Saturation",
-		Color3.new(1, 1, 1),
-		NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
-		0
-	)
-	gradientFrame(
-		svArea,
-		"Value",
-		Color3.new(0, 0, 0),
-		NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }),
-		90
-	)
-
-	ui.svHandle = handleDot(svArea)
-
-	local svCatcher = Instance.new("Frame")
-	svCatcher.Name = "Catcher"
-	svCatcher.Size = UDim2.fromScale(1, 1)
-	svCatcher.BackgroundTransparency = 1
-	svCatcher.ZIndex = 14
-	svCatcher.Active = true
-	svCatcher.Parent = svArea
-
-	makeDraggable(svCatcher, function(fx, fy)
-		state.s = fx
-		state.v = 1 - fy
-		applyPreview()
-	end, function()
-		commit(hexOf(currentColor()))
-	end)
-
-	-- Hue strip, to the right of the square. A vertical rainbow; drag picks hue.
-	local hue = Instance.new("Frame")
-	hue.Name = "Hue"
-	hue.Size = UDim2.fromOffset(HUE_W, SV_SIZE.Y)
-	hue.Position = UDim2.fromOffset(SV_SIZE.X + GAP, 0)
-	hue.BackgroundColor3 = Color3.new(1, 1, 1)
-	hue.BorderSizePixel = 0
-	hue.ZIndex = 11
-	hue.ClipsDescendants = true
-	hue.Parent = section
-	corner(hue, UDim.new(0, 6))
-
-	local hueGrad = Instance.new("UIGradient")
-	hueGrad.Rotation = 90
-	hueGrad.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0.0, Color3.fromHSV(0.00, 1, 1)),
-		ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17, 1, 1)),
-		ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33, 1, 1)),
-		ColorSequenceKeypoint.new(0.50, Color3.fromHSV(0.50, 1, 1)),
-		ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67, 1, 1)),
-		ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83, 1, 1)),
-		ColorSequenceKeypoint.new(1.0, Color3.fromHSV(1.00, 1, 1)),
-	})
-	hueGrad.Parent = hue
-
-	local hueHandle = Instance.new("Frame")
-	hueHandle.Name = "HueHandle"
-	hueHandle.Size = UDim2.new(1, 6, 0, 6)
-	hueHandle.AnchorPoint = Vector2.new(0.5, 0.5)
-	hueHandle.BackgroundColor3 = Color3.new(1, 1, 1)
-	hueHandle.BorderSizePixel = 0
-	hueHandle.ZIndex = 13
-	hueHandle.Parent = hue
-	local hhStroke = Instance.new("UIStroke")
-	hhStroke.Color = Color3.new(0, 0, 0)
-	hhStroke.Thickness = 2
-	hhStroke.Transparency = 0.3
-	hhStroke.Parent = hueHandle
-	ui.hueHandle = hueHandle
-
-	local hueCatcher = Instance.new("Frame")
-	hueCatcher.Name = "Catcher"
-	hueCatcher.Size = UDim2.fromScale(1, 1)
-	hueCatcher.BackgroundTransparency = 1
-	hueCatcher.ZIndex = 14
-	hueCatcher.Active = true
-	hueCatcher.Parent = hue
-
-	makeDraggable(hueCatcher, function(_, fy)
-		state.h = fy
-		applyPreview()
-	end, function()
-		commit(hexOf(currentColor()))
-	end)
-end
-
---- The base colour row: title + the live swatch and hex, the preset swatches with
---- Reset, and the full picker folded under them until the rainbow swatch opens it.
-local function buildColourRow(row: Frame)
-	rowText(row, "Base colour", 170, 7)
-
-	ui.hexLabel = UIKit.label(row, {
-		name = "Hex",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -48, 0, 7),
-		size = UDim2.fromOffset(120, 24),
-		font = FONT,
-		textSize = SIZE.button,
-		color = C.text,
-		xAlign = Enum.TextXAlignment.Right,
-		text = "Not set",
-		zIndex = 12,
-	})
-	ui.status = UIKit.label(row, {
-		name = "Status",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -48, 0, 32),
-		size = UDim2.fromOffset(120, 18),
-		font = FONT,
-		textSize = SIZE.hint,
-		color = C.dim,
-		xAlign = Enum.TextXAlignment.Right,
-		text = "",
-		zIndex = 12,
-	})
-
-	local swatch = Instance.new("Frame")
-	swatch.Name = "Swatch"
-	swatch.AnchorPoint = Vector2.new(1, 0)
-	swatch.Position = UDim2.new(1, -4, 0, 7)
-	swatch.Size = UDim2.fromOffset(36, 36)
-	swatch.BackgroundColor3 = NEUTRAL
-	swatch.BorderSizePixel = 0
-	swatch.ZIndex = 12
-	swatch.Parent = row
-	corner(swatch, UDim.new(0, 10))
-	inkEdge(swatch)
-	ui.swatch = swatch
-
-	-- The swatch strip.
-	local strip = Instance.new("Frame")
-	strip.Name = "Presets"
-	strip.Position = UDim2.fromOffset(3, 60)
-	strip.Size = UDim2.new(1, -6, 0, SWATCH)
-	strip.BackgroundTransparency = 1
-	strip.ZIndex = 12
-	strip.Parent = row
-
-	local function swatchButton(name: string, x: number): (TextButton, UIStroke)
-		local button = Instance.new("TextButton")
-		button.Name = name
-		button.Text = ""
-		button.AutoButtonColor = false
-		button.Position = UDim2.fromOffset(x, 0)
-		button.Size = UDim2.fromOffset(SWATCH, SWATCH)
-		button.BorderSizePixel = 0
-		button.ZIndex = 12
-		button.Parent = strip
-		corner(button, UDim.new(0, 9))
-		return button, inkEdge(button)
-	end
-
-	for i, hex in PRESETS do
-		local button, stroke = swatchButton("Preset_" .. hex, (i - 1) * (SWATCH + SWATCH_GAP))
-		button.BackgroundColor3 = Color3.fromHex(hex)
-		button.MouseButton1Click:Connect(function()
-			state.h, state.s, state.v = Color3.fromHex(hex):ToHSV()
-			commit(hexOf(Color3.fromHex(hex)))
-		end)
-		ui.presetStrokes[hex] = stroke
-	end
-
-	-- The rainbow swatch opens (and closes) the full picker under the strip.
-	local customX = #PRESETS * (SWATCH + SWATCH_GAP)
-	local custom, customStroke = swatchButton("Custom", customX)
-	custom.BackgroundColor3 = Color3.new(1, 1, 1)
-	local rainbow = Instance.new("UIGradient")
-	rainbow.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0.0, Color3.fromHSV(0.00, 1, 1)),
-		ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33, 1, 1)),
-		ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67, 1, 1)),
-		ColorSequenceKeypoint.new(1.0, Color3.fromHSV(0.95, 1, 1)),
-	})
-	rainbow.Rotation = 45
-	rainbow.Parent = custom
-	ui.presetStrokes.CUSTOM = customStroke
-
-	local reset = UIKit.button(strip, {
-		name = "Reset",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.fromScale(1, 0),
-		size = UDim2.new(1, -(customX + SWATCH + 12), 0, SWATCH),
-		text = "Reset",
-		font = FONT,
-		textSize = SIZE.option,
-		color = C.dim,
-		fillColor = C.chip,
-		fillTransparency = 0,
-		cornerRadius = UDim.new(0, 9),
-		zIndex = 12,
-	})
-	reset.MouseButton1Click:Connect(function()
-		commit("")
-	end)
-
-	local pickerHost = Instance.new("Frame")
-	pickerHost.Name = "Picker"
-	pickerHost.Position = UDim2.fromOffset(3, COLOUR_H)
-	pickerHost.Size = UDim2.new(1, -6, 0, SV_SIZE.Y)
-	pickerHost.BackgroundTransparency = 1
-	pickerHost.ZIndex = 11
-	pickerHost.Visible = false
-	pickerHost.Parent = row
-	buildColorPicker(pickerHost)
-
-	custom.MouseButton1Click:Connect(function()
-		pickerHost.Visible = not pickerHost.Visible
-		row.Size = UDim2.new(1, 0, 0, if pickerHost.Visible then COLOUR_H + PICKER_H else COLOUR_H)
-	end)
-end
-
 -- ── Build ───────────────────────────────────────────────────────────
 
--- A tab's icon, drawn from frames so it needs no upload: the gear art for General, a
--- little screen on a stand for Graphics, equaliser bars for Audio.
+-- A tab's icon, drawn from frames so it needs no upload: the gear art for Settings, a
+-- bar chart for Stats.
 local function tabIcon(chip: Frame, tab: string)
-	if tab == "GENERAL" then
+	if tab == "SETTINGS" then
 		local image = Instance.new("ImageLabel")
 		image.Name = "Icon"
 		image.BackgroundTransparency = 1
@@ -982,38 +521,20 @@ local function tabIcon(chip: Frame, tab: string)
 		image.Parent = chip
 		return
 	end
-	local function bar(x: number, y: number, w: number, h: number, hollow: boolean?)
+	local function bar(x: number, y: number, w: number, h: number)
 		local f = Instance.new("Frame")
 		f.Position = UDim2.fromOffset(x, y)
 		f.Size = UDim2.fromOffset(w, h)
 		f.BackgroundColor3 = C.text
-		f.BackgroundTransparency = if hollow then 1 else 0
 		f.BorderSizePixel = 0
 		f.ZIndex = 15
 		f.Parent = chip
-		if hollow then
-			local s = Instance.new("UIStroke")
-			s.Color = C.text
-			s.Thickness = 2
-			s.Parent = f
-			corner(f, UDim.new(0, 2))
-		end
 	end
-	if tab == "GRAPHICS" then
-		bar(6, 7, 18, 12, true)
-		bar(13, 20, 4, 3)
-		bar(10, 23, 10, 2)
-	elseif tab == "STATS" then
-		-- A rising bar chart on a baseline.
-		bar(7, 17, 4, 6)
-		bar(13, 12, 4, 11)
-		bar(19, 7, 4, 16)
-		bar(5, 23, 20, 2)
-	else
-		bar(6, 14, 4, 10)
-		bar(13, 7, 4, 17)
-		bar(20, 11, 4, 13)
-	end
+	-- STATS: a rising bar chart on a baseline.
+	bar(7, 17, 4, 6)
+	bar(13, 12, 4, 11)
+	bar(19, 7, 4, 16)
+	bar(5, 23, 20, 2)
 end
 
 local function build(): ScreenGui
@@ -1117,8 +638,8 @@ local function build(): ScreenGui
 		zIndex = 14,
 	})
 
-	local TABS = { "GENERAL", "GRAPHICS", "AUDIO", "STATS" }
-	local TAB_LABEL = { GENERAL = "General", GRAPHICS = "Graphics", AUDIO = "Audio", STATS = "Stats" }
+	local TABS = { "SETTINGS", "STATS" }
+	local TAB_LABEL = { SETTINGS = "Settings", STATS = "Stats" }
 	local pages: { [string]: Frame } = {}
 	local scrollers: { [string]: ScrollingFrame } = {}
 	local tabs: { [string]: { button: TextButton, back: Frame, chip: Frame } } = {}
@@ -1254,30 +775,24 @@ local function build(): ScreenGui
 		return frame
 	end
 
-	-- GENERAL
-	buildColourRow(row("GENERAL", "BaseColour", COLOUR_H))
-	choiceRow(row("GENERAL", "RareDrops"), "rareDrops", "Rare drops", {
+	-- SETTINGS: every setting on one page (on request, 2026-10-08).
+	choiceRow(row("SETTINGS", "RareDrops"), "rareDrops", "Rare drops", {
 		{ "all", "All" },
 		{ "mine", "Mine" },
 		{ "off", "Off" },
 	})
-	flagRow(row("GENERAL", "ConfirmDrop"), "confirmDrop", "Confirm rare drops")
-
-	-- GRAPHICS
-	choiceRow(row("GRAPHICS", "Graphics"), "graphics", "Graphics", {
+	choiceRow(row("SETTINGS", "Graphics"), "graphics", "Graphics", {
 		{ "low", "Low" },
 		{ "med", "Med" },
 		{ "high", "High" },
 	})
-	flagRow(row("GRAPHICS", "Shake"), "shake", "Screen shake")
-	flagRow(row("GRAPHICS", "Flashing"), "reduceFlashing", "Reduce flashing")
-	flagRow(row("GRAPHICS", "Auras"), "auras", "Show auras")
-	flagRow(row("GRAPHICS", "FastMode"), "fastMode", "Hide others' nukes")
-	flagRow(row("GRAPHICS", "SuperFast"), "superFast", "Hide your nukes")
-
-	-- AUDIO: just two sliders (on request, 2026-10-08).
-	volumeRow(row("AUDIO", "Music", SLIDER_H), "musicLevel", "Music")
-	volumeRow(row("AUDIO", "Effects", SLIDER_H), "volSfx", "Sound effects")
+	flagRow(row("SETTINGS", "Shake"), "shake", "Screen shake")
+	flagRow(row("SETTINGS", "Flashing"), "reduceFlashing", "Reduce flashing")
+	flagRow(row("SETTINGS", "Auras"), "auras", "Show auras")
+	flagRow(row("SETTINGS", "FastMode"), "fastMode", "Hide others' nukes")
+	flagRow(row("SETTINGS", "SuperFast"), "superFast", "Hide your nukes")
+	volumeRow(row("SETTINGS", "Music", SLIDER_H), "musicLevel", "Music")
+	volumeRow(row("SETTINGS", "Effects", SLIDER_H), "volSfx", "Sound effects")
 
 	-- STATS: read only. A heading has no line of its own; the one under the row before
 	-- it marks the break.
@@ -1295,7 +810,7 @@ local function build(): ScreenGui
 		frame.Line.Visible = false
 	end
 
-	choose("GENERAL")
+	choose("SETTINGS")
 
 	local function toggle()
 		panel.Visible = not panel.Visible
@@ -1318,18 +833,12 @@ function Settings.start()
 	ui.tileGui.Parent = playerGui
 	gui.Parent = playerGui
 
-	applyPreview()
-
 	-- REDUCE FLASHING's slower Anomaly cycle. Here, not in Prefs, because it is a
 	-- shared Config value every Anomaly reader picks up on its own next frame.
 	local anomalyCycle = Rarity.ANOMALY_CYCLE
 	Prefs.observe("reduceFlashing", function(on)
 		Rarity.ANOMALY_CYCLE = if on then anomalyCycle * ANOMALY_SLOW else anomalyCycle
 	end)
-
-	-- Fired once on load with the saved value, and again after every change as the
-	-- server-confirmed echo — same channel both ways (Shared/Net.PlotColor).
-	Net.get("PlotColor").OnClientEvent:Connect(onServerColor)
 
 	-- STATS: asked on open (choose / toggle call askStats), then kept fresh while it shows.
 	local statsRemote = Net.get("PlayerStats")
