@@ -71,6 +71,7 @@ local ORDER = {
 	"InfoController", -- the "i" button right of Settings (top left) + the short "How to play" panel
 	"SettingsController", -- the Settings panel (top-right gear): SETTINGS (every Prefs row, client/Prefs) / STATS tabs
 	"FastModeController", -- FAST MODE (Settings > Graphics): hides the nukes on other players' bases; reads the fastMode pref
+	"HideNukesToggleController", -- the "Hide others' nukes" bar over the Shop tile; flips the fastMode pref
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
 	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute
 	"ConsoleController", -- lists the debug chat commands in autocomplete, console users only; reads LocalPlayer's ConsoleAccess attribute

@@ -747,6 +747,11 @@ Dock.SIDE_GRID_POKE = math.round(4 * Dock.SIDE_GRID_SCALE)
 Dock.SIDE_GRID_DROP = 28
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
+-- THE HIDE-NUKES TOGGLE over the Shop tile (2026-10-08, on request: "put the hide other
+-- nukes thing above the shop"): a bar as wide as the grid, SIDE_TOGGLE_GAP over its top.
+-- The grid keeps room for it under the top-left buttons (leftGridTop).
+Dock.SIDE_TOGGLE_HEIGHT = math.round(26 * Dock.SIDE_GRID_SCALE)
+Dock.SIDE_TOGGLE_GAP = math.round(8 * Dock.SIDE_GRID_SCALE)
 -- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Daily rewards, Potions to
 -- its left. (Settings moved to the top LEFT, beside Roblox's own buttons: topbarLeftCentre.) Measured from the SCREEN top (their guis ignore the
 -- topbar inset). WAY SMALLER, on request (2026-10-03): about the size of Roblox's own
@@ -803,7 +808,10 @@ end
 --- until its bottom clears the pair by GAP, on request ("speed and money overlap").
 --- The right-edge cards keep reading sideColumnTop, so they don't move with it.
 function Dock.leftGridTop(height: number): number
-	local top = Dock.sideColumnTop(height)
+	local toggle = Dock.SIDE_TOGGLE_HEIGHT + Dock.SIDE_TOGGLE_GAP
+	-- Never so high that the hide-nukes toggle over the Shop runs into the top-left buttons.
+	local underButtons = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + toggle - height / 2
+	local top = math.max(Dock.sideColumnTop(height), underButtons)
 	local lift = Dock.sideLift()
 	if lift <= 0 then
 		return top
@@ -811,8 +819,14 @@ function Dock.leftGridTop(height: number): number
 	local pairTop = height / 2 - Dock.leftCornerTop()
 	local clear = pairTop - Dock.GAP - Dock.SIDE_GRID_HEIGHT
 	-- Never up into Roblox's topbar band (screen px there, so divided by the scale).
-	local band = GuiService.TopbarInset.Max.Y / UIKit.scale() + Dock.GAP + Dock.SIDE_GRID_POKE - height / 2
+	local band = GuiService.TopbarInset.Max.Y / UIKit.scale() + Dock.GAP + toggle - height / 2
 	return math.max(math.min(top, clear), band)
+end
+
+--- The CENTRE of the hide-nukes toggle: over the grid's top row, as wide as the grid.
+function Dock.sideToggleCentre(height: number): UDim2
+	local down = Dock.leftGridTop(height) - Dock.SIDE_TOGGLE_GAP - Dock.SIDE_TOGGLE_HEIGHT / 2
+	return UDim2.new(0, Dock.ROW_SIDE_MARGIN + Dock.SIDE_GRID_WIDTH / 2, 0.5, down)
 end
 
 --- The CENTRE of grid tile `slot` (1-6, left to right, top to bottom), as a position on
