@@ -7,7 +7,8 @@
 	IT DECIDES NOTHING, like LuckBoostController (which still draws the Violet Aurora).
 	Which weather is up is two ReplicatedStorage attributes per weather, written by
 	WeatherService; the sky itself is AtmosphereController's; the countdown and the
-	2x cash are the Cash pill of the Boosts widget (StatResolver.boosts).
+	2x cash are the Cash pill of the Boosts widget (StatResolver.boosts). The badge
+	over that widget -- any weather's picture, name and time left -- is WeatherBadge.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,6 +24,7 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
 local WeatherFx = require(script.Parent.Parent.WeatherFx)
+local WeatherBadge = require(script.Parent.Parent.WeatherBadge)
 
 local WeatherController = {}
 
@@ -152,6 +154,7 @@ end
 
 local function onChanged(id: string)
 	refresh()
+	WeatherBadge.refresh()
 	local def = Weather.get(id)
 	local started = ReplicatedStorage:GetAttribute(def.startAttr)
 	-- Only a weather that has JUST begun gets the banner, not one you joined into.
@@ -164,6 +167,10 @@ end
 
 function WeatherController.start()
 	build()
+	WeatherBadge.start()
+
+	-- The aurora has no banner here (LuckBoostController's), but the badge shows it.
+	ReplicatedStorage:GetAttributeChangedSignal(Weather.get("aurora").endsAttr):Connect(WeatherBadge.refresh)
 
 	for id in BANNERS do
 		ReplicatedStorage:GetAttributeChangedSignal(Weather.get(id).endsAttr):Connect(function()
