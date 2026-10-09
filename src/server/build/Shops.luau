@@ -204,7 +204,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 81 -- gradient-letter stall signs, no plate (2026-10-08)
+local BUILDER_VERSION = 82 -- stall signs sized in studs, range 150 (2026-10-08)
 
 local C = Kit.C
 local build = Kit.build
@@ -1025,9 +1025,17 @@ end
 --- the roof (the highest point of `buildPlateRoof`'s plates and rivets is ~10.9 studs up
 --- at the stall's own origin, so 11.5 clears it) so it reads over the whole structure
 --- instead of hiding behind its own roofline.
+---
+--- SIZED IN STUDS, NOT PIXELS (2026-10-08, on request). A pixel-sized sign stays the same
+--- size on screen at any distance, so from across the plaza every stall's name was as big
+--- as the near one and they piled into each other. Laid out in pixels below as if at 38px,
+--- then scaled by SIGN_STUDS_PER_PX into studs, so a far sign shrinks with its stall; the
+--- outline is a ScaledSize UIStroke so it shrinks with the letters. Not AlwaysOnTop, so a
+--- nearer stall's sign (or roof) covers a farther one instead of the far one drawing over it.
 local SIGN_NAME_SIZE = 38
 local SIGN_STROKE = 4.5 -- px; the outline round the letters
 local SIGN_DROP = 4 -- px the darker copy sits under the title
+local SIGN_STUDS_PER_PX = 0.085 -- "Detector Shop" comes out ~22 studs wide, about the stall
 
 local function buildStoreBillboard(adornee: BasePart, label: string, accent: string, offsetY: number?)
 	local textSize = TextService:GetTextSize(label, SIGN_NAME_SIZE, Kit.FONT, Vector2.new(1000, 100))
@@ -1038,12 +1046,11 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(width, height)
+	gui.Size = UDim2.fromScale(width * SIGN_STUDS_PER_PX, height * SIGN_STUDS_PER_PX)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY or 11.5, 0)
-	gui.AlwaysOnTop = true
-	-- Drawn across the whole shop square (~170 wide) so every stall's sign reads from
-	-- anywhere on the plaza, not just the 60 studs nearest it.
-	gui.MaxDistance = 200
+	gui.AlwaysOnTop = false
+	-- Most of the shop square (~170 wide), trimmed from 200 on request (2026-10-08).
+	gui.MaxDistance = 150
 	gui.LightInfluence = 0
 	-- What it was painted from, so a live swap in Studio can rebuild it without a
 	-- full world rebuild (the letters' own colours are pushed off the accent).
@@ -1056,18 +1063,21 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 	local function letters(name: string, y: number, outlineHex: string): TextLabel
 		local text = Instance.new("TextLabel")
 		text.Name = name
-		text.Position = UDim2.fromOffset(0, y)
-		text.Size = UDim2.new(1, 0, 1, -SIGN_DROP)
+		-- Fractions of the sign, so the letters keep the pixel layout's padding.
+		text.Position = UDim2.fromScale(pad / width, (pad + y) / height)
+		text.Size = UDim2.fromScale(textSize.X / width, textSize.Y / height)
 		text.BackgroundTransparency = 1
 		text.Font = Kit.FONT
 		text.Text = label
-		text.TextSize = SIGN_NAME_SIZE
+		text.TextScaled = true
 		text.TextColor3 = Color3.fromHex(outlineHex)
 		text.TextStrokeTransparency = 1
 		text.Parent = gui
 		local stroke = Instance.new("UIStroke")
 		stroke.Color = Color3.fromHex(outlineHex)
-		stroke.Thickness = SIGN_STROKE
+		-- A fraction of the label's height, so it shrinks with the letters.
+		stroke.StrokeSizingMode = Enum.StrokeSizingMode.ScaledSize
+		stroke.Thickness = SIGN_STROKE / textSize.Y
 		stroke.LineJoinMode = Enum.LineJoinMode.Round
 		stroke.Parent = text
 		return text
