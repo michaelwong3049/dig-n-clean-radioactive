@@ -50,12 +50,12 @@ ReforgeStation.IMPORT_SCALE = 30
 --- handles, a grey anvil, bright steel tools, a copper-rimmed brazier on glowing coals, a hot ingot and
 --- violet runes.
 local IMPORT_PAINT: { [string]: ImportedStation.Paint } = {
-	plinth = { color = "5E566B" },
-	plinth_step = { color = "706880" },
+	plinth = { color = "5E566B", studs = "Block" },
+	plinth_step = { color = "706880", studs = "Block" },
 	plinth_block_line = { color = "403A4A" },
 	rune_ring = { color = "B57BFF", neon = true },
 	rune_glyph = { color = "D2B0FF", neon = true },
-	stump = { color = "8B5A34" },
+	stump = { color = "8B5A34", studs = "Cylinder" },
 	stump_top = { color = "B07A4C" },
 	stump_ring = { color = "8B5A34" },
 	stump_band = { color = "7E8893" },
@@ -93,7 +93,7 @@ local IMPORT_PAINT: { [string]: ImportedStation.Paint } = {
 	tong_arm = { color = "77818C" },
 	tong_jaw = { color = "5F6872" },
 	tong_pivot = { color = "C8D1D9" },
-	bucket_body = { color = "8B5A34" },
+	bucket_body = { color = "8B5A34", studs = "Cylinder" },
 	bucket_floor = { color = "6B4426" },
 	bucket_rim = { color = "7E8893" },
 	bucket_hoop = { color = "7E8893" },

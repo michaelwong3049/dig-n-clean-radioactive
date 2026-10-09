@@ -50,15 +50,15 @@ SlagFurnace.IMPORT_SCALE = 30
 --- cracks and vents, the mouth hotter toward its yellow heart, the chimney fire and the
 --- pour orange. Fangs, studs, chains and bones keep the import's colours.
 local IMPORT_PAINT: { [string]: ImportedStation.Paint } = {
-	body = { color = "5A2A1E" },
+	body = { color = "5A2A1E", studs = "Block" },
 	upper_hood = { color = "52261C" },
 	hood_band = { color = "D8340E", neon = true },
 	masonry_line = { color = "C8280A", neon = true },
-	corner_pillar = { color = "40221B" },
-	pillar_cap = { color = "4E2C22" },
-	chimney = { color = "4A261D" },
+	corner_pillar = { color = "40221B", studs = "Block" },
+	pillar_cap = { color = "4E2C22", studs = "Block" },
+	chimney = { color = "4A261D", studs = "Cylinder" },
 	chimney_band = { color = "C8280A", neon = true },
-	plinth = { color = "3E3430" },
+	plinth = { color = "3E3430", studs = "Block" },
 	mouth_lava = { color = "FF2A0A", neon = true },
 	mouth_core = { color = "FF6A14", neon = true },
 	mouth_heart = { color = "FFB43C", neon = true },
