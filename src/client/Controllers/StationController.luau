@@ -798,6 +798,19 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	-- gear's colour still reads at full strength.
 	-- The studs are small and fine-grained, 16 px rather than the panels' 28 px and a
 	-- touch stronger so they read at that size (on request, 2026-10-08: "smaller and grainier").
+	-- An Anomaly card's spectrum (paintShopCard turns it on). A UIGradient tints only
+	-- its parent's own fill, so nothing on the card is recoloured with it.
+	local hue = Instance.new("UIGradient")
+	hue.Name = "RarityHue"
+	hue.Rotation = 45
+	local stops = {}
+	for index, color in Rarity.ANOMALY_SPECTRUM do
+		table.insert(stops, ColorSequenceKeypoint.new((index - 1) / (#Rarity.ANOMALY_SPECTRUM - 1), color))
+	end
+	hue.Color = ColorSequence.new(stops)
+	hue.Enabled = false
+	hue.Parent = card
+
 	Studded.pattern(card, {
 		radius = CARD_CORNER,
 		zIndex = 0,
@@ -1882,7 +1895,6 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 	local rarity = Gear.rarityOf(track, entry.tier)
 	local rarityLabel = card.CardStrip.CardRarity :: TextLabel
 	rarityLabel.Text = rarity
-	rarityLabel.TextColor3 = Rarity.DEFS[rarity].color
 	paintArt(card, track, entry.tier)
 	card:SetAttribute("Buyable", entry.buyable == true)
 	card:SetAttribute("Equippable", entry.equippable == true)
@@ -1895,10 +1907,14 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 
 	nameLabel.TextColor3 = FIELD.text
 
-	-- THE CARD IS THE GEAR'S COLOUR (see STUDDED); the button carries the state, white
-	-- under its state's gradient.
+	-- THE CARD IS ITS RARITY'S COLOUR (on request, 2026-10-08; it was the gear's own
+	-- tint, GearArt.tint), so the ladder reads grey, green, blue, purple, gold, red. An
+	-- Anomaly card is white under the Anomaly spectrum, the one rarity with no single
+	-- colour. The button carries the state, white under its state's gradient.
 	local fill = buy:FindFirstChild("Fill") :: UIGradient
-	card.BackgroundColor3 = GearArt.tint(track, entry.tier) or STUDDED.cardPlain
+	card.BackgroundColor3 = Rarity.DEFS[rarity].color
+	local hue = card:FindFirstChild("RarityHue") :: UIGradient
+	hue.Enabled = rarity == "Anomaly"
 	cardStroke.Color = STUDDED.cardEdge
 	buy.BackgroundColor3 = Color3.new(1, 1, 1)
 	buy.BackgroundTransparency = 0
@@ -1917,6 +1933,7 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 		local zone = entry.lockedZone :: number
 		local here = (Camps.get((state.offer and state.offer.camp) or "base") or { id = 1 }).id
 		card.BackgroundColor3 = STUDDED.cardLocked
+		hue.Enabled = false
 		flag.Text = "LOCKED"
 		flag.TextColor3 = STUDDED.equippedText
 		buy.Text = if zone > here then `UNLOCKED IN ZONE {zone}` else `SOLD IN ZONE {zone}`
