@@ -46,27 +46,27 @@ ReforgeStation.HALF_Z = 7
 ReforgeStation.IMPORT_SCALE = 30
 
 --- The import's own colours are near-black iron, too dark on Twilight's deck, so every
---- piece is repainted (ImportedStation.paint): light stone plinth, wood stump and
---- handles, bright steel, a copper-rimmed brazier on glowing coals, a hot ingot and
+--- piece is repainted (ImportedStation.paint): darker stone plinth, wood stump and
+--- handles, a grey anvil, bright steel tools, a copper-rimmed brazier on glowing coals, a hot ingot and
 --- violet runes.
 local IMPORT_PAINT: { [string]: ImportedStation.Paint } = {
-	plinth = { color = "7A7189" },
-	plinth_step = { color = "8E859C" },
-	plinth_block_line = { color = "554D61" },
+	plinth = { color = "5E566B" },
+	plinth_step = { color = "706880" },
+	plinth_block_line = { color = "403A4A" },
 	rune_ring = { color = "B57BFF", neon = true },
 	rune_glyph = { color = "D2B0FF", neon = true },
 	stump = { color = "8B5A34" },
 	stump_top = { color = "B07A4C" },
 	stump_ring = { color = "8B5A34" },
 	stump_band = { color = "7E8893" },
-	anvil_foot = { color = "77818C" },
-	anvil_foot_toe = { color = "77818C" },
-	anvil_waist = { color = "8A95A1" },
-	anvil_body = { color = "98A3AF" },
-	anvil_face = { color = "C8D1D9" },
-	anvil_heel = { color = "98A3AF" },
-	anvil_horn = { color = "98A3AF" },
-	horn_step = { color = "8A95A1" },
+	anvil_foot = { color = "8E847C" },
+	anvil_foot_toe = { color = "8E847C" },
+	anvil_waist = { color = "9E948C" },
+	anvil_body = { color = "AFA49B" },
+	anvil_face = { color = "CEC4BA" },
+	anvil_heel = { color = "AFA49B" },
+	anvil_horn = { color = "AFA49B" },
+	horn_step = { color = "9E948C" },
 	hardy_hole = { color = "3B4048" },
 	pritchel_hole = { color = "3B4048" },
 	anvil_rune = { color = "B57BFF", neon = true },
