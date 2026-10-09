@@ -72,6 +72,11 @@ local Plots = require(script.Parent.Parent.build.Plots)
 local ExhibitService = {}
 
 local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
+-- The order players are handed plots, on request (2026-10-09): alternate sides
+-- instead of filling one row first. Plots.CENTERS numbers 1-3 south (east to west)
+-- and 4-6 north (west to east), so this is south-east, north-east, then the middle
+-- pair, then the west pair — mirror twins back to back.
+local FILL_ORDER = { 1, 6, 2, 5, 3, 4 }
 -- Stand display motion: turn rate (radians/sec, ~1 turn per 25s) and bob height (studs).
 local STAND_HOVER = { rate = 0.25, amp = 0.12 }
 local LOCKER_VISIBLE =Tuning.LOCKER_SLOTS -- one per tube; a profile racked past the cap shows the first eight
@@ -970,7 +975,7 @@ function ExhibitService.setPlotColor(player: Player, hex: string?): (boolean, st
 end
 
 local function assign(player: Player)
-	for index = 1, PLOT_COUNT do
+	for _, index in FILL_ORDER do
 		if plotOwner[index] == nil then
 			plotOwner[index] = player
 			plotOf[player] = index
