@@ -123,6 +123,7 @@ local Sfx = require(script.Parent.Parent.Sfx)
 local GearArt = require(script.Parent.Parent.GearArt)
 local Prefs = require(script.Parent.Parent.Prefs)
 local Studded = require(script.Parent.Parent.Studded) -- the studded look's shared tiles
+local Artwork = require(script.Parent.Parent.HudArtwork) -- the sunburst behind each card's gear
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
 local MergePanel = require(script.Parent.Parent.MergePanel)
@@ -777,6 +778,30 @@ end
 -- The gear cards' corner: squared off, just softened (on request, 2026-10-07; was 12).
 local CARD_CORNER = 4
 local CARD_STUD_TILE = 10
+-- THE CARD IS ITS RARITY'S COLOUR, WASHED TOWARD WHITE (on request, 2026-10-08:
+-- "more whitened and gentle", from a pickaxe-shop reference): pale at the top, the
+-- rarity a little stronger at the bottom, and soft white rays behind the gear.
+local CARD_WASH_TOP = 0.62
+local CARD_WASH_BOTTOM = 0.3
+local CARD_WASH_ANOMALY = 0.45
+local CARD_RAYS_TRANSPARENCY = 0.5
+
+--- The card's fill as a gradient (the card itself is painted white, which a UIGradient
+--- multiplies into): one rarity colour washed top to bottom, or the Anomaly spectrum
+--- washed evenly along its diagonal.
+local function cardWash(rarity: string): (ColorSequence, number)
+	local white = Color3.new(1, 1, 1)
+	if rarity == "Anomaly" then
+		local stops = {}
+		for index, color in Rarity.ANOMALY_SPECTRUM do
+			local at = (index - 1) / (#Rarity.ANOMALY_SPECTRUM - 1)
+			table.insert(stops, ColorSequenceKeypoint.new(at, color:Lerp(white, CARD_WASH_ANOMALY)))
+		end
+		return ColorSequence.new(stops), 45
+	end
+	local color = Rarity.DEFS[rarity].color
+	return ColorSequence.new(color:Lerp(white, CARD_WASH_TOP), color:Lerp(white, CARD_WASH_BOTTOM)), 90
+end
 
 local function makeShopCard(parent: Instance, order: number): Frame
 	local card = UIKit.panel(parent, {
@@ -798,8 +823,9 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	-- gear's colour still reads at full strength.
 	-- The studs are small and fine-grained, 10 px rather than the panels' 28 px and a
 	-- touch stronger so they read at that size (on request, 2026-10-08: "smaller and grainier").
-	-- An Anomaly card's spectrum (paintShopCard turns it on). A UIGradient tints only
-	-- its parent's own fill, so nothing on the card is recoloured with it.
+	-- The card's washed rarity fill (cardWash; paintShopCard sets it). A UIGradient
+	-- tints only its parent's own fill, so nothing on the card is recoloured with it.
+	-- The unwashed spectrum below is what the Anomaly rarity WORD wears (a clone).
 	local hue = Instance.new("UIGradient")
 	hue.Name = "RarityHue"
 	hue.Rotation = 45
@@ -815,11 +841,34 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		radius = CARD_CORNER,
 		zIndex = 0,
 		tile = CARD_STUD_TILE,
-		studTransparency = 0.35,
+		-- Fainter on the paler card, so it stays a texture rather than a pattern.
+		studTransparency = 0.55,
 		bands = { 0.2, 0.47, 0.56, 0.64 },
 		bandTransparency = 0.55,
 		glowTransparency = 0.72,
 	})
+
+	-- Soft white rays fanning out from behind the gear, over the studs and under
+	-- everything else (paintShopCard dims them on a locked card). Clipped by a holder of
+	-- their own the card's size, so nothing else on the card is clipped with them.
+	local rayClip = Instance.new("Frame")
+	rayClip.Name = "CardRayClip"
+	rayClip.Size = UDim2.fromScale(1, 1)
+	rayClip.BackgroundTransparency = 1
+	rayClip.ClipsDescendants = true
+	rayClip.ZIndex = 0
+	rayClip.Parent = card
+	local rays = Instance.new("ImageLabel")
+	rays.Name = "CardRays"
+	rays.BackgroundTransparency = 1
+	rays.Image = Artwork.IMAGE.sunburst
+	rays.ImageTransparency = CARD_RAYS_TRANSPARENCY
+	rays.ScaleType = Enum.ScaleType.Fit
+	rays.AnchorPoint = Vector2.new(0.5, 0.5)
+	rays.Position = UDim2.fromOffset(CARD_WIDTH / 2, CARD_ART_TOP + CARD_ART_HEIGHT / 2)
+	rays.Size = UDim2.fromOffset(CARD_WIDTH * 1.6, CARD_WIDTH * 1.6)
+	rays.ZIndex = 0
+	rays.Parent = rayClip
 
 	local scale = Instance.new("UIScale")
 	scale.Name = "FocusScale"
@@ -1914,13 +1963,16 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 	nameLabel.TextColor3 = FIELD.text
 
 	-- THE CARD IS ITS RARITY'S COLOUR (on request, 2026-10-08; it was the gear's own
-	-- tint, GearArt.tint), so the ladder reads grey, green, blue, purple, gold, red. An
-	-- Anomaly card is white under the Anomaly spectrum, the one rarity with no single
-	-- colour. The button carries the state, white under its state's gradient.
+	-- tint, GearArt.tint), so the ladder reads grey, green, blue, purple, gold, red,
+	-- washed pale toward white (cardWash). The card is white under that gradient. The
+	-- button carries the state, white under its state's gradient.
 	local fill = buy:FindFirstChild("Fill") :: UIGradient
-	card.BackgroundColor3 = Rarity.DEFS[rarity].color
+	card.BackgroundColor3 = Color3.new(1, 1, 1)
 	local hue = card:FindFirstChild("RarityHue") :: UIGradient
-	hue.Enabled = rarity == "Anomaly"
+	hue.Color, hue.Rotation = cardWash(rarity)
+	hue.Enabled = true
+	local rays = card.CardRayClip.CardRays :: ImageLabel
+	rays.ImageTransparency = if entry.lockedZone then 0.85 else CARD_RAYS_TRANSPARENCY
 	cardStroke.Color = STUDDED.cardEdge
 	buy.BackgroundColor3 = Color3.new(1, 1, 1)
 	buy.BackgroundTransparency = 0
