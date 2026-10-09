@@ -182,8 +182,8 @@ local PACK_H = 222
 local PACK_ART = 96
 local PASSES_PER_ROW = 2
 local GAP = 12
--- Sits this far above dead centre: a little higher than the true middle, on request.
-local PANEL_LIFT = 40
+-- Sits this far above dead centre: a touch above the true middle, on request (was 40).
+local PANEL_LIFT = 20
 local PAD = 20
 local HEADER_H = 58
 local ART = 170
