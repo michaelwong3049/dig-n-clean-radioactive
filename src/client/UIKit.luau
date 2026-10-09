@@ -741,7 +741,8 @@ Dock.SIDE_GRID_COLUMNS = 2
 -- picture on the left and the name beside it): Free Gifts gone, Shop over Index, each
 -- bar both columns wide and SIDE_BAR_HEIGHT tall, so a row is a bar, not a square.
 Dock.SIDE_GRID_ROWS = 2
-Dock.SIDE_BAR_HEIGHT = math.round(44 * Dock.SIDE_GRID_SCALE)
+-- 44 -> 36, shorter on request (2026-10-09).
+Dock.SIDE_BAR_HEIGHT = math.round(36 * Dock.SIDE_GRID_SCALE)
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
 Dock.SIDE_TILE_GAP = math.round(9 * Dock.SIDE_GRID_SCALE)
