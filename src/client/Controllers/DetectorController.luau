@@ -39,7 +39,6 @@ local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
-local Stages = require(Shared.Config.Stages)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -133,31 +132,25 @@ local ROPE_IDLE_SECONDS = 0.2
 -- THERE IS NO PANEL BEHIND ANY OF THIS. The widget is a transparent container that
 -- only exists to be shown and hidden as a unit; each piece carries itself.
 --
--- TWO SLIM ROWS, laid out like the vitals bars right under them (on request,
--- 2026-10-09: the taller panel covered the character). On top, a label row: the rarity
--- word on the left, the metres still to come on the right. Under it, the pull bar (HaulRope), in exactly the health bar's column -- same
--- left edge, same length -- with the magnet as a cell at its right end. LET GO is a
--- red badge in the icon column, lined up with the radiation and heart badges below;
--- REEL IN is the bar itself (E on a keyboard, a tap anywhere on it on touch).
+-- SLIM ROWS, laid out like the vitals bars right under them (on request, 2026-10-09:
+-- the taller panel covered the character). On top, a label row with the rarity word
+-- (the metres readout was removed on request). Under it, the fuse's wick on its own
+-- thin row, then the pull bar (HaulRope), in exactly the health bar's column -- same
+-- left edge, same length -- with the magnet as a cell at its right end and the
+-- progress as a solid rarity-colour fill with a percentage. LET GO is a red X badge in
+-- the icon column, lined up with the radiation and heart badges below; REEL IN is the
+-- bar itself (E on a keyboard, a tap anywhere on it on touch).
 local PANEL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset
-local LABEL_HEIGHT = 26
+local LABEL_HEIGHT = 24
 local ROW_GAP = 3
 local BAR_X = Dock.VITALS_BAR_X
-local BAR_Y = LABEL_HEIGHT + ROW_GAP
+-- The label row, then the wick's own row (HaulRope draws it over the bar), then the bar.
+local BAR_Y = LABEL_HEIGHT + ROW_GAP + HaulRope.WICK_ROW
 local BAR_WIDTH = PANEL_WIDTH - BAR_X
 local BAR_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset - BAR_Y
 local BADGE = Dock.VITALS_ICON -- the LET GO badge, the vitals badges' size
 local TITLE_TEXT = 22 -- the rarity word
 local TITLE_WIDTH = 220 -- clears "Legendary", the longest rarity in Rarity.ORDER
-local METRES_TEXT = 24
--- "%.1f m", the unit at a smaller size. RichText.
-local METRES_FORMAT = '%.1f<font size="16">m</font>'
--- "to go" is its OWN label after the number, in the lighter title weight. Inside the
--- Gotham Black string its spaces came out ~3px under the outline and read "mtogo" in
--- Play (and &#160; drew as missing-glyph diamonds).
-local TOGO_WIDTH = 40
-local TOGO_GAP = 5
-local METRES_WIDTH = 150
 
 -- How fast the bar's nuke chases the server's value (1/seconds). Smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
@@ -165,7 +158,7 @@ local METRES_WIDTH = 150
 local FILL_LERP_RATE = 14
 
 -- The pull fuse (Config/Detonation) has no readout of its own any more (on request,
--- 2026-10-09: the seconds chip over the bar was removed). The wick on the bar is the
+-- 2026-10-09: the seconds chip over the bar was removed). The wick over the bar is the
 -- time left; once it ARMS, the bar's outline flashes red at this rate (rad/sec) --
 -- together with LET GO greying out, that is how you know the release has stopped.
 local FUSE_ARMED_PULSE = 7
@@ -789,10 +782,7 @@ local function build(): ScreenGui
 	releaseButton.BackgroundColor3 = COLOR.red
 	releaseButton.BorderSizePixel = 0
 	releaseButton.AutoButtonColor = true
-	releaseButton.Font = UIKit.Font.hero
-	releaseButton.TextSize = 14
-	releaseButton.TextColor3 = COLOR.text
-	releaseButton.Text = if UserInputService.KeyboardEnabled then "Q" else "X"
+	releaseButton.Text = ""
 	releaseButton.ZIndex = 30
 	releaseButton.Parent = haul
 	local releaseCorner = Instance.new("UICorner")
@@ -804,6 +794,30 @@ local function build(): ScreenGui
 	releaseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	releaseStroke.Parent = releaseButton
 	ui.releaseButton = releaseButton
+	-- THE MARK: a white X drawn from two crossed bars (on request, 2026-10-09: the "Q"
+	-- letter read as a key hint, not a button). The Q key still lets go.
+	local cross = Instance.new("Frame")
+	cross.Name = "Cross"
+	cross.Size = UDim2.fromScale(1, 1)
+	cross.BackgroundTransparency = 1
+	cross.ZIndex = 31
+	cross.Parent = releaseButton
+	for _, angle in { 45, -45 } do
+		local stroke = Instance.new("Frame")
+		stroke.AnchorPoint = Vector2.new(0.5, 0.5)
+		stroke.Position = UDim2.fromScale(0.5, 0.5)
+		stroke.Size = UDim2.fromOffset(math.round(BADGE * 0.56), 4)
+		stroke.Rotation = angle
+		stroke.BackgroundColor3 = COLOR.text
+		stroke.BorderSizePixel = 0
+		stroke.ZIndex = 31
+		stroke.Parent = cross
+		local edge = Instance.new("UIStroke")
+		edge.Color = COLOR.outline
+		edge.Thickness = 1
+		edge.Parent = stroke
+	end
+	ui.releaseCross = cross
 
 	-- THE LABEL ROW, over the bar: what the detector reads about the thing you locked
 	-- onto, the fuse, and how far it still has to come. The rarity word carries the
@@ -835,31 +849,6 @@ local function build(): ScreenGui
 		color = COLOR.dim,
 		xAlign = Enum.TextXAlignment.Left,
 		text = "?",
-	})
-
-	-- The metres still to come (renderFrame, every frame, off the smoothed progress so
-	-- it falls in step with the nuke rather than in 10 Hz steps). The depth is known
-	-- whether or not the rarity is, so this shows beside the "?" too.
-	ui.haulMetres = UIKit.label(haul, {
-		name = "Metres",
-		position = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, 0),
-		size = UDim2.fromOffset(METRES_WIDTH - TOGO_WIDTH - TOGO_GAP, LABEL_HEIGHT),
-		font = UIKit.Font.hero,
-		textSize = METRES_TEXT,
-		color = COLOR.text,
-		xAlign = Enum.TextXAlignment.Right,
-	})
-	ui.haulMetres.RichText = true
-
-	UIKit.label(haul, {
-		name = "MetresCaption",
-		position = UDim2.fromOffset(PANEL_WIDTH - TOGO_WIDTH, 2),
-		size = UDim2.fromOffset(TOGO_WIDTH, LABEL_HEIGHT),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.body,
-		color = COLOR.text,
-		xAlign = Enum.TextXAlignment.Right,
-		text = "to go",
 	})
 
 	return gui
@@ -896,8 +885,6 @@ local function renderFrame(dt: number)
 		-- the full length on progress alone; the depth only sets the metres still to come
 		-- up, printed over the magnet end.
 		local climbed = math.clamp(shownProgress, 0, 1)
-		local toGo = if state.depth then state.depth * (1 - climbed) / Stages.STUDS_PER_METRE else nil
-		ui.haulMetres.Text = if toGo then string.format(METRES_FORMAT, toGo) else ""
 
 		-- THE FUSE. The wick chases the server like the nuke does; the white tick on it is
 		-- the arm line. Armed, the bar's outline flashes red: there is one way out now.
@@ -1099,9 +1086,7 @@ local function renderState()
 	-- the button stops offering it rather than silently failing. It still sends if
 	-- pressed -- the server is the judge, and the client must never be the reason a
 	-- release did not go through.
-	ui.releaseButton.Text = if state.fuseArmed then ""
-		elseif UserInputService.KeyboardEnabled then "Q"
-		else "X"
+	ui.releaseCross.Visible = not state.fuseArmed
 	ui.releaseButton.BackgroundColor3 = if state.fuseArmed then COLOR.panel else COLOR.red
 	if state.locked then
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on

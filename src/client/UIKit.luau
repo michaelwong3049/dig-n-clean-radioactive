@@ -560,18 +560,19 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- because HAULPANEL_BOTTOM, ui.haul and every caller already read it and a rename buys
 -- nothing.
 --
--- SLIM, ON REQUEST (2026-10-09: the 228-tall version covered the character). Two rows
--- laid out like the vitals bars under it: a 26 label row (rarity, fuse chip, metres to
--- go) and a 32 pull bar (HaulRope) in exactly the health bar's column, with the magnet
--- as a cell at its right end; LET GO is a badge in the icon column and REEL IN is the
--- bar itself. 26 + 3 of gap + 32 = 61. The width is the vitals bars'.
+-- SLIM, ON REQUEST (2026-10-09: the 228-tall version covered the character). Rows
+-- laid out like the vitals bars under it: a 24 label row (the rarity word), 3 of gap,
+-- the fuse's wick row (HaulRope.WICK_ROW, 10), and a 32 pull bar (HaulRope) in exactly
+-- the health bar's column, with the magnet as a cell at its right end; LET GO is a
+-- badge in the icon column and REEL IN is the bar itself. 24 + 3 + 10 + 32 = 69. The
+-- width is the vitals bars'.
 -- DetectorController's LABEL_HEIGHT / ROW_GAP / BAR_* derive the interior from this.
 --
 -- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM). That is safe rather than
 -- lucky: DigService releases the lock the instant the bag fills (its RELEASE 3), and
 -- the only other line the status can carry is the buried-too-deep one, which needs
 -- `not hasSignal` -- so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(Dock.VITALS_WIDTH, 61)
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(Dock.VITALS_WIDTH, 69)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.

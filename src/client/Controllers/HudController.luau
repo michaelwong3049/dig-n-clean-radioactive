@@ -23,7 +23,8 @@
 	(Dock.VITALS_*), rads on top and health under it, 1px apart, with a label row above:
 	  - top left, the COUNTDOWN, only while it means something: SURVIVABLE (green),
 	    RAD SICKNESS (red), AURA FAILING (white), CRATER BURN (crater yellow-green),
-	    followed by "Best: <stage>", the stage your aura is rated for (always, room allowing);
+	    followed by "Preferred: <stage>" (was "Best:", renamed on request), the stage
+	    your aura is rated for (always, room allowing);
 	  - top right, where you are and how deep ("BASE CAMP · 0 m" in camp: camp shows
 	    the full readout rather than collapsing, asked for explicitly);
 	  - top centre, "Clean at base" while the thing in your hands still has crust on it
@@ -571,13 +572,13 @@ local function render(dt: number)
 	local crust = held and held:GetAttribute("Crust")
 	ui.cleanHint.Visible = not state.downed and type(crust) == "number" and crust > 0
 
-	-- Beside the countdown, where your aura belongs ("Best: Fading Fields" with no aura),
+	-- Beside the countdown, where your aura belongs ("Preferred: Fading Fields" with no aura),
 	-- shown in camp too. Dropped whenever it would run into the place readout or the
 	-- centred clean hint: the countdown is the one that matters mid-run.
 	local text = countdown
 	if not state.downed then
 		local best = string.format(
-			'<font color="#%s">Best: %s</font>',
+			'<font color="#%s">Preferred: %s</font>',
 			STYLE.header:ToHex(),
 			preferredStage(state.auraTier)
 		)
