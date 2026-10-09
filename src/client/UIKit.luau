@@ -791,14 +791,14 @@ Dock.ROBLOX_TOP = 12
 Dock.ROBLOX_GAP = 12
 local ROBLOX_INSET_PAD = 4
 
--- OUR TOP-LEFT BUTTONS (Settings, Info) a little SMALLER than Roblox's, on request
+-- OUR TOP-LEFT BUTTON (Settings; Info moved to the top right) a little SMALLER than Roblox's, on request
 -- (2026-10-09, so they crowd the HOME/SELL/WARP bar less on a phone): TOPBAR_LEFT_BUTTON
 -- screen px, centred on the same line as Roblox's buttons, TOPBAR_LEFT_GAP apart.
 Dock.TOPBAR_LEFT_BUTTON = 36
 Dock.TOPBAR_LEFT_GAP = 8
 local TOPBAR_LEFT_TOP = Dock.ROBLOX_TOP + (Dock.ROBLOX_BUTTON - Dock.TOPBAR_LEFT_BUTTON) / 2
 
---- The centre of top-left button `index` (1 = Settings, 2 = Info right of it): in the
+--- The centre of top-left button `index` (1 = Settings): in the
 --- topbar band on the LEFT, right after Roblox's own buttons, on request. A FIXED SCREEN
 --- SIZE on every screen (2026-10-08: "always scale it so it's the same size"), so
 --- measured in screen px and divided by the scale. The inset moves when Roblox adds or

@@ -31,9 +31,9 @@ local PotionController = {}
 
 -- The Potions tile: under Nukes in the right-edge column (HudTile, Dock.rightTileCentre),
 -- picture only (2026-10-07, on request; it was in the left grid). Its running-potion chips
--- stay in the top-right corner row, after Daily (1) and Masteries (2): from 3 on.
+-- stay in the top-right corner row, after Daily (1), Masteries (2) and Info (3): from 4 on.
 local TILE_RIGHT = 2
-local CHIP_AFTER = 2
+local CHIP_AFTER = 3
 local TILE_COLOR = Color3.fromRGB(168, 75, 240)
 local TILE_LIGHT = Color3.fromRGB(227, 166, 255)
 
