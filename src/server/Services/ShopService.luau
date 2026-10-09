@@ -72,6 +72,7 @@ local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local GearProducts = require(Shared.Config.GearProducts)
 local Camps = require(Shared.Config.Camps) -- the shop's locked zones
+local Treadmill = require(Shared.Config.Treadmill) -- priceText: "$32M", not "$32000000"
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial) -- the luck button is shut during the walkthrough
 
@@ -515,7 +516,7 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	data.gear[key] = tier
 	landPurchase(player, track)
 
-	return true, `bought {def.name} for ${def.price}`
+	return true, `bought {def.name} for {Treadmill.priceText(def.price)}`
 end
 
 --- The Walk Speed badge shows the aura's speed bonus, so a swap has to resend it.

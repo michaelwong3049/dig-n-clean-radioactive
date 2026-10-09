@@ -39,6 +39,7 @@ local Net = require(Shared.Net) -- assign(): tell the owning client its plot ind
 local Bag = require(Shared.Bag)
 local Tuning = require(Shared.Config.Tuning)
 local Floors = require(Shared.Config.Floors)
+local Treadmill = require(Shared.Config.Treadmill) -- priceText: "$32M", not "$32000000"
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
@@ -1696,7 +1697,7 @@ function ExhibitService.buyFloor(player: Player, plot: number, floor: number): (
 	renderAll(plot, data)
 	-- The "YOUR BASE" beacon rides over the top deck; PlotState is what (re)builds it.
 	Net.get("PlotState"):FireClient(player, plot)
-	return true, `floor {floor} built \u{2014} {Floors.UPPER_SLOTS} more stands (paid ${price})`
+	return true, `floor {floor} built \u{2014} {Floors.UPPER_SLOTS} more stands (paid {Treadmill.priceText(price)})`
 end
 
 -- Per sign, so a second refusal inside the flash window restarts it rather than
