@@ -183,6 +183,9 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
 
+	-- A top-left button is scaled up or down to Roblox's own buttons' size (its whole
+	-- look: glow, symbol, rim), and hover/press scale on top of that.
+	local baseScale = 1
 	local glow, icon
 	if grid then
 		local function place()
@@ -231,6 +234,8 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		if topbarLeft then
 			Dock.onTopbarChanged(function()
 				button.Position = Dock.topbarLeftCentre(topbarLeft)
+				baseScale = Dock.topbarLeftScale()
+				scale.Scale = baseScale
 			end)
 		elseif corner then
 			UIKit.onScaleChanged(function()
@@ -271,7 +276,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local hovered, pressed = false, false
 	local function refresh()
 		local target = if pressed then PRESS_SCALE elseif hovered then HOVER_SCALE else 1
-		TweenService:Create(scale, TWEEN, { Scale = target }):Play()
+		TweenService:Create(scale, TWEEN, { Scale = target * baseScale }):Play()
 		TweenService:Create(edge, TWEEN, {
 			Transparency = if grid then GRID_OUTLINE_TRANSPARENCY elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
 		}):Play()
