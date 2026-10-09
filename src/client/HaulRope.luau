@@ -6,13 +6,18 @@
 	vitals bars at exactly their bar column (x and width), one row up. The dirt end is on
 	the left, in the stage's own soil; the right end is a steel cell with a magnet icon in
 	it, part of the same rectangle behind a black divider. The nuke lies in the bar
-	nose-first and slides from the dirt into the magnet cell; a wash of the signal's
-	colour trails behind it. How far along it is IS the reading.
+	nose-first and slides from the dirt into the magnet cell.
 
-	THE FUSE IS A WICK along the bar's top edge, burning from the magnet end back toward
-	the dirt: the length left is the time left, the white tick is Config/Detonation's
-	ARM_AT, and a spark rides the burning end. No seconds are drawn (on request); once
-	the fuse arms, the bar's black outline flashes red.
+	THE PROGRESS IS A SOLID FILL (on request, 2026-10-09: the see-through wash was hard to
+	read). Behind the nuke the bar fills opaque in the signal's own rarity colour, with a
+	shine along its top, over the rope pattern; the rope only shows in the part still to
+	go. An outlined percentage sits in the middle of the rope.
+
+	THE FUSE IS A WICK on its own thin row JUST ABOVE the bar (moved off the bar's top
+	edge, on request), burning from the magnet end back toward the dirt: the length left
+	is the time left, the white tick is Config/Detonation's ARM_AT, and a spark rides the
+	burning end. No seconds are drawn; once the fuse arms, the bar's black outline
+	flashes red.
 
 	REEL IN IS THE BAR. There is no separate button: the magnet cell wears an E keycap
 	(keyboard only) that kicks on every yank, and DetectorController lays a clear button
@@ -42,8 +47,12 @@ local DIVIDER = 3 -- the black line between the rope and the magnet cell
 local INSET = 6 -- the strand and the wick stop this far in from either end
 local NUKE_SIZE = Vector2.new(40, 62) -- drawn nose-up, then turned to lie nose-right
 local NUKE_PAD = 4 -- clear space above and below the lying nuke
-local WICK_Y = 3
-local WICK_HEIGHT = 3
+local WICK_HEIGHT = 6
+local WICK_GAP = 4 -- between the wick row and the bar's top edge
+-- What the caller leaves free over the bar for the wick (its spark spills a little higher).
+HaulRope.WICK_ROW = WICK_HEIGHT + WICK_GAP
+local PERCENT_TEXT = 17
+local SHEEN_HEIGHT = 5
 local STRAND_HEIGHT = 8
 local STRAND_PITCH = 7 -- one twist of the rope every this many px
 local ICON_FILL = 0.78 -- the magnet icon's share of the cell's height
@@ -80,6 +89,9 @@ export type Rope = {
 	nukeLength: number,
 	ropeGradient: UIGradient,
 	trail: Frame,
+	percent: TextLabel,
+	wickX: number,
+	wickY: number,
 	nuke: Frame,
 	accentParts: { Frame },
 	cracks: { Frame },
@@ -290,9 +302,6 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number, height
 	local cell = math.round(height * CELL_ASPECT)
 	local ropeLength = width - cell - DIVIDER
 
-	-- The wash behind the nuke, in the signal's colour: from the dirt end up to the nuke.
-	local trail = box(root, "Trail", 0, 0, 0, height, WHITE, 2)
-	trail.BackgroundTransparency = 0.68 -- a wash: Common's near-white must not hide the dirt
 
 	-- The rope: a braided strip down the middle, slanted twists clipped to a straight
 	-- band with a black edge top and bottom.
@@ -307,14 +316,44 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number, height
 		twist.Rotation = 30
 	end
 
-	-- THE WICK along the top edge, burning from the magnet end back toward the dirt.
+	-- THE FILL: solid, in the signal's colour, from the dirt end up to the nuke, over the
+	-- rope pattern, with a shine along its top.
+	local trail = box(root, "Fill", 0, 0, 0, height, WHITE, 4)
+	local sheen = box(trail, "Sheen", 0, 2, 0, SHEEN_HEIGHT, WHITE, 5, UDim.new(0, 2))
+	sheen.Size = UDim2.new(1, 0, 0, SHEEN_HEIGHT)
+	sheen.BackgroundTransparency = 0.55
+
+	-- The percentage, outlined, in the middle of the rope (not the magnet cell).
+	local percent = Instance.new("TextLabel")
+	percent.Name = "Percent"
+	percent.AnchorPoint = Vector2.new(0.5, 0.5)
+	percent.Position = UDim2.fromOffset(ropeLength / 2, height / 2)
+	percent.Size = UDim2.fromOffset(80, height)
+	percent.BackgroundTransparency = 1
+	percent.Font = UIKit.Font.hero
+	percent.TextSize = PERCENT_TEXT
+	percent.TextColor3 = WHITE
+	percent.TextStrokeColor3 = BLACK
+	percent.TextStrokeTransparency = 0
+	percent.Text = "0%"
+	percent.ZIndex = 20
+	percent.Parent = root
+
+	-- THE WICK, on its own row just above the bar (in `parent`, outside the bar's clip),
+	-- burning from the magnet end back toward the dirt.
 	local wickLength = ropeLength - 2 * INSET
-	local wickTrack = box(root, "WickTrack", INSET, WICK_Y, wickLength, WICK_HEIGHT, WICK_BURNT, 4)
-	local wick = box(wickTrack, "Wick", 0, 0, wickLength, WICK_HEIGHT, WICK_COLOR, 5)
+	local wickX = position.X.Offset + INSET
+	local wickY = position.Y.Offset - WICK_GAP - WICK_HEIGHT
+	local wickTrack = box(parent, "WickTrack", wickX, wickY, wickLength, WICK_HEIGHT, WICK_BURNT, 4, UDim.new(0, 3))
+	local wickStroke = Instance.new("UIStroke")
+	wickStroke.Color = BLACK
+	wickStroke.Thickness = 1.5
+	wickStroke.Parent = wickTrack
+	local wick = box(wickTrack, "Wick", 0, 0, wickLength, WICK_HEIGHT, WICK_COLOR, 5, UDim.new(0, 3))
 	-- Point of no return: the wick left unburnt at ARM_AT.
-	local armTick = box(wickTrack, "ArmLine", wickLength * (1 - DetonationConfig.ARM_AT), WICK_HEIGHT / 2, 2, 10, WHITE, 6)
+	local armTick = box(wickTrack, "ArmLine", wickLength * (1 - DetonationConfig.ARM_AT), WICK_HEIGHT / 2, 3, 14, WHITE, 6)
 	armTick.AnchorPoint = Vector2.new(0.5, 0.5)
-	local spark, sparkParts = buildSpark(root, 12)
+	local spark, sparkParts = buildSpark(parent, 12)
 
 	-- THE MAGNET CELL: the bar's right end, steel, behind a black divider.
 	local cellFrame = box(root, "MagnetCell", width - cell, 0, cell, height, WHITE, 8)
@@ -361,6 +400,9 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number, height
 		nukeLength = nukeLength,
 		ropeGradient = ropeGradient,
 		trail = trail,
+		percent = percent,
+		wickX = wickX,
+		wickY = wickY,
 		nuke = nuke,
 		accentParts = accentParts,
 		cracks = cracks,
@@ -398,7 +440,7 @@ function HaulRope.paint(rope: Rope, stageId: number)
 	})
 end
 
---- The signal's colour on the nuke's band and glow and the trail behind it. Cheap to
+--- The signal's colour on the nuke's band and glow and the fill behind it. Cheap to
 --- call every tick.
 function HaulRope.setAccent(rope: Rope, color: Color3)
 	if rope.accent == color then
@@ -432,6 +474,7 @@ function HaulRope.step(rope: Rope, input: Input)
 		+ (rng:NextNumber() - 0.5) * 3 * input.kick
 	rope.nuke.Position = UDim2.fromOffset(x + jitter, rope.height / 2 + jitter * 0.3)
 	rope.trail.Size = UDim2.fromOffset(x, rope.height)
+	rope.percent.Text = `{math.floor(math.clamp(input.progress, 0, 1) * 100 + 0.5)}%`
 	rope.keycapKick.Scale = 1 + 0.3 * input.kick
 	rope.outline.Color = BLACK:Lerp(ALARM_RED, input.alarm)
 
@@ -448,9 +491,9 @@ function HaulRope.step(rope: Rope, input: Input)
 	if input.fuse then
 		local left = rope.wickLength * (1 - math.clamp(input.fuse, 0, 1))
 		rope.wick.Size = UDim2.fromOffset(left, WICK_HEIGHT)
-		rope.spark.Position = UDim2.fromOffset(INSET + left, WICK_Y + WICK_HEIGHT / 2)
+		rope.spark.Position = UDim2.fromOffset(rope.wickX + left, rope.wickY + WICK_HEIGHT / 2)
 		for i, dot in rope.sparkParts do
-			local d = (18 - i * 5) * (0.8 + rng:NextNumber() * 0.45)
+			local d = (22 - i * 6) * (0.8 + rng:NextNumber() * 0.45)
 			dot.Size = UDim2.fromOffset(d, d)
 		end
 	end
