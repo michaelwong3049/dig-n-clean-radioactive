@@ -546,37 +546,28 @@ Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
 
 -- THE HAUL WIDGET. Up only while a player is locked onto a signal and mashing it out.
--- It is deliberately OUT OF THE MIDDLE OF THE SCREEN, in both axes, and for one
--- reason: the payoff of a haul is watching the thing rise out of the ground in front
--- of your character. That happens at screen centre, so anything drawn there is drawn
--- over the only part of the haul the player actually came for. It sits as LOW as it
--- can (HAULPANEL_BOTTOM) and just right of centre (HAULPANEL_CENTRE_GAP), stopping
--- short of the Index/Shop tiles on a narrow screen (HAULPANEL_RIGHT).
+-- It is DOCKED OVER THE HOTBAR CLUSTER (on request, 2026-10-09): centred on the
+-- health / rads bars, one GAP above them (HAULPANEL_BOTTOM), and exactly as wide.
+-- It used to sit just right of centre to keep off the nuke climbing out of the soil;
+-- the user preferred it lined up with the bars.
 --
 -- NAMED "PANEL" AND IT IS NOT ONE ANY MORE. There is no fill and no stroke behind the
--- contents: this is the bounding box of a floating stack, not a slab. The 420x230 slab
--- it used to draw was the bulk of what the haul cost the screen — the content inside
--- it was never the problem — and 240x210 with nothing drawn behind it is roughly a
--- quarter of the pixels the old one covered. The name stays because HAULPANEL_BOTTOM,
--- ui.haul and every caller already read it and a rename buys nothing.
+-- contents: this is the bounding box of a floating stack, not a slab. The name stays
+-- because HAULPANEL_BOTTOM, ui.haul and every caller already read it and a rename buys
+-- nothing.
 --
--- THE TUG-OF-WAR ROPE INSIDE IT SETS BOTH NUMBERS. The haul is drawn as a rope
--- (HaulRope) with the nuke sliding along it from the dirt into the player's magnet, so
--- the widget is as wide as the slide needs to read, and three rows tall: the readout
--- (rarity word, metres to go) over the rope, LET GO and REEL IN under it.
--- DetectorController's PANEL_* / ROPE_TOP / HAULBUTTON_* derive the interior from
--- this one size: 34 of readout + HaulRope.HEIGHT 88 + 8 of gap + 46 of buttons = 176.
---
--- 440x176, on request (2026-10-09: the soil shaft's 340x474 column became this wide,
--- short strip). It is still a floating stack with nothing drawn behind it, and it still
--- keeps off the middle: see HAULPANEL_CENTRE_GAP for where it sits and HAULPANEL_RIGHT
--- for the tiles.
+-- THE TUG-OF-WAR ROPE INSIDE IT SETS THE HEIGHT. The haul is drawn as a rope
+-- (HaulRope) with the nuke sliding along it from the dirt into the player's magnet,
+-- three rows tall: the readout (rarity word, metres to go) over the rope, LET GO and
+-- REEL IN under it. DetectorController's PANEL_* / ROPE_TOP / HAULBUTTON_* derive the
+-- interior from this one size: 44 of readout + HaulRope.HEIGHT 120 + 8 of gap + 56 of
+-- buttons = 228. The width is the vitals bars'.
 --
 -- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM). That is safe rather than
 -- lucky: DigService releases the lock the instant the bag fills (its RELEASE 3), and
 -- the only other line the status can carry is the buried-too-deep one, which needs
 -- `not hasSignal` -- so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(440, 176)
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(Dock.VITALS_WIDTH, 228)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
@@ -936,34 +927,14 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 --
 -- This is a deliberate reversal of the old "clear the entire dock" placement
 -- (RESERVE + GAP). The widget now overlays the instrument band's vertical space — but
--- that band is the meter / cash column, which is LEFT-anchored, and this sits right
--- of centre (HAULPANEL_CENTRE_GAP below). Anchored off the hotbar rather than a
+-- that band is the meter / cash column, which is LEFT-anchored, and this sits centred
+-- over the vitals bars. Anchored off the hotbar rather than a
 -- screen fraction for the same reason everything else here is: a fraction that looked
 -- right at 1080p collided with the dock on shorter viewports.
 Dock.HAULPANEL_BOTTOM = Dock.VITALS_CLEAR
 
--- AND JUST RIGHT OF CENTRE, on request. Its LEFT edge sits this far right of screen
--- centre (DetectorController.placeHaul). Centred, the stack sat straight over the
--- character and the thing climbing out of the soil in front of them; hard in the right
--- corner, the reading was a long way from where the player is looking. This keeps it
--- beside the action: the readout is right-aligned, so the visible text starts another
--- ~50-90px further out, past a character that is only ~70px wide on screen.
-Dock.HAULPANEL_CENTRE_GAP = 100
-
--- ...UNLESS THAT WOULD RUN IT UNDER THE INDEX/SHOP TILES. The shaft is 442 tall, which
--- reaches up past the tiles hung on the right edge (Dock.sideColumnTop down), so on a
--- screen too narrow to fit the panel between centre + CENTRE_GAP and the tile column,
--- it slides left only as far as it must to stop one GAP short of that column. This is
--- that clearance, as an inset from the right screen edge.
---
--- THE COST IS PAID ON NARROW VIEWPORTS: once it has to slide, it slides toward centre,
--- and on a design width much under ~1100 (a 4:3 window, a phone held upright) it starts
--- to overlap the surfacing item; further in it tucks behind the meter (DisplayOrder 100
--- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
--- width, not a different anchor.
 -- THE BOOSTS WIDGET (BoostsController): the bottom-right "CURRENT BOOSTS" header over the
--- Luck / Cash / Walk Speed totals, just above the hotbar. The haul panel keeps clear of
--- its width.
+-- Luck / Cash / Walk Speed totals, just above the hotbar.
 Dock.BOOSTS_WIDTH = 200
 Dock.BOOSTS_HEADER = 20
 Dock.BOOSTS_ROW = 34
@@ -1016,11 +987,9 @@ Dock.STARTER_DROP = 24
 Dock.STARTER_CARD_H = 128
 Dock.STARTER_TOUCH_FIT = 0.7
 Dock.STARTER_TOP = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + Dock.STARTER_DROP
--- With the button grid on the LEFT edge, the right corner only holds the Boosts widget.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.BOOSTS_WIDTH + Dock.GAP
 
 -- AND NEVER TALLER THAN THE SCREEN HAS ROOM FOR. On a landscape phone (~625-650 design
--- px tall) HAULPANEL_BOTTOM + 474 ran the widget's top off the screen, under the
+-- px tall) HAULPANEL_BOTTOM + its height ran the widget's top off the screen, under the
 -- topbar. DetectorController.placeHaul shrinks it (its own UIScale) until its top sits
 -- this far below the screen top -- clear of the Settings/Daily corner row, which sits
 -- level with Roblox's topbar -- but never below MIN_FIT, where REEL IN stops being a
