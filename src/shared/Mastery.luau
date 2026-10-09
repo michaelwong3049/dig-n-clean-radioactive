@@ -77,19 +77,22 @@ function Mastery.tierOf(profile: any, def: Masteries.Def): number
 end
 
 --- The reward `kind` this profile has earned: the highest reached tier's value of the
---- one mastery that pays it, or Masteries.BASE[kind]. A higher tier REPLACES the lower.
+--- mastery that pays it, or Masteries.BASE[kind]. A higher tier REPLACES the lower.
+--- When several masteries pay the same kind, each one's step away from base adds up
+--- (Bomber + Thief walk speed).
 function Mastery.value(profile: any, kind: string): number
 	local base = Masteries.BASE[kind]
-	local best = if base ~= nil then base else 1
+	base = if base ~= nil then base else 1
+	local total = base
 	for _, def in Masteries.LIST do
 		if def.reward == kind then
 			local tier = Mastery.tierOf(profile, def)
 			if tier > 0 then
-				best = def.values[tier]
+				total += def.values[tier] - base
 			end
 		end
 	end
-	return best
+	return total
 end
 
 export type Entry = { id: string, count: number, tier: number }
@@ -142,8 +145,8 @@ function Mastery.rewardText(def: Masteries.Def, tier: number): string
 	local x = "x" .. (string.gsub(string.format("%.2f", v), "%.?0+$", ""))
 	if kind == "cash" then
 		return `{x} cash`
-	elseif kind == "bombDamage" then
-		return `{x} bomb damage`
+	elseif kind == "walkSpeed" then
+		return `+{math.floor(v * 100 + 0.5)}% walk speed`
 	elseif kind == "training" then
 		return `{x} treadmill Speed`
 	elseif kind == "luck" then
@@ -154,8 +157,6 @@ function Mastery.rewardText(def: Masteries.Def, tier: number): string
 		return `-{percentOff(v)} radiation damage`
 	elseif kind == "mergeFee" then
 		return `-{percentOff(v)} merge fee`
-	elseif kind == "haulDrag" then
-		return `-{percentOff(v)} haul drag`
 	elseif kind == "brewCooldown" then
 		return `-{percentOff(v)} brew cooldown`
 	elseif kind == "awayRate" then

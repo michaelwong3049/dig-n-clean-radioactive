@@ -1105,8 +1105,7 @@ end
 --- popping in one by one, the bars growing.
 local function paintSheet(payload: any, colour: Color3)
 	local item = if type(payload.item) == "table" then payload.item else { rarity = payload.rarity, itemId = payload.result }
-	local bomberMult = Players.LocalPlayer:GetAttribute("MasteryBombDamage")
-	local stats = Bombing.statsFor(item, if type(bomberMult) == "number" then bomberMult else nil)
+	local stats = Bombing.statsFor(item)
 
 	-- Name and kg on one line: the kg keeps its size and the name shrinks to fit.
 	local kgText = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""

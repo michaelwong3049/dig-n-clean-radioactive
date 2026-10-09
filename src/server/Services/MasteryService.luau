@@ -42,7 +42,6 @@ local StageService = require(script.Parent.StageService)
 local MasteryService = {}
 
 local POLL_SECONDS = 1
-local BOMB_ATTR = "MasteryBombDamage"
 local DEEPEST_ATTR = "DeepestStage"
 
 type Seen = {
@@ -92,7 +91,6 @@ local function check(player: Player, data: any, quiet: boolean)
 	end
 	seen[player] = { tiers = tiers, signature = signature }
 
-	player:SetAttribute(BOMB_ATTR, Mastery.value(data, "bombDamage"))
 	stateRemote:FireClient(player, {
 		masteries = snapshot,
 		unlocked = if #unlocked > 0 then unlocked else nil,

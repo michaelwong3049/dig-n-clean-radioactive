@@ -191,9 +191,7 @@ local function drop(player: Player)
 		return
 	end
 
-	-- The Bomber mastery's damage (Config/Masteries) rides in here, so the hit that
-	-- lands is the one the hotbar card printed (it reads the same multiplier off the
-	-- MasteryBombDamage attribute).
+	-- The Bomb Damage pass rides in here.
 	local stats = Bombing.statsFor(item, StatResolver.get(data).bombDamageMult)
 	local bomb, ground = placeBomb(character, root)
 	-- Out of the bag. CarryService notices heldUid is gone and empties the hands.
