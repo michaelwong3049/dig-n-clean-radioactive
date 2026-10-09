@@ -162,6 +162,19 @@ local function ink(node: TextLabel | TextButton)
 	node.TextStrokeTransparency = 1
 end
 
+--- Station panels read a size up (on request): small print +3, mid sizes +2, headlines
+--- as they were. Every label, chip and button below goes through it.
+local function bigger(size: number?): number?
+	if size == nil then
+		return nil
+	elseif size <= 15 then
+		return size + 3
+	elseif size <= 22 then
+		return size + 2
+	end
+	return size
+end
+
 local function text(parent: Instance, props: { [string]: any }): TextLabel
 	local label = UIKit.label(parent, {
 		name = props.name,
@@ -169,7 +182,7 @@ local function text(parent: Instance, props: { [string]: any }): TextLabel
 		size = props.size,
 		anchorPoint = props.anchorPoint,
 		font = props.font or SKIN.label,
-		textSize = props.textSize,
+		textSize = bigger(props.textSize),
 		color = props.color or SKIN.text,
 		xAlign = props.xAlign or Enum.TextXAlignment.Left,
 		yAlign = props.yAlign,
@@ -228,7 +241,7 @@ local function chip(parent: Instance, name: string): TextLabel
 	label.Size = UDim2.fromOffset(0, 16)
 	label.BorderSizePixel = 0
 	label.Font = SKIN.label
-	label.TextSize = 11
+	label.TextSize = bigger(11) :: number
 	label.TextColor3 = SKIN.ink
 	label.Parent = parent
 	corner(label, 8)
@@ -245,7 +258,7 @@ local function bigButton(parent: Instance, name: string): TextButton
 	button.AutoButtonColor = false
 	button.BorderSizePixel = 0
 	button.Font = SKIN.headline
-	button.TextSize = 20
+	button.TextSize = bigger(20) :: number
 	button.TextColor3 = SKIN.text
 	button.Parent = parent
 	corner(button, 12)
@@ -379,7 +392,7 @@ local function makeRow(parent: Instance, name: string, y: number): StatRow
 	local grade = chip(values, "Grade")
 	grade.LayoutOrder = 4
 	grade.Size = UDim2.fromOffset(0, 20)
-	grade.TextSize = 13
+	grade.TextSize = bigger(13) :: number
 
 	-- The meter: the whole forge band in its grade zones, a faint line at +0%, the
 	-- copy's roll as a white tick and the new one as an orange diamond.

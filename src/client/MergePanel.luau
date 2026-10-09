@@ -87,7 +87,7 @@ local IN_H = 112
 
 --- Both halves say this when you own no washed nukes at all.
 local EMPTY_TEXT = "No cleaned nukes equipped."
-local PICK_TEXT = `Tap a nuke with a READY chip. Its best {Merge.INPUTS} copies fill in by themselves, and a merge always adds a merge star.`
+local PICK_TEXT = `Combine {Merge.INPUTS} nukes to make a better one!`
 
 local POP = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
@@ -153,6 +153,19 @@ local function ink(node: TextLabel | TextButton, thickness: number?)
 	node.TextStrokeTransparency = 1
 end
 
+--- Station panels read a size up (on request): small print +3, mid sizes +2, headlines
+--- as they were. Every label, chip and button below goes through it.
+local function bigger(size: number?): number?
+	if size == nil then
+		return nil
+	elseif size <= 15 then
+		return size + 3
+	elseif size <= 22 then
+		return size + 2
+	end
+	return size
+end
+
 local function text(parent: Instance, props: { [string]: any }): TextLabel
 	local label = UIKit.label(parent, {
 		name = props.name,
@@ -160,7 +173,7 @@ local function text(parent: Instance, props: { [string]: any }): TextLabel
 		size = props.size,
 		anchorPoint = props.anchorPoint,
 		font = SKIN.font,
-		textSize = props.textSize,
+		textSize = bigger(props.textSize),
 		color = props.color or SKIN.text,
 		xAlign = props.xAlign or Enum.TextXAlignment.Left,
 		yAlign = props.yAlign,
@@ -213,7 +226,7 @@ local function chip(parent: Instance, name: string): TextLabel
 	label.Size = UDim2.fromOffset(0, 16)
 	label.BorderSizePixel = 0
 	label.Font = SKIN.font
-	label.TextSize = 11
+	label.TextSize = bigger(11) :: number
 	label.TextColor3 = SKIN.ink
 	label.Parent = parent
 	corner(label, 8)
@@ -231,7 +244,7 @@ local function bigButton(parent: Instance, name: string): TextButton
 	button.AutoButtonColor = false
 	button.BorderSizePixel = 0
 	button.Font = SKIN.font
-	button.TextSize = 18
+	button.TextSize = bigger(18) :: number
 	button.TextColor3 = SKIN.text
 	button.Parent = parent
 	corner(button, 12)
