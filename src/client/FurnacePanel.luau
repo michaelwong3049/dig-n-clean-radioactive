@@ -97,6 +97,19 @@ local function ink(node: TextLabel | TextButton)
 	node.TextStrokeTransparency = 1
 end
 
+--- Station panels read a size up (on request): small print +3, mid sizes +2, headlines
+--- as they were. Every label, chip and button below goes through it.
+local function bigger(size: number?): number?
+	if size == nil then
+		return nil
+	elseif size <= 15 then
+		return size + 3
+	elseif size <= 22 then
+		return size + 2
+	end
+	return size
+end
+
 local function text(parent: Instance, props: { [string]: any }): TextLabel
 	local label = UIKit.label(parent, {
 		name = props.name,
@@ -104,7 +117,7 @@ local function text(parent: Instance, props: { [string]: any }): TextLabel
 		size = props.size,
 		anchorPoint = props.anchorPoint,
 		font = props.font or SKIN.label,
-		textSize = props.textSize,
+		textSize = bigger(props.textSize),
 		color = props.color or SKIN.text,
 		xAlign = props.xAlign or Enum.TextXAlignment.Left,
 		yAlign = props.yAlign,
@@ -160,7 +173,7 @@ local function chip(parent: Instance, name: string): TextLabel
 	label.Size = UDim2.fromOffset(0, 16)
 	label.BorderSizePixel = 0
 	label.Font = SKIN.label
-	label.TextSize = 11
+	label.TextSize = bigger(11) :: number
 	label.TextColor3 = SKIN.ink
 	label.Parent = parent
 	corner(label, 8)
@@ -177,7 +190,7 @@ local function bigButton(parent: Instance, name: string): TextButton
 	button.AutoButtonColor = false
 	button.BorderSizePixel = 0
 	button.Font = SKIN.headline
-	button.TextSize = 18
+	button.TextSize = bigger(18) :: number
 	button.TextColor3 = SKIN.text
 	button.Parent = parent
 	corner(button, 12)
@@ -687,7 +700,7 @@ function FurnacePanel.new(parent: Instance, layoutOrder: number): Panel
 		-- and none is ever hidden and shown again, so a press in progress always lands.
 		setButton(selectButton, if selectableAll() then "CLEAR" else "SELECT BELOW LEGENDARY", SKIN.off)
 		selectButton.TextColor3 = SKIN.text
-		selectButton.TextSize = 14
+		selectButton.TextSize = bigger(14) :: number
 		if #uids > 0 then
 			setButton(burnButton, `BURN {#uids} \u{00B7} +{sum}%`, SKIN.molten)
 		else
