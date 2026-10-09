@@ -70,18 +70,18 @@ local SKIN = {
 -- banner, then made roomier) in Fredoka One and sentence case (both on request, over
 -- all-caps LuckiestGuy), with no hint line under them, and low enough to clear
 -- WarpController's HOME / SHOPS portals (y 10..74). The pill is the frame named
--- "Banner", sized to the words plus SKIP, because StageBannerController and
--- AuraWarningController read its rect to stack themselves underneath it.
+-- "Banner", because StageBannerController and AuraWarningController read its rect
+-- to stack themselves underneath it.
 -- ON REQUEST (from a reference shot): the pill became a FULL-WIDTH dark band that
 -- fades out to both screen edges, with big white words in a heavy black outline.
+-- ON REQUEST: no SKIP button — new players always walk it through. Studio and
+-- admins end it with /skip (DebugService).
 local BANNER_Y = 114 -- ON REQUEST: nudged down from 98
 local BANNER_H = 96
 local BANNER_SHADE = 0.6 -- the band's BackgroundTransparency at its middle (ON REQUEST: lighter, was 0.35)
 local BANNER_FADE = 0.28 -- fraction of the width each side spends fading out
 local TITLE_SIZE = 56
-local SKIP_W = 64
-local SKIP_GAP = 18
-local SKIP_CONFIRM_SECONDS = 3
+local ROW_GAP = 18
 
 -- ── Pointing arrows (design px) ────────────────────────────────────────────────────
 -- ON REQUEST: fat amber arrows with a black outline, bouncing at what to press: REEL IN
@@ -144,7 +144,7 @@ local state: State? = nil
 local ui: any = {}
 
 local function buildBanner(canvas: Frame)
-	-- The pill sizes ITSELF to the words and SKIP (AutomaticSize + a row layout).
+	-- The pill sizes ITSELF to the words (AutomaticSize + a row layout).
 	-- Measuring with TextService does not work here: it answers with the fallback
 	-- font's width until Fredoka One has loaded, and the words overran the pill.
 	local banner = Instance.new("Frame")
@@ -171,7 +171,7 @@ local function buildBanner(canvas: Frame)
 	row.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	row.VerticalAlignment = Enum.VerticalAlignment.Center
 	row.SortOrder = Enum.SortOrder.LayoutOrder
-	row.Padding = UDim.new(0, SKIP_GAP)
+	row.Padding = UDim.new(0, ROW_GAP)
 	row.Parent = banner
 
 	local scale = Instance.new("UIScale")
@@ -222,49 +222,6 @@ local function buildBanner(canvas: Frame)
 	if countStroke then
 		countStroke.Thickness = math.max(countStroke.Thickness, 4)
 	end
-
-	-- SKIP sits at the pill's right end, after the words. It needs a second press: one
-	-- stray click should not throw away a new player's only walkthrough.
-	local skip = Instance.new("TextButton")
-	skip.Name = "Skip"
-	skip.LayoutOrder = 3
-	skip.Size = UDim2.fromOffset(SKIP_W, 26)
-	skip.AutoButtonColor = true
-	skip.BackgroundColor3 = SKIN.button
-	skip.BorderSizePixel = 0
-	skip.Font = SKIN.label
-	skip.TextSize = 14
-	skip.TextColor3 = SKIN.dim
-	skip.Text = "Skip"
-	skip.ZIndex = 3
-	skip.Parent = banner
-	local skipCorner = Instance.new("UICorner")
-	skipCorner.CornerRadius = UDim.new(0, 8)
-	skipCorner.Parent = skip
-	local skipStroke = Instance.new("UIStroke")
-	skipStroke.Color = SKIN.edge
-	skipStroke.Thickness = 2
-	skipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	skipStroke.Parent = skip
-
-	local armedAt = 0
-	skip.Activated:Connect(function()
-		local now = os.clock()
-		if now - armedAt <= SKIP_CONFIRM_SECONDS then
-			Net.get("TutorialAction"):FireServer("skip")
-			skip.Text = "Skip"
-			return
-		end
-		armedAt = now
-		skip.Text = "Sure?"
-		skip.TextColor3 = SKIN.amber
-		task.delay(SKIP_CONFIRM_SECONDS, function()
-			if os.clock() - armedAt >= SKIP_CONFIRM_SECONDS then
-				skip.Text = "Skip"
-				skip.TextColor3 = SKIN.dim
-			end
-		end)
-	end)
 
 	ui.banner = banner
 	ui.bannerScale = scale

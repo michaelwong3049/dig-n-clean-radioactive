@@ -179,24 +179,28 @@ function TutorialService.complete(player: Player)
 	send(player, nil)
 end
 
+--- End the walkthrough from any step. No button does this any more (ON REQUEST, new
+--- players always walk it through); DebugService's /skip calls it. True when there
+--- was a walkthrough to end.
+function TutorialService.skip(player: Player): boolean
+	local data = DataService.data(player)
+	if data == nil or data.onboarding ~= "active" then
+		return false
+	end
+	data.onboarding = "done"
+	navigateSince[player] = nil
+	player:SetAttribute("TutorialActive", false)
+	player:SetAttribute("TutorialStep", nil)
+	print(`[tutorial] {player.Name} skipped the walkthrough`)
+	send(player, nil)
+	return true
+end
+
 function TutorialService.init()
 	stateRemote = Net.get("TutorialState")
 end
 
 function TutorialService.start()
-	Net.get("TutorialAction").OnServerEvent:Connect(function(player: Player, verb: any)
-		if verb ~= "skip" then
-			return
-		end
-		local data = DataService.data(player)
-		if data == nil or data.onboarding ~= "active" then
-			return
-		end
-		data.onboarding = "done"
-		print(`[tutorial] {player.Name} skipped the walkthrough`)
-		send(player, nil)
-	end)
-
 	Players.PlayerRemoving:Connect(function(player)
 		lastSent[player] = nil
 		navigateSince[player] = nil

@@ -65,6 +65,7 @@ local PotionService = require(script.Parent.PotionService)
 local PackService = require(script.Parent.PackService)
 local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
+local TutorialService = require(script.Parent.TutorialService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
 local DailyRewardService = require(script.Parent.DailyRewardService)
 local GroupRewardService = require(script.Parent.GroupRewardService)
@@ -290,7 +291,7 @@ COMMANDS["/tutorial"] = {
 			return "your profile hasn't loaded yet"
 		end
 		if args[1] == "off" then
-			data.onboarding = "done"
+			TutorialService.skip(player)
 			return "walkthrough ended"
 		end
 		-- The step is read off the bag, the stands and the detector (TutorialService),
@@ -301,6 +302,16 @@ COMMANDS["/tutorial"] = {
 		data.gear.detector = 1
 		data.gearOwned.detector = { 1 }
 		return "walkthrough restarted — /clear your bag and empty your stands to start from step one"
+	end,
+}
+
+COMMANDS["/skip"] = {
+	help = "/skip — end the new-player walkthrough wherever it is (players have no SKIP button)",
+	run = function(player, _sandbox, _args)
+		if DataService.data(player) == nil then
+			return "your profile hasn't loaded yet"
+		end
+		return if TutorialService.skip(player) then "walkthrough skipped" else "no walkthrough running"
 	end,
 }
 
