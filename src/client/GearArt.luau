@@ -67,6 +67,14 @@ local ART_VIEW: { [string]: ArtView } = {
 	-- of the nucleus the way they do round a chest.
 	Aura = { from = Vector3.new(0.25, 0.4, 1), up = Vector3.yAxis, pose = CFrame.identity },
 }
+-- A turn about the vertical, on top of the track's pose, for the odd tier whose head the
+-- shared pose shows edge-on. The Aurora Rake (Detector 11) is a straight comb, not a
+-- round coil, and the detector pose points its length straight at the camera, so it
+-- read as a bare stick (2026-10-08, "fix the aurora rake positioning"). Turned 60deg it
+-- shows the whole comb and keeps the row's lean.
+local TIER_TURN: { [string]: { [number]: number } } = {
+	Detector = { [11] = 60 },
+}
 -- Narrow, so a long detector does not bulge at the near end the way a wide lens makes
 -- it; the camera just stands further back.
 local ART_FOV = 25
@@ -231,7 +239,9 @@ function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspe
 	end
 	-- The views are written in the posed model's frame, so its pivot goes to the origin,
 	-- turned into the track's display pose.
-	model:PivotTo(view.pose)
+	local turns = TIER_TURN[track]
+	local turn = if turns then turns[tier] else nil
+	model:PivotTo(if turn then view.pose * CFrame.Angles(0, math.rad(turn), 0) else view.pose)
 	model.Parent = viewport
 	-- Jumps this model's meshes to the front of the queue if the join-time preload
 	-- has not reached them yet.
