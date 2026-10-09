@@ -314,7 +314,6 @@ local STUDDED = {
 	-- Inked like the title bar and the X (2026-10-05, the glossy L-stud pattern pass).
 	cardEdge = Studded.INK,
 	cardPlain = Color3.fromHex("48D63A"), -- a track with no tint (GearArt.tint is nil)
-	cardLocked = Color3.fromHex("3D4452"), -- sold in another zone (entry.lockedZone)
 	-- The panel's own fill, see-through at the shop since 2026-10-05 (the dark
 	-- studded backdrop under it is the colour now); kept for anything read off it.
 	panel = Color3.fromHex("E4E9F2"),
@@ -850,7 +849,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	})
 
 	-- Soft white rays fanning out from behind the gear, over the studs and under
-	-- everything else (paintShopCard dims them on a locked card). Clipped by a holder of
+	-- everything else. Clipped by a holder of
 	-- their own the card's size, so nothing else on the card is clipped with them.
 	local rayClip = Instance.new("Frame")
 	rayClip.Name = "CardRayClip"
@@ -1870,7 +1869,7 @@ end
 --- FAST MODE's still aura card: AuraController holds the atom on a chosen pose, and this
 --- makes the card worth looking at without drawing a frame more. A soft glow in the
 --- aura's colour behind the atom (a few stacked circles, static), the card's edge and
---- the name in that colour, and a locked rung dimmed less so its shape still reads. All
+--- the name in that colour. All
 --- of it is painted once per refresh. Anything else (not FAST MODE, not the Aura track)
 --- has the glow taken away again.
 local GLOW_RINGS = {
@@ -1880,7 +1879,7 @@ local GLOW_RINGS = {
 	{ size = 0.42, transparency = 0.7 },
 }
 
-local function paintStillAura(card: Frame, tier: number, locked: boolean, nameLabel: TextLabel, cardStroke: UIStroke, on: boolean)
+local function paintStillAura(card: Frame, tier: number, nameLabel: TextLabel, cardStroke: UIStroke, on: boolean)
 	local art = card.CardArt :: ImageLabel
 	local glow = art:FindFirstChild("StillGlow") :: Frame?
 	if not on then
@@ -1914,14 +1913,13 @@ local function paintStillAura(card: Frame, tier: number, locked: boolean, nameLa
 			round.Parent = disc
 		end
 	end
-	local fade = if locked then 0.55 else 0
 	for index, ring in GLOW_RINGS do
 		local disc = (glow :: Frame):FindFirstChild(`Disc{index}`) :: Frame
 		disc.BackgroundColor3 = color
-		disc.BackgroundTransparency = 1 - (1 - ring.transparency) * (1 - fade)
+		disc.BackgroundTransparency = ring.transparency
 	end
 
-	cardStroke.Color = if locked then cardStroke.Color:Lerp(color, 0.4) else color
+	cardStroke.Color = color
 	nameLabel.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.45)
 end
 
@@ -1984,7 +1982,7 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 	hue.Color, hue.Rotation = cardWash(rarity)
 	hue.Enabled = true
 	local rays = card.CardRayClip.CardRays :: ImageLabel
-	rays.ImageTransparency = if entry.lockedZone then 0.85 else CARD_RAYS_TRANSPARENCY
+	rays.ImageTransparency = CARD_RAYS_TRANSPARENCY
 	cardStroke.Color = STUDDED.cardEdge
 	buy.BackgroundColor3 = Color3.new(1, 1, 1)
 	buy.BackgroundTransparency = 0
@@ -2007,8 +2005,6 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 		local here = (Camps.get((state.offer and state.offer.camp) or "base") or { id = 1 }).id
 		local def = Camps.byId(zone)
 		local where = string.upper(if def then def.name else `Zone {zone}`)
-		card.BackgroundColor3 = STUDDED.cardLocked
-		hue.Enabled = false
 		flag.Text = "LOCKED"
 		flag.TextColor3 = STUDDED.equippedText
 		buy.Text = if zone > here then `UNLOCKED AT {where}` else `SOLD AT {where}`
@@ -2026,15 +2022,12 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 		buy.TextColor3 = FIELD.text
 		fill.Color = STUDDED.lime
 	end
-	-- A locked rung's item is shown dimmed, a hint of what is waiting further on.
-	(card.CardArt.CardModel :: ViewportFrame).ImageColor3 = if entry.lockedZone then Color3.fromRGB(80, 84, 96) else Color3.new(1, 1, 1)
+	-- A locked rung keeps its full card (on request, 2026-10-09: "keep the background
+	-- color though, just the purchase is unavailable"): only the button says so.
+	(card.CardArt.CardModel :: ViewportFrame).ImageColor3 = Color3.new(1, 1, 1)
 
 	if track == "Aura" then
-		local still = Prefs.get("fastMode") == true
-		if still and entry.lockedZone then
-			(card.CardArt.CardModel :: ViewportFrame).ImageColor3 = Color3.fromRGB(150, 154, 166)
-		end
-		paintStillAura(card, entry.tier, entry.lockedZone ~= nil, nameLabel, cardStroke, still)
+		paintStillAura(card, entry.tier, nameLabel, cardStroke, Prefs.get("fastMode") == true)
 	end
 
 	-- current, owned and buyable are exhaustive over every tier: `current` is checked
