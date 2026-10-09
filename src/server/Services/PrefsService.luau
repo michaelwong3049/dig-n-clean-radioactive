@@ -19,11 +19,15 @@ local DataService = require(script.Parent.DataService)
 
 local PrefsService = {}
 
---- Seconds between accepted changes per player, so a spammed switch cannot hammer the
---- profile. A change inside it is dropped and the echo snaps the panel back.
+--- Seconds between applied changes per player, so a spammed switch cannot hammer the
+--- profile. A change inside it WAITS, it is not dropped: dropping one meant a volume
+--- you had just lowered could snap back and never save. Every send still gets exactly
+--- one echo (client/Prefs counts them), sent once its change is in.
 local CHANGE_COOLDOWN = 0.15
 
 local lastChange: { [Player]: number } = {}
+--- Changes waiting out the cooldown, oldest first, flushed together.
+local queued: { [Player]: { { [string]: any } } } = {}
 
 --- The player's prefs with every key present and legal, whatever the save holds.
 local function resolved(data: any): { [string]: any }
@@ -43,14 +47,26 @@ local function echo(player: Player)
 	end
 end
 
+local function apply(player: Player, changes: { [string]: any })
+	local data = DataService.data(player)
+	if data == nil or next(changes) == nil then
+		return
+	end
+	if type(data.prefs) ~= "table" then
+		data.prefs = Prefs.defaults()
+	end
+	for key, value in changes do
+		data.prefs[key] = value
+	end
+end
+
 local function onChange(player: Player, payload: any)
 	-- Anything but a { key, value } is "what are they set to?".
 	if type(payload) ~= "table" then
 		echo(player)
 		return
 	end
-	local data = DataService.data(player)
-	if data == nil then
+	if DataService.data(player) == nil then
 		return
 	end
 	-- One change ({ key, value }) or several at once ({ batch = { [key] = value } }),
@@ -70,17 +86,35 @@ local function onChange(player: Player, payload: any)
 			changes[payload.key] = value
 		end
 	end
-	local now = os.clock()
-	if next(changes) ~= nil and now - (lastChange[player] or 0) >= CHANGE_COOLDOWN then
-		lastChange[player] = now
-		if type(data.prefs) ~= "table" then
-			data.prefs = Prefs.defaults()
-		end
-		for key, value in changes do
-			data.prefs[key] = value
-		end
+
+	local list = queued[player]
+	if list then
+		-- A flush is already scheduled; ride along with it.
+		table.insert(list, changes)
+		return
 	end
-	echo(player)
+	local wait = (lastChange[player] or -math.huge) + CHANGE_COOLDOWN - os.clock()
+	if wait <= 0 then
+		lastChange[player] = os.clock()
+		apply(player, changes)
+		echo(player)
+		return
+	end
+	list = { changes }
+	queued[player] = list
+	task.delay(wait, function()
+		if queued[player] ~= list then
+			return -- left meanwhile
+		end
+		queued[player] = nil
+		lastChange[player] = os.clock()
+		for _, each in list do
+			apply(player, each)
+		end
+		for _ in list do
+			echo(player)
+		end
+	end)
 end
 
 function PrefsService.init()
@@ -100,7 +134,12 @@ function PrefsService.start()
 		echo(player)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
+		-- Anything still waiting out the cooldown goes in before the profile saves.
+		for _, each in queued[player] or {} do
+			apply(player, each)
+		end
 		lastChange[player] = nil
+		queued[player] = nil
 	end)
 end
 
