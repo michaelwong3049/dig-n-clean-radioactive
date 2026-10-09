@@ -89,8 +89,9 @@ function ImportedStation.place(template: Model, parent: Instance, origin: CFrame
 	return look
 end
 
---- One palette entry: a hex colour, and whether the piece glows (Neon).
-export type Paint = { color: string, neon: boolean? }
+--- One palette entry: a hex colour, whether the piece glows (Neon), and how see-through
+--- it is (glass; the imports come in opaque).
+export type Paint = { color: string, neon: boolean?, transparency: number? }
 
 --- Repaint the placed `look`: every MeshPart whose name, less any trailing digits
 --- ("coal12" → "coal"), is a key of `palette` becomes a Part of the same name, box and
@@ -125,7 +126,8 @@ function ImportedStation.paint(look: Model, palette: { [string]: Paint }): numbe
 		p.CanCollide = d.CanCollide
 		p.CanQuery = d.CanQuery
 		p.CanTouch = false
-		p.CastShadow = d.CastShadow and not entry.neon
+		p.Transparency = entry.transparency or d.Transparency
+		p.CastShadow = d.CastShadow and not entry.neon and entry.transparency == nil
 
 		local mesh = Instance.new("SpecialMesh")
 		mesh.MeshType = Enum.MeshType.FileMesh
