@@ -94,7 +94,7 @@ function Daylight.apply()
 	-- Ambient is where "colourful" is actually won or lost. Default grey ambient
 	-- desaturates every surface in the world; a warm-mint ambient lets the plaza
 	-- read as sunny and the grass as green rather than as grey-green.
-	Lighting.Ambient = Color3.fromHex("6E7A72")
+	Lighting.Ambient = SkyConfig.AMBIENT
 	Lighting.OutdoorAmbient = base.outdoorAmbient
 	Lighting.ColorShift_Top = base.colorShiftTop
 	Lighting.ColorShift_Bottom = Color3.fromHex("BFE0C8")

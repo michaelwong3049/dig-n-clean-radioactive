@@ -265,7 +265,7 @@ local ROCK_GREY_DARK = "6B655B"
 ---
 --- THE WARMTH IS NOT DECORATIVE, AND IT HAS TO BE THIS MUCH OF IT. Everything not
 --- facing the sun here is lit by the sky and the ambient, and both are green-mint
---- (build/Daylight: Ambient 6E7A72, OutdoorAmbient 7E9488, ColorShift_Bottom BFE0C8,
+--- (build/Daylight: Ambient 8F9F94, OutdoorAmbient A4C0B1, ColorShift_Bottom BFE0C8,
 --- EnvironmentDiffuseScale 0.6). A pale neutral bone therefore renders visibly BLUE
 --- down every shaded face -- shot live at two values before this one: an off-white
 --- (DFD6BC) read as ice, and a mildly warmed ivory (E6D9B4) barely moved it, because

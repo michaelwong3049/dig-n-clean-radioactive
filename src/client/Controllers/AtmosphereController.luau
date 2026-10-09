@@ -199,6 +199,7 @@ end
 
 function AtmosphereController.init()
 	Lighting.ExposureCompensation = SkyConfig.EXPOSURE
+	Lighting.Ambient = SkyConfig.AMBIENT
 	Lighting.FogColor = BASE.fogColor
 	Lighting.FogEnd = BASE.fogEnd
 	Lighting.FogStart = BASE.fogStart
