@@ -776,6 +776,7 @@ end
 --- above for the same reason.
 -- The gear cards' corner: squared off, just softened (on request, 2026-10-07; was 12).
 local CARD_CORNER = 4
+local CARD_STUD_TILE = 16
 
 local function makeShopCard(parent: Instance, order: number): Frame
 	local card = UIKit.panel(parent, {
@@ -795,7 +796,17 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	-- The glossy L-stud pattern over whatever colour the card is painted
 	-- (paintShopCard), under everything else on it. The glow is kept faint so the
 	-- gear's colour still reads at full strength.
-	Studded.pattern(card, { radius = CARD_CORNER, zIndex = 0, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.55, glowTransparency = 0.72 })
+	-- The studs are small and fine-grained, 16 px rather than the panels' 28 px and a
+	-- touch stronger so they read at that size (on request, 2026-10-08: "smaller and grainier").
+	Studded.pattern(card, {
+		radius = CARD_CORNER,
+		zIndex = 0,
+		tile = CARD_STUD_TILE,
+		studTransparency = 0.35,
+		bands = { 0.2, 0.47, 0.56, 0.64 },
+		bandTransparency = 0.55,
+		glowTransparency = 0.72,
+	})
 
 	local scale = Instance.new("UIScale")
 	scale.Name = "FocusScale"
@@ -842,7 +853,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		outline = false,
 	})
 
-	-- The flag (NEED $x / LOCKED), only on a rung you cannot buy yet: a small line in
+	-- The flag (LOCKED), only on a rung sold in another zone: a small line in
 	-- the well's top-right corner, since the rarity now has the line under the name.
 	UIKit.label(strip, {
 		name = "CardFlag",
@@ -1859,10 +1870,9 @@ end
 --- (buyable) no flag at all. The price button already says it is for sale, and a word
 ---           saying the same thing on every unbought card was noise — this is where
 ---           "AVAILABLE" used to be.
---- NEED $x   buyable, unaffordable. The flag carries the SHORTFALL against your wallet
----           rather than the price, because the price is already on the button and the
----           gap is the thing you do not know.
-local function paintShopCard(card: Frame, entry, track: string, cash: number, held)
+--- (unaffordable) no flag either since 2026-10-08 (it was NEED $x); the grey price
+---           button says it.
+local function paintShopCard(card: Frame, entry, track: string, _cash: number, held)
 	local nameLabel = card.CardStrip.CardName :: TextLabel
 	local flag = card.CardStrip.CardFlag :: TextLabel
 	local buy = card.CardBuy :: TextButton
@@ -1913,8 +1923,8 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number, he
 		buy.TextColor3 = STUDDED.equippedText
 		fill.Color = STUDDED.locked
 	elseif dear then
-		flag.Text = `NEED {money(entry.price - cash)}`
-		flag.TextColor3 = FIELD.short
+		-- No NEED $x flag any more (on request, 2026-10-08): the grey button already
+		-- says you cannot pay yet.
 		buy.Text = money(entry.price)
 		buy.TextColor3 = FIELD.text
 		fill.Color = STUDDED.dear
