@@ -84,6 +84,10 @@ local listPendingSince: number? = nil
 local atCamp = false
 local ui: Frame? = nil -- the stack the rows go in
 local tutorialBanner: GuiObject? = nil
+-- The rare-drop announcement (RareDropController) takes this stack's top slot in the
+-- same band style; while its Card is up the stack steps down one row under it.
+local rareCard: GuiObject? = nil
+local SLIDE = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- Tracks already queued or shown while something on them is affordable.
 local announced: { [string]: boolean } = {}
@@ -277,6 +281,32 @@ local function popRow(list: Frame, key: string, rung: Rung, order: number)
 	TweenService:Create(scale, POP, { Scale = 1 }):Play()
 end
 
+--- Slide the stack down a row while the rare-drop line holds the top slot.
+local function placeStack()
+	local list = ui
+	if list == nil then
+		return
+	end
+	local down = rareCard ~= nil and rareCard.Visible
+	local y = Y + (if down then BAND_H + 2 else 0)
+	TweenService:Create(list, SLIDE, { Position = UDim2.new(0.5, 0, 0, y) }):Play()
+end
+
+--- Find the rare-drop Card once it exists and follow its Visible.
+local function watchRareDrop()
+	if rareCard ~= nil then
+		return
+	end
+	local hud = Players.LocalPlayer:FindFirstChild("PlayerGui")
+	local gui = hud and hud:FindFirstChild("RareDrop")
+	local found = gui and gui:FindFirstChild("Card", true)
+	if found and found:IsA("GuiObject") then
+		rareCard = found
+		found:GetPropertyChangedSignal("Visible"):Connect(placeStack)
+		placeStack()
+	end
+end
+
 --- Pop every queued rung at once, stacked under each other, cheapest on top.
 local function pump()
 	local list = ui
@@ -398,6 +428,7 @@ function PurchaseHintController.start()
 		elapsed += dt
 		if elapsed >= 0.5 then
 			elapsed = 0
+			watchRareDrop()
 			-- A lost GearList reply must not freeze the hints: ask again.
 			if listPendingSince ~= nil and os.clock() - listPendingSince > 3 then
 				listPendingSince = os.clock()
