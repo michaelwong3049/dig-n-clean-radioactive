@@ -223,7 +223,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 116 -- locker beside the treadmill, treadmill 9.5 toward the middle (2026-10-08)
+local BUILDER_VERSION = 117 -- treadmill 2 closer to the locker, locker radius 4.5 (2026-10-09)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -2305,7 +2305,7 @@ local LOCKER = {
 	deckH = 0.3,
 	kerbH = 0.55,
 	depth = 2.6,
-	radius = 6,
+	radius = 4.5, -- was 6; cut so the treadmill could sit 2 closer (TREADMILL.cx)
 }
 assert(LOCKER_TUBES_PER_TIER * 2 == Plots.LOCKER_SLOTS, "the rack's two tiers must hold exactly Plots.LOCKER_SLOTS tubes")
 
@@ -2581,13 +2581,13 @@ end
 -- preference. Training is an edge, so overlapping station radii would mean a player at
 -- one machine being registered at another. MOVED TO THE -X SIDE, into the wash pad's
 -- old spot, when the pad was removed on request -- it used to stand in the middle of
--- the strip, on the entrance path. Belt centre sits at plot-local (-11.5, -31), Radius
+-- the strip, on the entrance path. Belt centre sits at plot-local (-13.5, -31), Radius
 -- up to ~9 on the diamond rung (installTreadmillLook sizes it to the belt):
 --
---   to the Basin  (26, -32), Radius 9 ...... 37.5 studs against an 18-stud combined reach
---   to the Locker station, Radius 6 ......... 15.2 studs against 14.7
---   to PlotSpawn  (0, -24), 6x6 ............ 13.5 studs against 12
---   to Stand10    (-20, -6), Radius 7 ...... 26.4 studs against 16
+--   to the Basin  (26, -32), Radius 9 ...... 39.5 studs against an 18-stud combined reach
+--   to the Locker station, Radius 4.5 ....... ~13.6 studs (3D) against 13.2
+--   to PlotSpawn  (0, -24), 6x6 ............ 15.2 studs against 12
+--   to Stand10    (-20, -6), Radius 7 ...... 25.8 studs against 16
 --
 -- Keep those gaps if either moves. World.verify() is the actual authority and asserts
 -- the first every rebuild, not this comment.
@@ -2598,8 +2598,9 @@ local TREADMILL = {
 	-- From -21 to -11.5 (2026-10-08) so the Quarantine Locker fits between the belt and
 	-- the fence: the two reaches must not meet on ANY rung, and the diamond belt's is
 	-- ~8.7 (locker 6), so 14.7 against a 15.2 gap. A saved place keeps the old spot
-	-- until it is rebuilt.
-	cx = -11.5,
+	-- until it is rebuilt. Then 2 closer to the locker (2026-10-09, on request), with the
+	-- locker's radius cut to 4.5: 13.2 against a 13.2 plan gap, ~13.6 in 3D.
+	cx = -13.5,
 	-- Moved back from -35 as the models grew, so the gold rung's console end stays on
 	-- the pad: see `scale`. Then from -33.5 to -31 (2026-10-02), because the diamond
 	-- rung's nose ran 1.2 studs through the front fence. A saved place built at the
