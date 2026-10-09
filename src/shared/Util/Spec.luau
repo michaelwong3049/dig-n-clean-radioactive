@@ -2963,7 +2963,7 @@ function Spec.run(): boolean
 				luckBoostLeft = 60,
 				cashBoostLeft = 60,
 				groupRewardClaimed = true,
-				friendBoost = true,
+				friendBoost = 2,
 			}
 			local got = StatResolver.get(stacked)
 			local totals = {}
@@ -3026,16 +3026,30 @@ function Spec.run(): boolean
 			)
 		end
 
-		-- The friend boost (Config/FriendBoost): both payouts while a friend is here,
-		-- nothing once they leave.
+		-- The friend boost (Config/FriendBoost): both payouts, PER_FRIEND for each friend
+		-- here up to MAX_FRIENDS, nothing once they leave.
 		do
-			local together = StatResolver.get({ level = 1, gear = {}, perks = {}, friendBoost = true })
+			local one = StatResolver.get({ level = 1, gear = {}, perks = {}, friendBoost = 1 })
+			local three = StatResolver.get({ level = 1, gear = {}, perks = {}, friendBoost = 3 })
+			local crowd = StatResolver.get({ level = 1, gear = {}, perks = {}, friendBoost = FriendBoost.MAX_FRIENDS + 4 })
 			local alone = StatResolver.get({ level = 1, gear = {}, perks = {}, friendBoost = nil })
+			local function near(a: number, b: number): boolean
+				return math.abs(a - b) < 1e-9
+			end
 			check(
 				"§friendboost adds its cash bonus to sales and stand income while a friend is here",
-				math.abs(together.sellMultiplier / plain.sellMultiplier - FriendBoost.CASH_MULT) < 1e-9
-					and math.abs(together.yieldMultiplier / plain.yieldMultiplier - FriendBoost.CASH_MULT) < 1e-9
-					and together.luckBoost == plain.luckBoost
+				near(one.sellMultiplier / plain.sellMultiplier, 1 + FriendBoost.PER_FRIEND)
+					and near(one.yieldMultiplier / plain.yieldMultiplier, 1 + FriendBoost.PER_FRIEND)
+					and one.luckBoost == plain.luckBoost
+			)
+			check(
+				"§friendboost each friend adds PER_FRIEND more",
+				near(three.sellMultiplier / plain.sellMultiplier, 1 + 3 * FriendBoost.PER_FRIEND)
+					and FriendBoost.cashPercent(3) == math.floor(3 * FriendBoost.PER_FRIEND * 100 + 0.5)
+			)
+			check(
+				"§friendboost stops growing at MAX_FRIENDS",
+				near(crowd.sellMultiplier / plain.sellMultiplier, 1 + FriendBoost.MAX_FRIENDS * FriendBoost.PER_FRIEND)
 			)
 			check("§friendboost no friend is no boost", alone.sellMultiplier == plain.sellMultiplier)
 		end

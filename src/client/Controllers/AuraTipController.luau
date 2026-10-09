@@ -31,9 +31,10 @@ local function show()
 	local card = Instance.new("Frame")
 	card.Name = "Card"
 	-- Just above the speed/cash column in the bottom-left corner (or the thumbstick's
-	-- box on touch, if that is taller).
+	-- box on touch, if that is taller), clear of the "Friend Boost" line over the speed
+	-- badge (SpeedController).
 	card.AnchorPoint = Vector2.new(0, 1)
-	card.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -(Dock.leftCornerTop() + 12))
+	card.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -(Dock.leftCornerTop() + 32))
 	card.Size = UDim2.fromOffset(340, 170)
 	card.BackgroundColor3 = Color3.fromHex("22272C")
 	card.BorderSizePixel = 0
