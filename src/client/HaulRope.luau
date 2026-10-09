@@ -39,21 +39,23 @@ local HaulRope = {}
 -- ── Geometry, in design pixels ──────────────────────────────────────────────────
 -- Everything horizontal is derived from the width build() is given; the height is the
 -- rope's own and fixed, because the art down it (chip, wick, rope, magnet) is.
-local CHIP_HEIGHT = 20
-local WICK_Y = 28 -- the wick's top edge; the chip rides just over it
-local WICK_HEIGHT = 6
-local ROPE_Y = 40
-local ROPE_HEIGHT = 44
+local CHIP_HEIGHT = 24
+local WICK_Y = 34 -- the wick's top edge; the chip rides just over it
+local WICK_HEIGHT = 8
+local ROPE_Y = 52
+local ROPE_HEIGHT = 64
 local ROPE_MID = ROPE_Y + ROPE_HEIGHT / 2
 HaulRope.HEIGHT = ROPE_Y + ROPE_HEIGHT + 4 -- the panel lays itself out around this
-local MAGNET_BOX = Vector2.new(70, 70) -- the magnet's viewport, centred on the rope's end
-local MAGNET_TUCK = 58 -- how far in from the right edge the rope stops (under the magnet)
+local MAGNET_BOX = Vector2.new(96, 96) -- the magnet's viewport, at the right edge
+-- Open air between the rope's end and the magnet's box (on request: the magnet sat
+-- tucked over the rope's end and read as part of it).
+local MAGNET_GAP = 22
 local NUKE_SIZE = Vector2.new(40, 62) -- drawn nose-up, then turned to lie nose-right
-local NUKE_LENGTH = NUKE_SIZE.Y
-local NUKE_START = 6 + NUKE_LENGTH / 2 -- tail against the rope's dirt end
-local NUKE_GAP = 4 -- the nose stops this short of the magnet's poles
-local WICK_INSET = 16 -- the wick starts this far in from the rope's dirt end
-local WICK_TAIL = 16 -- ...and stops this far short of the magnet's box
+local NUKE_SCALE = 1.4 -- the glyph is drawn at 40x62 and blown up to fill the taller rope
+local NUKE_LENGTH = NUKE_SIZE.Y * NUKE_SCALE
+local NUKE_START = 8 + NUKE_LENGTH / 2 -- tail against the rope's dirt end
+local NUKE_GAP = 8 -- the nose stops this short of the rope's magnet end
+local WICK_INSET = 16 -- the wick starts and stops this far in from the rope's ends
 local STRAND_PITCH = 8 -- one twist of the rope every this many px
 local CHIP_MARGIN = 26 -- the chip's centre never comes closer to either end than this
 
@@ -167,6 +169,9 @@ local function buildNuke(parent: Instance, z: number): (Frame, { Frame }, { Fram
 	nuke.BackgroundTransparency = 1
 	nuke.ZIndex = z
 	nuke.Parent = parent
+	local nukeScale = Instance.new("UIScale")
+	nukeScale.Scale = NUKE_SCALE
+	nukeScale.Parent = nuke
 
 	local accentParts = {}
 	-- No radial gradients in Roblox UI, so the glow is three stacked ovals, each fainter
@@ -244,7 +249,7 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number): Rope
 	root.Parent = parent
 
 	-- THE ROPE BAR: dirt at the left end fading to steel at the magnet's.
-	local ropeLength = width - MAGNET_TUCK
+	local ropeLength = width - MAGNET_BOX.X - MAGNET_GAP
 	local bar = box(root, "Rope", 0, ROPE_Y, ropeLength, ROPE_HEIGHT, WHITE, 2, CORNER)
 	outline(bar, UIKit.Stroke.normal)
 	local ropeGradient = Instance.new("UIGradient")
@@ -257,17 +262,18 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number): Rope
 
 	-- The rope itself: a braided strip down the bar's middle, slanted twists clipped to
 	-- a straight band with a black edge top and bottom.
-	local strand = box(root, "Strand", 8, ROPE_MID - 5, ropeLength - 16, 10, STRAND_DARK, 4)
+	local strand = box(root, "Strand", 10, ROPE_MID - 7, ropeLength - 20, 14, STRAND_DARK, 4)
 	strand.ClipsDescendants = true
 	outline(strand, 2)
 	for i = 0, math.ceil(strand.Size.X.Offset / STRAND_PITCH) do
-		local twist = box(strand, "Twist", i * STRAND_PITCH - 2, -3, 4, 16, STRAND_LIGHT, 4)
+		local twist = box(strand, "Twist", i * STRAND_PITCH - 2, -4, 5, 22, STRAND_LIGHT, 4)
 		twist.Rotation = 30
 	end
 
 	-- THE WICK, over the rope, burning from the magnet end back toward the dirt.
+	-- It spans the rope, not the magnet's gap.
 	local wickStart = WICK_INSET
-	local wickLength = width - MAGNET_BOX.X - WICK_TAIL - wickStart
+	local wickLength = ropeLength - WICK_INSET - wickStart
 	local wickTrack = box(root, "WickTrack", wickStart, WICK_Y, wickLength, WICK_HEIGHT, WICK_BURNT, 5, UDim.new(0, 2))
 	outline(wickTrack, 2)
 	local wick = box(wickTrack, "Wick", 0, 0, wickLength, WICK_HEIGHT, WICK_COLOR, 6, UDim.new(0, 2))
@@ -285,7 +291,7 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number): Rope
 	chip.BackgroundColor3 = WHITE
 	chip.BorderSizePixel = 0
 	chip.Font = UIKit.Font.hero
-	chip.TextSize = 14
+	chip.TextSize = 17
 	chip.TextColor3 = BLACK
 	chip.ZIndex = 12
 	chip.Parent = root
@@ -298,7 +304,7 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number): Rope
 	chipPad.Parent = chip
 	outline(chip, 2)
 
-	-- THE MAGNET at the rope's right end, poles turned at the nuke.
+	-- THE MAGNET past the rope's right end, across a gap, poles turned at the nuke.
 	local slot = Instance.new("Frame")
 	slot.Name = "Magnet"
 	slot.BackgroundTransparency = 1
@@ -315,7 +321,7 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number): Rope
 	return {
 		root = root,
 		width = width,
-		nukeEnd = width - MAGNET_BOX.X / 2 - NUKE_GAP - NUKE_LENGTH / 2,
+		nukeEnd = ropeLength - NUKE_GAP - NUKE_LENGTH / 2,
 		ropeGradient = ropeGradient,
 		trail = trail,
 		nuke = nuke,
@@ -411,7 +417,7 @@ function HaulRope.step(rope: Rope, input: Input)
 		burnX = trackX + left
 		rope.spark.Position = UDim2.fromOffset(burnX, WICK_Y + WICK_HEIGHT / 2)
 		for i, dot in rope.sparkParts do
-			local d = (26 - i * 7) * (0.8 + rng:NextNumber() * 0.45)
+			local d = (32 - i * 8) * (0.8 + rng:NextNumber() * 0.45)
 			dot.Size = UDim2.fromOffset(d, d)
 		end
 	end

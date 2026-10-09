@@ -143,25 +143,27 @@ local ROPE_IDLE_SECONDS = 0.2
 -- because hitting the wrong one ends the haul.
 local PANEL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset
 local PANEL_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset
-local READOUT_HEIGHT = 30
-local ROPE_TOP = READOUT_HEIGHT + 4
-local HAULBUTTON_HEIGHT = 46
-local HAULBUTTON_WIDTH = 190
-local HAULBUTTON_TEXT = 20
+local READOUT_HEIGHT = 38
+local ROPE_TOP = READOUT_HEIGHT + 6
+local HAULBUTTON_HEIGHT = 56
+local HAULBUTTON_WIDTH = 250
+local HAULBUTTON_TEXT = 24
 local HAULBUTTON_Y = PANEL_HEIGHT - HAULBUTTON_HEIGHT
-local RELEASE_WIDTH = 120 -- the red LET GO plate, at the row's left end
+local RELEASE_WIDTH = 160 -- the red LET GO plate, at the row's left end
+local TITLE_TEXT = 34 -- the rarity word
 -- The metres readout, right-aligned over the magnet end. The rarity word gets the rest
--- of the row, which still clears "LEGENDARY" at title weight -- the longest rarity in
+-- of the row, which still clears "LEGENDARY" at TITLE_TEXT -- the longest rarity in
 -- Rarity.ORDER, and the one thing here that would clip rather than merely look cramped.
-local METRES_WIDTH = 170
-local METRES_TEXT = 26
+local METRES_WIDTH = 220
+local METRES_TEXT = 34
 -- "%.1f m", the unit at a smaller size. RichText.
-local METRES_FORMAT = '%.1f<font size="16">m</font>'
+local METRES_FORMAT = '%.1f<font size="20">m</font>'
 -- "to go" is its OWN label after the number, in the lighter title weight. Inside the
 -- Gotham Black string its spaces came out ~3px under the outline and read "mtogo" in
 -- Play (and &#160; drew as missing-glyph diamonds).
-local TOGO_WIDTH = 44
-local TOGO_GAP = 4
+local TOGO_WIDTH = 54
+local TOGO_GAP = 6
+local TOGO_TEXT = 19
 
 -- How fast the rope's nuke chases the server's value (1/seconds). Smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
@@ -712,29 +714,26 @@ local function build(): ScreenGui
 	local haul = Instance.new("Frame")
 	haul.Name = "HaulPanel"
 	haul.Size = Dock.HAULPANEL_SIZE
-	haul.AnchorPoint = Vector2.new(0, 1)
+	haul.AnchorPoint = Vector2.new(0.5, 1)
 	haul.BackgroundTransparency = 1
 	haul.BorderSizePixel = 0
 	haul.Visible = false
 	haul.Parent = canvas
 	ui.haul = haul
 
-	-- LOW AND JUST RIGHT OF CENTRE. Not centred -- that put it straight over the item
-	-- climbing out of the soil, the one thing a haul is for looking at -- and not in the
-	-- far corner either, which put the reading a long way from where the player is
-	-- looking. Its left edge sits Dock.HAULPANEL_CENTRE_GAP right of screen centre; on a
-	-- screen too narrow for that it slides left only as far as it must to stop short of
-	-- the Index/Shop tiles (Dock.HAULPANEL_RIGHT), or of the jump button on a tablet,
-	-- whose corner box reaches up past the widget's bottom edge (UIKit.touchCorner; a
-	-- phone's smaller button stays under it). Re-placed on every canvas resize,
-	-- because the design width moves with both the window and the HUD scale.
+	-- CENTRED ON THE VITALS BARS, ONE GAP ABOVE THEM, AND JUST AS WIDE (on request,
+	-- 2026-10-09). It used to sit just right of centre to keep off the nuke climbing out
+	-- of the soil; the user wanted it docked over the hotbar cluster instead, edge to
+	-- edge with the health / rads bars (Dock.VITALS_WIDTH is also HAULPANEL_SIZE.X).
+	-- Re-placed on every canvas resize, because the design width moves with both the
+	-- window and the HUD scale.
 	--
-	-- SHRUNK TO FIT A SHORT SCREEN. A landscape phone is only ~625-650 design px tall at
-	-- the MIN_SCALE floor, and the widget's 474 above HAULPANEL_BOTTOM ran its top (the
-	-- sky, the magnet, the fuse) off the screen and under the topbar buttons. Its own
-	-- UIScale shrinks the whole stack until its top clears the corner row
-	-- (Dock.HAULPANEL_TOP_CLEAR); a UIScale keeps the Position, and the AnchorPoint is
-	-- the bottom-left corner, so it shrinks down toward the hotbar, never off it.
+	-- SHRUNK TO FIT. Its own UIScale is the smaller of two fits: the HEIGHT one keeps its
+	-- top clear of the corner row on a short landscape phone (Dock.HAULPANEL_TOP_CLEAR),
+	-- and the WIDTH one follows the vitals bars, which HudController narrows on a screen
+	-- that cannot fit 640 between the side margins it and the hotbar keep. A UIScale
+	-- keeps the Position, and the AnchorPoint is the bottom centre, so it shrinks down
+	-- toward the bars, never off them.
 	local haulFit = Instance.new("UIScale")
 	haulFit.Parent = haul
 	local function placeHaul()
@@ -742,16 +741,14 @@ local function build(): ScreenGui
 		local width = canvas.AbsoluteSize.X / s
 		local height = canvas.AbsoluteSize.Y / s
 		local room = height - Dock.HAULPANEL_BOTTOM - Dock.HAULPANEL_TOP_CLEAR
-		local fit = math.clamp(room / Dock.HAULPANEL_SIZE.Y.Offset, Dock.HAULPANEL_MIN_FIT, 1)
+		local margin = math.max(Dock.ROW_SIDE_MARGIN, UIKit.touchCorner().X + Dock.GAP)
+		local barsWidth = math.clamp(width - 2 * margin, 240, Dock.VITALS_WIDTH)
+		local fit = math.min(
+			math.clamp(room / Dock.HAULPANEL_SIZE.Y.Offset, Dock.HAULPANEL_MIN_FIT, 1),
+			barsWidth / Dock.HAULPANEL_SIZE.X.Offset
+		)
 		haulFit.Scale = fit
-		local nearCentre = width / 2 + Dock.HAULPANEL_CENTRE_GAP
-		local right = Dock.HAULPANEL_RIGHT
-		local jump = UIKit.touchCorner()
-		if jump.Y > Dock.HAULPANEL_BOTTOM then
-			right = math.max(right, jump.X + Dock.GAP)
-		end
-		local clearOfTiles = width - right - Dock.HAULPANEL_SIZE.X.Offset * fit
-		haul.Position = UDim2.new(0, math.min(nearCentre, clearOfTiles), 1, -Dock.HAULPANEL_BOTTOM)
+		haul.Position = UDim2.new(0.5, 0, 1, -Dock.HAULPANEL_BOTTOM)
 	end
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeHaul)
 	-- The canvas's AbsoluteSize does NOT move when the HUD scale does (its Size is
@@ -922,7 +919,7 @@ local function build(): ScreenGui
 		position = UDim2.fromOffset(0, 0),
 		size = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, READOUT_HEIGHT),
 		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.title,
+		textSize = TITLE_TEXT,
 		color = COLOR.scope,
 		xAlign = Enum.TextXAlignment.Left,
 	})
@@ -936,7 +933,7 @@ local function build(): ScreenGui
 		position = UDim2.fromOffset(0, 0),
 		size = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, READOUT_HEIGHT),
 		font = UIKit.Font.title,
-		textSize = 30,
+		textSize = TITLE_TEXT,
 		color = COLOR.dim,
 		xAlign = Enum.TextXAlignment.Left,
 		text = "?",
@@ -958,10 +955,10 @@ local function build(): ScreenGui
 
 	UIKit.label(haul, {
 		name = "MetresCaption",
-		position = UDim2.fromOffset(PANEL_WIDTH - TOGO_WIDTH, 3),
+		position = UDim2.fromOffset(PANEL_WIDTH - TOGO_WIDTH, 4),
 		size = UDim2.fromOffset(TOGO_WIDTH, READOUT_HEIGHT),
 		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.body,
+		textSize = TOGO_TEXT,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Right,
 		text = "to go",
