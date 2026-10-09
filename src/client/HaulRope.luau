@@ -73,6 +73,7 @@ local CRACK_COLOR = Color3.fromHex("FF7A45")
 local WICK_COLOR = Color3.fromHex("F4E3B5")
 local WICK_BURNT = Color3.fromHex("2B1A0C")
 local ALARM_RED = Color3.fromHex("FF3B2F") -- the outline's armed flash
+local GLOW_GOLD = Color3.fromHex("FFD23A") -- the outline's success flash
 local SPARK_COLORS = { Color3.fromHex("FF6A00"), Color3.fromHex("FFD23A"), WHITE }
 
 export type Rope = {
@@ -111,6 +112,7 @@ export type Input = {
 	now: number,
 	fuse: number?, -- 0..1 through the window; nil = no fuse on this haul
 	alarm: number, -- 0..1, how red the bar's outline is (the armed flash)
+	glow: number?, -- 0..1, how gold and thick the outline is (the success flash)
 }
 
 local function box(parent: Instance, name: string, x: number, y: number, w: number, h: number, color: Color3, z: number, round: UDim?): Frame
@@ -441,7 +443,9 @@ function HaulRope.step(rope: Rope, input: Input)
 	rope.trail.Size = UDim2.fromOffset(x, rope.height)
 	rope.percent.Text = `{math.floor(math.clamp(input.progress, 0, 1) * 100 + 0.5)}%`
 	rope.keycapKick.Scale = 1 + 0.3 * input.kick
-	rope.outline.Color = BLACK:Lerp(ALARM_RED, input.alarm)
+	local outlineGlow = input.glow or 0
+	rope.outline.Color = BLACK:Lerp(ALARM_RED, input.alarm):Lerp(GLOW_GOLD, outlineGlow)
+	rope.outline.Thickness = UIKit.Stroke.normal + 3 * outlineGlow
 
 	local cracked = strain > 0
 	local glow = if cracked then 1 - (strain / 3) * (0.55 + 0.45 * math.sin(input.now * 14)) else 1
