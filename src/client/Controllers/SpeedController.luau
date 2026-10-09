@@ -43,6 +43,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Treadmill = require(Shared.Config.Treadmill)
+local FriendBoost = require(Shared.Config.FriendBoost)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -92,6 +93,16 @@ local PICKER = {
 	track = Color3.fromHex("1E2630"),
 	slab = Color3.fromRGB(18, 20, 24),
 	edge = Color3.fromRGB(49, 53, 61),
+}
+
+-- The "Friend Boost +20%" line over the badge (Config/FriendBoost), on request
+-- (2026-10-08): only while a friend is in the server, the percent from how many.
+local FRIEND = {
+	height = 22,
+	gap = 2, -- between the line's bottom and the badge's top
+	textSize = 18,
+	color = Color3.fromHex("7CFF6B"),
+	stroke = 2.5,
 }
 
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -252,6 +263,25 @@ local function build(): ScreenGui
 	end
 	ui.value:GetPropertyChangedSignal("Text"):Connect(placePencil)
 	placePencil()
+
+	-- Inside the badge's footprint (above its top edge), so the pair's UIScale shrinks it
+	-- with the row on touch.
+	ui.friend = UIKit.label(badge, {
+		name = "FriendBoost",
+		position = UDim2.fromOffset(4, -(FRIEND.height + FRIEND.gap)),
+		size = UDim2.fromOffset(BADGE_W - 8, FRIEND.height),
+		font = STYLE.captionFont,
+		textSize = FRIEND.textSize,
+		color = FRIEND.color,
+		xAlign = Enum.TextXAlignment.Left,
+		text = "",
+		zIndex = 11,
+		visible = false,
+	})
+	local friendStroke = ui.friend:FindFirstChildOfClass("UIStroke")
+	if friendStroke then
+		friendStroke.Thickness = FRIEND.stroke
+	end
 
 	return gui
 end
@@ -531,6 +561,19 @@ function Speed.start()
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 	Net.get("SpeedState").OnClientEvent:Connect(onState)
+
+	-- The friend line follows the server's count; it steps aside while the walk picker
+	-- (which opens over the badge) is up.
+	local player = Players.LocalPlayer
+	local function drawFriend()
+		local count = player:GetAttribute(FriendBoost.ATTR)
+		local percent = FriendBoost.cashPercent(if type(count) == "number" then count else 0)
+		ui.friend.Text = `Friend Boost +{percent}%`
+		ui.friend.Visible = percent > 0 and not ui.picker.Visible
+	end
+	player:GetAttributeChangedSignal(FriendBoost.ATTR):Connect(drawFriend)
+	ui.picker:GetPropertyChangedSignal("Visible"):Connect(drawFriend)
+	drawFriend()
 
 	-- The badge shows the walk you WALK at (your pick, under what you have trained), not
 	-- the Speed total (that lives on the training bar). Checked every frame, but only
