@@ -531,7 +531,7 @@ local CARD_NAME_INSET = 18
 -- the "Trail Shop" reference: "way bigger" names, a rarity word below each). It took
 -- 12px off the top of the well.
 local CARD_NAME_TOP = 8
-local CARD_TITLE_SIZE = 44
+local CARD_TITLE_SIZE = 36 -- 44 read too big (2026-10-08)
 local CARD_RARITY_SIZE = 22
 local CARD_NAME_HEIGHT = CARD_TITLE_SIZE + 2 + CARD_RARITY_SIZE
 local CARD_ART_TOP = CARD_NAME_TOP + CARD_NAME_HEIGHT + 4
@@ -855,7 +855,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	nameLimit.MaxTextSize = CARD_TITLE_SIZE
 	nameLimit.Parent = cardName
 
-	UIKit.label(strip, {
+	local rarityWord = UIKit.label(strip, {
 		name = "CardRarity",
 		position = UDim2.fromOffset(CARD_NAME_INSET, CARD_TITLE_SIZE + 2),
 		size = UDim2.new(1, -2 * CARD_NAME_INSET, 0, CARD_RARITY_SIZE),
@@ -865,6 +865,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 	})
+	hue:Clone().Parent = rarityWord
 
 	-- The flag (LOCKED), only on a rung sold in another zone: a small line in
 	-- the well's top-right corner, since the rarity now has the line under the name.
@@ -1893,8 +1894,13 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 
 	nameLabel.Text = entry.name
 	local rarity = Gear.rarityOf(track, entry.tier)
+	-- The word wears its rarity's colour (Uncommon reads green), and an Anomaly's
+	-- the spectrum, like the card behind it.
 	local rarityLabel = card.CardStrip.CardRarity :: TextLabel
 	rarityLabel.Text = rarity
+	rarityLabel.TextColor3 = Rarity.DEFS[rarity].color
+	local wordHue = rarityLabel:FindFirstChild("RarityHue") :: UIGradient
+	wordHue.Enabled = rarity == "Anomaly"
 	paintArt(card, track, entry.tier)
 	card:SetAttribute("Buyable", entry.buyable == true)
 	card:SetAttribute("Equippable", entry.equippable == true)
