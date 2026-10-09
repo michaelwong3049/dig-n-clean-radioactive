@@ -10,8 +10,9 @@
 
 	THE PROGRESS IS A SOLID FILL (on request, 2026-10-09: the see-through wash was hard to
 	read). Behind the nuke the bar fills opaque in the signal's own rarity colour, with a
-	shine along its top, over the rope pattern; the rope only shows in the part still to
-	go. An outlined percentage sits in the middle of the rope.
+	shine along its top; the part still to go is the bare dirt-to-steel gradient (the
+	braided rope strip was removed on request). An outlined percentage sits in the
+	middle of the bar.
 
 	THE FUSE IS A WICK on its own thin row JUST ABOVE the bar (moved off the bar's top
 	edge, on request), burning from the magnet end back toward the dirt: the length left
@@ -44,7 +45,7 @@ local HaulRope = {}
 -- Everything is derived from the size build() is given.
 local CELL_ASPECT = 1.6 -- the magnet cell is this many bar-heights wide: the icon, then the E keycap beside it
 local DIVIDER = 3 -- the black line between the rope and the magnet cell
-local INSET = 6 -- the strand and the wick stop this far in from either end
+local INSET = 6 -- the nuke and the wick stop this far in from either end
 local NUKE_SIZE = Vector2.new(40, 62) -- drawn nose-up, then turned to lie nose-right
 local NUKE_PAD = 4 -- clear space above and below the lying nuke
 local WICK_HEIGHT = 6
@@ -53,8 +54,6 @@ local WICK_GAP = 4 -- between the wick row and the bar's top edge
 HaulRope.WICK_ROW = WICK_HEIGHT + WICK_GAP
 local PERCENT_TEXT = 17
 local SHEEN_HEIGHT = 5
-local STRAND_HEIGHT = 8
-local STRAND_PITCH = 7 -- one twist of the rope every this many px
 local ICON_FILL = 0.78 -- the magnet icon's share of the cell's height
 local ICON_X = 0.38 -- the icon's centre across the cell, leaving the right end to the keycap
 local KEYCAP = 15
@@ -72,8 +71,6 @@ local POLE = Color3.fromHex("DFE6EE")
 -- vanishes into the black outline.
 local MIN_SOIL_VALUE = 0.46
 local CRACK_COLOR = Color3.fromHex("FF7A45")
-local STRAND_LIGHT = Color3.fromHex("D9B779")
-local STRAND_DARK = Color3.fromHex("A8844A")
 local WICK_COLOR = Color3.fromHex("F4E3B5")
 local WICK_BURNT = Color3.fromHex("2B1A0C")
 local ALARM_RED = Color3.fromHex("FF3B2F") -- the outline's armed flash
@@ -302,22 +299,9 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number, height
 	local cell = math.round(height * CELL_ASPECT)
 	local ropeLength = width - cell - DIVIDER
 
-
-	-- The rope: a braided strip down the middle, slanted twists clipped to a straight
-	-- band with a black edge top and bottom.
-	local strand = box(root, "Strand", INSET, (height - STRAND_HEIGHT) / 2, ropeLength - 2 * INSET, STRAND_HEIGHT, STRAND_DARK, 3)
-	strand.ClipsDescendants = true
-	local strandStroke = Instance.new("UIStroke")
-	strandStroke.Color = BLACK
-	strandStroke.Thickness = 1.5
-	strandStroke.Parent = strand
-	for i = 0, math.ceil(strand.Size.X.Offset / STRAND_PITCH) do
-		local twist = box(strand, "Twist", i * STRAND_PITCH - 2, -3, 4, STRAND_HEIGHT + 6, STRAND_LIGHT, 3)
-		twist.Rotation = 30
-	end
-
-	-- THE FILL: solid, in the signal's colour, from the dirt end up to the nuke, over the
-	-- rope pattern, with a shine along its top.
+	-- THE FILL: solid, in the signal's colour, from the dirt end up to the nuke, with a
+	-- shine along its top. No rope pattern under it any more (on request): the part still
+	-- to go is the plain dirt-to-steel gradient.
 	local trail = box(root, "Fill", 0, 0, 0, height, WHITE, 4)
 	local sheen = box(trail, "Sheen", 0, 2, 0, SHEEN_HEIGHT, WHITE, 5, UDim.new(0, 2))
 	sheen.Size = UDim2.new(1, 0, 0, SHEEN_HEIGHT)
