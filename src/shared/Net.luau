@@ -278,9 +278,8 @@ local REMOTES: { [string]: string } = {
 
 	-- The new-player walkthrough (Config/Tutorial, client TutorialController). Server ->
 	-- client on change: { step = StepId, holding = boolean, plot = number? }, or nil once it is over
-	-- (finished or skipped). Client -> server: the bare verb "skip".
+	-- (finished, or ended with /skip).
 	TutorialState = "RemoteEvent",
-	TutorialAction = "RemoteEvent",
 
 	-- Sound effects (client Sfx.luau). Sfx: server -> client, a cue NAME the client
 	-- plays for its own player only ("denied", "robux") -- for the moments only the
