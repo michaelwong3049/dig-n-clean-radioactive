@@ -276,7 +276,7 @@ function ReforgeStation.build(parent: Instance, origin: CFrame, campKey: string)
 		local signHeight
 		body, signHeight = buildImported(m, origin, template)
 		m:SetAttribute("ImportedLook", true)
-		Kit.billboard(body, 260, signHeight, "REFORGE STATION", "Reroll a nuke's damage & radius", COLOR.forge, 60)
+		Kit.billboard(body, 260, signHeight, "Reforge Station", nil, nil, 60)
 	else
 		-- ── Plinth, with hazard tape along its front ──
 		local width = 2 * ReforgeStation.HALF_X
@@ -295,7 +295,7 @@ function ReforgeStation.build(parent: Instance, origin: CFrame, campKey: string)
 		buildIngots(m, origin)
 
 		-- Clear of the chimney's cap (~16 up).
-		Kit.billboard(body, 260, FURNACE.h / 2 + 11, "REFORGE STATION", "Reroll a nuke's damage & radius", COLOR.forge, 60)
+		Kit.billboard(body, 260, FURNACE.h / 2 + 11, "Reforge Station", nil, nil, 60)
 	end
 
 	-- ── The station, in front, with its E ──

@@ -286,7 +286,7 @@ function SlagFurnace.build(parent: Instance, origin: CFrame, campKey: string): M
 		local signHeight
 		body, signHeight = buildImported(m, origin, template)
 		m:SetAttribute("ImportedLook", true)
-		Kit.billboard(body, 260, signHeight, "SLAG FURNACE", "Burn nukes, fill the meter, roll prizes", COLOR.molten, 60)
+		Kit.billboard(body, 260, signHeight, "Slag Furnace", nil, nil, 60)
 	else
 		-- ── Plinth, with hazard tape along its front ──
 		local width = 2 * SlagFurnace.HALF_X
@@ -308,7 +308,7 @@ function SlagFurnace.build(parent: Instance, origin: CFrame, campKey: string): M
 		buildSlagPile(m, origin)
 
 		-- Clear of the chimney caps.
-		Kit.billboard(body, 260, hopperTop + 6, "SLAG FURNACE", "Burn nukes, fill the meter, roll prizes", COLOR.molten, 60)
+		Kit.billboard(body, 260, hopperTop + 6, "Slag Furnace", nil, nil, 60)
 	end
 
 	-- ── The station, in front, with its E ──
