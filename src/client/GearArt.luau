@@ -14,6 +14,7 @@
 	— redrawn by client/GearArtFx, since a ViewportFrame renders none of them.
 ]]
 
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -150,6 +151,41 @@ local function frameArt(camera: Camera, model: Model, view: ArtView, aspect: num
 	camera.CFrame = look * CFrame.new(mid.X, mid.Y, hi.Z + reach)
 end
 
+--- Download every gear model's meshes and textures in the background, once per session.
+---
+--- WHY (on request, 2026-10-08: scrolling the shop showed empty wells). The templates
+--- are on the client but their MeshParts' content is not fetched until something first
+--- draws them, so a card scrolled into view rendered blank until its meshes arrived.
+--- Asking for all of it at join means the wells are drawn by the time anyone opens a
+--- stall. Only the folders `artModel` clones from: Assets/Tools/Cleaner still holds the
+--- retired brushes and sponges. The aura's still atom is plain parts and needs nothing.
+local preloaded = false
+function GearArt.preload()
+	if preloaded then
+		return
+	end
+	preloaded = true
+	task.spawn(function()
+		local assets = ReplicatedStorage:WaitForChild("Assets", 30)
+		if assets == nil then
+			return
+		end
+		local wanted = {}
+		local tools = assets:FindFirstChild("Tools")
+		for track in ART_VIEW do
+			local folder = if tools and not ToolModels.has(track) then tools:FindFirstChild(track) else nil
+			if folder then
+				table.insert(wanted, folder)
+			end
+		end
+		local hoses = assets:FindFirstChild("HoseModels")
+		if hoses then
+			table.insert(wanted, hoses)
+		end
+		pcall(ContentProvider.PreloadAsync, ContentProvider, wanted)
+	end)
+end
+
 --- A clear ViewportFrame filling `parent`, lit for gear, with its own camera. The
 --- camera is made once and only ever moved; `show` swaps the model in front of it.
 function GearArt.viewport(parent: Instance): ViewportFrame
@@ -197,6 +233,9 @@ function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspe
 	-- turned into the track's display pose.
 	model:PivotTo(view.pose)
 	model.Parent = viewport
+	-- Jumps this model's meshes to the front of the queue if the join-time preload
+	-- has not reached them yet.
+	task.spawn(pcall, ContentProvider.PreloadAsync, ContentProvider, { model })
 	frameArt(viewport.CurrentCamera :: Camera, model, view, aspect)
 	if effects then
 		GearArtFx.attach(viewport, model, track, tier, aspect)

@@ -110,6 +110,7 @@ local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local GearProducts = require(Shared.Config.GearProducts)
 local Camps = require(Shared.Config.Camps) -- a locked card's zone number
+local Rarity = require(Shared.Config.Rarity) -- the rarity word's colour under each card's name
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial)
 local AuraLook = require(Shared.AuraLook)
@@ -526,9 +527,14 @@ local BAR_FLOOR = 0.06
 -- same 472x344 picture (the panel grew 80px upward for it, with roomier gaps).
 local CARD_INSET = 14
 local CARD_NAME_INSET = 18
-local CARD_NAME_TOP = 12
-local CARD_NAME_HEIGHT = 46
-local CARD_ART_TOP = 68
+-- The name row is a big title with the tier's rarity under it (on request, 2026-10-08,
+-- the "Trail Shop" reference: "way bigger" names, a rarity word below each). It took
+-- 12px off the top of the well.
+local CARD_NAME_TOP = 8
+local CARD_TITLE_SIZE = 44
+local CARD_RARITY_SIZE = 22
+local CARD_NAME_HEIGHT = CARD_TITLE_SIZE + 2 + CARD_RARITY_SIZE
+local CARD_ART_TOP = CARD_NAME_TOP + CARD_NAME_HEIGHT + 4
 local CARD_ROW_GAP = 16
 local CARD_BUY_HEIGHT = 48
 local CARD_BUY_BOTTOM = 18
@@ -808,31 +814,44 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	strip.BackgroundTransparency = 1
 	strip.Parent = card
 
-	-- Centred over the card, the reference's big white title; the flag (NEED $x) is a
-	-- small line under it, only on a rung you cannot pay for yet.
+	-- Centred over the card, the reference's big white title, the tier's rarity under
+	-- it in that rarity's colour. A long name shrinks to fit rather than wrapping.
 	local cardName = UIKit.label(strip, {
 		name = "CardName",
 		position = UDim2.fromOffset(CARD_NAME_INSET, 0),
-		size = UDim2.new(1, -2 * CARD_NAME_INSET, 0, 32),
+		size = UDim2.new(1, -2 * CARD_NAME_INSET, 0, CARD_TITLE_SIZE + 2),
 		font = FIELD.headline,
-		textSize = 26,
+		textSize = CARD_TITLE_SIZE,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,
 	})
 	cardName.TextScaled = true
 	local nameLimit = Instance.new("UITextSizeConstraint")
-	nameLimit.MaxTextSize = 26
+	nameLimit.MaxTextSize = CARD_TITLE_SIZE
 	nameLimit.Parent = cardName
 
 	UIKit.label(strip, {
+		name = "CardRarity",
+		position = UDim2.fromOffset(CARD_NAME_INSET, CARD_TITLE_SIZE + 2),
+		size = UDim2.new(1, -2 * CARD_NAME_INSET, 0, CARD_RARITY_SIZE),
+		font = FIELD.headline,
+		textSize = CARD_RARITY_SIZE,
+		color = FIELD.text,
+		xAlign = Enum.TextXAlignment.Center,
+		outline = false,
+	})
+
+	-- The flag (NEED $x / LOCKED), only on a rung you cannot buy yet: a small line in
+	-- the well's top-right corner, since the rarity now has the line under the name.
+	UIKit.label(strip, {
 		name = "CardFlag",
-		position = UDim2.fromOffset(CARD_NAME_INSET, 32),
+		position = UDim2.fromOffset(CARD_NAME_INSET, CARD_NAME_HEIGHT + 6),
 		size = UDim2.new(1, -2 * CARD_NAME_INSET, 0, 18),
 		font = FIELD.label,
 		textSize = 15,
 		color = FIELD.text,
-		xAlign = Enum.TextXAlignment.Center,
+		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
 	})
 
@@ -1850,6 +1869,10 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number, he
 	local cardStroke = card:FindFirstChildOfClass("UIStroke") :: UIStroke
 
 	nameLabel.Text = entry.name
+	local rarity = Gear.rarityOf(track, entry.tier)
+	local rarityLabel = card.CardStrip.CardRarity :: TextLabel
+	rarityLabel.Text = rarity
+	rarityLabel.TextColor3 = Rarity.DEFS[rarity].color
 	paintArt(card, track, entry.tier)
 	card:SetAttribute("Buyable", entry.buyable == true)
 	card:SetAttribute("Equippable", entry.equippable == true)
@@ -2603,6 +2626,8 @@ end
 -- ── Lifecycle ────────────────────────────────────────────────────────
 
 function Station.start()
+	-- Fetch the gear meshes now, so no shop card's picture pops in late (GearArt.preload).
+	GearArt.preload()
 	-- FAST MODE changes how the aura cards look: repaint an open panel straight away.
 	Prefs.observe("fastMode", function()
 		if ui.panel and ui.panel.Visible then
