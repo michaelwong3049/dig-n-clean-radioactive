@@ -40,6 +40,13 @@ local TAG = "MergeReactor"
 local HOPPERS = 3
 
 local OOZE = Color3.fromHex("A855FF")
+
+--- The colour a part goes back to after a flash: its own RestColor (the imported look
+--- paints its liquid and orb), else the part-built machine's violet.
+local function restColor(part: BasePart): Color3
+	local rest = part:GetAttribute("RestColor")
+	return if typeof(rest) == "Color3" then rest else OOZE
+end
 local FLASH = Merge.COLOR
 local CRIT_GOLD = Color3.fromHex("FFD24A")
 
@@ -79,14 +86,14 @@ local function clear(machine: Model)
 	local core = machine:FindFirstChild("CoreGlow")
 	if core and core:IsA("BasePart") then
 		core.Material = Enum.Material.SmoothPlastic
-		core.Color = OOZE
+		core.Color = restColor(core)
 		core.Size = core:GetAttribute("RestSize") or core.Size
 		core.Transparency = core:GetAttribute("RestTransparency") or core.Transparency
 	end
 	for index = 1, HOPPERS do
 		local ooze = machine:FindFirstChild(`Ooze{index}`)
 		if ooze and ooze:IsA("BasePart") then
-			ooze.Color = OOZE
+			ooze.Color = restColor(ooze)
 		end
 	end
 end
@@ -207,7 +214,7 @@ local function play(machine: Model)
 		task.delay(DROP_TIME + (index - 1) * 0.12, function()
 			if alive() then
 				ooze.Color = FLASH
-				TweenService:Create(ooze, TweenInfo.new(0.8), { Color = OOZE }):Play()
+				TweenService:Create(ooze, TweenInfo.new(0.8), { Color = restColor(ooze) }):Play()
 			end
 		end)
 	end
@@ -243,7 +250,7 @@ local function play(machine: Model)
 		Sfx.playAt(if outcome == "crit" then "rareDrop" elseif outcome == "success" then "cleaned" else "denied", core)
 		core.Size = rest
 		core.Material = Enum.Material.SmoothPlastic
-		core.Color = OOZE
+		core.Color = restColor(core)
 		core.Transparency = 1
 		-- The flash in the outcome's colour, then the machine goes back to matte.
 		local light = core:FindFirstChildOfClass("PointLight")

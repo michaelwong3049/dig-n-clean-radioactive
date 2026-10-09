@@ -28,6 +28,13 @@
 	merge is running. The ooze's living look (sheen, drifting motes, bubbles, slosh) is
 	the client's too, so it shows on a world built before it existed.
 
+	THE IMPORTED LOOK. When the place has ServerStorage.StationTemplates.MergeReactor
+	(build/ImportedStation), that model is the machine instead: a hex deck, three caged
+	glass tanks on legs hosed into a teal core under a glass dome, the orb on a yellow
+	pedestal inside it. It is repainted to the user's reference render (IMPORT_PAINT),
+	its tank liquid becomes Ooze1..3, its orb CoreGlow, and Drop1..3 / LiftPad are added
+	as invisible markers, so the client's show runs on it unchanged.
+
 	EVERYTHING IS AUTHORED AT SCALE 1 AND BLOWN UP BY `SCALE` in part(), so the numbers
 	below stay readable. The model carries it as its `Scale` attribute; the client sizes
 	the nukes it drops and lifts by that. No text on the machine: the E prompt names it.
@@ -35,6 +42,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 
+local ImportedStation = require(script.Parent.ImportedStation)
 local Kit = require(script.Parent.Kit)
 
 local MergeReactor = {}
@@ -54,6 +62,77 @@ local SCALE = MergeReactor.SCALE
 MergeReactor.RADIUS = 9
 MergeReactor.HALF_X = 11 * SCALE
 MergeReactor.HALF_Z = 7 * SCALE
+
+--- The imported look is ~0.86 x 0.48 x 0.75 studs as it comes in; this fills the deck
+--- (36 x 32) the way the part-built machine did.
+MergeReactor.IMPORT_SCALE = 36
+
+--- The import's colours, repainted to the user's reference render (2026-10-08): a
+--- navy-violet hex deck with pink-violet neon conduits, dark teal tanks and core,
+--- silver rods and rings, lavender glass over pink-lavender liquid, a chrome dome over
+--- a pink orb on a glowing yellow pedestal, and a cyan screen with pink/yellow/red
+--- buttons over a gold hazard band.
+local GLASS = 0.65
+local IMPORT_PAINT: { [string]: ImportedStation.Paint } = {
+	deck_base = { color = "1E1A33" },
+	deck_top = { color = "3A2580" },
+	deck_trim = { color = "C77DFF", neon = true },
+	deck_bolt = { color = "D7DCE6" },
+	floor_conduit = { color = "C77DFF", neon = true },
+	under_lamp = { color = "232634" },
+	under_lamp_glow = { color = "B57BFF", neon = true },
+
+	tank_foot_plate = { color = "1F4140" },
+	tank_leg = { color = "234A49" },
+	leg_brace = { color = "1F4140" },
+	tank_base_collar = { color = "2A5755" },
+	tank_cap = { color = "234A49" },
+	tank_cap_top = { color = "2A5755" },
+	cap_bolt = { color = "14171E" },
+	cap_valve = { color = "D99BFF" },
+	cap_valve_wheel = { color = "E3A8FF" },
+	collar_ring = { color = "9C8CFF" },
+	tank_rod = { color = "C9CED8" },
+	tank_band = { color = "DDE1EA" },
+	tank_glass = { color = "B8A2FF", transparency = GLASS },
+	tank_liquid = { color = "B47EFF" },
+	tank_liquid_core = { color = "F2CCFF", neon = true },
+
+	feed_hose = { color = "3F4A66" },
+	feed_hose_glow = { color = "B57BFF", neon = true },
+	core_port = { color = "232634" },
+	core_body = { color = "1F403F" },
+	core_skirt = { color = "234A49" },
+	core_collar = { color = "2A5755" },
+	core_collar_ring = { color = "C9CED8" },
+	core_vent_glow = { color = "B57BFF", neon = true },
+
+	dome_base = { color = "B9C1D2" },
+	dome_glass = { color = "ECE8FF", transparency = 0.7 },
+	dome_cap = { color = "C9CED8" },
+	pedestal_ring = { color = "FFD84A", neon = true },
+	pedestal_disk = { color = "FFEB80", neon = true },
+	merge_orb = { color = "F2A8F0" },
+	orb_core = { color = "FFD8FA", neon = true },
+	orb_claw = { color = "C9CED8" },
+	claw_tip = { color = "FF8AE6" },
+	gyro_ring_ = { color = "D7A8FF" },
+
+	lever_base = { color = "14171E" },
+	lever_arm = { color = "2A2D3A" },
+	lever_knob = { color = "E07BFF" },
+	lever_knob2 = { color = "FFD84A" },
+	panel_bezel = { color = "1C2030" },
+	panel_screen = { color = "5FF2E8", neon = true },
+	screen_bar = { color = "1B3F4A" },
+	panel_button = { color = "E07BFF" },
+	panel_button2 = { color = "FFD84A" },
+	panel_button3 = { color = "FF4A5A" },
+	panel_slider_track = { color = "2A2D3A" },
+	panel_slider = { color = "C9CED8" },
+	mr_band = { color = "E8B43C" },
+	mr_band_stripe_ = { color = "14171E" },
+}
 
 local build = Kit.build
 local R = Kit.R
@@ -190,12 +269,8 @@ local function buildHopper(m: Model, origin: CFrame, index: number)
 	pipe(m, origin, elbow, into)
 end
 
---- Build the reactor under `parent` at `origin` (deck top, facing +Z). `campKey` is
---- its StationId, so a later camp's reactor is its own station.
-function MergeReactor.build(parent: Instance, origin: CFrame, campKey: string): Model
-	local m = Instance.new("Model")
-	m.Name = MergeReactor.MODEL_NAME
-
+--- The part-built machine, for a place without the imported template. Returns its body.
+local function buildParts(m: Model, origin: CFrame): BasePart
 	-- ── Plinth, with hazard tape along its front ──
 	-- Authored (unscaled) footprint: part() scales it.
 	local depth = 2 * MergeReactor.HALF_Z / SCALE
@@ -255,8 +330,119 @@ function MergeReactor.build(parent: Instance, origin: CFrame, campKey: string): 
 		buildHopper(m, origin, index)
 	end
 
+	return body
+end
+
+--- An invisible, non-colliding marker part at `cframe`.
+local function marker(parent: Instance, name: string, cframe: CFrame, size: Vector3): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cframe
+	p.Transparency = 1
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Parent = parent
+	return p
+end
+
+--- Swap the painted mesh `found` for a plain primitive called `name`, filling the same
+--- box: an upright Cylinder (turned so its height is Size.X, as the client reads it) or
+--- a Ball. The client resizes and recolours these, which a mesh would not follow.
+local function primitive(found: BasePart, name: string, shape: Enum.PartType, parent: Instance): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Shape = shape
+	p.Material = Enum.Material.SmoothPlastic
+	p.Color = found.Color
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	local s = found.Size
+	if shape == Enum.PartType.Cylinder then
+		local across = math.max(s.X, s.Z)
+		p.Size = Vector3.new(s.Y, across, across)
+		p.CFrame = CFrame.new(found.Position) * R.cylUp
+	else
+		p.Size = Vector3.one * math.max(s.X, s.Y, s.Z)
+		p.CFrame = CFrame.new(found.Position)
+	end
+	-- What the client flashes from and restores to (it defaults to the old violet).
+	p:SetAttribute("RestColor", p.Color)
+	p.Parent = parent
+	found:Destroy()
+	return p
+end
+
+--- The imported reactor (ServerStorage.StationTemplates.MergeReactor), placed, painted
+--- and given the parts the client reads. Returns its core body and how far in front of
+--- origin the deck's front edge is (studs).
+local function buildImported(m: Model, origin: CFrame, template: Model): (BasePart, number)
+	local look = ImportedStation.place(template, m, origin, MergeReactor.IMPORT_SCALE, "reactor_core")
+	ImportedStation.paint(look, IMPORT_PAINT)
+
+	for index = 1, #HOPPERS do
+		local tank = look:FindFirstChild(`merge_tank_{index}`, true)
+		if tank == nil or not tank:IsA("Model") then
+			continue
+		end
+		for _, d in tank:GetDescendants() do
+			if d:IsA("BasePart") and string.match(d.Name, "^tank_liquid%d*$") then
+				primitive(d, `Ooze{index}`, Enum.PartType.Cylinder, m)
+				break
+			end
+		end
+		local box, size = tank:GetBoundingBox()
+		marker(m, `Drop{index}`, CFrame.new(box.Position + Vector3.new(0, size.Y / 2 + 2, 0)), Vector3.one * 0.2)
+	end
+
+	local orb = look:FindFirstChild("merge_orb", true)
+	if orb and orb:IsA("BasePart") then
+		primitive(orb, "CoreGlow", Enum.PartType.Ball, m)
+	end
+	local disk = look:FindFirstChild("pedestal_disk", true)
+	if disk and disk:IsA("BasePart") then
+		local across = math.max(disk.Size.X, disk.Size.Z)
+		marker(m, "LiftPad", CFrame.new(disk.Position) * R.cylUp, Vector3.new(disk.Size.Y, across, across))
+	end
+
+	local deck, deckSize = ImportedStation.bounds(look, "deck_base")
+	local front = if deck and deckSize
+		then origin:PointToObjectSpace(deck.Position).Z + deckSize.Z / 2
+		else MergeReactor.HALF_Z
+	local body = look:FindFirstChild("core_body", true)
+	if body and body:IsA("BasePart") then
+		return body, front
+	end
+	return look:FindFirstChildWhichIsA("BasePart", true) :: BasePart, front
+end
+
+--- Build the reactor under `parent` at `origin` (deck top, facing +Z). `campKey` is
+--- its StationId, so a later camp's reactor is its own station.
+function MergeReactor.build(parent: Instance, origin: CFrame, campKey: string): Model
+	local m = Instance.new("Model")
+	m.Name = MergeReactor.MODEL_NAME
+
+	local template = ImportedStation.template(MergeReactor.MODEL_NAME)
+	local body: BasePart
+	local stationZ: number
+	if template then
+		local front
+		body, front = buildImported(m, origin, template)
+		stationZ = front / SCALE + 1.5
+		m:SetAttribute("ImportedLook", true)
+	else
+		body = buildParts(m, origin)
+		stationZ = MergeReactor.HALF_Z / SCALE + 1.5
+	end
+
 	-- ── The station, in front, with its E ──
-	local station = part(m, origin, MergeReactor.STATION_NAME, { 0, 2.5, depth / 2 + 1.5 }, { 1, 1, 1 }, COLOR.steel, {
+	local station = part(m, origin, MergeReactor.STATION_NAME, { 0, 2.5, stationZ }, { 1, 1, 1 }, COLOR.steel, {
 		transparency = 1,
 		canCollide = false,
 		attributes = { StationKind = "merge", StationId = campKey, Radius = MergeReactor.RADIUS },
