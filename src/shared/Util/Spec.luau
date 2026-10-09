@@ -1294,7 +1294,10 @@ function Spec.run(): boolean
 				and math.abs(rich.yieldMultiplier - bare.yieldMultiplier * scrub.values[3]) < 1e-9
 		)
 		local thief = Mastery.get("thief") :: any
-		check("§mastery the Thief reward cuts haul drag", math.abs(rich.haulPenalty - bare.haulPenalty * thief.values[3]) < 1e-9)
+		local bomber = Mastery.get("bomber") :: any
+		check("§mastery the Thief reward adds walk speed", math.abs(rich.walkMult - bare.walkMult * (1 + thief.values[3])) < 1e-9)
+		local both = { level = 1, gear = {}, perks = {}, stats = { kills = bomber.goals[3], bagsStolen = thief.goals[3] } }
+		check("§mastery Bomber and Thief walk speed add up", math.abs(Mastery.value(both, "walkSpeed") - (bomber.values[3] + thief.values[3])) < 1e-9)
 		local collector = Mastery.get("collector") :: any
 		local all = {}
 		for _, item in Items.DEFS do
@@ -1313,7 +1316,7 @@ function Spec.run(): boolean
 		end
 		check("§mastery the Reactor discount lowers the merge fee", dearest ~= nil and Merge.fee(dearest.id, 0, 0.7) < Merge.fee(dearest.id, 0))
 		check("§mastery the Brewer can never brew faster than the spin lasts", Tuning.LIQUID_SPIN_COOLDOWN * (Mastery.get("brewer") :: any).values[3] > Tuning.LIQUID_SPIN_SECONDS)
-		check("§mastery reward text reads like a reward", Mastery.rewardText(scrub, 3) == "x2 cash" and Mastery.rewardText(thief, 3) == "-50% haul drag")
+		check("§mastery reward text reads like a reward", Mastery.rewardText(scrub, 3) == "x2 cash" and Mastery.rewardText(thief, 3) == "+6% walk speed")
 		check("§mastery goals print short", Mastery.goalText(Mastery.get("tycoon") :: any, 1e9) == "$1B" and Mastery.goalText(Mastery.get("runner") :: any, 50000) == "500K")
 	end
 

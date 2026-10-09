@@ -5,6 +5,8 @@
 	Each mastery counts one lifetime number and has three tiers, Bronze, Silver and
 	Gold. Reaching a tier sets that mastery's reward to the tier's value, and a higher
 	tier REPLACES the one under it: Gold Scrubber is x2 cash, not 1.25 x 1.5 x 2.
+	Two masteries paying the SAME kind (Bomber and Thief both pay walk speed) add their
+	tiers' values together: Gold in both is +12%.
 
 	NOTHING ABOUT A MASTERY IS STORED BUT ITS COUNTER. Every counter only ever goes up
 	(cleans, kills, lifetime cash, lifetime Speed, the deepest stage, the index), so the
@@ -58,13 +60,12 @@ Masteries.TIER_COLORS = {
 --- What each reward is before any tier: the value Shared/Mastery.value falls back to.
 Masteries.BASE = {
 	cash = 1, -- x on every sale and every stand's income
-	bombDamage = 1, -- x on a dropped nuke's blast
+	walkSpeed = 0, -- + share of walk speed (0.02 = +2%); every mastery paying it ADDS
 	training = 1, -- x on the Speed a treadmill pays
 	luck = 1, -- x on luck (the wash pad's roll and the merge crit)
 	capacity = 0, -- + bag slots
 	radDamage = 1, -- x on the health radiation takes (aura wear, aura failure, sickness)
 	mergeFee = 1, -- x on the Merge Reactor's fee
-	haulDrag = 1, -- x on how much each carried item slows you
 	brewCooldown = 1, -- x on the fluid bottle's cooldown
 	awayRate = Tuning.EXHIBIT_OFFLINE_RATE, -- the share of $/s the stands pay offline
 }
@@ -85,9 +86,9 @@ Masteries.LIST = {
 		name = "Bomber",
 		counts = "Players blown up",
 		source = "kills",
-		goals = { 50, 125, 250 },
-		reward = "bombDamage",
-		values = { 1.15, 1.3, 1.5 },
+		goals = { 10, 25, 50 },
+		reward = "walkSpeed",
+		values = { 0.02, 0.04, 0.06 },
 		color = Color3.fromRGB(229, 72, 77),
 	},
 	{
@@ -147,9 +148,9 @@ Masteries.LIST = {
 		name = "Thief",
 		counts = "Bags stolen",
 		source = "bagsStolen",
-		goals = { 10, 50, 150 },
-		reward = "haulDrag",
-		values = { 0.85, 0.7, 0.5 },
+		goals = { 10, 25, 50 },
+		reward = "walkSpeed",
+		values = { 0.02, 0.04, 0.06 },
 		color = Color3.fromRGB(150, 160, 175),
 	},
 	{

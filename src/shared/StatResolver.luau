@@ -140,11 +140,11 @@ export type Stats = {
 	-- into BOTH sellMultiplier and yieldMultiplier; carried on its own for display.
 	indexCashMultiplier: number,
 	-- MASTERY REWARDS (Config/Masteries) that land outside this function, each read by
-	-- the one service that owns the number it scales. Cash, luck, bag slots and haul
-	-- drag are folded into the fields above instead, so nothing downstream had to learn
+	-- the one service that owns the number it scales. Cash, luck, bag slots and walk
+	-- speed are folded into the other fields instead, so nothing downstream had to learn
 	-- about them; `masteryCash` is carried on its own for display, like indexCash.
 	masteryCash: number,
-	bombDamageMult: number, -- BombService (and the hotbar's card, via MasteryBombDamage)
+	bombDamageMult: number, -- BombService (the 1.5x Bomb Damage pass)
 	trainingMult: number, -- TreadmillService
 	radDamageMult: number, -- ExposureService: aura wear, aura failure and sickness
 	mergeFeeMult: number, -- Config/Merge.fee's discount (the Reactor mastery)
@@ -155,8 +155,8 @@ export type Stats = {
 	digPower: number, -- DigService: scales the magnet's side of a haul (yank + draw)
 	instantClean: boolean, -- WashService: a patch breaks the moment water touches it
 	healthMult: number, -- ExposureService: max health (the 2x Health pass)
-	-- The Speed Potion (Config/Potions): multiplies walk speed alongside the aura's
-	-- bonus, in effectiveWalkSpeed (walkBonus). 1 when none is running.
+	-- The Speed Potion (Config/Potions) and the Bomber/Thief masteries: multiply walk
+	-- speed alongside the aura's bonus, in effectiveWalkSpeed (walkBonus). 1 when none.
 	walkMult: number,
 }
 
@@ -262,7 +262,7 @@ function StatResolver.get(profile: Profile): Stats
 		-- Sure Footing (PLAN §9.2). Reads off the AURA now -- the perk halves the haul
 		-- penalty wherever that stat lives, and it has moved tracks twice (Boots, then
 		-- Satchel, then Aura) without changing what the perk means.
-		haulPenalty = aura.haulPenalty * (if perks.sureFooting then 0.5 else 1) * Mastery.value(profile, "haulDrag"),
+		haulPenalty = aura.haulPenalty * (if perks.sureFooting then 0.5 else 1),
 		auraSpeedBonus = aura.speedBonus or 0,
 
 		detectorRadius = detector.radius,
@@ -307,8 +307,7 @@ function StatResolver.get(profile: Profile): Stats
 		indexCashMultiplier = indexCash,
 
 		masteryCash = masteryCash,
-		bombDamageMult = Mastery.value(profile, "bombDamage")
-			* (if GamePasses.owns(profile, "bombDamage") then GamePasses.BOMB_DAMAGE else 1),
+		bombDamageMult = if GamePasses.owns(profile, "bombDamage") then GamePasses.BOMB_DAMAGE else 1,
 		trainingMult = Mastery.value(profile, "training") * (if GamePasses.owns(profile, "speed") then GamePasses.SPEED else 1),
 		radDamageMult = Mastery.value(profile, "radDamage"),
 		mergeFeeMult = Mastery.value(profile, "mergeFee"),
@@ -319,7 +318,8 @@ function StatResolver.get(profile: Profile): Stats
 			* Potions.multiplier(profile.potionLeft, "strength"),
 		instantClean = GamePasses.owns(profile, "instantClean"),
 		healthMult = if GamePasses.owns(profile, "health") then GamePasses.HEALTH else 1,
-		walkMult = Potions.multiplier(profile.potionLeft, "speed"),
+		-- The Bomber and Thief masteries' walk speed rides on the potion's multiplier.
+		walkMult = Potions.multiplier(profile.potionLeft, "speed") * (1 + Mastery.value(profile, "walkSpeed")),
 	}
 end
 
@@ -401,6 +401,7 @@ function StatResolver.boosts(profile: Profile): { Boost }
 	add("speed", "Walk Speed", {
 		{ name = "Aura", mult = 1 + stats.auraSpeedBonus },
 		potion("speed"),
+		{ name = "Masteries", mult = 1 + Mastery.value(profile, "walkSpeed") },
 	})
 	add("strength", "Dig Power", {
 		{ name = "2x Dig Power Pass", mult = pass("digPower", GamePasses.DIG_POWER) },
@@ -413,7 +414,6 @@ function StatResolver.boosts(profile: Profile): { Boost }
 	})
 	add("bomb", "Bomb Damage", {
 		{ name = "1.5x Bomb Damage Pass", mult = pass("bombDamage", GamePasses.BOMB_DAMAGE) },
-		{ name = "Masteries", mult = Mastery.value(profile, "bombDamage") },
 	})
 	add("health", "Health", { { name = "2x Health Pass", mult = stats.healthMult } })
 
