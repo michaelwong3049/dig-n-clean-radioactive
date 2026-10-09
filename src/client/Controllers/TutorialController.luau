@@ -16,6 +16,7 @@
 	    haul     banner + an amber ring pulsing round REEL IN, and arrows bouncing at it
 	    clean    banner + trail to YOUR cleansing station
 	    place    banner + trail to your nearest EMPTY stand
+	    earn     banner + a live amber "$N/$15" count after the words (ON REQUEST), no trail
 	    upgrade  banner + trail to the Detector Shop
 	    navigate banner + rings and arrows on the HOME and SHOPS buttons (WarpController);
 	             using one ends the walkthrough (no "You're set!" card, removed on request)
@@ -135,7 +136,7 @@ local RING_SIZE = 9
 local MARKER_HEIGHT = 8 -- over the target's floor
 local GUIDE_FOLDER = "TutorialGuide"
 
-type State = { step: Tutorial.StepId, holding: boolean, plot: number? }
+type State = { step: Tutorial.StepId, holding: boolean, plot: number?, earned: number? }
 
 local state: State? = nil
 
@@ -199,11 +200,34 @@ local function buildBanner(canvas: Frame)
 		own.Thickness = math.max(own.Thickness, 4)
 	end
 
+	-- The "earn" step's live "$N/$15", in amber after the words. Hidden on every other step.
+	local count = UIKit.label(banner, {
+		name = "Count",
+		size = UDim2.fromScale(0, 1),
+		font = SKIN.headline,
+		textSize = TITLE_SIZE,
+		color = SKIN.amber,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "",
+	})
+	count.AutomaticSize = Enum.AutomaticSize.X
+	count.LayoutOrder = 2
+	count.Visible = false
+	for _, d in count:GetDescendants() do
+		if d:IsA("UIStroke") then
+			d.Thickness = math.max(d.Thickness, 4)
+		end
+	end
+	local countStroke = count:FindFirstChildOfClass("UIStroke")
+	if countStroke then
+		countStroke.Thickness = math.max(countStroke.Thickness, 4)
+	end
+
 	-- SKIP sits at the pill's right end, after the words. It needs a second press: one
 	-- stray click should not throw away a new player's only walkthrough.
 	local skip = Instance.new("TextButton")
 	skip.Name = "Skip"
-	skip.LayoutOrder = 2
+	skip.LayoutOrder = 3
 	skip.Size = UDim2.fromOffset(SKIP_W, 26)
 	skip.AutoButtonColor = true
 	skip.BackgroundColor3 = SKIN.button
@@ -245,13 +269,19 @@ local function buildBanner(canvas: Frame)
 	ui.banner = banner
 	ui.bannerScale = scale
 	ui.title = title
+	ui.count = count
 end
 
-local function setBanner(step: Tutorial.StepId)
+local function setBanner(step: Tutorial.StepId, earned: number?)
 	local def = Tutorial.STEPS[step]
 	local changed = ui.title.Text ~= def.title
 	-- The pill resizes itself round the new words (buildBanner).
 	ui.title.Text = def.title
+	-- Ticks up in place as the stand pays out; only a new step pops the banner.
+	ui.count.Visible = step == "earn"
+	if step == "earn" then
+		ui.count.Text = `${earned or 0}/${Tutorial.EARN_TARGET}`
+	end
 
 	local wasHidden = not ui.banner.Visible
 	ui.banner.Visible = true
@@ -971,12 +1001,12 @@ local function apply(payload: any)
 	end
 
 	local previous = state
-	state = { step = payload.step, holding = payload.holding ~= false, plot = payload.plot }
+	state = { step = payload.step, holding = payload.holding ~= false, plot = payload.plot, earned = payload.earned }
 	if previous == nil or previous.step ~= payload.step then
 		clearGuide()
 	end
 
-	setBanner(payload.step)
+	setBanner(payload.step, payload.earned)
 	setHaulRing(payload.step == "haul")
 	setNavPointers(payload.step == "navigate")
 end
