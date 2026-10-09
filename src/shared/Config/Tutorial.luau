@@ -3,7 +3,7 @@
 	Config/Tutorial — the new-player walkthrough's steps and what each one says.
 
 	ON REQUEST: first stage, then find a spot, pull the nuke up, clean it, put it on a
-	stand, buy the Bent Coil, then the HOME / SHOPS buttons ("navigate"), and that is the
+	stand, let it earn the Bent Coil's $15 (a live "$0/$15" count), buy the Bent Coil, then the HOME / SHOPS buttons ("navigate"), and that is the
 	end: no "You're set!" card (removed on request). The banner (client TutorialController) says only what to
 	do NOW. It never says "step 3 of 6", on request, so there is no count anywhere in
 	here either.
@@ -16,9 +16,11 @@
 	only whether the walkthrough is still running (DataService's `onboarding`).
 ]]
 
+local Gear = require(script.Parent.Gear)
+
 local Tutorial = {}
 
-export type StepId = "stage" | "dig" | "haul" | "clean" | "place" | "upgrade" | "navigate"
+export type StepId = "stage" | "dig" | "haul" | "clean" | "place" | "earn" | "upgrade" | "navigate"
 
 --- `title` is the whole banner. The banner went text-only on request (client
 --- TutorialController), so `hint` and `holdHint` are not drawn at the moment. They
@@ -34,7 +36,7 @@ export type Step = {
 --- The walk, in order. `navigate` is the last: TutorialController points at the HOME
 --- and SHOPS buttons, and the walkthrough ends the moment you use one (WarpService) or
 --- after NAVIGATE_SECONDS.
-Tutorial.ORDER = { "stage", "dig", "haul", "clean", "place", "upgrade", "navigate" } :: { StepId }
+Tutorial.ORDER = { "stage", "dig", "haul", "clean", "place", "earn", "upgrade", "navigate" } :: { StepId }
 
 Tutorial.STEPS = {
 	stage = { title = "Head to the first stage", hint = "Follow the trail out of camp" },
@@ -50,6 +52,9 @@ Tutorial.STEPS = {
 		hint = "Hold E at an empty stand",
 		holdHint = "Pick your nuke from the hotbar, then hold E at an empty stand",
 	},
+	-- ON REQUEST: the banner carries a live "$0/$15" count after the title
+	-- (TutorialController), fed by TutorialService's `earned`.
+	earn = { title = "Earn $15", hint = "Your stand earns cash on its own" },
 	upgrade = { title = "Upgrade your detector", hint = "Buy the Bent Coil at the Detector Shop" },
 	navigate = { title = "Use Home and Sell to get around", hint = "Tap Home or Sell at the top of the screen" },
 } :: { [StepId]: Step }
@@ -60,6 +65,10 @@ Tutorial.NAVIGATE_SECONDS = 45
 
 --- The tier the last step asks for: the $15 Bent Coil (Config/Gear.Detector).
 Tutorial.UPGRADE_TIER = 2
+
+--- What the "earn" step counts up to: the Bent Coil's price, so "upgrade" only comes
+--- up once you can pay for it. The step is read off your cash (TutorialService).
+Tutorial.EARN_TARGET = Gear.Detector[Tutorial.UPGRADE_TIER].price
 
 --- True while this save's first dig should be made safe. That means the walkthrough is
 --- running and nothing has come out of the ground yet (empty bag, no crates, empty

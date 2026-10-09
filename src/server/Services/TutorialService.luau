@@ -5,7 +5,7 @@
 
 	NOTHING HERE ADVANCES A COUNTER. Four times a second each player still on the
 	walkthrough has their step re-read off the real game (`stepFor`): the Bent Coil
-	owned, a stand filled, a clean nuke in the bag, a crusted one, locked onto a signal,
+	owned, a stand filled and the $15 for the Bent Coil in hand, a stand filled, a clean nuke in the bag, a crusted one, locked onto a signal,
 	standing in a stage. The first of those that holds, in that order, is the step. That
 	is the whole state machine, and it is why a rejoin resumes where you were, and why
 	selling or losing the nuke puts you back on "find a spot to dig" rather than
@@ -82,7 +82,9 @@ function TutorialService.stepFor(player: Player, data: any): (Tutorial.StepId, b
 		return "navigate", true
 	end
 	if #data.exhibit.pedestals > 0 then
-		return "upgrade", true
+		-- "Earn $15" until the stand has paid for the Bent Coil. Nothing else can be
+		-- bought on the walkthrough, so cash is the count.
+		return if data.cash >= Tutorial.EARN_TARGET then "upgrade" else "earn", true
 	end
 	local crusted, clean = carried(data)
 	if clean then
@@ -101,7 +103,7 @@ function TutorialService.stepFor(player: Player, data: any): (Tutorial.StepId, b
 end
 
 local function send(player: Player, payload: any)
-	local signature = if payload == nil then "" else `{payload.step}:{payload.holding}:{payload.plot}`
+	local signature = if payload == nil then "" else `{payload.step}:{payload.holding}:{payload.plot}:{payload.earned}`
 	if lastSent[player] == signature then
 		return
 	end
@@ -156,7 +158,9 @@ local function stepPlayer(player: Player)
 	-- `plot` rides along because the trail points at YOUR cleansing station and YOUR
 	-- stands, and PlotState fires once on assignment, before this controller may be
 	-- listening.
-	send(player, { step = step, holding = holding, plot = ExhibitService.plotOf(player) })
+	-- `earned` is the "earn" step's live "$N/$15" count, so it re-sends as cash comes in.
+	local earned = if step == "earn" then math.clamp(math.floor(data.cash), 0, Tutorial.EARN_TARGET) else nil
+	send(player, { step = step, holding = holding, plot = ExhibitService.plotOf(player), earned = earned })
 end
 
 --- End the walkthrough from its last step ("navigate"). WarpService calls this when a
