@@ -88,16 +88,17 @@ local GRID_TEXT_DROP = Vector2.new(1, 2)
 
 -- THE LEFT GRID'S BARS (2026-10-09, on request, from a reference: "make the index and
 -- shop look like this"): a wide pill Dock.SIDE_BAR_HEIGHT tall, the picture on its left
--- end poking up over the top edge, the name in chunky FredokaOne beside it.
+-- end poking up over the top edge, the name beside it. Smaller picture, Gotham Black
+-- name left-aligned against it, spare room left at the far end (on request, same day).
 local BAR_HEIGHT = Dock.SIDE_BAR_HEIGHT
 local BAR_CORNER = math.round(12 * GRID_SCALE)
 local BAR_OUTLINE_THICKNESS = 3
-local BAR_ICON = math.round(52 * GRID_SCALE)
+local BAR_ICON = math.round(38 * GRID_SCALE)
 local BAR_ICON_LEFT = math.round(4 * GRID_SCALE)
-local BAR_ICON_RISE = math.round(5 * GRID_SCALE)
-local BAR_TEXT_SIZE = math.round(25 * GRID_SCALE)
-local BAR_TEXT_STROKE = 3.5
-local BAR_TEXT_DROP = Vector2.new(0, 3)
+local BAR_ICON_RISE = math.round(3 * GRID_SCALE)
+local BAR_TEXT_SIZE = math.round(19 * GRID_SCALE)
+local BAR_TEXT_STROKE = 3
+local BAR_TEXT_DROP = Vector2.new(1, 2)
 
 local HOVER_SCALE = 1.07
 local PRESS_SCALE = 0.94
@@ -220,22 +221,22 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 
 		if bar then
 			-- The picture on the left end, a little taller than the bar so it pokes up over
-			-- the top edge; the name fills the rest, centred beside the picture.
+			-- the top edge; the name left-aligned just after it.
 			icon = Artwork.picture(button, "Icon", spec.image, BAR_ICON, Color3.new(1, 1, 1))
 			icon.AnchorPoint = Vector2.new(0, 0.5)
 			icon.Position = UDim2.new(0, BAR_ICON_LEFT, 0.5, -BAR_ICON_RISE + (spec.iconDrop or 0))
 			icon.ZIndex = 6
-			local textLeft = BAR_ICON_LEFT + BAR_ICON
+			local textLeft = BAR_ICON_LEFT + BAR_ICON + BAR_ICON_LEFT
 			UIKit.hudNumber(button, {
 				name = "Caption",
 				anchorPoint = Vector2.new(0, 0.5),
-				position = UDim2.new(0, textLeft, 0.5, -2),
+				position = UDim2.new(0, textLeft, 0.5, -1),
 				size = UDim2.new(1, -textLeft - BAR_ICON_LEFT, 0, BAR_TEXT_SIZE + 6),
 				text = spec.caption,
-				font = Enum.Font.FredokaOne,
+				font = Enum.Font.GothamBlack,
 				textSize = BAR_TEXT_SIZE,
 				color = Color3.new(1, 1, 1),
-				xAlign = Enum.TextXAlignment.Center,
+				xAlign = Enum.TextXAlignment.Left,
 				zIndex = 8,
 			}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
 		else
