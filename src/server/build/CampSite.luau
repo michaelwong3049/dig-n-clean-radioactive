@@ -168,11 +168,24 @@ local BAY_Z = 134
 local MERGE_DECK_HALF_X = 18
 local MERGE_DECK_MIN_Z, MERGE_DECK_MAX_Z = 114, 146
 local MERGE_Z = 134
+--- The imported Merge Reactor (~31 x 28) needs more deck than the furnace: its deck
+--- runs further south and wider, so the machine at MERGE_Z sits dead centre on it with
+--- ~6 studs clear all round.
+local REACTOR_DECK_HALF_X = 22
+local REACTOR_DECK_MAX_Z = 154
 
 --- Whether this camp has the south deck: the Merge Reactor's, or the Slag Furnace's
 --- where there is no reactor (Config/Camps `furnace`).
 local function hasSouthDeck(def: Camps.CampDef): boolean
 	return def.mergeReactor == true or def.furnace == true
+end
+
+--- The south deck's half-width and far (south) edge for this camp.
+local function southDeckSize(def: Camps.CampDef): (number, number)
+	if def.mergeReactor == true then
+		return REACTOR_DECK_HALF_X, REACTOR_DECK_MAX_Z
+	end
+	return MERGE_DECK_HALF_X, MERGE_DECK_MAX_Z
 end
 
 --- WHERE THE CLEANSING STATION GOES WHEN THE REFORGE STATION TAKES THE NORTH DECK
@@ -1154,10 +1167,11 @@ local function buildMergeDeck(parent: Instance, L: Layout)
 	end
 	local p = L.palette
 	local deckTop = Plots.PAD.topY
+	local halfX, maxZ = southDeckSize(L.def)
 	local rect: Hub.Rect = {
-		minX = L.ox - MERGE_DECK_HALF_X,
-		maxX = L.ox + MERGE_DECK_HALF_X,
-		minZ = L.oz - MERGE_DECK_MAX_Z,
+		minX = L.ox - halfX,
+		maxX = L.ox + halfX,
+		minZ = L.oz - maxZ,
 		maxZ = L.oz - MERGE_DECK_MIN_Z,
 	}
 	local tint: Hub.TileOpts = { topY = deckTop, dark = p.deck, light = lighter(p.deck, 0.06) }
@@ -1240,11 +1254,12 @@ local function buildFoliage(parent: Instance, L: Layout)
 			then
 				continue
 			end
+			local southHalfX, southMaxZ = southDeckSize(L.def)
 			if
 				hasSouthDeck(L.def)
-				and math.abs(x - L.ox) <= MERGE_DECK_HALF_X + 6
+				and math.abs(x - L.ox) <= southHalfX + 6
 				and z <= L.oz - MERGE_DECK_MIN_Z + 6
-				and z >= L.oz - MERGE_DECK_MAX_Z - 6
+				and z >= L.oz - southMaxZ - 6
 			then
 				continue
 			end

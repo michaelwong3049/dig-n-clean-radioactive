@@ -64,7 +64,7 @@ MergeReactor.HALF_X = 11 * SCALE
 MergeReactor.HALF_Z = 7 * SCALE
 
 --- The imported look is ~0.86 x 0.48 x 0.75 studs as it comes in; this fills the deck
---- (36 x 32) the way the part-built machine did.
+--- (CampSite gives the reactor a 44 x 40 one) with ~6 studs clear all round.
 MergeReactor.IMPORT_SCALE = 36
 
 --- The import's colours, repainted to the user's reference render (2026-10-08): a
