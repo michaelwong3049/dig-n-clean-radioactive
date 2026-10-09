@@ -185,9 +185,7 @@
 	                (Treadmill.UNLOCK_PRICE), then buys the next belt rung. TreadmillService wires it at boot, by tag, the same way
 	                ShopService wires the luck button.
 	    Look        the imported treadmill model for the owner's belt rung, swapped
-	                by Plots.setTreadmillTier; its console `Readout` screen carries
-	                the speed and the bar. Both are written by
-	                ExhibitService.renderTreadmill, never by name from anywhere else.
+	                by Plots.setTreadmillTier (ExhibitService.renderTreadmill).
 	    Floor<f>    Model, one per floor above the ground (f = 2..Floors.MAX): deck,
 	                pillars, the flight of stairs up to it, its railings and its
 	                Stand/StandTop/Display parts for slots Floors.firstSlot(f)... Moved
@@ -2626,11 +2624,6 @@ local TEMPLATE_FOLDER = "TreadmillTemplates"
 --- collide, so nothing catches a player's head on the way on or off.
 local SOLID_SUFFIXES = { "_motor_hood", "_upright_L", "_upright_R", "_side_rail_L", "_side_rail_R" }
 
---- The readout's palette: hazard-yellow on the model's own screen, a dim track for
---- the progress bar.
-local SCREEN_INK, SCREEN_DIM = "FFC21A", "3A3A2A"
-local SCREEN_BARS = 7
-
 local warnedMissing: { [string]: boolean } = {}
 
 local function treadmillTemplate(name: string): Model?
@@ -2645,84 +2638,6 @@ local function treadmillTemplate(name: string): Model?
 		warn(`[plots] no treadmill model ReplicatedStorage.Assets.{TEMPLATE_FOLDER}.{name}; the belt stays bare`)
 	end
 	return nil
-end
-
---- The console's screen: the owner's speed level, a bar to the next one (both written
---- by setTreadmillTier alongside the billboard), and a stride pulse that bounces
---- (StationMotionController). Lit text, LightInfluence 0 so the sun does not wash it
---- out -- a screen, not paint. It rides a thin clear part laid just proud of the
---- model's screen, because a SurfaceGui drawn on the mesh's own box face can sit behind
---- the bezel around it.
-local function buildReadout(look: Model, screenMesh: BasePart)
-	local screen = Instance.new("Part")
-	screen.Name = "Screen"
-	screen.Size = Vector3.new(screenMesh.Size.X, screenMesh.Size.Y, 0.05)
-	-- The runner looks at the model's -Z faces (Front); stand the panel off that face.
-	screen.CFrame = screenMesh.CFrame * CFrame.new(0, 0, -(screenMesh.Size.Z / 2 + 0.06))
-	screen.Transparency = 1
-	screen.Anchored = true
-	screen.CanCollide = false
-	screen.CanQuery = false
-	screen.CanTouch = false
-	screen.Parent = look
-
-	local readout = Instance.new("SurfaceGui")
-	readout.Name = "Readout"
-	readout.Face = Enum.NormalId.Front
-	readout.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	readout.PixelsPerStud = 60
-	readout.LightInfluence = 0
-	readout.MaxDistance = 60
-	readout.Parent = screen
-
-	local speedLabel = Instance.new("TextLabel")
-	speedLabel.Name = "Speed"
-	speedLabel.BackgroundTransparency = 1
-	speedLabel.Position = UDim2.fromScale(0.04, 0.06)
-	speedLabel.Size = UDim2.fromScale(0.6, 0.6)
-	speedLabel.Font = Kit.FONT
-	speedLabel.TextScaled = true
-	speedLabel.TextXAlignment = Enum.TextXAlignment.Left
-	speedLabel.TextColor3 = Color3.fromHex(SCREEN_INK)
-	speedLabel.Text = `WALK {Treadmill.walkSpeedFor(1)}` -- setTreadmillTier's until it runs
-	speedLabel.Parent = readout
-
-	local pulse = Instance.new("Frame")
-	pulse.Name = "Pulse"
-	pulse.BackgroundTransparency = 1
-	pulse.Position = UDim2.fromScale(0.68, 0.1)
-	pulse.Size = UDim2.fromScale(0.28, 0.54)
-	pulse.Parent = readout
-	for i = 1, SCREEN_BARS do
-		local bar = Instance.new("Frame")
-		bar.Name = "Bar" .. i
-		bar.AnchorPoint = Vector2.new(0, 1)
-		bar.Position = UDim2.fromScale((i - 1) / SCREEN_BARS, 1)
-		bar.Size = UDim2.fromScale(0.6 / SCREEN_BARS, 0.4)
-		bar.BackgroundColor3 = Color3.fromHex(SCREEN_INK)
-		bar.BorderSizePixel = 0
-		bar.Parent = pulse
-	end
-
-	local track = Instance.new("Frame")
-	track.Name = "Progress"
-	track.Position = UDim2.fromScale(0.04, 0.76)
-	track.Size = UDim2.fromScale(0.92, 0.14)
-	track.BackgroundColor3 = Color3.fromHex(SCREEN_DIM)
-	track.BorderSizePixel = 0
-	track.Parent = readout
-	local fill = Instance.new("Frame")
-	fill.Name = "Fill"
-	fill.Size = UDim2.fromScale(0, 1)
-	fill.BackgroundColor3 = Color3.fromHex(SCREEN_INK)
-	fill.BorderSizePixel = 0
-	fill.Parent = track
-	for _, frame in { track, fill } do
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = frame
-	end
-	Kit.motion(screen, { kind = "screen" })
 end
 
 --- Per-rung glow, on request ("add effects to the upgraded treadmills", then "remove
@@ -2846,7 +2761,6 @@ local function installTreadmillLook(treadmill: Instance, tier: number): boolean
 	look:PivotTo(skeletonTop * modelTop:Inverse() * look:GetPivot())
 
 	local stripes: { BasePart } = {}
-	local screenMesh: BasePart? = nil
 	local consoleBody: BasePart? = nil
 	for _, d in look:GetDescendants() do
 		if not d:IsA("BasePart") then
@@ -2863,8 +2777,6 @@ local function installTreadmillLook(treadmill: Instance, tier: number): boolean
 		end
 		if string.find(d.Name, "_belt_stripe_", 1, true) then
 			table.insert(stripes, d)
-		elseif d.Name == def.model .. "_screen" then
-			screenMesh = d
 		elseif d.Name == def.model .. "_console_body" then
 			consoleBody = d
 		end
@@ -2904,9 +2816,6 @@ local function installTreadmillLook(treadmill: Instance, tier: number): boolean
 	local halfL, halfW = belt.Size.Z / 2, belt.Size.X / 2
 	belt:SetAttribute("Radius", math.ceil((math.sqrt(halfL * halfL + halfW * halfW + 3.3 * 3.3) + 0.5) * 10) / 10)
 
-	if screenMesh then
-		buildReadout(look, screenMesh)
-	end
 	addTreadmillFx(look, belt, tier, def.model)
 	if consoleBody then
 		console.CFrame = consoleBody.CFrame
@@ -3084,14 +2993,12 @@ end
 --- before the imported models (no `ImportedLook` attribute) keeps its old body and
 --- only has its sign rewritten, until the world is rebuilt.
 ---
---- `points` (the owner's lifetime Speed) is optional and only feeds the sign. nil
---- means "unclaimed plot", which prints level 1 and no progress, because a bar that
---- always reads empty on six plots is worse than no bar at all.
+--- `points` (the owner's lifetime Speed) is optional and no longer read here.
 ---
 --- `locked` means the owner has not bought treadmill access (Treadmill.UNLOCK_PRICE),
---- or there is no owner. The sign and screen say so, the prompt offers the unlock, and
+--- or there is no owner. The sign says so, the prompt offers the unlock, and
 --- the `Locked` attribute tells TreadmillController to leave this belt standing still.
-function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: number?, locked: boolean?): number?
+function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, _points: number?, locked: boolean?): number?
 	if treadmill == nil then
 		return nil
 	end
@@ -3102,9 +3009,6 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 		installTreadmillLook(treadmill, wanted)
 	end
 
-	-- Levels are internal: every word a player reads is walk speed.
-	local level, progress = Treadmill.levelFor(points or 0)
-	local walk = Treadmill.walkSpeedFor(level)
 	treadmill:SetAttribute("Locked", locked == true)
 	-- The upgrade sign replaced the console's E prompt (on request). A place saved
 	-- before it still has the prompt, so it goes here, and the sign is put up here
@@ -3123,17 +3027,11 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	end
 	ensureUpgradeSign(treadmill)
 
-	-- The console's own screen says the same number to the runner, with the bar to the
-	-- next walk-speed point. Absent when the model has no screen or failed to load.
+	-- The console's "WALK n" screen readout is gone (on request). A Look saved with it
+	-- still carries its clear `Screen` part, so that comes down here too.
 	local readout = treadmill:FindFirstChild("Readout", true)
-	local screenSpeed = readout and readout:FindFirstChild("Speed")
-	if screenSpeed and screenSpeed:IsA("TextLabel") then
-		screenSpeed.Text = if locked then "LOCKED" else string.format("WALK %d", walk)
-	end
-	local fill = readout and readout:FindFirstChild("Fill", true)
-	if fill and fill:IsA("Frame") then
-		local shown = if points == nil or locked then 0 else progress
-		fill.Size = UDim2.fromScale(math.clamp(shown, 0, 1), 1)
+	if readout and readout.Parent and readout.Parent.Name == "Screen" then
+		readout.Parent:Destroy()
 	end
 
 	treadmill:SetAttribute("Tier", wanted)
