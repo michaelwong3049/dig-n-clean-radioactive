@@ -881,7 +881,10 @@ local function stepPlayer(player: Player, dt: number)
 	reading.drain *= stats.radDamageMult
 	-- /immunity: the reading still names the ambient and the bag (the HUD keeps its
 	-- numbers), but none of it lands -- nothing accrues, nothing burns, the aura holds.
-	if immune[player] then
+	-- A SAFE STAGE (Tuning.SAFE_STAGES, Fading Fields): nothing out there can hurt you --
+	-- the same as /immunity for the air, plus no crater burn and no blast hit below.
+	local safeStage = stageId ~= nil and Tuning.SAFE_STAGES[stageId] == true
+	if immune[player] or safeStage then
 		reading.net = 0
 		reading.excess = 0
 		reading.healthBurn = 0
@@ -896,7 +899,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- treats standing in a crater exactly like aura failure. `failing` is left alone:
 	-- that flag means the AURA gave out, and it has not. The aura does not shield this
 	-- either; it is the air itself, a second ago, at a few thousand degrees.
-	local craterBurn = HazardService.burnAt(root.Position, stageId ~= nil, player)
+	local craterBurn = if safeStage then 0 else HazardService.burnAt(root.Position, stageId ~= nil, player)
 	reading.healthBurn += craterBurn
 	-- ...and it is fallout as well as heat: the orb fills the meter fast on top of
 	-- whatever the stage is doing (Tuning.CRATER_RADS_PER_BURN). Kept beside `net`
@@ -908,6 +911,9 @@ local function stepPlayer(player: Player, dt: number)
 	-- Always taken, even while downed, so a hit that lands on a blackout is dropped
 	-- rather than banked into the next life (HazardService.takeHit).
 	local blastHit = HazardService.takeHit(player)
+	if safeStage then
+		blastHit = 0
+	end
 
 	local showering, healing = inShower(player, root.Position)
 	local sickDrain = 0
@@ -915,7 +921,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- drain (Tuning.CAMP_FLUSH_RATE). Sent to the HUD so its arrows can read ▼.
 	local flushRate = if showering
 		then Tuning.SHOWER_FLUSH_RATE
-		elseif stageId == nil then Tuning.CAMP_FLUSH_RATE
+		elseif stageId == nil or safeStage then Tuning.CAMP_FLUSH_RATE
 		else 0
 
 	if not state.downed then
@@ -933,7 +939,7 @@ local function stepPlayer(player: Player, dt: number)
 		-- health (80%+), and drains it heavily when full (100%) -- a full meter is no
 		-- longer an instant blackout. See Tuning's sickness block for why camps are exempt.
 		local frac = Radiation.exposureFraction(state.exposure)
-		local sick = stageId ~= nil and not showering and not immune[player]
+		local sick = stageId ~= nil and not showering and not immune[player] and not safeStage
 		sickDrain = if sick then Radiation.sicknessDrain(frac, maxHealthOf(player)) * stats.radDamageMult else 0
 		local noRegen = sick and frac >= Tuning.SICKNESS_NO_REGEN
 

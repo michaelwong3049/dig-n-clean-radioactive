@@ -189,6 +189,13 @@ Tuning.ZONE_SURVIVAL = {
 		[8] = { from = 0.4, edge = 2 },
 	},
 }
+-- SAFE STAGES: stageId -> true. Nothing in a listed stage costs health or fills the
+-- meter -- no aura drain, no sickness, no crater orb, no blast -- and the meter drains
+-- at CAMP_FLUSH_RATE as if you were in a camp, so a player there cannot die. On request
+-- (2026-10-09, "make fading fields EXTREMELY easy like a player can't die").
+Tuning.SAFE_STAGES = {
+	[1] = true,
+}
 Tuning.MAX_HEALTH = 100
 -- Every aura level past the first adds this much max health (tier 1 = 100, tier 2 = 150...).
 Tuning.HEALTH_PER_AURA_TIER = 50
