@@ -294,6 +294,17 @@ local store = ProfileStore.New(`PlayerData_v{STORE_VERSION}`, TEMPLATE)
 
 local profiles: { [Player]: any } = {}
 local loadedCallbacks: { (player: Player, data: any) -> () } = {}
+local resetCallbacks: { (userId: number) -> () } = {}
+
+-- Players whose session ended under them (stolen by another server, or reset by
+-- /resetdata) rather than by leaving. Their last in-memory numbers are stale, so
+-- leave-time writers (LeaderboardService) skip them. Cleared shortly after they go.
+local detached: { [Player]: boolean } = {}
+
+-- The message /resetdata queues on a save held by another server; that server's
+-- handler (onPlayerAdded) does the reset.
+local RESET_MESSAGE = "resetSave"
+local RESET_KICK = "Your save was reset by an admin — rejoin to start fresh."
 
 -- ── The logout rule ───────────────────────────────────────────────────────────
 --
@@ -446,6 +457,39 @@ local function collapseTreadmillLadder(data: any): number
 	return refund
 end
 
+-- ── Save reset (/resetdata) ───────────────────────────────────────────────────
+
+local function deepCopy(value: any): any
+	if type(value) ~= "table" then
+		return value
+	end
+	local copy = {}
+	for k, v in value do
+		copy[k] = deepCopy(v)
+	end
+	return copy
+end
+
+local function fireReset(userId: number)
+	for _, fn in resetCallbacks do
+		task.spawn(fn, userId)
+	end
+end
+
+--- Wipe a save whose session this server holds: swap in a fresh TEMPLATE copy, kick,
+--- and end the session so the fresh copy is what gets written. Detached from
+--- `profiles` first, so nothing on the way out (freezeCarry, other services'
+--- PlayerRemoving) can write into the new save.
+local function resetHere(player: Player, profile: any)
+	profiles[player] = nil
+	detached[player] = true
+	profile.Data = deepCopy(TEMPLATE)
+	fireReset(player.UserId)
+	player:Kick(RESET_KICK)
+	profile:EndSession()
+	print(`[data] {player.Name}: save RESET`)
+end
+
 -- ── Session lifecycle ─────────────────────────────────────────────────────────
 
 local function onPlayerAdded(player: Player)
@@ -495,7 +539,13 @@ local function onPlayerAdded(player: Player)
 	end
 
 	profile.OnSessionEnd:Connect(function()
+		-- A leave or a reset detaches the profile before ending it; only a session
+		-- lost to another server still finds itself in `profiles` here.
+		if profiles[player] ~= profile then
+			return
+		end
 		profiles[player] = nil
+		detached[player] = true
 		player:Kick("Your save was opened on another server — please rejoin.")
 	end)
 
@@ -508,6 +558,24 @@ local function onPlayerAdded(player: Player)
 
 	thawCarry(profile.Data)
 	profiles[player] = profile
+
+	-- /resetdata from another server while this one held the save, or while the
+	-- holder was dead and the message waited for this join. Queued messages are
+	-- handed over on registration, so a pending reset runs before anyone is told
+	-- the save loaded.
+	profile:MessageHandler(function(message: any, processed: () -> ())
+		if type(message) ~= "table" or message.kind ~= RESET_MESSAGE then
+			return -- not ours; leave it queued
+		end
+		processed()
+		if profiles[player] == profile then
+			resetHere(player, profile)
+		end
+	end)
+	if profiles[player] ~= profile then
+		return
+	end
+
 	print(`[data] {player.Name} LOADED — cash {profile.Data.cash}, level {profile.Data.level}, carrying {#profile.Data.carry}`)
 
 	for _, fn in loadedCallbacks do
@@ -516,6 +584,13 @@ local function onPlayerAdded(player: Player)
 end
 
 local function onPlayerRemoving(player: Player)
+	if detached[player] then
+		-- Long enough for every other PlayerRemoving handler to have asked.
+		task.delay(5, function()
+			detached[player] = nil
+		end)
+	end
+
 	local profile = profiles[player]
 	if profile == nil then
 		return
@@ -525,8 +600,8 @@ local function onPlayerRemoving(player: Player)
 		freezeCarry(profile.Data) -- must happen BEFORE EndSession so it is saved
 	end
 
+	profiles[player] = nil -- before EndSession, so OnSessionEnd reads it as a leave
 	profile:EndSession()
-	profiles[player] = nil
 end
 
 -- ── Public API ────────────────────────────────────────────────────────────────
@@ -590,6 +665,65 @@ function DataService.peek(userId: number): (boolean, any)
 		return false, nil
 	end
 	return true, if profile then profile.Data else nil
+end
+
+--- Wipe this user's save back to a brand-new one, wherever they are. YIELDS.
+--- Returns whether it went through and a line saying what happened:
+---   in this server     the fresh save is swapped in and they are kicked;
+---   on another server  a reset message goes to that server, which does the same;
+---   offline            the session is taken here and the fresh save written.
+--- Queued messages (unopened Robux gifts) live beside Data, not in it, and survive.
+function DataService.resetSave(userId: number): (boolean, string)
+	local key = `{userId}`
+	local player = Players:GetPlayerByUserId(userId)
+	if player ~= nil then
+		local profile = profiles[player]
+		if profile == nil then
+			return false, "their save is still loading in this server — try again in a moment"
+		end
+		resetHere(player, profile)
+		return true, "reset and kicked from this server"
+	end
+
+	local ok, saved = pcall(store.GetAsync, store, key)
+	if not ok then
+		return false, `couldn't read the save: {saved}`
+	end
+	if saved == nil then
+		return false, "no save for that user"
+	end
+
+	if saved.Session ~= nil then
+		-- Held elsewhere (or by a server that died holding it, in which case the
+		-- message waits and runs on their next join). Stealing the session instead
+		-- would leave them playing on a doomed save until that server's next autosave.
+		local sent = DataService.message(userId, { kind = RESET_MESSAGE })
+		if not sent then
+			return false, "couldn't reach the server holding their save"
+		end
+		return true, "they're on another server — reset sent there, they'll be kicked"
+	end
+
+	local profile = store:StartSessionAsync(key, { Steal = true })
+	if profile == nil then
+		return false, "couldn't open the save"
+	end
+	profile.Data = deepCopy(TEMPLATE)
+	profile:EndSession()
+	fireReset(userId)
+	print(`[data] {userId}: offline save RESET`)
+	return true, "reset (they were offline)"
+end
+
+--- Register a callback fired with the userId whenever a save is reset on this server.
+function DataService.onReset(fn: (userId: number) -> ())
+	table.insert(resetCallbacks, fn)
+end
+
+--- True while a player's session ended under them (reset, or opened on another
+--- server) and they are on their way out: their in-memory numbers are stale.
+function DataService.wasDetached(player: Player): boolean
+	return detached[player] == true
 end
 
 --- "Access" once DataStores are reachable; "NoAccess" in Studio without API

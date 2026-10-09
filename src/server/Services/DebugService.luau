@@ -981,6 +981,47 @@ COMMANDS["/groupchest"] = {
 	end,
 }
 
+COMMANDS["/resetdata"] = {
+	-- Wipes a whole save back to a new player's, in this server, another one, or
+	-- offline (DataService.resetSave). There is no undo, hence the confirm word.
+	help = "/resetdata <username|userId> confirm — wipe a player's save to a brand-new one (kicks them if online; no undo)",
+	run = function(_player, _sandbox, args)
+		local target = args[1]
+		if target == nil then
+			return "usage: /resetdata <username|userId> confirm"
+		end
+
+		local userId = tonumber(target)
+		local name = target
+		if userId == nil then
+			local here = nil
+			for _, other in Players:GetPlayers() do
+				if string.lower(other.Name) == string.lower(target) then
+					here = other
+					break
+				end
+			end
+			if here ~= nil then
+				userId, name = here.UserId, here.Name
+			else
+				local ok, result = pcall(Players.GetUserIdFromNameAsync, Players, target)
+				if not ok then
+					return `no Roblox user named "{target}"`
+				end
+				userId = result
+			end
+		end
+		local id = math.floor(userId :: number)
+
+		if args[2] ~= "confirm" then
+			return `this wipes {name} ({id})'s whole save for good -- run "/resetdata {target} confirm" to do it`
+		end
+
+		local ok, outcome = DataService.resetSave(id)
+		return if ok then `{name} ({id}): {outcome}` else `{name} ({id}): not reset -- {outcome}`
+	end,
+}
+
 COMMANDS["/pass"] = {
 	-- A game pass without Robux, for this session: the next join's ownership check
 	-- clears it again unless the account really owns it.
