@@ -531,7 +531,7 @@ local CARD_NAME_INSET = 18
 -- the "Trail Shop" reference: "way bigger" names, a rarity word below each). It took
 -- 12px off the top of the well.
 local CARD_NAME_TOP = 8
-local CARD_TITLE_SIZE = 36 -- 44 read too big (2026-10-08)
+local CARD_TITLE_SIZE = 44
 local CARD_RARITY_SIZE = 22
 local CARD_NAME_HEIGHT = CARD_TITLE_SIZE + 2 + CARD_RARITY_SIZE
 local CARD_ART_TOP = CARD_NAME_TOP + CARD_NAME_HEIGHT + 4
@@ -776,7 +776,7 @@ end
 --- above for the same reason.
 -- The gear cards' corner: squared off, just softened (on request, 2026-10-07; was 12).
 local CARD_CORNER = 4
-local CARD_STUD_TILE = 16
+local CARD_STUD_TILE = 10
 
 local function makeShopCard(parent: Instance, order: number): Frame
 	local card = UIKit.panel(parent, {
@@ -796,7 +796,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	-- The glossy L-stud pattern over whatever colour the card is painted
 	-- (paintShopCard), under everything else on it. The glow is kept faint so the
 	-- gear's colour still reads at full strength.
-	-- The studs are small and fine-grained, 16 px rather than the panels' 28 px and a
+	-- The studs are small and fine-grained, 10 px rather than the panels' 28 px and a
 	-- touch stronger so they read at that size (on request, 2026-10-08: "smaller and grainier").
 	-- An Anomaly card's spectrum (paintShopCard turns it on). A UIGradient tints only
 	-- its parent's own fill, so nothing on the card is recoloured with it.
