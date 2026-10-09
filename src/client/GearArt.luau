@@ -19,7 +19,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local AuraLook = require(Shared.AuraLook)
-local MagnetHang = require(Shared.MagnetHang)
 local ToolModels = require(Shared.ToolModels)
 local ToolTiers = require(Shared.Config.ToolTiers)
 
@@ -296,33 +295,6 @@ function GearArt.tint(track: string, tier: number): Color3?
 		return STEEL
 	end
 	return Color3.fromHSV(h, math.clamp(s * 0.9, TINT_SATURATION.Min, TINT_SATURATION.Max), TINT_VALUE)
-end
-
---- Put magnet tier `tier` in `viewport` HUNG the way the hand and the rack hold it
---- (Shared/MagnetHang: poles down, face to camera), seen nearly head on from a hair
---- above. `sideways` rolls the camera a quarter so the poles point LEFT instead of
---- down: the haul rope (HaulRope), where the nuke slides along it into the magnet.
-local HUNG_VIEW: ArtView = { from = Vector3.new(0.3, 0.2, 1), up = Vector3.yAxis, pose = CFrame.identity }
-local SIDEWAYS_VIEW: ArtView = { from = Vector3.new(0.3, 0.2, 1), up = -Vector3.xAxis, pose = CFrame.identity }
-function GearArt.showHung(viewport: ViewportFrame, tier: number, aspect: number, sideways: boolean?)
-	for _, child in viewport:GetChildren() do
-		if child:IsA("Model") then
-			child:Destroy()
-		end
-	end
-	local model = artModel("Magnet", tier)
-	if model == nil then
-		return
-	end
-	for _, name in ART_HIDE do
-		local extra = model:FindFirstChild(name)
-		if extra then
-			extra:Destroy()
-		end
-	end
-	model:PivotTo(MagnetHang.basis(tier))
-	model.Parent = viewport
-	frameArt(viewport.CurrentCamera :: Camera, model, if sideways then SIDEWAYS_VIEW else HUNG_VIEW, aspect)
 end
 
 return GearArt

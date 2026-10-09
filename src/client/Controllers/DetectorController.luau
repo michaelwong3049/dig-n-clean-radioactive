@@ -40,7 +40,6 @@ local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
 local Stages = require(Shared.Config.Stages)
-local DetonationConfig = require(Shared.Config.Detonation)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -124,59 +123,52 @@ local PROMPT_MIN_SHOWN = 0.6 -- how far up the spot has to be before the card is
 local PROMPT_WAIT_CAP = 1.0 -- seconds the card will wait on a spot before showing regardless
 
 local YANK_KICK_SECONDS = 0.12
-local YANK_KICK_SCALE = 0.05 -- how far REEL IN presses in at the peak of a kick
--- No yank for this long and the soil is winning: the rope's strain judder gets harder.
+-- No yank for this long and the soil is winning: the bar's strain judder gets harder.
 local ROPE_IDLE_SECONDS = 0.2
 
 -- ── The haul widget's interior ──────────────────────────────────────────────────
--- ALL DERIVED FROM Dock.HAULPANEL_SIZE, never re-hardcoded against it.
+-- ALL DERIVED FROM Dock.HAULPANEL_SIZE and the vitals bars' own columns, never
+-- re-hardcoded against them.
 --
 -- THERE IS NO PANEL BEHIND ANY OF THIS. The widget is a transparent container that
 -- only exists to be shown and hidden as a unit; each piece carries itself.
 --
--- THREE ROWS. On top, the readout: what you hooked (the rarity word, left) and the
--- metres still to come up (right). In the middle, the tug-of-war rope (HaulRope): the
--- nuke slides along it from the dirt on the left into the player's magnet on the
--- right -- how far along it is IS the progress, so there is no bar -- with the fuse
--- burning down a wick over it. At the bottom, the two controls: LET GO at the left
--- end and REEL IN at the right, under the magnet, as far apart as the row allows
--- because hitting the wrong one ends the haul.
+-- TWO SLIM ROWS, laid out like the vitals bars right under them (on request,
+-- 2026-10-09: the taller panel covered the character). On top, a label row: the rarity
+-- word on the left, the metres still to come on the right. Under it, the pull bar (HaulRope), in exactly the health bar's column -- same
+-- left edge, same length -- with the magnet as a cell at its right end. LET GO is a
+-- red badge in the icon column, lined up with the radiation and heart badges below;
+-- REEL IN is the bar itself (E on a keyboard, a tap anywhere on it on touch).
 local PANEL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset
-local PANEL_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset
-local READOUT_HEIGHT = 38
-local ROPE_TOP = READOUT_HEIGHT + 6
-local HAULBUTTON_HEIGHT = 56
-local HAULBUTTON_WIDTH = 250
-local HAULBUTTON_TEXT = 24
-local HAULBUTTON_Y = PANEL_HEIGHT - HAULBUTTON_HEIGHT
-local RELEASE_WIDTH = 160 -- the red LET GO plate, at the row's left end
-local TITLE_TEXT = 34 -- the rarity word
--- The metres readout, right-aligned over the magnet end. The rarity word gets the rest
--- of the row, which still clears "LEGENDARY" at TITLE_TEXT -- the longest rarity in
--- Rarity.ORDER, and the one thing here that would clip rather than merely look cramped.
-local METRES_WIDTH = 220
-local METRES_TEXT = 34
+local LABEL_HEIGHT = 26
+local ROW_GAP = 3
+local BAR_X = Dock.VITALS_BAR_X
+local BAR_Y = LABEL_HEIGHT + ROW_GAP
+local BAR_WIDTH = PANEL_WIDTH - BAR_X
+local BAR_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset - BAR_Y
+local BADGE = Dock.VITALS_ICON -- the LET GO badge, the vitals badges' size
+local TITLE_TEXT = 22 -- the rarity word
+local TITLE_WIDTH = 220 -- clears "Legendary", the longest rarity in Rarity.ORDER
+local METRES_TEXT = 24
 -- "%.1f m", the unit at a smaller size. RichText.
-local METRES_FORMAT = '%.1f<font size="20">m</font>'
+local METRES_FORMAT = '%.1f<font size="16">m</font>'
 -- "to go" is its OWN label after the number, in the lighter title weight. Inside the
 -- Gotham Black string its spaces came out ~3px under the outline and read "mtogo" in
 -- Play (and &#160; drew as missing-glyph diamonds).
-local TOGO_WIDTH = 54
-local TOGO_GAP = 6
-local TOGO_TEXT = 19
+local TOGO_WIDTH = 40
+local TOGO_GAP = 5
+local METRES_WIDTH = 150
 
--- How fast the rope's nuke chases the server's value (1/seconds). Smoothed rather
+-- How fast the bar's nuke chases the server's value (1/seconds). Smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
 -- like a stutter; fast enough that a yank still lands as a visible jump.
 local FILL_LERP_RATE = 14
 
--- The pull fuse (Config/Detonation), on the wick's chip: cool, warming, armed. Pale
--- straw until WARN_AT, easing to amber by ARM_AT, then red.
-local FUSE_COOL = Color3.fromHex("FDE68A")
--- What the armed red flashes toward. Deliberately NOT UIKit.C.burn: that white means
--- aura failure and nothing else (PLAN's one colour rule).
-local FUSE_FLASH = Color3.fromHex("FFD2C4")
-local FUSE_ARMED_PULSE = 7 -- rad/sec on the armed chip's flash
+-- The pull fuse (Config/Detonation) has no readout of its own any more (on request,
+-- 2026-10-09: the seconds chip over the bar was removed). The wick on the bar is the
+-- time left; once it ARMS, the bar's outline flashes red at this rate (rad/sec) --
+-- together with LET GO greying out, that is how you know the release has stopped.
+local FUSE_ARMED_PULSE = 7
 
 type Contact = { dx: number, dz: number, rarity: string?, scale: number? }
 
@@ -762,162 +754,68 @@ local function build(): ScreenGui
 	ui.placeHaul = placeHaul
 	placeHaul()
 
-	-- THE ROPE: the picture of the haul. The nuke slides along it from the dirt into the
-	-- player's magnet, so how far along it is IS the progress, and the fuse burns down
-	-- the wick over it (HaulRope's header). renderState paints its dirt end in the
-	-- stage's soil and the nuke in the signal's colour; renderFrame moves both every frame.
-	ui.rope = HaulRope.build(haul, UDim2.fromOffset(0, ROPE_TOP), PANEL_WIDTH)
+	-- THE PULL BAR: the picture of the haul, in the health bar's column. The nuke slides
+	-- along it from the dirt into the magnet cell, so how far along it is IS the
+	-- progress, and the fuse burns down the wick on its top edge (HaulRope's header).
+	-- renderState paints its dirt end in the stage's soil and the nuke in the signal's
+	-- colour; renderFrame moves both every frame.
+	ui.rope = HaulRope.build(haul, UDim2.fromOffset(BAR_X, BAR_Y), BAR_WIDTH, BAR_HEIGHT)
+	HaulRope.showKeycap(ui.rope, UserInputService.KeyboardEnabled)
 
-	-- REEL IN, UNDER THE MAGNET. A real button and not a key hint because a phone
-	-- has no E key -- without a tappable control here the entire second beat would be
-	-- keyboard-only. A near-opaque plate, because over open ground a translucent fill
-	-- puts the verb on grass. Its outline carries the signal's colour (renderState), in
-	-- step with the band on the nuke.
-	local haulButton, haulButtonStroke = UIKit.button(haul, {
-		name = "HaulButton",
-		position = UDim2.fromOffset(PANEL_WIDTH - HAULBUTTON_WIDTH, HAULBUTTON_Y),
-		size = UDim2.fromOffset(HAULBUTTON_WIDTH, HAULBUTTON_HEIGHT),
-		font = UIKit.Font.title,
-		textSize = HAULBUTTON_TEXT,
-		color = COLOR.text,
-		fillColor = COLOR.panel,
-		fillTransparency = 0.05,
-		strokeColor = COLOR.scope,
-		strokeThickness = UIKit.Stroke.normal,
-		cornerRadius = UDim.new(0, 10),
-		text = "",
-	})
+	-- REEL IN IS THE BAR. A clear button laid over the whole of it, because a phone has
+	-- no E key -- without something tappable here the entire second beat would be
+	-- keyboard-only. Named HaulButton: the tutorial's pointer finds it by that name.
+	local haulButton = Instance.new("TextButton")
+	haulButton.Name = "HaulButton"
+	haulButton.Position = UDim2.fromOffset(BAR_X, BAR_Y)
+	haulButton.Size = UDim2.fromOffset(BAR_WIDTH, BAR_HEIGHT)
+	haulButton.BackgroundTransparency = 1
+	haulButton.Text = ""
+	haulButton.ZIndex = 30
+	haulButton.Parent = haul
 	ui.haulButton = haulButton
 	-- Mashed: the shovel crunch is its sound, a UI click on top would be noise.
 	haulButton:SetAttribute("NoClickSound", true)
-	ui.haulButtonStroke = haulButtonStroke
-	-- The kick (renderFrame) presses the plate in through this, rather than resizing it.
-	local haulKick = Instance.new("UIScale")
-	haulKick.Parent = haulButton
-	ui.haulKick = haulKick
 
-	-- Keycap + verb, centred as one row on the plate. Nothing in the row is Active, so a
-	-- click anywhere on the plate still lands on the button. The keycap only shows where
-	-- there is a keyboard to press it on; a touch player just taps the plate.
-	local reelRow = Instance.new("Frame")
-	reelRow.Name = "Row"
-	reelRow.Size = UDim2.fromScale(1, 1)
-	reelRow.BackgroundTransparency = 1
-	reelRow.Parent = haulButton
-	local reelLayout = Instance.new("UIListLayout")
-	reelLayout.FillDirection = Enum.FillDirection.Horizontal
-	reelLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	reelLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	reelLayout.Padding = UDim.new(0, 10)
-	reelLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	reelLayout.Parent = reelRow
-
-	local reelKey = Instance.new("Frame")
-	reelKey.Name = "Keycap"
-	reelKey.Size = UDim2.fromOffset(30, 30)
-	reelKey.BackgroundColor3 = COLOR.text
-	reelKey.BorderSizePixel = 0
-	reelKey.LayoutOrder = 1
-	reelKey.Visible = UserInputService.KeyboardEnabled
-	reelKey.Parent = reelRow
-	local reelKeyCorner = Instance.new("UICorner")
-	reelKeyCorner.CornerRadius = UDim.new(0, 7)
-	reelKeyCorner.Parent = reelKey
-	UIKit.label(reelKey, {
-		name = "Key",
-		size = UDim2.fromScale(1, 1),
-		font = UIKit.Font.hero, -- Gotham Black; Let Go's Q is cloned from this
-		textSize = 17,
-		color = COLOR.panel,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		strokeTransparency = 1,
-		text = "E",
-	})
-	-- NO TEXT OUTLINE on the verb: it sits on its own near-opaque plate, and an outline
-	-- there only fattens the glyphs into each other.
-	local reelVerb = UIKit.label(reelRow, {
-		name = "Verb",
-		size = UDim2.fromOffset(0, 30),
-		font = UIKit.Font.hero, -- Gotham Black
-		textSize = HAULBUTTON_TEXT,
-		color = COLOR.text,
-		outline = false,
-		strokeTransparency = 1,
-		text = "Reel In",
-	})
-	reelVerb.AutomaticSize = Enum.AutomaticSize.X
-	reelVerb.LayoutOrder = 2
-
-	-- RELEASE HAS TO BE VISIBLE. Locking roots the character, so a player who cannot
-	-- find the way out is stuck standing in a field. It is a real button rather than
-	-- only a key hint for the same reason REEL IN is: on touch there is no Q. Level with
-	-- REEL IN but at the far (dirt) end of the row -- the two
-	-- are the only controls here and hitting the wrong one ends the haul.
-	--
-	-- A solid red plate, same height as REEL IN, at the row's left end. Red
-	-- reads as "stop", with a black border and a Q keycap like REEL IN's E (keyboard
-	-- only; a touch player just taps the plate). Greys out once the fuse arms.
-	local releaseButton, releaseStroke = UIKit.button(haul, {
-		name = "ReleaseButton",
-		position = UDim2.fromOffset(0, HAULBUTTON_Y),
-		size = UDim2.fromOffset(RELEASE_WIDTH, HAULBUTTON_HEIGHT),
-		font = UIKit.Font.title,
-		textSize = HAULBUTTON_TEXT,
-		color = COLOR.text,
-		fillColor = COLOR.red,
-		fillTransparency = 0,
-		strokeColor = COLOR.outline, -- black border round the red
-		strokeThickness = UIKit.Stroke.thick,
-		cornerRadius = UDim.new(0, 10),
-		text = "",
-	})
-	ui.releaseButton = releaseButton
-	-- Border, not Contextual: on a TextButton a Contextual stroke traces the GLYPHS, and
-	-- this button's own Text is empty (the label is a child), so it drew nothing.
+	-- LET GO, IN THE ICON COLUMN. Locking roots the character, so a player who cannot
+	-- find the way out is stuck standing in a field: a real button, not only a key hint,
+	-- because on touch there is no Q. A red badge the size of the radiation and heart
+	-- badges under it, at the far (dirt) end from the magnet -- hitting the wrong one ends
+	-- the haul. Q on a keyboard, an X on touch; greyed with no letter once the fuse arms.
+	local releaseButton = Instance.new("TextButton")
+	releaseButton.Name = "ReleaseButton"
+	releaseButton.Position = UDim2.fromOffset(0, BAR_Y + (BAR_HEIGHT - BADGE) / 2)
+	releaseButton.Size = UDim2.fromOffset(BADGE, BADGE)
+	releaseButton.BackgroundColor3 = COLOR.red
+	releaseButton.BorderSizePixel = 0
+	releaseButton.AutoButtonColor = true
+	releaseButton.Font = UIKit.Font.hero
+	releaseButton.TextSize = 14
+	releaseButton.TextColor3 = COLOR.text
+	releaseButton.Text = if UserInputService.KeyboardEnabled then "Q" else "X"
+	releaseButton.ZIndex = 30
+	releaseButton.Parent = haul
+	local releaseCorner = Instance.new("UICorner")
+	releaseCorner.CornerRadius = UDim.new(0.5, 0)
+	releaseCorner.Parent = releaseButton
+	local releaseStroke = Instance.new("UIStroke")
+	releaseStroke.Color = COLOR.outline
+	releaseStroke.Thickness = 2
 	releaseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	releaseStroke.Parent = releaseButton
+	ui.releaseButton = releaseButton
 
-	-- Keycap + verb, the same row as REEL IN's E. The keycap hides once the fuse arms:
-	-- Q does nothing then, and "Locked In" needs the room.
-	local releaseRow = Instance.new("Frame")
-	releaseRow.Name = "Row"
-	releaseRow.Size = UDim2.fromScale(1, 1)
-	releaseRow.BackgroundTransparency = 1
-	releaseRow.Parent = releaseButton
-	local releaseLayout = reelLayout:Clone()
-	releaseLayout.Parent = releaseRow
-
-	local releaseKey = reelKey:Clone()
-	releaseKey.Key.Text = "Q"
-	releaseKey.Parent = releaseRow
-	ui.releaseKey = releaseKey
-
-	local releaseVerb = UIKit.label(releaseRow, {
-		name = "Verb",
-		size = UDim2.fromOffset(0, 30),
-		font = UIKit.Font.hero, -- Gotham Black
-		textSize = HAULBUTTON_TEXT,
-		color = COLOR.text,
-		outline = false,
-		strokeTransparency = 1,
-		text = "Let Go",
-	})
-	releaseVerb.AutomaticSize = Enum.AutomaticSize.X
-	releaseVerb.LayoutOrder = 2
-	ui.releaseVerb = releaseVerb
-
-	-- THE READOUT, over the rope: what the detector reads about the thing you locked
-	-- onto, then how far it still has to come. The rarity word is the headline and
-	-- carries the accent tint (in step with the nuke's band and REEL IN's outline); the
-	-- metres left sit at the other end, over the magnet. No "1 in N" odds (on request):
-	-- with the rarity word beside it, the odds named the exact nuke coming up. All of it
-	-- lands on any detector (DigService.hintFor is not clarity-gated), and all of it
-	-- takes the kit's hard outline, because with no panel behind it this text can end up
-	-- over sunlit sludge.
+	-- THE LABEL ROW, over the bar: what the detector reads about the thing you locked
+	-- onto, the fuse, and how far it still has to come. The rarity word carries the
+	-- accent tint (in step with the nuke's band); no "1 in N" odds (on request): with the
+	-- rarity word beside it, the odds named the exact nuke coming up. All of it lands on
+	-- any detector (DigService.hintFor is not clarity-gated), and all of it takes the
+	-- kit's hard outline, because with no panel behind it this text can end up over
+	-- sunlit sludge.
 	ui.haulTitle = UIKit.label(haul, {
 		name = "Title",
-		position = UDim2.fromOffset(0, 0),
-		size = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, READOUT_HEIGHT),
+		position = UDim2.fromOffset(BAR_X, 0),
+		size = UDim2.fromOffset(TITLE_WIDTH, LABEL_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = TITLE_TEXT,
 		color = COLOR.scope,
@@ -930,8 +828,8 @@ local function build(): ScreenGui
 	-- "LEGENDARY" next to a "?" reads as a bug.
 	ui.haulQuestion = UIKit.label(haul, {
 		name = "HaulQuestion",
-		position = UDim2.fromOffset(0, 0),
-		size = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, READOUT_HEIGHT),
+		position = UDim2.fromOffset(BAR_X, 0),
+		size = UDim2.fromOffset(TITLE_WIDTH, LABEL_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = TITLE_TEXT,
 		color = COLOR.dim,
@@ -945,7 +843,7 @@ local function build(): ScreenGui
 	ui.haulMetres = UIKit.label(haul, {
 		name = "Metres",
 		position = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, 0),
-		size = UDim2.fromOffset(METRES_WIDTH - TOGO_WIDTH - TOGO_GAP, READOUT_HEIGHT),
+		size = UDim2.fromOffset(METRES_WIDTH - TOGO_WIDTH - TOGO_GAP, LABEL_HEIGHT),
 		font = UIKit.Font.hero,
 		textSize = METRES_TEXT,
 		color = COLOR.text,
@@ -955,10 +853,10 @@ local function build(): ScreenGui
 
 	UIKit.label(haul, {
 		name = "MetresCaption",
-		position = UDim2.fromOffset(PANEL_WIDTH - TOGO_WIDTH, 4),
-		size = UDim2.fromOffset(TOGO_WIDTH, READOUT_HEIGHT),
+		position = UDim2.fromOffset(PANEL_WIDTH - TOGO_WIDTH, 2),
+		size = UDim2.fromOffset(TOGO_WIDTH, LABEL_HEIGHT),
 		font = UIKit.Font.title,
-		textSize = TOGO_TEXT,
+		textSize = UIKit.TextSize.body,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Right,
 		text = "to go",
@@ -992,7 +890,6 @@ local function renderFrame(dt: number)
 	-- outcome -- it confirms a click happened, it does not promise the server honoured it.
 	local sinceYank = os.clock() - lastYankAt
 	local kick = if sinceYank < YANK_KICK_SECONDS then (1 - sinceYank / YANK_KICK_SECONDS) ^ 2 else 0
-	ui.haulKick.Scale = 1 - kick * YANK_KICK_SCALE
 
 	if state.locked then
 		-- THE NUKE IS THE BAR. Every haul starts it at the rope's dirt end and it slides
@@ -1002,30 +899,12 @@ local function renderFrame(dt: number)
 		local toGo = if state.depth then state.depth * (1 - climbed) / Stages.STUDS_PER_METRE else nil
 		ui.haulMetres.Text = if toGo then string.format(METRES_FORMAT, toGo) else ""
 
-		-- THE FUSE. The wick chases the server like the nuke does; the seconds count down
-		-- off the local clock from the last payload, so they tick every frame instead of
-		-- in 10 Hz steps. The chip on the spark reads the seconds to the bang -- the
-		-- wick's end -- and the white tick on the wick is the arm line.
+		-- THE FUSE. The wick chases the server like the nuke does; the white tick on it is
+		-- the arm line. Armed, the bar's outline flashes red: there is one way out now.
 		local fuse = state.fuse or 0
 		shownFuse += (fuse - shownFuse) * (1 - math.exp(-FILL_LERP_RATE * dt))
 		local fill = math.clamp(shownFuse, 0, 1)
-		local toBlow = math.max(0, (state.fuseLeft or 0) - (os.clock() - state.fuseAt))
-		local armAt = DetonationConfig.ARM_AT
-		local warnAt = DetonationConfig.WARN_AT
-
-		local chipText, chipColor
-		if state.fuseless then
-			chipText, chipColor = "No fuse", FUSE_COOL
-		elseif state.fuseArmed then
-			-- Red and flashing: there is one way out of this now.
-			local flash = 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE)
-			chipText = string.format("ARMED %.1fs", toBlow)
-			chipColor = COLOR.red:Lerp(FUSE_FLASH, flash * 0.5)
-		else
-			local warmth = math.clamp((fill - warnAt) / (armAt - warnAt), 0, 1)
-			chipText = string.format("%.1fs", toBlow)
-			chipColor = FUSE_COOL:Lerp(COLOR.amber, warmth)
-		end
+		local alarm = if state.fuseArmed then 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE) else 0
 
 		HaulRope.step(ui.rope, {
 			progress = climbed,
@@ -1034,8 +913,7 @@ local function renderFrame(dt: number)
 			idle = sinceYank > ROPE_IDLE_SECONDS and climbed > 0,
 			now = os.clock(),
 			fuse = if state.fuseless then nil else fill,
-			fuseText = chipText,
-			fuseColor = chipColor,
+			alarm = alarm,
 		})
 	end
 
@@ -1221,36 +1099,21 @@ local function renderState()
 	-- the button stops offering it rather than silently failing. It still sends if
 	-- pressed -- the server is the judge, and the client must never be the reason a
 	-- release did not go through.
-	ui.releaseVerb.Text = if state.fuseArmed then "Locked In" else "Let Go"
-	ui.releaseVerb.TextColor3 = if state.fuseArmed then COLOR.red else COLOR.text
-	ui.releaseKey.Visible = UserInputService.KeyboardEnabled and not state.fuseArmed
+	ui.releaseButton.Text = if state.fuseArmed then ""
+		elseif UserInputService.KeyboardEnabled then "Q"
+		else "X"
 	ui.releaseButton.BackgroundColor3 = if state.fuseArmed then COLOR.panel else COLOR.red
 	if state.locked then
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on
-		-- the nuke on the rope, and REEL IN's outline. Scope blue only in the brief
+		-- the nuke, and the wash it trails along the bar. Scope blue only in the brief
 		-- frame before the rarity resolves -- the "?" over the rope is that state at
 		-- rest; this is it in colour. The rope's dirt end is the stage's own soil (a
 		-- no-op once set, so safe on every tick).
 		local accent = signalColor()
-		ui.haulButtonStroke.Color = accent
 		HaulRope.setAccent(ui.rope, accent)
 		if state.stageId then
 			HaulRope.paint(ui.rope, state.stageId)
 		end
-		-- The magnet at the rope's end is the one in hand (ToolService stamps its tier on
-		-- the held model); the last one drawn if none is in hand, tier 1 before that.
-		local character = Players.LocalPlayer.Character
-		local magnetTier = ui.rope.magnetTier or 1
-		if character then
-			for _, child in character:GetChildren() do
-				if child:GetAttribute("ToolName") == "Magnet" then
-					magnetTier = tonumber(child:GetAttribute("Tier")) or magnetTier
-					break
-				end
-			end
-		end
-		HaulRope.setMagnet(ui.rope, magnetTier)
-
 		-- The readout spells out what the colour only implies: the rarity word
 		-- (state.rarityHint), on any detector -- exactly what DigService.hintFor sent.
 		-- No "1 in N" under it (on request): rarity + odds pinned down the exact nuke.

@@ -541,6 +541,10 @@ Dock.SIDE_WIDTH = 320
 -- narrows it on a screen that cannot fit it.
 Dock.VITALS_WIDTH = 640
 Dock.VITALS_HEIGHT = 74 -- label row 18 + 3 + rads 26 + 1 + health 26
+-- The badge column on the left and where the bars start after it. The haul panel's
+-- pull bar and LET GO badge line up on these (DetectorController).
+Dock.VITALS_ICON = 26
+Dock.VITALS_BAR_X = 32 -- icon + 6
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
@@ -556,18 +560,18 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- because HAULPANEL_BOTTOM, ui.haul and every caller already read it and a rename buys
 -- nothing.
 --
--- THE TUG-OF-WAR ROPE INSIDE IT SETS THE HEIGHT. The haul is drawn as a rope
--- (HaulRope) with the nuke sliding along it from the dirt into the player's magnet,
--- three rows tall: the readout (rarity word, metres to go) over the rope, LET GO and
--- REEL IN under it. DetectorController's PANEL_* / ROPE_TOP / HAULBUTTON_* derive the
--- interior from this one size: 44 of readout + HaulRope.HEIGHT 120 + 8 of gap + 56 of
--- buttons = 228. The width is the vitals bars'.
+-- SLIM, ON REQUEST (2026-10-09: the 228-tall version covered the character). Two rows
+-- laid out like the vitals bars under it: a 26 label row (rarity, fuse chip, metres to
+-- go) and a 32 pull bar (HaulRope) in exactly the health bar's column, with the magnet
+-- as a cell at its right end; LET GO is a badge in the icon column and REEL IN is the
+-- bar itself. 26 + 3 of gap + 32 = 61. The width is the vitals bars'.
+-- DetectorController's LABEL_HEIGHT / ROW_GAP / BAR_* derive the interior from this.
 --
 -- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM). That is safe rather than
 -- lucky: DigService releases the lock the instant the bag fills (its RELEASE 3), and
 -- the only other line the status can carry is the buried-too-deep one, which needs
 -- `not hasSignal` -- so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(Dock.VITALS_WIDTH, 228)
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(Dock.VITALS_WIDTH, 61)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
