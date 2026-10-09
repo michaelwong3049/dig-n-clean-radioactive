@@ -11,8 +11,8 @@
 
 	THE FUSE IS A WICK along the bar's top edge, burning from the magnet end back toward
 	the dirt: the length left is the time left, the white tick is Config/Detonation's
-	ARM_AT, and a spark rides the burning end. The seconds are not drawn here -- the
-	panel's label row carries them, where they never run into anything.
+	ARM_AT, and a spark rides the burning end. No seconds are drawn (on request); once
+	the fuse arms, the bar's black outline flashes red.
 
 	REEL IN IS THE BAR. There is no separate button: the magnet cell wears an E keycap
 	(keyboard only) that kicks on every yank, and DetectorController lays a clear button
@@ -67,10 +67,12 @@ local STRAND_LIGHT = Color3.fromHex("D9B779")
 local STRAND_DARK = Color3.fromHex("A8844A")
 local WICK_COLOR = Color3.fromHex("F4E3B5")
 local WICK_BURNT = Color3.fromHex("2B1A0C")
+local ALARM_RED = Color3.fromHex("FF3B2F") -- the outline's armed flash
 local SPARK_COLORS = { Color3.fromHex("FF6A00"), Color3.fromHex("FFD23A"), WHITE }
 
 export type Rope = {
 	root: Frame,
+	outline: UIStroke,
 	width: number,
 	height: number,
 	nukeStart: number,
@@ -100,6 +102,7 @@ export type Input = {
 	idle: boolean, -- no yank in the last moment: the soil is winning, judder harder
 	now: number,
 	fuse: number?, -- 0..1 through the window; nil = no fuse on this haul
+	alarm: number, -- 0..1, how red the bar's outline is (the armed flash)
 }
 
 local function box(parent: Instance, name: string, x: number, y: number, w: number, h: number, color: Color3, z: number, round: UDim?): Frame
@@ -350,6 +353,7 @@ function HaulRope.build(parent: Instance, position: UDim2, width: number, height
 
 	return {
 		root = root,
+		outline = stroke,
 		width = width,
 		height = height,
 		nukeStart = INSET + nukeLength / 2,
@@ -429,6 +433,7 @@ function HaulRope.step(rope: Rope, input: Input)
 	rope.nuke.Position = UDim2.fromOffset(x + jitter, rope.height / 2 + jitter * 0.3)
 	rope.trail.Size = UDim2.fromOffset(x, rope.height)
 	rope.keycapKick.Scale = 1 + 0.3 * input.kick
+	rope.outline.Color = BLACK:Lerp(ALARM_RED, input.alarm)
 
 	local cracked = strain > 0
 	local glow = if cracked then 1 - (strain / 3) * (0.55 + 0.45 * math.sin(input.now * 14)) else 1

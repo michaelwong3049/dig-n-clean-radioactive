@@ -40,7 +40,6 @@ local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
 local Stages = require(Shared.Config.Stages)
-local DetonationConfig = require(Shared.Config.Detonation)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -136,8 +135,7 @@ local ROPE_IDLE_SECONDS = 0.2
 --
 -- TWO SLIM ROWS, laid out like the vitals bars right under them (on request,
 -- 2026-10-09: the taller panel covered the character). On top, a label row: the rarity
--- word on the left, the fuse's seconds in the middle, the metres still to come on the
--- right. Under it, the pull bar (HaulRope), in exactly the health bar's column -- same
+-- word on the left, the metres still to come on the right. Under it, the pull bar (HaulRope), in exactly the health bar's column -- same
 -- left edge, same length -- with the magnet as a cell at its right end. LET GO is a
 -- red badge in the icon column, lined up with the radiation and heart badges below;
 -- REEL IN is the bar itself (E on a keyboard, a tap anywhere on it on touch).
@@ -160,20 +158,17 @@ local METRES_FORMAT = '%.1f<font size="16">m</font>'
 local TOGO_WIDTH = 40
 local TOGO_GAP = 5
 local METRES_WIDTH = 150
-local CHIP_HEIGHT = 20
 
 -- How fast the bar's nuke chases the server's value (1/seconds). Smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
 -- like a stutter; fast enough that a yank still lands as a visible jump.
 local FILL_LERP_RATE = 14
 
--- The pull fuse (Config/Detonation), on the label row's chip: cool, warming, armed.
--- Pale straw until WARN_AT, easing to amber by ARM_AT, then red.
-local FUSE_COOL = Color3.fromHex("FDE68A")
--- What the armed red flashes toward. Deliberately NOT UIKit.C.burn: that white means
--- aura failure and nothing else (PLAN's one colour rule).
-local FUSE_FLASH = Color3.fromHex("FFD2C4")
-local FUSE_ARMED_PULSE = 7 -- rad/sec on the armed chip's flash
+-- The pull fuse (Config/Detonation) has no readout of its own any more (on request,
+-- 2026-10-09: the seconds chip over the bar was removed). The wick on the bar is the
+-- time left; once it ARMS, the bar's outline flashes red at this rate (rad/sec) --
+-- together with LET GO greying out, that is how you know the release has stopped.
+local FUSE_ARMED_PULSE = 7
 
 type Contact = { dx: number, dz: number, rarity: string?, scale: number? }
 
@@ -842,35 +837,6 @@ local function build(): ScreenGui
 		text = "?",
 	})
 
-	-- THE FUSE CHIP, pinned in the middle of the row over the bar: the seconds to the
-	-- bang, or "ARMED" and flashing once the release has stopped working. Pinned rather
-	-- than riding the spark, so it never runs into the words at either end.
-	local chip = Instance.new("TextLabel")
-	chip.Name = "FuseChip"
-	chip.AnchorPoint = Vector2.new(0.5, 0.5)
-	chip.Position = UDim2.fromOffset(BAR_X + BAR_WIDTH / 2, LABEL_HEIGHT / 2)
-	chip.Size = UDim2.fromOffset(0, CHIP_HEIGHT)
-	chip.AutomaticSize = Enum.AutomaticSize.X
-	chip.BackgroundColor3 = FUSE_COOL
-	chip.BorderSizePixel = 0
-	chip.Font = UIKit.Font.hero
-	chip.TextSize = 14
-	chip.TextColor3 = COLOR.outline
-	chip.Parent = haul
-	local chipCorner = Instance.new("UICorner")
-	chipCorner.CornerRadius = UDim.new(0, 5)
-	chipCorner.Parent = chip
-	local chipPad = Instance.new("UIPadding")
-	chipPad.PaddingLeft = UDim.new(0, 8)
-	chipPad.PaddingRight = UDim.new(0, 8)
-	chipPad.Parent = chip
-	local chipStroke = Instance.new("UIStroke")
-	chipStroke.Color = COLOR.outline
-	chipStroke.Thickness = 2
-	chipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	chipStroke.Parent = chip
-	ui.fuseChip = chip
-
 	-- The metres still to come (renderFrame, every frame, off the smoothed progress so
 	-- it falls in step with the nuke rather than in 10 Hz steps). The depth is known
 	-- whether or not the rarity is, so this shows beside the "?" too.
@@ -933,33 +899,12 @@ local function renderFrame(dt: number)
 		local toGo = if state.depth then state.depth * (1 - climbed) / Stages.STUDS_PER_METRE else nil
 		ui.haulMetres.Text = if toGo then string.format(METRES_FORMAT, toGo) else ""
 
-		-- THE FUSE. The wick chases the server like the nuke does; the seconds count down
-		-- off the local clock from the last payload, so they tick every frame instead of
-		-- in 10 Hz steps. The chip on the spark reads the seconds to the bang -- the
-		-- wick's end -- and the white tick on the wick is the arm line.
+		-- THE FUSE. The wick chases the server like the nuke does; the white tick on it is
+		-- the arm line. Armed, the bar's outline flashes red: there is one way out now.
 		local fuse = state.fuse or 0
 		shownFuse += (fuse - shownFuse) * (1 - math.exp(-FILL_LERP_RATE * dt))
 		local fill = math.clamp(shownFuse, 0, 1)
-		local toBlow = math.max(0, (state.fuseLeft or 0) - (os.clock() - state.fuseAt))
-		local armAt = DetonationConfig.ARM_AT
-		local warnAt = DetonationConfig.WARN_AT
-
-		local chipText, chipColor
-		if state.fuseless then
-			chipText, chipColor = "No fuse", FUSE_COOL
-		elseif state.fuseArmed then
-			-- Red and flashing: there is one way out of this now.
-			local flash = 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE)
-			chipText = string.format("ARMED %.1fs", toBlow)
-			chipColor = COLOR.red:Lerp(FUSE_FLASH, flash * 0.5)
-		else
-			local warmth = math.clamp((fill - warnAt) / (armAt - warnAt), 0, 1)
-			chipText = string.format("%.1fs", toBlow)
-			chipColor = FUSE_COOL:Lerp(COLOR.amber, warmth)
-		end
-
-		ui.fuseChip.Text = chipText
-		ui.fuseChip.BackgroundColor3 = chipColor
+		local alarm = if state.fuseArmed then 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE) else 0
 
 		HaulRope.step(ui.rope, {
 			progress = climbed,
@@ -968,6 +913,7 @@ local function renderFrame(dt: number)
 			idle = sinceYank > ROPE_IDLE_SECONDS and climbed > 0,
 			now = os.clock(),
 			fuse = if state.fuseless then nil else fill,
+			alarm = alarm,
 		})
 	end
 
