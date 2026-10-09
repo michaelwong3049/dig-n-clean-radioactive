@@ -761,4 +761,19 @@ function Gear.maxTier(track: string): number
 	return #((Gear :: any)[track])
 end
 
+-- The rarity word each shop card shows under its name (on request, 2026-10-08: a
+-- "Trail Shop" reference with "Common / Uncommon / Rare" under each title). Gear has no
+-- rarity of its own, so a rung's place on its ladder picks one: the ladder is cut into
+-- even slices from Common up to Anomaly, so the bottom rung of every track is Common and
+-- the top is Anomaly however many rungs the track has. Config/Rarity's names, so the
+-- word can wear that rarity's colour.
+Gear.RARITY_LADDER = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Anomaly" }
+
+function Gear.rarityOf(track: string, index: number): string
+	local count = Gear.maxTier(track)
+	local steps = #Gear.RARITY_LADDER
+	local slot = if count <= 1 then 1 else 1 + math.floor((index - 1) / (count - 1) * (steps - 1) + 0.5)
+	return Gear.RARITY_LADDER[math.clamp(slot, 1, steps)]
+end
+
 return Gear
