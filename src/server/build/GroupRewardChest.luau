@@ -35,6 +35,12 @@ local TEMPLATE_NAME = "GroupRewardChestModel"
 GroupRewardChest.MODEL_NAME = "GroupRewardChest"
 local CHEST_LENGTH = 10.5 -- studs along its long side
 local SIGN_DISTANCE = 22
+-- The big FREE over it, top to bottom, like the crate pads' gradient titles.
+local FREE_TITLE = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromHex("FFF6C8")),
+	ColorSequenceKeypoint.new(0.5, Color3.fromHex("FFE066")),
+	ColorSequenceKeypoint.new(1, Color3.fromHex("F5A623")),
+})
 
 local function studded(p: BasePart)
 	p.Material = Enum.Material.Plastic
@@ -82,6 +88,17 @@ local function label(parent: Instance, text: string, y: number, h: number, color
 	l.TextStrokeColor3 = Color3.new(0, 0, 0)
 	l.Parent = parent
 	return l
+end
+
+--- A heavier outline than TextStroke: a UIStroke, which a UIGradient on the label leaves
+--- black (a gradient tints the legacy TextStroke along with the text).
+local function outline(l: TextLabel, thickness: number)
+	l.TextStrokeTransparency = 1
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.new(0, 0, 0)
+	stroke.Thickness = thickness
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = l
 end
 
 --- Gold glints drifting up off the chest. Emits from the invisible box's volume.
@@ -241,6 +258,25 @@ function GroupRewardChest.build(): Model
 	local reward = label(sign, "Join the group + like the game!", 0.6, 0.4, Color3.new(1, 1, 1), Enum.Font.GothamBlack)
 	reward.Name = "Reward"
 	sign.Parent = body
+
+	-- A big FREE over the sign, sized in studs and seen from across the square, so the
+	-- chest reads as free before you're close enough for the sign.
+	local free = Instance.new("BillboardGui")
+	free.Name = "FreeTitle"
+	free.Size = UDim2.fromScale(9, 3.2)
+	free.StudsOffsetWorldSpace = Vector3.new(0, H / 2 + 6.5, 0)
+	free.MaxDistance = 70
+	free.LightInfluence = 0
+	free.Adornee = body
+	-- A black copy a notch lower is the drop shadow.
+	outline(label(free, "TitleShadow", "FREE", 0.06, 0.94, Color3.new(0, 0, 0), Enum.Font.GothamBlack), 3)
+	local title = label(free, "Title", "FREE", 0, 0.94, Color3.new(1, 1, 1), Enum.Font.GothamBlack)
+	outline(title, 3)
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = FREE_TITLE
+	gradient.Rotation = 90
+	gradient.Parent = title
+	free.Parent = body
 
 	return model
 end
