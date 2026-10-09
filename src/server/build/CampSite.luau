@@ -101,7 +101,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 40 -- radius 225 -> 190, wash yard 24 south (2026-10-08)
+local BUILDER_VERSION = 41 -- gate end posts clear of the shoulders (2026-10-08)
 
 local C = Kit.C
 local build = Kit.build
@@ -937,12 +937,15 @@ local function gateAt(parent: Instance, L: Layout, name: string, x: number, coll
 	folder.Name = name
 	local h = L.corridorHalfZ
 
+	-- The end posts stand against the shoulders' faces, not half inside them.
+	local POST_W = 1.2
+	local reach = h - POST_W / 2
 	local posts = math.ceil(2 * h / GATE_POST_EVERY)
 	for i = 0, posts do
 		build(folder, CFrame.new(0, 0, 0), {
 			name = "GatePost",
-			pos = { x, PLAZA_Y + GATE_POST_H / 2, L.cz - h + 2 * h * i / posts },
-			size = { 1.2, GATE_POST_H, 1.2 },
+			pos = { x, PLAZA_Y + GATE_POST_H / 2, L.cz - reach + 2 * reach * i / posts },
+			size = { POST_W, GATE_POST_H, POST_W },
 			color = C.hazardBlack,
 			material = "SmoothPlastic",
 		})
