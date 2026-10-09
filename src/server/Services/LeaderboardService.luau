@@ -550,7 +550,33 @@ function LeaderboardService.start()
 		speedValues[player] = nil
 		local s = scores[player]
 		scores[player] = nil
-		task.spawn(writeScores, player.UserId, s)
+		-- A reset or stolen session: these numbers are from the save that just went.
+		if not DataService.wasDetached(player) then
+			task.spawn(writeScores, player.UserId, s)
+		end
+	end)
+	-- /resetdata: off every board, and forget what was written so a fresh score
+	-- is not mistaken for one already stored.
+	DataService.onReset(function(userId)
+		local player = Players:GetPlayerByUserId(userId)
+		if player ~= nil then
+			scores[player] = nil
+		end
+		written[userId] = nil
+		if not storesOnline then
+			return
+		end
+		for _, board in BOARDS do
+			local store = board.store
+			if store ~= nil then
+				local ok, err = pcall(function()
+					store:RemoveAsync(tostring(userId))
+				end)
+				if not ok then
+					warn(`[Leaderboard] removing {userId} from {board.storeName} failed: {err}`)
+				end
+			end
+		end
 	end)
 	for _, player in Players:GetPlayers() do
 		setup(player)
