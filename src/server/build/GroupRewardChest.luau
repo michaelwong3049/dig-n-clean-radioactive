@@ -269,8 +269,11 @@ function GroupRewardChest.build(): Model
 	free.LightInfluence = 0
 	free.Adornee = body
 	-- A black copy a notch lower is the drop shadow.
-	outline(label(free, "TitleShadow", "FREE", 0.06, 0.94, Color3.new(0, 0, 0), Enum.Font.GothamBlack), 3)
-	local title = label(free, "Title", "FREE", 0, 0.94, Color3.new(1, 1, 1), Enum.Font.GothamBlack)
+	local shadow = label(free, "FREE", 0.06, 0.94, Color3.new(0, 0, 0), Enum.Font.GothamBlack)
+	shadow.Name = "TitleShadow"
+	outline(shadow, 3)
+	local title = label(free, "FREE", 0, 0.94, Color3.new(1, 1, 1), Enum.Font.GothamBlack)
+	title.Name = "Title"
 	outline(title, 3)
 	local gradient = Instance.new("UIGradient")
 	gradient.Color = FREE_TITLE
