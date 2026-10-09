@@ -29,6 +29,9 @@ export type Pack = {
 	crates: { string },
 	luckSeconds: number, -- Lucky Clover time (Config/LuckBoost)
 	cashBoostSeconds: number, -- 2x cash time (Config/CashBoost)
+	-- One picture of the whole pack (tools/pack-art). With it, the offer card and the Shop
+	-- card show it in place of the best crate with a cash bundle and clover beside it.
+	image: string?,
 }
 
 local PACKS: { Pack } = {
@@ -40,6 +43,7 @@ local PACKS: { Pack } = {
 		crates = { "liquid2", "liquid2", "nuke2" }, -- 2x Isotope Chem, 1x Field Nuke
 		luckSeconds = 30 * 60,
 		cashBoostSeconds = 0,
+		image = "rbxassetid://85535915548569", -- cash, clover, Isotope + Field crates
 	},
 	{
 		key = "pro",

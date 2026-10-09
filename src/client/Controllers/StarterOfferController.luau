@@ -57,6 +57,9 @@ local SIDE_OUT = 30
 local SIDE_DROP = 14
 local BUNDLE = 42
 local CLOVER = 34
+-- The pack's own picture (Config/Packs `image`) fills the space the crate, bundle and
+-- clover shared, between the title and the price.
+local PICTURE = 76
 local BUY_H = 28
 local CLOSE = 26
 -- Never smaller than this on a short screen, where the card must squeeze in above the
@@ -460,41 +463,55 @@ function StarterOfferController.start()
 	once.Size = UDim2.new(1, -12, 0, 11)
 	once.Position = UDim2.fromOffset(6, 24)
 
-	-- The crate, still (on request), a cash bundle leaning on its left and a luck clover
-	-- on its right, both tucked against it and in front of it.
-	local art = Instance.new("ImageLabel")
-	art.Name = "Art"
-	art.BackgroundTransparency = 1
-	-- The best crate in the pack that has a picture (the last listed tops each ladder).
-	for i = #pack.crates, 1, -1 do
-		local image = CRATE_IMAGE[pack.crates[i]]
-		if image then
-			art.Image = image
-			break
+	-- The pack's own picture (Config/Packs `image`) when it has one. Otherwise the crate,
+	-- still (on request), a cash bundle leaning on its left and a luck clover on its
+	-- right, both tucked against it and in front of it.
+	if pack.image then
+		local art = Instance.new("ImageLabel")
+		art.Name = "Art"
+		art.BackgroundTransparency = 1
+		art.Image = pack.image
+		art.ScaleType = Enum.ScaleType.Fit
+		art.AnchorPoint = Vector2.new(0.5, 0.5)
+		art.Position = UDim2.new(0.5, 0, 0, ART_Y)
+		art.Size = UDim2.fromOffset(PICTURE, PICTURE)
+		art.ZIndex = 4
+		art.Parent = card
+	else
+		local art = Instance.new("ImageLabel")
+		art.Name = "Art"
+		art.BackgroundTransparency = 1
+		-- The best crate in the pack that has a picture (the last listed tops each ladder).
+		for i = #pack.crates, 1, -1 do
+			local image = CRATE_IMAGE[pack.crates[i]]
+			if image then
+				art.Image = image
+				break
+			end
 		end
+		art.ScaleType = Enum.ScaleType.Fit
+		art.AnchorPoint = Vector2.new(0.5, 0.5)
+		art.Position = UDim2.new(0.5, 0, 0, ART_Y)
+		art.Size = UDim2.fromOffset(ART, ART)
+		art.ZIndex = 4
+		art.Parent = card
+		local bundle = Instance.new("ImageLabel")
+		bundle.Name = "Bundle"
+		bundle.BackgroundTransparency = 1
+		bundle.Image = Artwork.IMAGE.cashBundle
+		bundle.ScaleType = Enum.ScaleType.Fit
+		bundle.AnchorPoint = Vector2.new(0.5, 0.5)
+		bundle.Position = UDim2.new(0.5, -SIDE_OUT, 0, ART_Y + SIDE_DROP)
+		bundle.Size = UDim2.fromOffset(BUNDLE, BUNDLE)
+		bundle.Rotation = -12
+		bundle.ZIndex = 5
+		bundle.Parent = card
+		local clover = CloverArt.build(card, CLOVER, 5)
+		clover.Name = "Clover"
+		clover.AnchorPoint = Vector2.new(0.5, 0.5)
+		clover.Position = UDim2.new(0.5, SIDE_OUT, 0, ART_Y + SIDE_DROP)
+		clover.Rotation = 12
 	end
-	art.ScaleType = Enum.ScaleType.Fit
-	art.AnchorPoint = Vector2.new(0.5, 0.5)
-	art.Position = UDim2.new(0.5, 0, 0, ART_Y)
-	art.Size = UDim2.fromOffset(ART, ART)
-	art.ZIndex = 4
-	art.Parent = card
-	local bundle = Instance.new("ImageLabel")
-	bundle.Name = "Bundle"
-	bundle.BackgroundTransparency = 1
-	bundle.Image = Artwork.IMAGE.cashBundle
-	bundle.ScaleType = Enum.ScaleType.Fit
-	bundle.AnchorPoint = Vector2.new(0.5, 0.5)
-	bundle.Position = UDim2.new(0.5, -SIDE_OUT, 0, ART_Y + SIDE_DROP)
-	bundle.Size = UDim2.fromOffset(BUNDLE, BUNDLE)
-	bundle.Rotation = -12
-	bundle.ZIndex = 5
-	bundle.Parent = card
-	local clover = CloverArt.build(card, CLOVER, 5)
-	clover.Name = "Clover"
-	clover.AnchorPoint = Vector2.new(0.5, 0.5)
-	clover.Position = UDim2.new(0.5, SIDE_OUT, 0, ART_Y + SIDE_DROP)
-	clover.Rotation = 12
 
 	local buy = RobuxButton.product(card, function()
 		return pack.id

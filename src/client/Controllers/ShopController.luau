@@ -649,43 +649,48 @@ local function buildPacks(parent: Instance)
 		well.Parent = card
 		round(well, 14)
 		edge(well, PANEL.ink, 3)
-		-- The best crate in the pack with a picture; failing that, the best one drawn live
-		-- (the last one listed is the top of each ladder).
-		local pictured
-		for i = #pack.crates, 1, -1 do
-			if CRATE_IMAGE[pack.crates[i]] then
-				pictured = pack.crates[i]
-				break
-			end
-		end
-		local best = pack.crates[#pack.crates]
-		if pictured then
-			crateImage(well, CRATE_IMAGE[pictured], 6, 14)
-		elseif best and Crates.has(best) then
-			local viewport = ItemArt.newViewport(well)
-			viewport.ZIndex = 14
-			local function paint()
-				local size = well.AbsoluteSize
-				if size.X < 1 or size.Y < 1 then
-					return
+		-- The pack's own picture (Config/Packs `image`) when it has one. Otherwise the
+		-- best crate in the pack with a picture; failing that, the best one drawn live
+		-- (the last one listed is the top of each ladder), with a cash bundle on it.
+		if pack.image then
+			crateImage(well, pack.image, 4, 14)
+		else
+			local pictured
+			for i = #pack.crates, 1, -1 do
+				if CRATE_IMAGE[pack.crates[i]] then
+					pictured = pack.crates[i]
+					break
 				end
-				ItemArt.clear(viewport)
-				ItemArt.paint(viewport, { uid = `pack-{pack.key}`, crateId = best }, size.X / size.Y)
 			end
-			well:GetPropertyChangedSignal("AbsoluteSize"):Connect(paint)
-			task.defer(paint)
+			local best = pack.crates[#pack.crates]
+			if pictured then
+				crateImage(well, CRATE_IMAGE[pictured], 6, 14)
+			elseif best and Crates.has(best) then
+				local viewport = ItemArt.newViewport(well)
+				viewport.ZIndex = 14
+				local function paint()
+					local size = well.AbsoluteSize
+					if size.X < 1 or size.Y < 1 then
+						return
+					end
+					ItemArt.clear(viewport)
+					ItemArt.paint(viewport, { uid = `pack-{pack.key}`, crateId = best }, size.X / size.Y)
+				end
+				well:GetPropertyChangedSignal("AbsoluteSize"):Connect(paint)
+				task.defer(paint)
+			end
+			local bundle = Instance.new("ImageLabel")
+			bundle.Name = "Bundle"
+			bundle.BackgroundTransparency = 1
+			bundle.Image = Artwork.IMAGE.cashBundle
+			bundle.ScaleType = Enum.ScaleType.Fit
+			bundle.Size = UDim2.fromOffset(56, 56)
+			bundle.AnchorPoint = Vector2.new(0, 1)
+			bundle.Position = UDim2.new(0, -10, 1, 12)
+			bundle.Rotation = -10
+			bundle.ZIndex = 16
+			bundle.Parent = well
 		end
-		local bundle = Instance.new("ImageLabel")
-		bundle.Name = "Bundle"
-		bundle.BackgroundTransparency = 1
-		bundle.Image = Artwork.IMAGE.cashBundle
-		bundle.ScaleType = Enum.ScaleType.Fit
-		bundle.Size = UDim2.fromOffset(56, 56)
-		bundle.AnchorPoint = Vector2.new(0, 1)
-		bundle.Position = UDim2.new(0, -10, 1, 12)
-		bundle.Rotation = -10
-		bundle.ZIndex = 16
-		bundle.Parent = well
 
 		local textLeft = 14 + PACK_ART + 14
 		inked(card, {
