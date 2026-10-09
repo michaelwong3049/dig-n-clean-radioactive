@@ -539,6 +539,7 @@ local CARD_ART_TOP = CARD_NAME_TOP + CARD_NAME_HEIGHT + 4
 local CARD_ROW_GAP = 16
 local CARD_BUY_HEIGHT = 48
 local CARD_BUY_BOTTOM = 18
+local CARD_BUY_TEXT = 22
 local CARD_BUY_TOP = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT
 -- Roblox's own Robux glyph (private-use U+E002), same as ShopController's Robux buttons.
 local ROBUX = utf8.char(0xE002)
@@ -971,7 +972,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		position = UDim2.new(0, CARD_INSET, 1, -CARD_BUY_BOTTOM),
 		size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_BUY_HEIGHT),
 		font = FIELD.headline,
-		textSize = 22,
+		textSize = CARD_BUY_TEXT,
 		cornerRadius = UDim.new(0, 8),
 		strokeThickness = 1,
 		outline = false,
@@ -1935,6 +1936,17 @@ end
 ---           "AVAILABLE" used to be.
 --- (unaffordable) no flag either since 2026-10-08 (it was NEED $x); the grey price
 ---           button says it.
+--- The biggest size up to CARD_BUY_TEXT at which `text` fits one full-width buy
+--- button (no Robux half: a locked card never has one) with a little room each side.
+local function fitButtonText(text: string, font: Enum.Font): number
+	local room = CARD_WIDTH - 2 * CARD_INSET - 24
+	local size = CARD_BUY_TEXT
+	while size > 12 and TextService:GetTextSize(text, size, font, Vector2.new(10000, 100)).X > room do
+		size -= 1
+	end
+	return size
+end
+
 local function paintShopCard(card: Frame, entry, track: string, _cash: number, held)
 	local nameLabel = card.CardStrip.CardName :: TextLabel
 	local flag = card.CardStrip.CardFlag :: TextLabel
@@ -1976,6 +1988,7 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 	cardStroke.Color = STUDDED.cardEdge
 	buy.BackgroundColor3 = Color3.new(1, 1, 1)
 	buy.BackgroundTransparency = 0
+	buy.TextSize = CARD_BUY_TEXT -- a locked card shrinks it (fitButtonText)
 	flag.Text = ""
 	if entry.current then
 		buy.Text = if track == "Aura" then "WEARING" else "EQUIPPED"
@@ -1987,14 +2000,19 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 		fill.Color = STUDDED.lime
 	elseif entry.lockedZone then
 		-- Sold in another zone (ShopService lists the whole ladder). The button names
-		-- where: a later zone unlocks it, an earlier one is just where it is sold.
+		-- where by the camp's name (on request, 2026-10-09: "say unlock at toxic
+		-- twilight or magma hollow"): a later camp unlocks it, an earlier one is just
+		-- where it is sold. Shrunk to fit, since a camp name is longer than "ZONE 2".
 		local zone = entry.lockedZone :: number
 		local here = (Camps.get((state.offer and state.offer.camp) or "base") or { id = 1 }).id
+		local def = Camps.byId(zone)
+		local where = string.upper(if def then def.name else `Zone {zone}`)
 		card.BackgroundColor3 = STUDDED.cardLocked
 		hue.Enabled = false
 		flag.Text = "LOCKED"
 		flag.TextColor3 = STUDDED.equippedText
-		buy.Text = if zone > here then `UNLOCKED IN ZONE {zone}` else `SOLD IN ZONE {zone}`
+		buy.Text = if zone > here then `UNLOCKED AT {where}` else `SOLD AT {where}`
+		buy.TextSize = fitButtonText(buy.Text, buy.Font)
 		buy.TextColor3 = STUDDED.equippedText
 		fill.Color = STUDDED.locked
 	elseif dear then
