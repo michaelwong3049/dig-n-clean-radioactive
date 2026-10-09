@@ -31,7 +31,6 @@ local ORDER = {
 	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
 	"DailyRewardsController", -- the Daily tile under Warp and its 7-day calendar; reads DailyRewards
 	"PotionController", -- the Potions tile bottom left of the grid (under Nukes), the stash panel + running-potion chips; reads Potions
-	"PlaytimeGiftController", -- the Free Gifts tile and its 12-gift panel; reads PlaytimeGifts
 	"StarterOfferController", -- the Starter Pack offer under the top-right corner row, once the tutorial is done; X hides it for the session
 	"GroupRewardController", -- the group chest on Stage 1: the join-group prompt + claim toast; reads GroupReward
 	"CampWarpController", -- the camp list behind the top bar's WARP portal: warp to any camp reached on foot; reads CampState

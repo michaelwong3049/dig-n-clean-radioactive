@@ -737,7 +737,11 @@ Dock.SIDE_GRID_TILE = math.round(58 * Dock.SIDE_GRID_SCALE)
 Dock.SIDE_GRID_COLUMNS = 2
 -- Two rows since Nukes and Potions moved to the right edge (2026-10-07, on request):
 -- the wide Shop over Index | Gifts.
+-- WIDE BARS since 2026-10-09 (on request, from a reference: two chunky pills, the
+-- picture on the left and the name beside it): Free Gifts gone, Shop over Index, each
+-- bar both columns wide and SIDE_BAR_HEIGHT tall, so a row is a bar, not a square.
 Dock.SIDE_GRID_ROWS = 2
+Dock.SIDE_BAR_HEIGHT = math.round(44 * Dock.SIDE_GRID_SCALE)
 -- The space between two tiles. Tight, like the reference: the pictures poke up over the
 -- tile's top edge, so the rows need a little room for that.
 Dock.SIDE_TILE_GAP = math.round(9 * Dock.SIDE_GRID_SCALE)
@@ -746,7 +750,7 @@ Dock.SIDE_GRID_POKE = math.round(4 * Dock.SIDE_GRID_SCALE)
 -- How far below the canvas's middle the grid's middle sits, on request ("lower them a little").
 Dock.SIDE_GRID_DROP = 28
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
-Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_GRID_TILE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
+Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_BAR_HEIGHT + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
 -- THE HIDE-NUKES TOGGLE over the Shop tile (2026-10-08, on request: "put the hide other
 -- nukes thing above the shop"): a bar as wide as the grid, SIDE_TOGGLE_GAP over its top.
 -- The grid keeps room for it under the top-left buttons (leftGridTop).
@@ -857,7 +861,7 @@ function Dock.sideTileCentre(slot: number, height: number): UDim2
 	local row = (slot - 1) // Dock.SIDE_GRID_COLUMNS
 	local step = Dock.SIDE_GRID_TILE + Dock.SIDE_TILE_GAP
 	local fromLeft = Dock.ROW_SIDE_MARGIN + column * step + Dock.SIDE_GRID_TILE / 2
-	local down = Dock.leftGridTop(height) + row * step + Dock.SIDE_GRID_TILE / 2
+	local down = Dock.leftGridTop(height) + row * (Dock.SIDE_BAR_HEIGHT + Dock.SIDE_TILE_GAP) + Dock.SIDE_BAR_HEIGHT / 2
 	return UDim2.new(0, fromLeft, 0.5, down)
 end
 

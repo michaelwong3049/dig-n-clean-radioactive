@@ -326,12 +326,6 @@ local REMOTES: { [string]: string } = {
 	-- resetAt, days = { {cash, crates, luckSeconds, cashBoostSeconds, big} }, claimed? }.
 	DailyRewards = "RemoteEvent",
 
-	-- The Free Gifts ladder (Config/PlaytimeGifts, Services/PlaytimeGiftService). Client ->
-	-- server: "ask", "claim" + gift index, or "claimAll". Server -> client: { startedAt, now,
-	-- gifts = { {minutes, cash, speed, luckSeconds, cashBoostSeconds, potions, crates, big} },
-	-- claimed = { index }, justClaimed? }, on load, on each ask and after each claim.
-	PlaytimeGifts = "RemoteEvent",
-
 	-- Potions (Config/Potions, Services/PotionService). Client -> server: "ask", or
 	-- "drink" + potion id. Server -> client: { stash = { id -> count }, got?, drank?,
 	-- notice? }.
