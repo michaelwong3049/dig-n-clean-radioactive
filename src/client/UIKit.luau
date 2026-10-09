@@ -560,23 +560,23 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- quarter of the pixels the old one covered. The name stays because HAULPANEL_BOTTOM,
 -- ui.haul and every caller already read it and a rename buys nothing.
 --
--- THE SOIL SHAFT INSIDE IT SETS BOTH NUMBERS. The haul is drawn as a cut-away of the
--- ground (HaulShaft) with the nuke hauled up it from the floor, so the widget is as
--- tall as the shaft needs to make the climb and its depth ruler readable, plus REEL IN
--- under it; the readout (rarity, odds, metres to the surface) sits beside it,
--- right-aligned against the shaft, so naming what you hooked costs no height.
--- DetectorController's SHAFT_* / READOUT_* derive the whole interior from this one size.
+-- THE TUG-OF-WAR ROPE INSIDE IT SETS BOTH NUMBERS. The haul is drawn as a rope
+-- (HaulRope) with the nuke sliding along it from the dirt into the player's magnet, so
+-- the widget is as wide as the slide needs to read, and three rows tall: the readout
+-- (rarity word, metres to go) over the rope, LET GO and REEL IN under it.
+-- DetectorController's PANEL_* / ROPE_TOP / HAULBUTTON_* derive the interior from
+-- this one size: 34 of readout + HaulRope.HEIGHT 88 + 8 of gap + 46 of buttons = 176.
 --
--- 340x474 (442 + 32 of taller sky for a bigger magnet; 386 -> 340 wide on request, the readout column
--- still clears its widest line, "let go before the line" at 145), UP FROM 320x290, and the taller box is the price of the shaft. It is still
--- a floating stack with nothing drawn behind it, and it still keeps off the middle:
--- see HAULPANEL_CENTRE_GAP for where it sits and HAULPANEL_RIGHT for the tiles.
+-- 440x176, on request (2026-10-09: the soil shaft's 340x474 column became this wide,
+-- short strip). It is still a floating stack with nothing drawn behind it, and it still
+-- keeps off the middle: see HAULPANEL_CENTRE_GAP for where it sits and HAULPANEL_RIGHT
+-- for the tiles.
 --
 -- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM). That is safe rather than
 -- lucky: DigService releases the lock the instant the bag fills (its RELEASE 3), and
 -- the only other line the status can carry is the buried-too-deep one, which needs
 -- `not hasSignal` -- so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(340, 474)
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(440, 176)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.

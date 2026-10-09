@@ -44,7 +44,7 @@ local DetonationConfig = require(Shared.Config.Detonation)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local HaulShaft = require(script.Parent.Parent.HaulShaft)
+local HaulRope = require(script.Parent.Parent.HaulRope)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Dock = UIKit.Dock
 
@@ -125,8 +125,8 @@ local PROMPT_WAIT_CAP = 1.0 -- seconds the card will wait on a spot before showi
 
 local YANK_KICK_SECONDS = 0.12
 local YANK_KICK_SCALE = 0.05 -- how far REEL IN presses in at the peak of a kick
--- No yank for this long and the soil is winning: the shaft's strain judder gets harder.
-local SHAFT_IDLE_SECONDS = 0.2
+-- No yank for this long and the soil is winning: the rope's strain judder gets harder.
+local ROPE_IDLE_SECONDS = 0.2
 
 -- ── The haul widget's interior ──────────────────────────────────────────────────
 -- ALL DERIVED FROM Dock.HAULPANEL_SIZE, never re-hardcoded against it.
@@ -134,51 +134,47 @@ local SHAFT_IDLE_SECONDS = 0.2
 -- THERE IS NO PANEL BEHIND ANY OF THIS. The widget is a transparent container that
 -- only exists to be shown and hidden as a unit; each piece carries itself.
 --
--- TWO COLUMNS. On the right, the soil shaft (HaulShaft): a cut-away of the ground with
--- the nuke hauled up it on the magnet's cable -- the nuke's height IS the progress, so
--- there is no bar. Every haul starts on the shaft's floor; the ruler beside it is
--- scaled to that nuke's own burial depth. REEL IN sits under the shaft's foot. On the left, the readout,
--- right-aligned against the shaft: what you hooked (rarity + odds), then the metres
--- still to come up, then the way out level with REEL IN, as far from it as the row
--- allows because hitting the wrong one ends the haul.
-local SHAFT_WIDTH = HaulShaft.WIDTH
-local SHAFT_STROKE = UIKit.Stroke.normal -- HaulShaft's frame, drawn outside its box
+-- THREE ROWS. On top, the readout: what you hooked (the rarity word, left) and the
+-- metres still to come up (right). In the middle, the tug-of-war rope (HaulRope): the
+-- nuke slides along it from the dirt on the left into the player's magnet on the
+-- right -- how far along it is IS the progress, so there is no bar -- with the fuse
+-- burning down a wick over it. At the bottom, the two controls: LET GO at the left
+-- end and REEL IN at the right, under the magnet, as far apart as the row allows
+-- because hitting the wrong one ends the haul.
+local PANEL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset
+local PANEL_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset
+local READOUT_HEIGHT = 30
+local ROPE_TOP = READOUT_HEIGHT + 4
 local HAULBUTTON_HEIGHT = 46
-local HAULBUTTON_GAP = 7 -- the shaft frame's foot -> REEL IN
+local HAULBUTTON_WIDTH = 190
 local HAULBUTTON_TEXT = 20
-local SHAFT_X = Dock.HAULPANEL_SIZE.X.Offset - SHAFT_STROKE - SHAFT_WIDTH
-local SHAFT_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset - HAULBUTTON_HEIGHT - HAULBUTTON_GAP - 2 * SHAFT_STROKE
-local HAULBUTTON_Y = Dock.HAULPANEL_SIZE.Y.Offset - HAULBUTTON_HEIGHT
+local HAULBUTTON_Y = PANEL_HEIGHT - HAULBUTTON_HEIGHT
+local RELEASE_WIDTH = 120 -- the red LET GO plate, at the row's left end
+-- The metres readout, right-aligned over the magnet end. The rarity word gets the rest
+-- of the row, which still clears "LEGENDARY" at title weight -- the longest rarity in
+-- Rarity.ORDER, and the one thing here that would clip rather than merely look cramped.
+local METRES_WIDTH = 170
+local METRES_TEXT = 26
+-- "%.1f m", the unit at a smaller size. RichText.
+local METRES_FORMAT = '%.1f<font size="16">m</font>'
+-- "to go" is its OWN label after the number, in the lighter title weight. Inside the
+-- Gotham Black string its spaces came out ~3px under the outline and read "mtogo" in
+-- Play (and &#160; drew as missing-glyph diamonds).
+local TOGO_WIDTH = 44
+local TOGO_GAP = 4
 
--- The readout column: everything left of the shaft, less a gap. It needs the room for
--- "LEGENDARY" at title weight -- the longest rarity in Rarity.ORDER, and the one thing
--- here that would clip rather than merely look cramped.
-local READOUT_GAP = 14
-local READOUT_WIDTH = SHAFT_X - SHAFT_STROKE - READOUT_GAP
-local RELEASE_WIDTH = 120 -- the red LET GO plate, right-aligned in the readout column
-local READOUT_TOP = 96 -- the rarity word's row; everything else hangs below it
-local METRES_TEXT = 50 -- the "1.9 m" headline: the number being watched
--- "%.1f" metres, the unit at half size. RichText.
-local METRES_FORMAT = '%.1f<font size="24">m</font>'
-
--- How fast the shaft's nuke chases the server's value (1/seconds). Smoothed rather
+-- How fast the rope's nuke chases the server's value (1/seconds). Smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
 -- like a stutter; fast enough that a yank still lands as a visible jump.
 local FILL_LERP_RATE = 14
 
--- The pull fuse (Config/Detonation), in the empty band over the readout: a headline
--- with the seconds, the bar with its point-of-no-return tick, and a one-line caption.
-local FUSE_LABEL_Y = 10
-local FUSE_TRACK_Y = 42
-local FUSE_TRACK_HEIGHT = 10
-local FUSE_CAPTION_Y = 58
-local FUSE_NOTCH_WIDTH = 4
--- Cool, warming, armed. Pale straw until WARN_AT, easing to amber by ARM_AT, then red.
+-- The pull fuse (Config/Detonation), on the wick's chip: cool, warming, armed. Pale
+-- straw until WARN_AT, easing to amber by ARM_AT, then red.
 local FUSE_COOL = Color3.fromHex("FDE68A")
 -- What the armed red flashes toward. Deliberately NOT UIKit.C.burn: that white means
 -- aura failure and nothing else (PLAN's one colour rule).
 local FUSE_FLASH = Color3.fromHex("FFD2C4")
-local FUSE_ARMED_PULSE = 7 -- rad/sec on the armed headline's flash
+local FUSE_ARMED_PULSE = 7 -- rad/sec on the armed chip's flash
 
 type Contact = { dx: number, dz: number, rarity: string?, scale: number? }
 
@@ -197,13 +193,13 @@ local state = {
 	inRange = false,
 	blocked = nil :: string?,
 	-- Stages the soil outclasses the held magnet (0 = rated for it). Server-sent, read
-	-- only to crack the soil round the nuke in the haul shaft as the over-tier grind
+	-- only to crack the soil round the nuke on the haul rope as the over-tier grind
 	-- steepens -- it never
 	-- blocks a haul and never becomes a status message.
 	overGrip = 0,
 	digProgress = 0,
 	-- The locked signal's burial depth in studs (server-sent only while locked), and
-	-- the stage it is in: the soil shaft draws the nuke at its true depth, in that
+	-- the stage it is in: the haul readout counts the metres off it, and the rope's dirt end wears that
 	-- stage's soil.
 	depth = nil :: number?,
 	stageId = nil :: number?,
@@ -711,7 +707,7 @@ local function build(): ScreenGui
 	-- Dock.HAULPANEL_BOTTOM -- see that constant for where "right above the hotbar" puts
 	-- it and why it is left to overlay the (left-anchored) instrument band.
 	-- A BARE FRAME, NOT UIKit.panel. Nothing is drawn for the container itself -- no
-	-- fill, no corner, no stroke -- it exists only to place the shaft and its readout as
+	-- fill, no corner, no stroke -- it exists only to place the rope and its readout as
 	-- a unit and to be shown and hidden in one line.
 	local haul = Instance.new("Frame")
 	haul.Name = "HaulPanel"
@@ -769,21 +765,21 @@ local function build(): ScreenGui
 	ui.placeHaul = placeHaul
 	placeHaul()
 
-	-- THE SOIL SHAFT: the picture of the haul. The nuke climbs it on the magnet's cable
-	-- from the floor to the grass, so how high it is IS the progress (HaulShaft's
-	-- header). renderState paints it in the stage's soil and the signal's colour and
-	-- scales its ruler to the nuke's depth; renderFrame moves the nuke every frame.
-	ui.shaft = HaulShaft.build(haul, UDim2.fromOffset(SHAFT_X, SHAFT_STROKE), SHAFT_HEIGHT)
+	-- THE ROPE: the picture of the haul. The nuke slides along it from the dirt into the
+	-- player's magnet, so how far along it is IS the progress, and the fuse burns down
+	-- the wick over it (HaulRope's header). renderState paints its dirt end in the
+	-- stage's soil and the nuke in the signal's colour; renderFrame moves both every frame.
+	ui.rope = HaulRope.build(haul, UDim2.fromOffset(0, ROPE_TOP), PANEL_WIDTH)
 
-	-- REEL IN, UNDER THE SHAFT'S FOOT. A real button and not a key hint because a phone
+	-- REEL IN, UNDER THE MAGNET. A real button and not a key hint because a phone
 	-- has no E key -- without a tappable control here the entire second beat would be
 	-- keyboard-only. A near-opaque plate, because over open ground a translucent fill
 	-- puts the verb on grass. Its outline carries the signal's colour (renderState), in
 	-- step with the band on the nuke.
 	local haulButton, haulButtonStroke = UIKit.button(haul, {
 		name = "HaulButton",
-		position = UDim2.fromOffset(SHAFT_X - SHAFT_STROKE, HAULBUTTON_Y),
-		size = UDim2.fromOffset(SHAFT_WIDTH + 2 * SHAFT_STROKE, HAULBUTTON_HEIGHT),
+		position = UDim2.fromOffset(PANEL_WIDTH - HAULBUTTON_WIDTH, HAULBUTTON_Y),
+		size = UDim2.fromOffset(HAULBUTTON_WIDTH, HAULBUTTON_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = HAULBUTTON_TEXT,
 		color = COLOR.text,
@@ -859,15 +855,15 @@ local function build(): ScreenGui
 	-- RELEASE HAS TO BE VISIBLE. Locking roots the character, so a player who cannot
 	-- find the way out is stuck standing in a field. It is a real button rather than
 	-- only a key hint for the same reason REEL IN is: on touch there is no Q. Level with
-	-- REEL IN but at the far end of the row, right-aligned under the readout -- the two
+	-- REEL IN but at the far (dirt) end of the row -- the two
 	-- are the only controls here and hitting the wrong one ends the haul.
 	--
-	-- A solid red plate, same height as REEL IN, right-aligned against the readout. Red
+	-- A solid red plate, same height as REEL IN, at the row's left end. Red
 	-- reads as "stop", with a black border and a Q keycap like REEL IN's E (keyboard
 	-- only; a touch player just taps the plate). Greys out once the fuse arms.
 	local releaseButton, releaseStroke = UIKit.button(haul, {
 		name = "ReleaseButton",
-		position = UDim2.fromOffset(READOUT_WIDTH - RELEASE_WIDTH, HAULBUTTON_Y),
+		position = UDim2.fromOffset(0, HAULBUTTON_Y),
 		size = UDim2.fromOffset(RELEASE_WIDTH, HAULBUTTON_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = HAULBUTTON_TEXT,
@@ -913,91 +909,22 @@ local function build(): ScreenGui
 	releaseVerb.LayoutOrder = 2
 	ui.releaseVerb = releaseVerb
 
-	-- THE PULL FUSE, over the readout (Config/Detonation). Locking on lit it. The bar is
-	-- how far through its window this nuke is, and the white tick at ARM_AT is the point
-	-- of no return: let go left of it and you walk away, cross it and the release above
-	-- stops working. The headline counts down to that tick, then -- once armed -- to the
-	-- bang. Straw until WARN_AT, warming to amber at the tick, red once it has armed.
-	-- Right-aligned against the shaft like the rest of the readout.
-	ui.fuseLabel = UIKit.label(haul, {
-		name = "FuseLabel",
-		position = UDim2.fromOffset(0, FUSE_LABEL_Y),
-		size = UDim2.fromOffset(READOUT_WIDTH, 28),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header + 3,
-		color = COLOR.text,
-		xAlign = Enum.TextXAlignment.Right,
-	})
-
-	local fuseTrack = Instance.new("Frame")
-	fuseTrack.Name = "FuseTrack"
-	fuseTrack.Position = UDim2.fromOffset(0, FUSE_TRACK_Y)
-	fuseTrack.Size = UDim2.fromOffset(READOUT_WIDTH, FUSE_TRACK_HEIGHT)
-	fuseTrack.BackgroundColor3 = COLOR.panel
-	fuseTrack.BackgroundTransparency = 0.1
-	fuseTrack.BorderSizePixel = 0
-	fuseTrack.Parent = haul
-	local fuseTrackCorner = Instance.new("UICorner")
-	fuseTrackCorner.CornerRadius = UDim.new(0, 6)
-	fuseTrackCorner.Parent = fuseTrack
-	local fuseTrackStroke = Instance.new("UIStroke")
-	fuseTrackStroke.Color = COLOR.outline
-	fuseTrackStroke.Thickness = UIKit.Stroke.thin
-	fuseTrackStroke.Parent = fuseTrack
-	ui.fuseTrackStroke = fuseTrackStroke
-
-	local fuseFill = Instance.new("Frame")
-	fuseFill.Name = "Fill"
-	fuseFill.Size = UDim2.fromScale(0, 1)
-	fuseFill.BackgroundColor3 = FUSE_COOL
-	fuseFill.BorderSizePixel = 0
-	fuseFill.Parent = fuseTrack
-	local fuseFillCorner = Instance.new("UICorner")
-	fuseFillCorner.CornerRadius = UDim.new(0, 6)
-	fuseFillCorner.Parent = fuseFill
-	ui.fuseFill = fuseFill
-
-	-- Taller than the bar so it reads as a line drawn ACROSS it, not a segment of it.
-	local fuseNotch = Instance.new("Frame")
-	fuseNotch.Name = "ArmLine"
-	fuseNotch.AnchorPoint = Vector2.new(0.5, 0.5)
-	fuseNotch.Position = UDim2.fromScale(DetonationConfig.ARM_AT, 0.5)
-	fuseNotch.Size = UDim2.new(0, FUSE_NOTCH_WIDTH, 1, 10)
-	fuseNotch.BackgroundColor3 = COLOR.text
-	fuseNotch.BorderSizePixel = 0
-	fuseNotch.ZIndex = 2
-	fuseNotch.Parent = fuseTrack
-	local fuseNotchStroke = Instance.new("UIStroke")
-	fuseNotchStroke.Color = COLOR.outline
-	fuseNotchStroke.Thickness = 1.5
-	fuseNotchStroke.Parent = fuseNotch
-
-	ui.fuseCaption = UIKit.label(haul, {
-		name = "FuseCaption",
-		position = UDim2.fromOffset(0, FUSE_CAPTION_Y),
-		size = UDim2.fromOffset(READOUT_WIDTH, 20),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.body,
-		color = COLOR.text,
-		xAlign = Enum.TextXAlignment.Right,
-	})
-
-	-- THE READOUT, right-aligned against the shaft: what the detector reads about the
-	-- thing you locked onto, then how far it still has to come. The rarity word is the
-	-- headline and carries the accent tint (in step with the nuke's band and REEL IN's
-	-- outline), and below it the metres left. No "1 in N" odds (on request): with the
-	-- rarity word beside it, the odds named the exact nuke coming up -- the number
-	-- actually being watched, so it is the big one. All of it lands on any detector
-	-- (DigService.hintFor is not clarity-gated), and all of it takes the kit's hard
-	-- outline, because with no panel behind it this text can end up over sunlit sludge.
+	-- THE READOUT, over the rope: what the detector reads about the thing you locked
+	-- onto, then how far it still has to come. The rarity word is the headline and
+	-- carries the accent tint (in step with the nuke's band and REEL IN's outline); the
+	-- metres left sit at the other end, over the magnet. No "1 in N" odds (on request):
+	-- with the rarity word beside it, the odds named the exact nuke coming up. All of it
+	-- lands on any detector (DigService.hintFor is not clarity-gated), and all of it
+	-- takes the kit's hard outline, because with no panel behind it this text can end up
+	-- over sunlit sludge.
 	ui.haulTitle = UIKit.label(haul, {
 		name = "Title",
-		position = UDim2.fromOffset(0, READOUT_TOP),
-		size = UDim2.fromOffset(READOUT_WIDTH, 30),
+		position = UDim2.fromOffset(0, 0),
+		size = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, READOUT_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.title,
 		color = COLOR.scope,
-		xAlign = Enum.TextXAlignment.Right,
+		xAlign = Enum.TextXAlignment.Left,
 	})
 
 	-- A question mark, IN THE RARITY WORD'S OWN SLOT. You committed to a lump in the
@@ -1006,22 +933,22 @@ local function build(): ScreenGui
 	-- "LEGENDARY" next to a "?" reads as a bug.
 	ui.haulQuestion = UIKit.label(haul, {
 		name = "HaulQuestion",
-		position = UDim2.fromOffset(0, READOUT_TOP),
-		size = UDim2.fromOffset(READOUT_WIDTH, 30),
+		position = UDim2.fromOffset(0, 0),
+		size = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, READOUT_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = 30,
 		color = COLOR.dim,
-		xAlign = Enum.TextXAlignment.Right,
+		xAlign = Enum.TextXAlignment.Left,
 		text = "?",
 	})
 
-	-- The metres still to come up (renderFrame, every frame, off the smoothed progress so
+	-- The metres still to come (renderFrame, every frame, off the smoothed progress so
 	-- it falls in step with the nuke rather than in 10 Hz steps). The depth is known
-	-- whether or not the rarity is, so this shows under the "?" too.
+	-- whether or not the rarity is, so this shows beside the "?" too.
 	ui.haulMetres = UIKit.label(haul, {
 		name = "Metres",
-		position = UDim2.fromOffset(0, READOUT_TOP + 80),
-		size = UDim2.fromOffset(READOUT_WIDTH, METRES_TEXT),
+		position = UDim2.fromOffset(PANEL_WIDTH - METRES_WIDTH, 0),
+		size = UDim2.fromOffset(METRES_WIDTH - TOGO_WIDTH - TOGO_GAP, READOUT_HEIGHT),
 		font = UIKit.Font.hero,
 		textSize = METRES_TEXT,
 		color = COLOR.text,
@@ -1031,13 +958,13 @@ local function build(): ScreenGui
 
 	UIKit.label(haul, {
 		name = "MetresCaption",
-		position = UDim2.fromOffset(0, READOUT_TOP + 84 + METRES_TEXT),
-		size = UDim2.fromOffset(READOUT_WIDTH, 20),
+		position = UDim2.fromOffset(PANEL_WIDTH - TOGO_WIDTH, 3),
+		size = UDim2.fromOffset(TOGO_WIDTH, READOUT_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.body,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Right,
-		text = "to the surface",
+		text = "to go",
 	})
 
 	return gui
@@ -1071,67 +998,48 @@ local function renderFrame(dt: number)
 	ui.haulKick.Scale = 1 - kick * YANK_KICK_SCALE
 
 	if state.locked then
-		-- THE NUKE IS THE BAR. Every haul starts it on the shaft's floor and it climbs
-		-- the full height on progress alone; the depth only sets the ruler's scale
-		-- (renderState) and the metres still to come up, printed beside it.
+		-- THE NUKE IS THE BAR. Every haul starts it at the rope's dirt end and it slides
+		-- the full length on progress alone; the depth only sets the metres still to come
+		-- up, printed over the magnet end.
 		local climbed = math.clamp(shownProgress, 0, 1)
 		local toGo = if state.depth then state.depth * (1 - climbed) / Stages.STUDS_PER_METRE else nil
-		HaulShaft.step(ui.shaft, {
-			progress = climbed,
-			strain = state.overGrip,
-			kick = kick,
-			idle = sinceYank > SHAFT_IDLE_SECONDS and climbed > 0,
-			now = os.clock(),
-		})
 		ui.haulMetres.Text = if toGo then string.format(METRES_FORMAT, toGo) else ""
 
-		-- THE FUSE. The bar chases the server like the nuke does; the seconds count down
+		-- THE FUSE. The wick chases the server like the nuke does; the seconds count down
 		-- off the local clock from the last payload, so they tick every frame instead of
-		-- in 10 Hz steps.
+		-- in 10 Hz steps. The chip on the spark reads the seconds to the bang -- the
+		-- wick's end -- and the white tick on the wick is the arm line.
 		local fuse = state.fuse or 0
 		shownFuse += (fuse - shownFuse) * (1 - math.exp(-FILL_LERP_RATE * dt))
 		local fill = math.clamp(shownFuse, 0, 1)
-		ui.fuseFill.Size = UDim2.fromScale(fill, 1)
-
-		local sinceTick = os.clock() - state.fuseAt
-		local toBlow = math.max(0, (state.fuseLeft or 0) - sinceTick)
-		local window = state.fuseWindow or 0
+		local toBlow = math.max(0, (state.fuseLeft or 0) - (os.clock() - state.fuseAt))
 		local armAt = DetonationConfig.ARM_AT
 		local warnAt = DetonationConfig.WARN_AT
 
+		local chipText, chipColor
 		if state.fuseless then
-			ui.fuseFill.BackgroundColor3 = FUSE_COOL
-			ui.fuseTrackStroke.Color = COLOR.outline
-			ui.fuseTrackStroke.Thickness = UIKit.Stroke.thin
-			ui.fuseLabel.TextColor3 = COLOR.text
-			ui.fuseLabel.Text = "No fuse"
-			ui.fuseCaption.TextColor3 = COLOR.dim
-			ui.fuseCaption.Text = "take your time"
+			chipText, chipColor = "No fuse", FUSE_COOL
 		elseif state.fuseArmed then
-			-- Red, flashing, and the words change: there is one way out of this now.
+			-- Red and flashing: there is one way out of this now.
 			local flash = 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE)
-			local hot = COLOR.red:Lerp(FUSE_FLASH, flash * 0.5)
-			ui.fuseFill.BackgroundColor3 = hot
-			ui.fuseTrackStroke.Color = COLOR.red:Lerp(COLOR.outline, flash)
-			ui.fuseTrackStroke.Thickness = UIKit.Stroke.normal
-			ui.fuseLabel.TextColor3 = hot
-			ui.fuseLabel.Text = string.format("Armed  %.1fs", toBlow)
-			ui.fuseCaption.TextColor3 = COLOR.red
-			ui.fuseCaption.Text = "PULL IT OUT!"
+			chipText = string.format("ARMED %.1fs", toBlow)
+			chipColor = COLOR.red:Lerp(FUSE_FLASH, flash * 0.5)
 		else
-			-- Seconds to the tick, not to the bang: before it, the number that matters is
-			-- how long you still have to walk away.
-			local toArm = math.max(0, toBlow - (1 - armAt) * window)
 			local warmth = math.clamp((fill - warnAt) / (armAt - warnAt), 0, 1)
-			local colour = FUSE_COOL:Lerp(COLOR.amber, warmth)
-			ui.fuseFill.BackgroundColor3 = colour
-			ui.fuseTrackStroke.Color = COLOR.outline
-			ui.fuseTrackStroke.Thickness = UIKit.Stroke.thin
-			ui.fuseLabel.TextColor3 = if fill >= warnAt then colour else COLOR.text
-			ui.fuseLabel.Text = string.format("Fuse  %.1fs", toArm)
-			ui.fuseCaption.TextColor3 = if fill >= warnAt then COLOR.amber else COLOR.dim
-			ui.fuseCaption.Text = if fill >= warnAt then "let go before the line" else "live nuke"
+			chipText = string.format("%.1fs", toBlow)
+			chipColor = FUSE_COOL:Lerp(COLOR.amber, warmth)
 		end
+
+		HaulRope.step(ui.rope, {
+			progress = climbed,
+			strain = state.overGrip,
+			kick = kick,
+			idle = sinceYank > ROPE_IDLE_SECONDS and climbed > 0,
+			now = os.clock(),
+			fuse = if state.fuseless then nil else fill,
+			fuseText = chipText,
+			fuseColor = chipColor,
+		})
 	end
 
 	-- The pick-up prompt's idle life: a slow hover, and the keycap outline breathing on
@@ -1322,22 +1230,20 @@ local function renderState()
 	ui.releaseButton.BackgroundColor3 = if state.fuseArmed then COLOR.panel else COLOR.red
 	if state.locked then
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on
-		-- the nuke in the shaft, and REEL IN's outline. Scope blue only in the brief
-		-- frame before the rarity resolves -- the "?" beside the shaft is that state at
-		-- rest; this is it in colour. The soil is the stage's own, and the ruler down the
-		-- shaft is scaled to this nuke's burial depth (both no-ops once set, so safe on
-		-- every tick).
+		-- the nuke on the rope, and REEL IN's outline. Scope blue only in the brief
+		-- frame before the rarity resolves -- the "?" over the rope is that state at
+		-- rest; this is it in colour. The rope's dirt end is the stage's own soil (a
+		-- no-op once set, so safe on every tick).
 		local accent = signalColor()
 		ui.haulButtonStroke.Color = accent
-		HaulShaft.setAccent(ui.shaft, accent)
+		HaulRope.setAccent(ui.rope, accent)
 		if state.stageId then
-			HaulShaft.paint(ui.shaft, state.stageId)
+			HaulRope.paint(ui.rope, state.stageId)
 		end
-		HaulShaft.setDepth(ui.shaft, if state.depth then state.depth / Stages.STUDS_PER_METRE else nil)
-		-- The magnet over the shaft is the one in hand (ToolService stamps its tier on
+		-- The magnet at the rope's end is the one in hand (ToolService stamps its tier on
 		-- the held model); the last one drawn if none is in hand, tier 1 before that.
 		local character = Players.LocalPlayer.Character
-		local magnetTier = ui.shaft.magnetTier or 1
+		local magnetTier = ui.rope.magnetTier or 1
 		if character then
 			for _, child in character:GetChildren() do
 				if child:GetAttribute("ToolName") == "Magnet" then
@@ -1346,7 +1252,7 @@ local function renderState()
 				end
 			end
 		end
-		HaulShaft.setMagnet(ui.shaft, magnetTier)
+		HaulRope.setMagnet(ui.rope, magnetTier)
 
 		-- The readout spells out what the colour only implies: the rarity word
 		-- (state.rarityHint), on any detector -- exactly what DigService.hintFor sent.
@@ -1359,9 +1265,9 @@ local function renderState()
 		ui.haulTitle.TextColor3 = accent
 		ui.haulQuestion.Visible = not state.rarityHint
 		-- An under-rated magnet still locks on, still pulls, and is never told it is too
-		-- weak -- the grind says it. The shaft says it too, without words: the soil
+		-- weak -- the grind says it. The rope says it too, without words: the soil
 		-- around the nuke cracks and glows and the nuke judders, harder the further the
-		-- soil outclasses the magnet (renderFrame hands state.overGrip to HaulShaft.step).
+		-- soil outclasses the magnet (renderFrame hands state.overGrip to HaulRope.step).
 	end
 
 	if not state.inStage then
