@@ -91,10 +91,16 @@ Detonation.TUTORIAL_WINDOW = 60
 -- this, and never rolls a TROLL fuse -- a 1.5s gag is a wall to someone on their first
 -- magnet. Stages not listed get 1. Spec pins the multipliers >= 1 and non-increasing,
 -- so the ramp only ever eases off towards Stage 4.
+--
+-- 2026-10-09, on request ("make the fuse times for stages 1-4 almost impossible to
+-- explode"): x8 across Stages 1-4 (was 1.6/1.45/1.3 on 1-3), so the shortest fuse there
+-- is ~24s (arming at ~19s) and an average one well over a minute -- longer than any
+-- pull takes. Stage 4 lost its trolls with it.
 Detonation.BEGINNER_WINDOW = {
-	[1] = 1.6,
-	[2] = 1.45,
-	[3] = 1.3,
+	[1] = 8,
+	[2] = 8,
+	[3] = 8,
+	[4] = 8,
 }
 
 -- RARER NUKES ARE LESS STABLE. Multiplies BASE_WINDOW. Monotonic non-increasing down
@@ -177,21 +183,22 @@ Detonation.COOL_RATE = 1.0
 --              Falls to BLAST_EDGE of that at the rim of the blast.
 --   orbRadius  studs. The glowing orb of hot air left over the crater.
 --   orbBurn    health/sec at the orb's centre. Falls to ORB_EDGE of that at its rim.
---   orbLife    seconds the orb hangs there before it has fully dissipated.
+--   orbLife    seconds the orb hangs there before it has fully dissipated. Cut by a
+--              quarter on request (2026-10-09, "crater explosions last a little shorter").
 --
 -- MAX_HEALTH is 100 (Config/Tuning), so these are percentages of a body. hit and
 -- orbBurn were doubled across the board so a blast properly hurts. A Common's
 -- crater is a bruise you walk out of; a Mythic's or an Anomaly's at point blank is a
 -- blackout even running straight out (Spec pins the Common end).
 Detonation.BLAST = {
-	Scrap = { hit = 50, orbRadius = 8, orbBurn = 20, orbLife = 30 },
-	Common = { hit = 50, orbRadius = 8, orbBurn = 20, orbLife = 30 },
-	Uncommon = { hit = 60, orbRadius = 10, orbBurn = 28, orbLife = 40 },
-	Rare = { hit = 80, orbRadius = 13, orbBurn = 40, orbLife = 45 },
-	Epic = { hit = 100, orbRadius = 16, orbBurn = 56, orbLife = 50 },
-	Legendary = { hit = 120, orbRadius = 20, orbBurn = 76, orbLife = 60 },
-	Mythic = { hit = 150, orbRadius = 25, orbBurn = 100, orbLife = 75 },
-	Anomaly = { hit = 180, orbRadius = 32, orbBurn = 130, orbLife = 90 },
+	Scrap = { hit = 50, orbRadius = 8, orbBurn = 20, orbLife = 22 },
+	Common = { hit = 50, orbRadius = 8, orbBurn = 20, orbLife = 22 },
+	Uncommon = { hit = 60, orbRadius = 10, orbBurn = 28, orbLife = 30 },
+	Rare = { hit = 80, orbRadius = 13, orbBurn = 40, orbLife = 34 },
+	Epic = { hit = 100, orbRadius = 16, orbBurn = 56, orbLife = 38 },
+	Legendary = { hit = 120, orbRadius = 20, orbBurn = 76, orbLife = 45 },
+	Mythic = { hit = 150, orbRadius = 25, orbBurn = 100, orbLife = 56 },
+	Anomaly = { hit = 180, orbRadius = 32, orbBurn = 130, orbLife = 68 },
 }
 
 -- The blast reaches a little past the orb it leaves: blastRadius = orbRadius * this.
