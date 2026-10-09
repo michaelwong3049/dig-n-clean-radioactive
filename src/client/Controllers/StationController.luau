@@ -358,9 +358,9 @@ local PANEL_LIFT = 32
 -- The trader's counter rides higher still, on request.
 local TRADER_LIFT = 64
 -- The gear stalls grew ~104px taller (taller card, roomier header and gaps), and on
--- request all of it went UPWARD: lifting by half the growth keeps the bottom edge
--- exactly where it sat before.
-local SHOP_LIFT = PANEL_LIFT + 52
+-- request all of it went UPWARD (lifting by half the growth kept the bottom edge
+-- where it sat before); later, on request, it came back down 32px.
+local SHOP_LIFT = PANEL_LIFT + 20
 local FIT_BOTTOM = UIKit.Dock.HOTBAR_BOTTOM + UIKit.Dock.HOTBAR_HEIGHT + UIKit.Dock.GAP
 
 local ui = {}
