@@ -90,8 +90,31 @@ function ImportedStation.place(template: Model, parent: Instance, origin: CFrame
 end
 
 --- One palette entry: a hex colour, whether the piece glows (Neon), and how see-through
---- it is (glass; the imports come in opaque).
-export type Paint = { color: string, neon: boolean?, transparency: number? }
+--- it is (glass; the imports come in opaque). `studs` makes the piece a plain studded
+--- Plastic Block or upright Cylinder of the mesh's box instead: studs never draw on a
+--- mesh, so only pieces that really are a box or a round post can take them.
+export type Paint = { color: string, neon: boolean?, transparency: number?, studs: ("Block" | "Cylinder")? }
+
+local FACES = { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" }
+
+--- Turn `p` (a painted piece, its mesh removed) into a studded Plastic `shape` filling
+--- the same box. A Cylinder's axis is its X, so it is rolled a quarter turn to stand up.
+function ImportedStation.stud(p: Part, shape: "Block" | "Cylinder")
+	local mesh = p:FindFirstChildOfClass("SpecialMesh")
+	if mesh then
+		mesh:Destroy()
+	end
+	local size, cf = p.Size, p.CFrame
+	p.Shape = Enum.PartType[shape]
+	if shape == "Cylinder" then
+		p.Size = Vector3.new(size.Y, size.X, size.Z)
+		p.CFrame = cf * CFrame.Angles(0, 0, math.pi / 2)
+	end
+	p.Material = Enum.Material.Plastic
+	for _, face in FACES do
+		(p :: any)[face] = Enum.SurfaceType.Studs
+	end
+end
 
 --- Repaint the placed `look`: every MeshPart whose name, less any trailing digits
 --- ("coal12" → "coal"), is a key of `palette` becomes a Part of the same name, box and
@@ -137,6 +160,9 @@ function ImportedStation.paint(look: Model, palette: { [string]: Paint }): numbe
 
 		for _, child in d:GetChildren() do
 			child.Parent = p
+		end
+		if entry.studs then
+			ImportedStation.stud(p, entry.studs)
 		end
 		p.Parent = d.Parent
 		d:Destroy()
