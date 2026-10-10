@@ -214,9 +214,10 @@ local SCROLL_GAP = 6
 -- A few px taller than a card so the focused card's stroke is never clipped.
 local CARD_BAND = CARD_HEIGHT + 8
 local CAROUSEL_HEIGHT = CARD_BAND + SCROLL_GAP + SCROLL_HEIGHT
---- The Gear booth's DETECTORS | MAGNETS pills (Config/Booths).
-local SHOP_TAB_WIDTH = 200
-local SHOP_TAB_HEIGHT = 40
+--- The Gear booth's DETECTORS | MAGNETS tabs (Config/Booths): one bright studded half
+--- of the row each (2026-10-10, on request: "easier to differentiate").
+local SHOP_TAB_HEIGHT = 50
+local SHOP_TAB_GAP = 12
 local SHOP_TAB_TEXT: { [string]: string } = { Detector = "Detectors", Magnet = "Magnets", Cleaner = "Hoses", Aura = "Auras" }
 -- Neighbours sit slightly smaller and behind a slate veil, so the focused card is the
 -- only thing on the row that reads as in front of you.
@@ -235,10 +236,6 @@ local DRAG_RUBBER = 0.35
 local WHEEL_COOLDOWN = 0.15
 -- The close badge's 32px plus the 14px it is inset by, less the panel pad it shares.
 local WALLET_INSET = 58
--- The header's SORT / SHOW pills (see build).
-local FILTER_PILL_WIDTH = 190
-local FILTER_PILL_HEIGHT = 34
-local FILTER_PILL_GAP = 10
 
 local PANEL_PAD = 16
 -- The focused card, a gap and a peek either side, and the panel's own padding.
@@ -305,6 +302,20 @@ local STALL_ACCENT: { [string]: Color3 } = {
 	Detector = Color3.fromHex("E0714E"),
 	Magnet = Color3.fromHex("4E9AAE"),
 	Cleaner = Color3.fromHex("9560B0"),
+}
+
+--- The Gear booth's tab fills (2026-10-10, on request: brighter, so detectors and
+--- magnets never read as the same tab). The picked tab wears its bright fade; the
+--- other wears the same hue sunk dark, so each tab keeps its own colour either way.
+local TAB_FILL: { [string]: { on: ColorSequence, off: ColorSequence } } = {
+	Detector = {
+		on = ColorSequence.new(Color3.fromHex("FFC24A"), Color3.fromHex("FF6A1A")),
+		off = ColorSequence.new(Color3.fromHex("6E4A26"), Color3.fromHex("4A2A14")),
+	},
+	Magnet = {
+		on = ColorSequence.new(Color3.fromHex("5CE6FF"), Color3.fromHex("1E7BFF")),
+		off = ColorSequence.new(Color3.fromHex("27566A"), Color3.fromHex("15324F")),
+	},
 }
 
 --- THE STUDDED-CARD SHOP (2026-10-04, on request, after a reference the user sent: a
@@ -1446,8 +1457,9 @@ local function build(): ScreenGui
 	ui.shopNext = makeArrow("Next", 1)
 
 	-- ── The Gear booth's tabs ─────────────────────────────────────────
-	-- One pill per track a booth sells (Config/Booths), between the header and the
-	-- cards: DETECTORS | MAGNETS at the Gear booth. Hidden at a one-track booth.
+	-- One tab per track a booth sells (Config/Booths), between the header and the
+	-- cards, sharing the row equally: DETECTORS on the left half, MAGNETS on the right.
+	-- Hidden at a one-track booth. Each is a studded button in its own bright TAB_FILL.
 	local tabs = Instance.new("Frame")
 	tabs.Name = "ShopTabs"
 	tabs.LayoutOrder = 1
@@ -1460,26 +1472,30 @@ local function build(): ScreenGui
 	tabsLayout.FillDirection = Enum.FillDirection.Horizontal
 	tabsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	tabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	tabsLayout.Padding = UDim.new(0, 12)
+	tabsLayout.Padding = UDim.new(0, SHOP_TAB_GAP)
 	tabsLayout.Parent = tabs
 	ui.shopTabButtons = {} :: { [string]: TextButton }
 	for order, tabTrack in Gear.TRACKS do
 		local tab = UIKit.button(tabs, {
 			name = `Tab{tabTrack}`,
-			size = UDim2.fromOffset(SHOP_TAB_WIDTH, SHOP_TAB_HEIGHT),
+			size = UDim2.new(0.5, -SHOP_TAB_GAP / 2, 1, 0), -- resized per booth in render
 			text = string.upper(SHOP_TAB_TEXT[tabTrack] or tabTrack),
 			font = FIELD.headline,
-			textSize = 20,
+			textSize = 24,
 			color = FIELD.text,
 			fillColor = FIELD.edge,
 			fillTransparency = 0,
-			cornerRadius = UDim.new(0.5, 0),
+			cornerRadius = UDim.new(0, 10),
 			strokeColor = FIELD.ink,
 			strokeThickness = 3,
 			outline = false,
 			visible = false,
 		})
 		tab.LayoutOrder = order
+		tab.AutoButtonColor = false
+		Studded.fill(tab, (TAB_FILL[tabTrack] or TAB_FILL.Detector).off)
+		Studded.button(tab, 10)
+		Studded.border(tab, 3)
 		ui.shopTabButtons[tabTrack] = tab
 	end
 
@@ -1685,43 +1701,6 @@ local function build(): ScreenGui
 		outline = false,
 		visible = false,
 	})
-
-	-- The row's SORT and SHOW pills, centred in the header between the title and the
-	-- wallet. Each press steps its pref to the next option (prefs `gearSort`,
-	-- `shopShow`); their text is painted by paintShopFilters.
-	local filters = Instance.new("Frame")
-	filters.Name = "ShopFilters"
-	filters.AnchorPoint = Vector2.new(0.5, 0.5)
-	filters.Position = UDim2.new(0.5, 0, 0.5, -1)
-	filters.Size = UDim2.fromOffset(2 * FILTER_PILL_WIDTH + FILTER_PILL_GAP, FILTER_PILL_HEIGHT)
-	filters.BackgroundTransparency = 1
-	filters.Visible = false
-	filters.Parent = header
-	local filtersLayout = Instance.new("UIListLayout")
-	filtersLayout.FillDirection = Enum.FillDirection.Horizontal
-	filtersLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	filtersLayout.Padding = UDim.new(0, FILTER_PILL_GAP)
-	filtersLayout.Parent = filters
-	local function filterPill(name: string, order: number): TextButton
-		local pill = UIKit.button(filters, {
-			name = name,
-			size = UDim2.fromOffset(FILTER_PILL_WIDTH, FILTER_PILL_HEIGHT),
-			font = FIELD.headline,
-			textSize = 16,
-			color = FIELD.text,
-			fillColor = FIELD.edge,
-			fillTransparency = 0,
-			cornerRadius = UDim.new(0.5, 0),
-			strokeColor = FIELD.ink,
-			strokeThickness = 2,
-			outline = false,
-		})
-		pill.LayoutOrder = order
-		return pill
-	end
-	ui.shopFilters = filters
-	ui.shopSort = filterPill("Sort", 1)
-	ui.shopShow = filterPill("Show", 2)
 
 	inkShopText(shop)
 
@@ -2221,47 +2200,18 @@ local function tierIndex(tiers: { any }, tier: number): number?
 	return nil
 end
 
---- The offer's ladder in the player's chosen order (the header's SORT pill, pref
---- `gearSort`): a sorted COPY, so the server's worst-first list that the rack reads is
---- left alone. Equal prices fall back on the tier, so the order never shuffles a tick.
+--- The offer's ladder cheapest first: a sorted COPY, so the server's worst-first list
+--- that the rack reads is left alone. Equal prices fall back on the tier, so the order
+--- never shuffles a tick. (The header's SORT / SHOW pills went 2026-10-10, on request.)
 local function sortedTiers(tiers: { any }): { any }
-	local cheapFirst = Prefs.get("gearSort") ~= "high"
 	local out = table.clone(tiers)
 	table.sort(out, function(a, b)
 		local pa, pb = a.price or 0, b.price or 0
 		if pa ~= pb then
-			return if cheapFirst then pa < pb else pa > pb
+			return pa < pb
 		end
-		return if cheapFirst then a.tier < b.tier else a.tier > b.tier
+		return a.tier < b.tier
 	end)
-	return out
-end
-
-local SORT_TEXT = { high = "PRICE: HIGH-LOW", low = "PRICE: LOW-HIGH" }
-local SHOW_TEXT = { all = "SHOW: ALL", unowned = "SHOW: NOT OWNED", affordable = "SHOW: CAN AFFORD" }
-
---- The header pills' text, off the current prefs. Hidden on a rack card.
-local function paintShopFilters(visible: boolean)
-	ui.shopFilters.Visible = visible
-	ui.shopSort.Text = SORT_TEXT[Prefs.get("gearSort")] or SORT_TEXT.low
-	ui.shopShow.Text = SHOW_TEXT[Prefs.get("shopShow")] or SHOW_TEXT.all
-end
-
---- `tiers` narrowed by the header's SHOW pill (pref `shopShow`).
-local function filteredTiers(tiers: { any }): { any }
-	local show = Prefs.get("shopShow")
-	if show ~= "unowned" and show ~= "affordable" then
-		return tiers
-	end
-	local out = {}
-	for _, entry in tiers do
-		local keep = if show == "unowned"
-			then not entry.owned
-			else entry.buyable == true and entry.affordable == true
-		if keep then
-			table.insert(out, entry)
-		end
-	end
 	return out
 end
 
@@ -2480,8 +2430,7 @@ end
 
 --- Where the row opens: the next tier up from the one in your hands that you do not
 --- own yet — the upgrade you most likely walked over for. Owning everything above it,
---- the one in your hands. Picked by TIER, not position, so it holds whichever way the
---- SORT pill orders the row (and whatever SHOW leaves in it).
+--- the one in your hands. Picked by TIER, not position.
 local function defaultShopFocus(tiers: { any }): number
 	local currentTier = 0
 	local currentIndex: number? = nil
@@ -2660,21 +2609,24 @@ local function render()
 	ui.shopBackdrop.Visible = atShop or atSpeed or atTrader or atMerge or atReforge or atFurnace
 
 	if atShop then
-		-- The row in the SORT pill's order, narrowed by SHOW. A rack card keeps the whole
-		-- (sorted) list: SHOW never hides the one card a rack hook opened.
-		local tiers = if offerTiers == nil then nil elseif single then offerTiers else filteredTiers(offerTiers)
+		-- The row, cheapest first.
+		local tiers = offerTiers
 		local track = shopTrack() or "Shop"
 		local accent = STALL_ACCENT[track] or FIELD.amber
 		-- The Gear booth's tabs (Config/Booths), one per track it sells.
 		local boothTracks = Booths.tracks(state.stationId)
 		local tabbed = #boothTracks > 1 and not single
 		ui.shopTabs.Visible = tabbed
+		local tabCount = math.max(#boothTracks, 1)
 		for tabTrack, tab in ui.shopTabButtons do
 			local shown = tabbed and table.find(boothTracks, tabTrack) ~= nil
 			tab.Visible = shown
 			if shown then
 				local on = tabTrack == track
-				tab.BackgroundColor3 = if on then (STALL_ACCENT[tabTrack] or FIELD.amber) else FIELD.edge
+				local fill = TAB_FILL[tabTrack] or TAB_FILL.Detector
+				-- An equal share of the row each: halves at the two-track Gear booth.
+				tab.Size = UDim2.new(1 / tabCount, -SHOP_TAB_GAP * (tabCount - 1) / tabCount, 1, 0)
+				Studded.fill(tab, if on then fill.on else fill.off)
 				tab.TextColor3 = if on then FIELD.text else FIELD.dim
 			end
 		end
@@ -2698,7 +2650,6 @@ local function render()
 		end
 		local listed = if offerTiers then #offerTiers else 0
 		ui.introButton.Visible = overview ~= nil and listed > 0
-		paintShopFilters(listed > 0 and not single)
 		-- Measured in design px: TextBounds is screen px, under the canvas and fit scales.
 		local titleWidth = TextService:GetTextSize(title, ui.shopTitle.TextSize, ui.shopTitle.Font, Vector2.new(1000, 100)).X
 		ui.introButton.Position = UDim2.new(0, 20 + titleWidth + 14, 0.5, -1)
@@ -2921,26 +2872,6 @@ function Station.start()
 		introTrack = nil
 		render()
 	end)
-	-- The SORT / SHOW pills: each press steps its pref to the next option. The prefs'
-	-- observers (below) repaint the row and re-pick its opening card.
-	local function stepPref(key: string, options: { string })
-		local at = table.find(options, Prefs.get(key)) or 0
-		Prefs.set(key, options[at % #options + 1])
-	end
-	ui.shopSort.MouseButton1Click:Connect(function()
-		stepPref("gearSort", { "low", "high" })
-	end)
-	ui.shopShow.MouseButton1Click:Connect(function()
-		stepPref("shopShow", { "all", "unowned", "affordable" })
-	end)
-	for _, key in { "gearSort", "shopShow" } do
-		Prefs.observe(key, function()
-			if ui.panel.Visible and state.station == "shop" then
-				carousel.openedFor = nil -- the row moved under you: open on the next upgrade again
-				render()
-			end
-		end)
-	end
 	ui.introButton.MouseButton1Click:Connect(function()
 		introTrack = if introTrack == nil then shopTrack() else nil
 		render()
