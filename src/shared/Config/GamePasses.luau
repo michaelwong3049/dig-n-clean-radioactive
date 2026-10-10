@@ -55,7 +55,7 @@ local PASSES: { Pass } = {
 	{ key = "cash", id = 2006306411, name = "2x Cash", image = "rbxassetid://130869946174411", blurb = "Sales and stand income", color = Color3.fromRGB(90, 230, 90) },
 	{ key = "luck", id = 2005322454, name = "2x Luck", image = "rbxassetid://75584960857266", blurb = "Dig and wash luck", color = Color3.fromRGB(80, 220, 140) },
 	{ key = "digPower", id = 2006432462, name = "2x Dig Power", image = "rbxassetid://129327782508122", blurb = "Hauls come up faster", color = Color3.fromRGB(255, 150, 50) },
-	{ key = "autoMagnet", id = 3717669453, name = "Auto Magnet", image = "rbxassetid://134150298550869", blurb = "Reels hauls in for you", color = Color3.fromRGB(130, 200, 255) },
+	{ key = "autoMagnet", id = 2026526512, name = "Auto Magnet", image = "rbxassetid://134150298550869", blurb = "Reels hauls in for you", color = Color3.fromRGB(130, 200, 255) },
 	{ key = "backpack", id = 2006444530, name = "+50 Backpack Slots", image = "rbxassetid://86368048642838", blurb = "Bigger bag, forever", color = Color3.fromRGB(205, 160, 105) },
 	{ key = "bombDamage", id = 2006456437, name = "1.5x Bomb Damage", image = "rbxassetid://103781789657404", blurb = "Every bomb hits harder", color = Color3.fromRGB(255, 75, 60) },
 	{ key = "instantClean", id = 2006714459, name = "Instant Clean", image = "rbxassetid://119627521657381", blurb = "Crust breaks on contact", color = Color3.fromRGB(120, 235, 255) },
