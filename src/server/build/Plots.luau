@@ -2603,7 +2603,10 @@ local HOSE_PAD = {
 	width = 3.6, -- out from the deck's end, toward the entrance
 	length = 6, -- across the deck's end
 	gap = 0.5, -- between the tub's deck and the pad
-	radius = 4, -- the station circle: well inside the pad's own reach, off the tub's spot
+	-- The station circle, from the pad's centre at floor height. 4 missed most of the
+	-- pad itself (the character's root stands ~2.75 over it), so E on the pad opened
+	-- nothing. The prompt reaches no further, so its E is never pressed from outside.
+	radius = 6,
 	rim = 0.3,
 }
 
@@ -2666,7 +2669,7 @@ function Plots.ensureHosePad(plot: Instance): BasePart?
 	prompt.ActionText = "Browse"
 	prompt.ObjectText = "Hoses"
 	prompt.HoldDuration = 0
-	prompt.MaxActivationDistance = 8
+	prompt.MaxActivationDistance = P.radius
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = padPart
 	m.Parent = station.Parent

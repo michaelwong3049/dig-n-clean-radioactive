@@ -23,6 +23,10 @@
 	PlayerGui, so nobody else ever sees it and we never see one over theirs. It hides
 	while our Wash prompt is off (the server holds it off for the length of a wash), so
 	it is not floating in the wash shot.
+
+	Someone else's Hoses pad is hidden outright (on request: "dont make other players
+	purple pad show up on others bases") — every part of their HosePad model goes
+	see-through on OUR screen only, and comes back if that plot becomes ours.
 ]]
 
 local Players = game:GetService("Players")
@@ -50,6 +54,14 @@ local LABELS: { [string]: { text: string, size: UDim2, height: number } } = {
 }
 
 local labels: { [string]: BillboardGui } = {}
+
+--- Every part of every base's Hoses pad model (build/Plots.ensureHosePad) -> its plot
+--- and the Transparency the server gave it, so it can be shown again.
+local padParts: { [BasePart]: { plot: number, transparency: number } } = {}
+
+local function applyPadPart(part: BasePart, entry: { plot: number, transparency: number })
+	part.Transparency = if entry.plot == myPlot then entry.transparency else 1
+end
 
 local function buildLabel(promptName: string): BillboardGui
 	local look = LABELS[promptName]
@@ -116,6 +128,18 @@ local function apply(prompt: ProximityPrompt, index: number)
 end
 
 local function onDescendant(row: Instance, inst: Instance)
+	if inst:IsA("BasePart") and inst.Parent and inst.Parent.Name == "HosePad" then
+		local index = plotIndexOf(row, inst)
+		if index and padParts[inst] == nil then
+			local entry = { plot = index, transparency = inst.Transparency }
+			padParts[inst] = entry
+			applyPadPart(inst, entry)
+			inst.Destroying:Connect(function()
+				padParts[inst] = nil
+			end)
+		end
+		return
+	end
 	if not inst:IsA("ProximityPrompt") then
 		return
 	end
@@ -151,6 +175,9 @@ local function onPlot(index: number?)
 		else
 			apply(prompt, plot)
 		end
+	end
+	for part, entry in padParts do
+		applyPadPart(part, entry)
 	end
 	refreshLabel()
 end

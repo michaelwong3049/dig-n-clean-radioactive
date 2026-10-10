@@ -458,6 +458,10 @@ local BROWSE_PROMPT = "ViewShop"
 --- fire a tick before StationState catches up, and arriving at a station resets
 --- `dismissed`, so the press is remembered for that long rather than lost.
 local LOCKER_PROMPT = "OpenLocker"
+
+--- A shop's browse E that came a tick before StationState put us in the shop, kept for
+--- LOCKER_PRESS_GRACE like the locker's, so arriving does not swallow it.
+local browsePressedAt = -math.huge
 local LOCKER_PRESS_GRACE = 1.5
 local lockerPressedAt = -math.huge
 
@@ -516,18 +520,23 @@ local function shopHasBrowsePrompt(stationId: any): boolean
 	if type(stationId) ~= "string" then
 		return false
 	end
-	local shops = Workspace:FindFirstChild("Shops")
-	if shops == nil then
-		return false
-	end
-	for _, d in shops:GetDescendants() do
-		if
-			d:IsA("BasePart")
-			and d:GetAttribute("StationKind") == "shop"
-			and d:GetAttribute("StationId") == stationId
-			and d:FindFirstChild(BROWSE_PROMPT) ~= nil
-		then
-			return true
+	-- Workspace.Plots too: the Hoses shop is each base's own pad (build/Plots
+	-- ensureHosePad), never a stall in Workspace.Shops. Missing it opened the hose shop
+	-- on approach, so the pad's E closed it instead of opening it.
+	for _, folderName in { "Shops", "Plots" } do
+		local folder = Workspace:FindFirstChild(folderName)
+		if folder == nil then
+			continue
+		end
+		for _, d in folder:GetDescendants() do
+			if
+				d:IsA("BasePart")
+				and d:GetAttribute("StationKind") == "shop"
+				and d:GetAttribute("StationId") == stationId
+				and d:FindFirstChild(BROWSE_PROMPT) ~= nil
+			then
+				return true
+			end
 		end
 	end
 	return false
@@ -3246,6 +3255,9 @@ function Station.start()
 				lockerPressedAt = os.clock()
 			end
 		elseif prompt.Name == BROWSE_PROMPT then
+			if state.station ~= "shop" then
+				browsePressedAt = os.clock()
+			end
 			local showingCard = rackCard ~= nil and not dismissed
 			rackCard = nil
 			if not showingCard then
@@ -3319,7 +3331,10 @@ function Station.start()
 				furnacePressedAt = -math.huge
 			else
 				rackCard = nil
-				dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)
+				dismissed = payload.station == "shop"
+					and shopHasBrowsePrompt(payload.stationId)
+					and os.clock() - browsePressedAt > LOCKER_PRESS_GRACE
+				browsePressedAt = -math.huge
 			end
 			lastKey = key
 			-- A new booth opens on its first tab, unless a rack hook just picked one.
