@@ -10,15 +10,16 @@
 	ONE PURCHASE = ONE STEP, and the step is set by the deepest stage reached
 	(`data.stats.deepestStage`, WalkSpeed.stepFor): +1 in Stages 1-2 up to +6 in 11-12.
 	The price is set by the walk bought so far (WalkSpeed.priceFor), so going deeper buys
-	more speed for the same money. The Runner mastery takes a share off (speedPriceMult).
+	more speed for the same money. The +3 / +10 cash buttons buy exactly that much walk
+	(WalkSpeed.bulkPriceFor).
 
-	THE SERVER RE-DERIVES EVERYTHING. Net.SpeedBuy carries no payload: the price and step
-	come from the save, and the player must be standing at an Upgrades booth
-	(StationService), not mid-tutorial, and able to pay.
+	THE SERVER RE-DERIVES EVERYTHING. Net.SpeedBuy carries at most an amount, which must
+	be one of WalkSpeed.BULK (nil = one step): the price and step come from the save, and
+	the player must be standing at an Upgrades booth (StationService), not mid-tutorial,
+	and able to pay.
 
-	Robux: the panel's purple button is WalkSpeed.PRODUCT_ID (one purchase at the buyer's
-	step), granted through ProductService. The Shop's walk-speed packs were retired
-	2026-10-10.
+	Robux: the panel's purple button is WalkSpeed.PRODUCT_ID (a flat +ROBUX_WALK walk),
+	granted through ProductService. The Shop's walk-speed packs were retired 2026-10-10.
 
 	SpeedState carries everything the client shows about speed: the HUD badge and walk
 	picker (client SpeedController) and the booth's panel. It is pushed on load, on every
@@ -58,6 +59,14 @@ end
 
 -- ── The readout ───────────────────────────────────────────────────────────
 
+local function bulkPrices(bought: number, step: number): { number }
+	local prices = {}
+	for i, amount in WalkSpeed.BULK do
+		prices[i] = WalkSpeed.bulkPriceFor(bought, amount, step)
+	end
+	return prices
+end
+
 --- This player's speed, as the client renders it.
 local function snapshot(player: Player, data: any)
 	local stats = StatResolver.get(data)
@@ -77,8 +86,9 @@ local function snapshot(player: Player, data: any)
 		-- The Upgrades booth's next purchase.
 		bought = bought,
 		step = WalkSpeed.stepFor(deepest),
-		price = WalkSpeed.priceFor(bought, stats.speedPriceMult),
-		discount = stats.speedPriceMult,
+		price = WalkSpeed.priceFor(bought),
+		-- The bulk buttons' prices, BULK[i] walk for bulkPrices[i].
+		bulkPrices = bulkPrices(bought, WalkSpeed.stepFor(deepest)),
 		deepestStage = deepest,
 		upgrades = tonumber(data.stats and data.stats.speedUpgrades) or 0,
 	}
@@ -106,30 +116,38 @@ local function addWalk(data: any, amount: number)
 	data.walkBought = WalkSpeed.bought(data.walkBought) + math.max(0, math.floor(amount))
 end
 
---- One purchase for cash. Price and step re-derived from the save; debit FIRST, and
---- only touch the profile once the debit lands. No standing check: onBuy does that.
-function SpeedService.buy(player: Player): (boolean, string)
+--- One purchase for cash: one step, or exactly `amount` walk (one of WalkSpeed.BULK).
+--- Price and step re-derived from the save; debit FIRST, and only touch the profile
+--- once the debit lands. No standing check: onBuy does that.
+function SpeedService.buy(player: Player, amount: number?): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
 		return false, "your save hasn't loaded"
 	end
 	local bought = WalkSpeed.bought(data.walkBought)
 	local step = WalkSpeed.stepFor(deepestOf(data))
-	local price = WalkSpeed.priceFor(bought, StatResolver.get(data).speedPriceMult)
+	local gain, price = step, WalkSpeed.priceFor(bought)
+	if amount ~= nil then
+		gain, price = amount, WalkSpeed.bulkPriceFor(bought, amount, step)
+	end
 
 	local paid, reason = EconomyService.spend(player, price)
 	if not paid then
 		return false, reason
 	end
 
-	addWalk(data, step)
+	addWalk(data, gain)
 	data.stats.speedUpgrades = (tonumber(data.stats.speedUpgrades) or 0) + 1
 	push(player)
-	return true, `walk speed {WalkSpeed.walkFor(data.walkBought)} (+{step}, paid {WalkSpeed.priceText(price)})`
+	return true, `walk speed {WalkSpeed.walkFor(data.walkBought)} (+{gain}, paid {WalkSpeed.priceText(price)})`
 end
 
---- Net.SpeedBuy: the speed panel's cash button. At an Upgrades booth, not mid-tutorial.
-local function onBuy(player: Player)
+--- Net.SpeedBuy: the speed panel's cash buttons, with an optional bulk `amount` that
+--- must be one of WalkSpeed.BULK. At an Upgrades booth, not mid-tutorial.
+local function onBuy(player: Player, amount: any)
+	if amount ~= nil and not table.find(WalkSpeed.BULK, amount) then
+		return
+	end
 	local now = os.clock()
 	if now - (lastBuy[player] or 0) < BUY_COOLDOWN then
 		return
@@ -145,18 +163,18 @@ local function onBuy(player: Player)
 		return
 	end
 
-	local ok, message = SpeedService.buy(player)
+	local ok, message = SpeedService.buy(player, amount)
 	noticeRemote:FireClient(player, string.upper(message), if ok then "success" else "error")
 	if ok then
 		print(`[speed] {player.Name}: {message}`)
 	end
 end
 
---- A purchase bought with Robux (WalkSpeed.PRODUCT_ID): one step, nothing spent. Runs
---- inside ProductService's receipt step, so it only touches `data` and never yields;
---- the readout follows in a deferred step.
+--- A purchase bought with Robux (WalkSpeed.PRODUCT_ID): a flat ROBUX_WALK, nothing
+--- spent. Runs inside ProductService's receipt step, so it only touches `data` and never
+--- yields; the readout follows in a deferred step.
 local function grantRobuxUpgrade(player: Player, data: any)
-	local step = WalkSpeed.stepFor(deepestOf(data))
+	local step = WalkSpeed.ROBUX_WALK
 	addWalk(data, step)
 	data.stats.speedUpgrades = (tonumber(data.stats.speedUpgrades) or 0) + 1
 	task.defer(function()

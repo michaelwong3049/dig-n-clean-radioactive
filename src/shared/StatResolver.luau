@@ -139,8 +139,7 @@ export type Stats = {
 	-- speed are folded into the other fields instead, so nothing downstream had to learn
 	-- about them; `masteryCash` is carried on its own for display, like indexCash.
 	masteryCash: number,
-	bombDamageMult: number, -- BombService (the 1.5x Bomb Damage pass)
-	speedPriceMult: number, -- Config/WalkSpeed.priceFor's discount (the Runner mastery)
+	bombDamageMult: number, -- BombService (the Bomber mastery x the 1.5x Bomb Damage pass; the hotbar card via MasteryBombDamage)
 	radDamageMult: number, -- ExposureService: aura wear, aura failure and sickness
 	mergeFeeMult: number, -- Config/Merge.fee's discount (the Reactor mastery)
 	brewCooldownMult: number, -- LiquidService
@@ -150,7 +149,7 @@ export type Stats = {
 	digPower: number, -- DigService: scales the magnet's side of a haul (yank + draw)
 	instantClean: boolean, -- WashService: a patch breaks the moment water touches it
 	healthMult: number, -- ExposureService: max health (the 2x Health pass)
-	-- The Speed Potion (Config/Potions) and the Bomber/Thief masteries: multiply walk
+	-- The Speed Potion (Config/Potions) and the Thief mastery: multiply walk
 	-- speed alongside the aura's bonus, in effectiveWalkSpeed (walkBonus). 1 when none.
 	walkMult: number,
 }
@@ -300,8 +299,8 @@ function StatResolver.get(profile: Profile): Stats
 		indexCashMultiplier = indexCash,
 
 		masteryCash = masteryCash,
-		bombDamageMult = if GamePasses.owns(profile, "bombDamage") then GamePasses.BOMB_DAMAGE else 1,
-		speedPriceMult = Mastery.value(profile, "speedPrice"),
+		bombDamageMult = Mastery.value(profile, "bombDamage")
+			* (if GamePasses.owns(profile, "bombDamage") then GamePasses.BOMB_DAMAGE else 1),
 		radDamageMult = Mastery.value(profile, "radDamage"),
 		mergeFeeMult = Mastery.value(profile, "mergeFee"),
 		brewCooldownMult = Mastery.value(profile, "brewCooldown"),
@@ -311,7 +310,7 @@ function StatResolver.get(profile: Profile): Stats
 			* Potions.multiplier(profile.potionLeft, "strength"),
 		instantClean = GamePasses.owns(profile, "instantClean"),
 		healthMult = if GamePasses.owns(profile, "health") then GamePasses.HEALTH else 1,
-		-- The Bomber and Thief masteries' walk speed rides on the potion's multiplier.
+		-- The Thief mastery's walk speed rides on the potion's multiplier.
 		walkMult = Potions.multiplier(profile.potionLeft, "speed") * (1 + Mastery.value(profile, "walkSpeed")),
 	}
 end
@@ -403,6 +402,7 @@ function StatResolver.boosts(profile: Profile): { Boost }
 	add("clean", "Wash Speed", { potion("clean") })
 	add("bomb", "Bomb Damage", {
 		{ name = "1.5x Bomb Damage Pass", mult = pass("bombDamage", GamePasses.BOMB_DAMAGE) },
+		{ name = "Masteries", mult = Mastery.value(profile, "bombDamage") },
 	})
 	add("health", "Health", { { name = "2x Health Pass", mult = stats.healthMult } })
 

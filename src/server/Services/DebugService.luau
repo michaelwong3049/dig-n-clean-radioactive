@@ -417,7 +417,7 @@ COMMANDS["/cash"] = {
 }
 
 COMMANDS["/mastery"] = {
-	help = "/mastery [id] [count] — list your masteries, or set one's counter (scrubber, bomber, runner, prospector, collector*, deepDiver, reactor, thief, brewer, tycoon)",
+	help = "/mastery [id] [count] — list your masteries, or set one's counter (scrubber, bomber, prospector, collector*, deepDiver, reactor, thief, brewer, tycoon)",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
@@ -485,7 +485,7 @@ COMMANDS["/walk"] = {
 	-- (data.walkBought, Config/WalkSpeed), to test the price ladder without buying up it.
 	-- ExposureService picks the new walk up on its next tick; the readout is re-pushed so
 	-- the HUD and the booth's panel follow at once.
-	help = "/walk <speed> — set your bought walk speed (from " .. WalkSpeed.START_WALK .. "); /walk upgrades <n> sets the Runner count",
+	help = "/walk <speed> — set your bought walk speed (from " .. WalkSpeed.START_WALK .. "); /walk upgrades <n> sets the speed-upgrades count",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then

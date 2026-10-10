@@ -86,7 +86,7 @@ end
 
 --- Everything a nuke does as a bomb. `item` needs rarity, modifier and uid (a bag
 --- record or the hotbar's described copy of one). `damageMult` is the dropper's
---- StatResolver bombDamageMult (the Bomb Damage pass; 1 or nil = none).
+--- StatResolver bombDamageMult (Bomber mastery x Bomb Damage pass; 1 or nil = none).
 function Bombing.statsFor(item: any, damageMult: number?): Stats
 	local uid = tostring(item.uid or "")
 	local stars = math.max(1, Bombing.starsOf(item))
