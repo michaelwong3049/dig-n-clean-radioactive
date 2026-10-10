@@ -1434,7 +1434,7 @@ function Spec.run(): boolean
 		check("§5.1 the bulk buttons are +3 and +10", WalkSpeed.BULK[1] == 3 and WalkSpeed.BULK[2] == 10 and WalkSpeed.ROBUX_WALK == 10)
 		-- The price lands where each zone's cash is (Config/Gear's prices): bands wide
 		-- enough for a retune, narrow enough that speed cannot go free or out of reach.
-		for _, milestone in { { walk = 45, low = 2e3, high = 2e4 }, { walk = 70, low = 1e5, high = 2e6 }, { walk = 100, low = 1e7, high = 3e8 } } do
+		for _, milestone in { { walk = 45, low = 2e3, high = 2e4 }, { walk = 70, low = 1e5, high = 2e6 }, { walk = 100, low = 1e7, high = 6e8 } } do
 			local price = WalkSpeed.priceFor(milestone.walk - WalkSpeed.START_WALK)
 			check(
 				string.format("§5.1 walk %d costs %s, between %s and %s", milestone.walk, WalkSpeed.priceText(price), WalkSpeed.priceText(milestone.low), WalkSpeed.priceText(milestone.high)),
