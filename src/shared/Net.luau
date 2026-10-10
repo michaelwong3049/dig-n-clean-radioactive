@@ -143,7 +143,7 @@ local REMOTES: { [string]: string } = {
 	-- and opens the purchase prompt, so the hold is in place before the dialog is.
 	RecoverBag = "RemoteEvent",
 	-- Server -> client: a nuke you were pulling blew up, and you can buy it back
-	-- (Tuning.NUKE_RESCUE_PRODUCT_ID). { rarity, modifier, weight, payload, expiresAt }
+	-- (Tuning.NUKE_RESCUE_PRODUCT_ID). { rarity, modifier, expiresAt }
 	-- -- the reading only, never the itemId; it is still a crusted "???".
 	NukeLost = "RemoteEvent",
 
