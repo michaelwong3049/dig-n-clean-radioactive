@@ -40,11 +40,13 @@ local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
 local Net = require(Shared.Net)
+local GamePasses = require(Shared.Config.GamePasses)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local HaulRope = require(script.Parent.Parent.HaulRope)
 local HaulSuccess = require(script.Parent.Parent.HaulSuccess)
 local Sfx = require(script.Parent.Parent.Sfx)
+local RobuxButton = require(script.Parent.Parent.RobuxButton)
 local Dock = UIKit.Dock
 
 local Detector = {}
@@ -155,6 +157,13 @@ local TITLE_WIDTH = 220 -- clears "Legendary", the longest rarity in Rarity.ORDE
 local WEAK_TEXT = 18 -- "Weak magnet!", right end of the label row
 local WEAK_WIDTH = 160
 local WEAK_PULSE = 6 -- radians per second of its breathing
+-- The AUTO pill (the Auto Magnet pass), at the label row's right end; "Weak magnet!"
+-- moves in beside it.
+local AUTO_WIDTH = 150
+local AUTO_GAP = 8
+local AUTO_TEXT = 15
+local AUTO_ON = Color3.fromHex("22C55E")
+local AUTO_SELL = Color3.fromHex("3A6FD0") -- the pass card's own tint (ShopController)
 
 -- How fast the bar's nuke chases the server's value (1/seconds). Smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
@@ -875,7 +884,7 @@ local function build(): ScreenGui
 	-- red with a slow pulse, so the cracks and judder on the bar finally come with words.
 	ui.haulWeak = UIKit.label(haul, {
 		name = "WeakMagnet",
-		position = UDim2.fromOffset(PANEL_WIDTH, LABEL_HEIGHT / 2),
+		position = UDim2.fromOffset(PANEL_WIDTH - AUTO_WIDTH - AUTO_GAP, LABEL_HEIGHT / 2),
 		anchorPoint = Vector2.new(1, 0.5),
 		size = UDim2.fromOffset(WEAK_WIDTH, LABEL_HEIGHT),
 		font = UIKit.Font.title,
@@ -887,6 +896,32 @@ local function build(): ScreenGui
 	})
 	ui.haulWeakPulse = Instance.new("UIScale")
 	ui.haulWeakPulse.Parent = ui.haulWeak
+
+	-- AUTO MAGNET, A PILL AT THE ROW'S RIGHT END (on request, 2026-10-10): up for every
+	-- haul. An owner taps it to turn the auto-yank off and on (green AUTO: ON); anyone
+	-- else gets the pass offered (AUTO MAGNET R$). renderAuto paints it.
+	local auto = Instance.new("TextButton")
+	auto.Name = "AutoMagnet"
+	auto.AnchorPoint = Vector2.new(1, 0.5)
+	auto.Position = UDim2.fromOffset(PANEL_WIDTH, LABEL_HEIGHT / 2)
+	auto.Size = UDim2.fromOffset(AUTO_WIDTH, LABEL_HEIGHT)
+	auto.BorderSizePixel = 0
+	auto.AutoButtonColor = true
+	auto.Font = UIKit.Font.title
+	auto.TextSize = AUTO_TEXT
+	auto.TextColor3 = COLOR.text
+	auto.TextStrokeTransparency = 0.4
+	auto.ZIndex = 30
+	auto.Parent = haul
+	local autoCorner = Instance.new("UICorner")
+	autoCorner.CornerRadius = UDim.new(0.5, 0)
+	autoCorner.Parent = auto
+	local autoStroke = Instance.new("UIStroke")
+	autoStroke.Color = COLOR.outline
+	autoStroke.Thickness = 2
+	autoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	autoStroke.Parent = auto
+	ui.autoButton = auto
 
 	return gui
 end
@@ -1351,6 +1386,21 @@ local digYank: any = nil
 local yankTake = 0
 local digLock: any = nil
 
+-- AUTO MAGNET (Config/GamePasses autoMagnet). On by default for an owner; the AUTO pill
+-- turns it off for the session. `autoDue` banks fractional yanks between frames.
+local AUTO_ATTR = GamePasses.attr("autoMagnet")
+local AUTO_PASS = GamePasses.byKey("autoMagnet")
+local autoEnabled = true
+local autoDue = 0
+
+local function ownsAuto(): boolean
+	return Players.LocalPlayer:GetAttribute(AUTO_ATTR) == true
+end
+
+local function autoRunning(): boolean
+	return autoEnabled and ownsAuto()
+end
+
 --- One click, one yank. There is deliberately NO local rate limit and no debounce
 --- here: the server's token bucket is the authority on what counts, and a second
 --- limiter on the client would only ever disagree with it -- quietly eating clicks
@@ -1400,6 +1450,32 @@ end
 local function pressPull()
 	if state.locked then
 		sendYank()
+	end
+end
+
+--- Paint the AUTO pill: a toggle for an owner, the pass on offer for anyone else
+--- (hidden while the pass has no id yet -- nothing to sell).
+local function renderAuto()
+	local button = ui.autoButton
+	local id = if AUTO_PASS then AUTO_PASS.id else 0
+	if ownsAuto() then
+		button.Visible = true
+		button.Text = if autoEnabled then "AUTO: ON" else "AUTO: OFF"
+		button.BackgroundColor3 = if autoEnabled then AUTO_ON else COLOR.panel
+	else
+		button.Visible = id ~= 0
+		button.Text = `AUTO MAGNET {utf8.char(0xE002)}`
+		button.BackgroundColor3 = AUTO_SELL
+	end
+end
+
+local function pressAuto()
+	if ownsAuto() then
+		autoEnabled = not autoEnabled
+		autoDue = 0
+		renderAuto()
+	elseif AUTO_PASS then
+		RobuxButton.promptPass(AUTO_PASS.id)
 	end
 end
 
@@ -1627,6 +1703,9 @@ function Detector.start()
 	-- player could commit to a haul and have no way to stop being rooted.
 	ui.haulButton.MouseButton1Click:Connect(sendYank)
 	ui.releaseButton.MouseButton1Click:Connect(sendRelease)
+	ui.autoButton.MouseButton1Click:Connect(pressAuto)
+	player:GetAttributeChangedSignal(AUTO_ATTR):Connect(renderAuto)
+	renderAuto()
 
 	-- Heartbeat, NOT RenderStepped. This used to matter because the ping audio ran
 	-- here and could not be allowed to stall with the render loop; the ping is gone
@@ -1639,6 +1718,18 @@ function Detector.start()
 	local haulHum = Sfx.loop("haulHum")
 	RunService.Heartbeat:Connect(function(dt)
 		renderFrame(dt)
+		-- Auto Magnet: yank on the beat while hauling. Same sendYank as a click (kick,
+		-- crunch, the server's token bucket), so it is never faster than a hand. The bank
+		-- is capped at one yank, so a frame hitch never fires a burst.
+		if state.locked and autoRunning() then
+			autoDue = math.min(autoDue + dt * GamePasses.AUTO_MAGNET_CPS, 1)
+			if autoDue >= 1 then
+				autoDue -= 1
+				sendYank()
+			end
+		else
+			autoDue = 0
+		end
 		if haulHum then
 			haulHum:set(state.locked)
 		end
