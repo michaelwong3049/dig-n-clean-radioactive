@@ -206,7 +206,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 97 -- the end booths turn 25 degrees in toward the square's middle (2026-10-10)
+local BUILDER_VERSION = 98 -- the booths are the re-imported steel stall: shelves, rails, collars (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -2053,29 +2053,49 @@ end
 --- beams are sloped plates, so each is rebuilt as a studded block tilted to the awning's
 --- pitch (standPlate) -- a block of a sloped plate's bounding box would be a wedge-thick
 --- slab. The stripes alternate the shop's colour and white, the counter panel wears the
---- shop's colour a shade darker, the lumber is the camp's warm wood.
+--- shop's colour a shade darker.
+---
+--- THE STEEL STALL (2026-10-10, on request: "i imported new shop stand models for base
+--- camp, use them and give them studded texture and their unique color"): the re-import
+--- keeps the same frame and adds side shelves, side/back rails, collars and caps on the
+--- posts and rail brackets. Its frame is slate steel (no more warm wood), with pale steel
+--- counter tops and shelves, navy collars and caps, and copper rails, as the import
+--- itself is coloured. The rails stay round meshes; everything boxy is studded.
 local SHOP_STAND_TEMPLATE = "ShopStand"
 --- The stall's width once scaled (its awning, side to side). Narrower than the booth's
 --- 16-stud footprint so its counter stands about chest high on a player (~3.8 studs).
 local STAND_LOOK_WIDTH = 13
-local STAND_WOOD = "9A6A3E"
-local STAND_WOOD_DARK = "6B4220"
-local STAND_WOOD_LIGHT = "B88A5A"
+local STAND_STEEL = "7F90A8"
+local STAND_STEEL_LIGHT = "C9D2DE"
+local STAND_STEEL_DARK = "2E3A4F"
+local STAND_COPPER = "B4652E"
 local STAND_STRIPE_LIGHT = "F4F4F4"
 
 local function standPalette(color: string): { [string]: ImportedStation.Paint }
 	local palette: { [string]: ImportedStation.Paint } = {
 		counter_panel = { color = Kit.blendHex(color, "000000", 0.2), studs = "Block" },
-		counter_top = { color = STAND_WOOD_LIGHT, studs = "Block" },
-		counter_kick = { color = STAND_WOOD_DARK, studs = "Block" },
-		counter_rail = { color = STAND_WOOD_DARK, studs = "Block" },
-		counter_groove = { color = STAND_WOOD_DARK, studs = "Block" },
-		roof_beam_left = { color = STAND_WOOD },
-		roof_beam_right = { color = STAND_WOOD },
+		counter_top = { color = STAND_STEEL_LIGHT, studs = "Block" },
+		counter_kick = { color = STAND_STEEL, studs = "Block" },
+		counter_rail = { color = STAND_STEEL_LIGHT, studs = "Block" },
+		counter_groove = { color = STAND_STEEL_LIGHT, studs = "Block" },
+		roof_beam_left = { color = STAND_STEEL },
+		roof_beam_right = { color = STAND_STEEL },
+		side_shelf_left = { color = STAND_STEEL_LIGHT, studs = "Block" },
+		side_shelf_right = { color = STAND_STEEL_LIGHT, studs = "Block" },
+		side_rail_left_ = { color = STAND_COPPER },
+		side_rail_right_ = { color = STAND_COPPER },
+		back_rail_ = { color = STAND_COPPER },
 	}
 	for _, corner in { "front_left", "front_right", "back_left", "back_right" } do
-		palette[`post_{corner}`] = { color = STAND_WOOD, studs = "Block" }
-		palette[`post_foot_{corner}`] = { color = STAND_WOOD_DARK, studs = "Block" }
+		palette[`post_{corner}`] = { color = STAND_STEEL, studs = "Block" }
+		palette[`post_foot_{corner}`] = { color = STAND_STEEL_DARK, studs = "Block" }
+	end
+	-- The collars, caps and brackets are named side first: collar_left_front.
+	for _, corner in { "left_front", "right_front", "left_back", "right_back" } do
+		palette[`collar_{corner}`] = { color = STAND_STEEL_DARK, studs = "Block" }
+		palette[`collar_top_{corner}`] = { color = STAND_STEEL_DARK, studs = "Block" }
+		palette[`rail_bracket_{corner}`] = { color = STAND_STEEL_DARK, studs = "Block" }
+		palette[`post_cap_{corner}`] = { color = STAND_STEEL_DARK, studs = "Block" }
 	end
 	for i = 0, 7 do
 		local stripe = if i % 2 == 0 then color else STAND_STRIPE_LIGHT
