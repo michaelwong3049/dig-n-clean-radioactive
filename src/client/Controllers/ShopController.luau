@@ -4,7 +4,7 @@
 
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
 	walking up to a stall on the plaza (StationController). One scrolling body: the
-	NUKE PACK card (Config/NukePack) on top, a fixed five-nuke crate sold in x1/x3/x5/x10
+	NUKE PACK card (Config/NukePack) on top, a fixed five-nuke crate sold in x1/x3/x10
 	bundles; then five sections: the PACKS (Config/Packs), two once-per-player bundles that turn to
 	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), seven permanent upgrades on top, which
 	turn to OWNED off the Player attribute GamePassService writes; the SERVER LUCK BOOST
