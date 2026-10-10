@@ -97,13 +97,19 @@ local PANEL = {
 -- TINTED GLASS: every card is its own colour, only lightly shaded and a touch
 -- see-through. Brighter on request (2026-10-07), once the panel behind them wore the
 -- studs: it was 0.5 shade / 0.3 see-through, which read muddy over the dark studs.
-local CARD_SHADE = 0.12 -- 0 = card colour as drawn, 1 = black
-local CARD_SEE = 0.1 -- BackgroundTransparency of every card
+-- BRIGHTER again on request (2026-10-10): no shading at all and solid, so each card is
+-- its own colour at full strength (it was 0.12 shade / 0.1 see-through).
+local CARD_SHADE = 0 -- 0 = card colour as drawn, 1 = black
+local CARD_SEE = 0 -- BackgroundTransparency of every card
+local CARD_BRIGHT = 0.95 -- the lowest HSV value a card colour is drawn at
 
 -- Each card also wears the gear shop cards' glossy L-studs (on request, 2026-10-07),
 -- under everything else on it.
 local function darkGlass(card: GuiObject, radius: number)
-	card.BackgroundColor3 = card.BackgroundColor3:Lerp(Color3.new(0, 0, 0), CARD_SHADE)
+	-- Lifted to at least CARD_BRIGHT value, hue and saturation kept, so a mid-tone tint
+	-- (the clover's 2EA552) shows as its bright self.
+	local h, s, v = card.BackgroundColor3:ToHSV()
+	card.BackgroundColor3 = Color3.fromHSV(h, s, math.max(v, CARD_BRIGHT)):Lerp(Color3.new(0, 0, 0), CARD_SHADE)
 	card.BackgroundTransparency = CARD_SEE
 	Studded.pattern(card, { radius = radius, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.55, glowTransparency = 0.72 })
 end
@@ -225,11 +231,12 @@ local function round(parent: Instance, radius: number)
 	corner.Parent = parent
 end
 
---- A top-to-bottom gloss over a card: full colour at the top, a shade darker below.
+--- A top-to-bottom gloss over a card: full colour at the top, a touch darker below
+--- (was 190 grey at the foot; lifted with the brighter cards, 2026-10-10).
 local function gloss(parent: Instance)
 	local gradient = Instance.new("UIGradient")
 	gradient.Rotation = 90
-	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190))
+	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(228, 228, 228))
 	gradient.Parent = parent
 end
 
@@ -1424,18 +1431,8 @@ local function buildPanel(): ScreenGui
 	padding.PaddingLeft = UDim.new(0, PAD)
 	padding.PaddingRight = UDim.new(0, PAD)
 	padding.Parent = panel
-	-- The L-stud pattern the other panels wear (on request, 2026-10-07), laid straight
-	-- over the see-through black rather than Studded.darkPanel's solid grey: the world
-	-- still shows behind it. Pushed back out past the padding, like Masteries'.
-	local pattern = Studded.pattern(panel, {
-		radius = 20,
-		bands = { 0.15, 0.42, 0.52, 0.58 },
-		bandTransparency = 0.93,
-		studTransparency = 0.1,
-		glow = false,
-	})
-	pattern.Position = UDim2.fromOffset(-PAD, -(PAD - 6))
-	pattern.Size = UDim2.new(1, 2 * PAD, 1, 2 * PAD - 6)
+	-- Plain see-through black, no studs (on request, 2026-10-10: the L-stud pattern it
+	-- wore from 2026-10-07 came off), so the world shows behind the cards.
 
 	inked(panel, {
 		Name = "Title",
