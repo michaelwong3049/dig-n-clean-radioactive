@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 77 -- stages 166 wide (2026-10-10)
+local BUILDER_VERSION = 78 -- camp walls follow the row 16 nearer Stage 1 (2026-10-10)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
