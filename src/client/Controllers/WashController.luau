@@ -691,24 +691,15 @@ local MIST_DRAG = 2
 
 
 -- ── The turntable ───────────────────────────────────────────────────
--- The item spins in place on the stand whenever the hose is OFF, so a patch on the far
--- side is not simply unreachable from a fixed first-person view -- it comes around.
--- Holding the spray stops it, so the patch under the stream stays put while you scrub
--- it; letting go starts it turning again. `RATE` is radians per second around a
--- WORLD-vertical axis through the item's own placement point, deliberately not the
--- item's own up axis: several items sit tilted for the camera ("Wash" rotation,
+-- The item spins in place on the stand the whole session, spraying or not, so a patch
+-- on the far side is not simply unreachable from a fixed first-person view -- it comes
+-- around, and the stream sweeps across it as it passes. `RATE` is radians per second
+-- around a WORLD-vertical axis through the item's own placement point, deliberately not
+-- the item's own up axis: several items sit tilted for the camera ("Wash" rotation,
 -- ItemModels), and spinning around a tilted axis wobbles like a dropped coin instead
--- of turning like it is on a turntable.
---
--- `speed` is the live 0..1 throttle on RATE, eased rather than switched so the stop
--- and the restart read as a motor braking and spinning up, not a frame skip. The stop
--- is quick (you pressed to aim at THAT spot), the restart a touch softer. Seconds, as
--- exponential time constants. A table for the register-ceiling reason at `CORE`.
+-- of turning like it is on a turntable. A table for the register-ceiling reason at `CORE`.
 local TURNTABLE = {
 	RATE = math.rad(32),
-	STOP_EASE = 0.08,
-	START_EASE = 0.25,
-	speed = 1,
 }
 
 local state: any = nil
@@ -828,16 +819,9 @@ local function spinTurntable(dt: number)
 		rotateItem = item
 		rotateBase = item:GetPivot()
 		rotateAngle = 0
-		TURNTABLE.speed = 1
 	end
 
-	-- The reveal's kick-round wins over a held trigger: the wash is over by then, and a
-	-- player still holding the button should not freeze the show.
-	local held = spraying and not WashReveal.active()
-	local tau = if held then TURNTABLE.STOP_EASE else TURNTABLE.START_EASE
-	TURNTABLE.speed += ((if held then 0 else 1) - TURNTABLE.speed) * (1 - math.exp(-dt / tau))
-
-	local rate = TURNTABLE.RATE * TURNTABLE.speed * WashReveal.spinRate()
+	local rate = TURNTABLE.RATE * WashReveal.spinRate()
 	rotateAngle = (rotateAngle + rate * dt) % (2 * math.pi)
 	local pivotPos = rotateBase.Position
 	local spin = CFrame.new(pivotPos) * CFrame.Angles(0, rotateAngle, 0) * CFrame.new(-pivotPos)
@@ -2471,7 +2455,6 @@ local function teardown()
 	-- between sessions is the kind of thing that looks like a bug later.
 	rotateItem = nil
 	rotateAngle = 0
-	TURNTABLE.speed = 1
 end
 
 local function beginSession()
