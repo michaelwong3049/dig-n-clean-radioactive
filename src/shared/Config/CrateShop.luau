@@ -62,11 +62,13 @@ export type Pad = {
 	offers: { Offer },
 }
 
--- The group chest is at (-95, -1.15, 0) with its gold ring out to ~9.1 studs; the
+-- The group chest is at (57, -1.15, 0) with its gold ring out to ~9.1 studs; the
 -- pads line up with it on X and sit just clear of the ring, all three on the prize
--- square (build/PrizeSquare, inner half-width 28 > PAD_Z + SPREAD + END_RADIUS 25.5).
--- Same floor top as the chest: PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35.
-local CHEST_X = -95
+-- square (build/PrizeSquare, inner half-length 28 along Z > PAD_Z + SPREAD + END_RADIUS
+-- 25.5). Same floor top as the chest: PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35.
+-- 2026-10-09 (five-base row): in front of the middle base, by Stage 1's mouth, and turned
+-- to face the bases (-X) like the chest.
+local CHEST_X = 57
 local FLOOR_Y = -1.15
 local PAD_Z = 18
 
@@ -120,7 +122,7 @@ CrateShop.PADS = {
 		name = "CashCratePad",
 		title = "Crate Shop",
 		position = Vector3.new(CHEST_X, FLOOR_Y, -PAD_Z),
-		facing = Vector3.xAxis,
+		facing = -Vector3.xAxis,
 		offers = {
 			{ crateId = "nuke1", cash = 75_000, offset = CrateShop.SPREAD },
 			{ crateId = "liquid3", cash = 40_000, offset = -CrateShop.SPREAD },
@@ -130,7 +132,7 @@ CrateShop.PADS = {
 		name = "RobuxCratePad",
 		title = "Premium Crates",
 		position = Vector3.new(CHEST_X, FLOOR_Y, PAD_Z),
-		facing = Vector3.xAxis,
+		facing = -Vector3.xAxis,
 		offers = {
 			{ crateId = "nuke5", productId = 3716022009, offset = -CrateShop.SPREAD },
 			{ crateId = "liquid5", productId = 3716022046, offset = CrateShop.SPREAD },

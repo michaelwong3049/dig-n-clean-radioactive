@@ -43,16 +43,17 @@ local TOP = 25
 local MAX_SCORE = 2 ^ 53 -- OrderedDataStore takes integers; keep them exact
 
 -- ── Board placement ──────────────────────────────────────────────────────────
--- Scenery.BaseWalls.BackWall: the camp's back (west) wall, inner face at x = -147
--- (Plots.CAMP.westX), floor (Plots.Apron tiles) top at y = -1.5. Boards face EAST, into
--- the camp, Cash on the left as you face the wall (+z), Speed on the right, either side
--- of the camp's centre line with the group chest in front of them.
--- 2026-10-04, on request ("move leaderboards and the group chest near the backend"): from
--- the east shoulder wall by Stage 1 (x 96, z 104 / 123) to the back wall.
-local WALL_X_FALLBACK = -147
+-- The east wall's shoulders either side of Stage 1's mouth (2026-10-09, the five-base
+-- row: the back wall stands behind the bases now, out of sight). Inner face at x = 96
+-- (Plots.CAMP.eastX), floor (the green strip's tiles) top at y = -1.5. Boards face WEST,
+-- into the camp, at the bases: Cash on the left as you face the wall (-z), Speed on the
+-- right, one each side of the mouth (|z| < 76.5).
+-- History: back wall (x -147, z +/-9.5) from 2026-10-04 ("move leaderboards and the group
+-- chest near the backend"); the east shoulder (x 96, z 104 / 123) before that.
+local WALL_X_FALLBACK = 96
 local FLOOR_Y_FALLBACK = -1.5
-local BOARD_Z = { 9.5, -9.5 }
-local OUT = Vector3.new(1, 0, 0) -- the way the boards face, off the wall into the camp
+local BOARD_Z = { -100, 100 }
+local OUT = Vector3.new(-1, 0, 0) -- the way the boards face, off the wall into the camp
 local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
 local BOARD_H = 22.5 -- keep W:H at 2:3 so the canvas stays 800 x 1200
 local BOARD_LIFT = 1.5 -- gap between floor and the board's bottom edge

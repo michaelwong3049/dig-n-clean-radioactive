@@ -81,11 +81,10 @@ local Kit = require(script.Parent.Kit)
 -- both Hub and Stages together with no cycle. Needed for PLAZA_DARK/PLAZA_LIGHT
 -- below.
 local Stages = require(ReplicatedStorage.Shared.Config.Stages)
-local GroupReward = require(ReplicatedStorage.Shared.Config.GroupReward)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 43 -- flipped checker twins, no shed tiles (2026-10-07)
+local BUILDER_VERSION = 44 -- five-base row: plaza in front of it, a shop strip down the middle (2026-10-09)
 
 local C = Kit.C
 local build = Kit.build
@@ -144,24 +143,10 @@ local PAVER_LIGHT = "6E7378" -- was 95999D
 local KERB_DARK = "44484C" -- was 54595D
 local KERB_LIGHT = "4E5257" -- was 60656A
 --- The shop square's paver and kerb pairs, for floors that should read as the same
---- raised square (build/PrizeSquare, the crate + chest square and its path).
+--- raised square (build/PrizeSquare, the crate + chest square).
 Hub.SHOP_PAVER = { dark = PAVER_DARK, light = PAVER_LIGHT }
 Hub.SHOP_KERB = { dark = KERB_DARK, light = KERB_LIGHT }
 
---- THE PATH TO THE PRIZE SQUARE (build/PrizeSquare, the chest + crate pads) runs west
---- from the shop square, centred on the chest's Z. Its full width and kerb bands live
---- here, not in PrizeSquare, because buildShopKerb needs them too and PrizeSquare
---- requires Hub. Where its pavers meet the shop square, the west kerb is left out
---- (on request, 2026-10-06), so the path runs straight onto the square.
-Hub.PRIZE_PATH_HALF = 6 -- kerbs included: 12 wide
-Hub.PRIZE_PATH_KERB = 2
-
---- The Z span of the path's pavers (between its two kerb bands).
-function Hub.prizePathOpening(): (number, number)
-	local z = GroupReward.CHEST_POSITION.Z
-	local inner = Hub.PRIZE_PATH_HALF - Hub.PRIZE_PATH_KERB
-	return z - inner, z + inner
-end
 --- The darker grey the bases' 2-stud border is laid in (Plots, buildPadBorder). The
 --- shop kerb's old dark tone; it stayed put when the kerb went darker.
 Hub.BORDER_COLOR = "54595D"
@@ -227,8 +212,16 @@ local GREEN_STRIP_DEPTH = 19
 -- against this edge now, and 16 studs (four tiles, an even count) pulls them in without
 -- moving the grid's phase or flipping the checker's parity -- cellCentre and tileRect
 -- both count tiles from minX, and build/CampSite's floors snap to the same grid.
-Hub.PLAZA = { minX = -49, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
-Hub.CAMP_ORIGIN = CFrame.new(5.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
+--
+-- THE FIVE-BASE ROW (2026-10-09): the bases stand in one line along the west wall, their
+-- fronts on x = -1 (Plots ROW_FRONT_X), so the plaza is the open ground in front of
+-- them -- minX -49 -> -1 (12 tiles, an even count: same grid phase, same checker parity)
+-- and |z| 70 -> 182 (28 tiles each side, likewise), out past the end pads' outer edges.
+Hub.PLAZA = { minX = -1, maxX = 100, minZ = -182, maxZ = 182, thickness = 8, topY = -1.5 }
+--- The camp's datum: the Trader's kiosk (BaseCamp.buildHubTrader) and the blackout
+--- respawn ring (buildSpawns) stand on it. In the shop row, opposite the gap between the
+--- middle base and the one to its right (Shops BOOTHS keeps that slot for it).
+Hub.CAMP_ORIGIN = CFrame.new(22, -0.6, 38)
 
 --- THE PLAZA FLOOR IS THE PLAZA RECTANGLE. It was an octagon centred on the old plot
 --- ring (and a circle before that); with the bases squared round it, the straight edges
@@ -259,10 +252,9 @@ Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 ---
 --- Hand-placed, like SHOP_ZONE: move it by hand with Plots.CENTERS.
 local GATE_RECTS = {
-	-- 2026-10-04: follows the bases in (fronts x -71, z +/-72). Then (same day) out to
-	-- the west row's outer edge (x -132.5) when the rows went three to a side.
-	-- Later the same day, one tile nearer the stages (maxX 75 -> 79) with GREEN_STRIP_DEPTH.
-	{ minX = -133, maxX = 79, minZ = -70, maxZ = 70 },
+	-- 2026-10-09: the five-base row -- from the bases' fronts (x -1) to the green strip
+	-- (79), and along Z past the end pads' outer edges (|z| 180.5).
+	{ minX = -1, maxX = 79, minZ = -182, maxZ = 182 },
 }
 
 --- Each base's front strip (the washer / treadmill area in front of its raised deck),
@@ -305,7 +297,10 @@ end
 --- on request ("everything is smaller ... more compact and closer").
 --- Later 2026-10-04: a rectangle, 12 (three tiles) further east toward Stage 1 and 12 west
 --- (minX now the plaza's own edge), on request. The booth rows pulled in to z +/-18.
-local SHOP_ZONE = { minX = -49, maxX = 59, minZ = -42, maxZ = 42 }
+--- 2026-10-09, the five-base row: a long strip down the middle of the open ground, parallel
+--- to the bases' fronts, with a booth (and the Trader) opposite each gap between them
+--- (Shops BOOTHS, booth row x 18). Every edge on a tile line.
+local SHOP_ZONE = { minX = 7, maxX = 35, minZ = -134, maxZ = 134 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
@@ -923,17 +918,7 @@ local function buildShopKerb(parent: Instance)
 			local x0, x1, z0, z1 = cx - t / 2, cx + t / 2, cz - t / 2, cz + t / 2
 			-- Kerb bands along the outward X sides take the full cell depth...
 			if not Hub.inShopFloor(cx - t, cz) then
-				-- ...except across the prize path's pavers on the west edge, where the
-				-- band is laid as paver so the path runs straight onto the square.
-				local o0, o1 = Hub.prizePathOpening()
-				local a, b = math.max(z0, o0), math.min(z1, o1)
-				if math.abs(x0 - p.minX) < 1e-3 and a < b then
-					piece(x0, x0 + band, z0, a, kerb)
-					piece(x0, x0 + band, a, b, paver)
-					piece(x0, x0 + band, b, z1, kerb)
-				else
-					piece(x0, x0 + band, z0, z1, kerb)
-				end
+				piece(x0, x0 + band, z0, z1, kerb)
 				x0 += band
 			end
 			if not Hub.inShopFloor(cx + t, cz) then
@@ -964,7 +949,9 @@ local END_BORDER_W = 1
 local function buildFloorEndBorders(parent: Instance)
 	local r = GATE_RECTS[1]
 	local top = Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.05
-	for _, x in { r.minX + END_BORDER_W / 2, r.maxX - END_BORDER_W / 2 } do
+	-- East end only since the five-base row (2026-10-09): the west end is the bases'
+	-- fronts now, already edged by each base's own border.
+	for _, x in { r.maxX - END_BORDER_W / 2 } do
 		local part = build(parent, CFrame.new(0, 0, 0), {
 			name = "FloorEndBorder",
 			pos = { x, top - CAP / 2, (r.minZ + r.maxZ) / 2 },
@@ -1051,6 +1038,8 @@ local function buildSpawns(hub: Model)
 	-- now) and the Trader moved to the SE corner. It is back on this point (2026-10-04,
 	-- with the Hose Shop in the SE corner), so 16 lands you just past its sell radius again,
 	-- in the four aisles between the corner booths.
+	-- 2026-10-09: the datum moved into the shop row with the Trader (five-base row); the
+	-- ring still circles the kiosk, just outside its sell radius.
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",

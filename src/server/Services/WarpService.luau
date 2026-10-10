@@ -70,7 +70,7 @@ local DROP_IN = Vector3.new(0, 4, 0)
 
 --- The SELL button lands you at Base Camp's Trader (2026-10-04, on request: "change
 --- shop tp name to sell and make it go to the trader"). The Trader is the four-sided
---- kiosk on PLAZA_MID (BaseCamp.buildHubTrader): land this far out from its centre on a
+--- kiosk in the shop row (BaseCamp.buildHubTrader): land this far out from its centre on a
 --- random side, facing a counter. That is past the deck (half 7.5) but inside the sell
 --- radius (16), so the panel opens on arrival -- unlike the respawn ring, which sits just
 --- outside it on purpose. Looked up only on a press, scoped to BaseCamp (Toxic Twilight

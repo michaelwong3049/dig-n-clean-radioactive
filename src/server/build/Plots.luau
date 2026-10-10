@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Plots.luau — the Row. Six exhibition plots, one per player.
+	Plots.luau — the Row. Five exhibition plots, one per player.
 
 	    require(game.ServerScriptService.Server.build.Plots).rebuild()
 
@@ -8,30 +8,37 @@
 	These are not sell pads — the Trader at the camp already does that. A plot is
 	where a cleaned item goes to earn forever, in public, with your name under it.
 	PLAN §8.1 is right that this is what makes a shared server worth having: without
-	it the other five people are scenery.
+	it the other four people are scenery.
 
-	SIX PLOTS, SIX PLAYERS. MaxPlayers is set to 6 on the place so plots and players
+	FIVE PLOTS, FIVE PLAYERS. MaxPlayers is set to 5 on the place so plots and players
 	are 1:1 and there is no "sorry, full" case to design around. That is a place
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	THREE BASES TO A SIDE, NORTH AND SOUTH OF THE SHOPS (2026-10-04, on request: "3 bases
-	on one side, 3 bases on the other"):
+	FIVE BASES IN ONE ROW ALONG THE BACK (WEST) WALL, ALL FACING STAGE 1 (2026-10-09, on
+	request, from the user's sketch: "5 stages along each other facing towards the stage"):
 
-	     ┌──────────────────────────────────────┐
-	     │ [P4]      [P5]      [P6]             │        (north row)
-	     │                  ( SHOPS )           ===> STAGE 1   (east, open)
-	     │ [P3]      [P2]      [P1]             │        (south row)
-	     └──────────────────────────────────────┘
+	     ┌────────────────────────────────────────────┐
+	     │ [P1]                                       │
+	     │          (booth)                           │
+	     │ [P2]                                       │
+	     │          (booth)                           │
+	     │ [P3]                [chest + crates]       ===> STAGE 1   (east, open)
+	     │          (Trader)                          │
+	     │ [P4]                                       │
+	     │          (booth)                           │
+	     │ [P5]                                       │
+	     └────────────────────────────────────────────┘
 
-	Each row faces the shops across a grey walkway; the east side is open onto Stage 1.
-	The perimeter wall (Scenery.buildBaseWalls) is the plain rectangle in Plots.CAMP. The
-	shops stayed put, so the rows run further west than the shop square does.
+	Numbered left to right as you face Stage 1 (-Z to +Z). The shops stand in one row in
+	front of the bases, a booth opposite each gap (build/Shops BOOTHS), and the group chest
+	with its two crate pads sits in front of the middle base, by Stage 1's mouth
+	(build/PrizeSquare). The perimeter wall (Scenery.buildBaseWalls) is the plain rectangle
+	in Plots.CAMP.
 
-	EVERY BASE'S CLEANSING STATION SITS AT THE STAGE END of its front strip (on request,
-	same day). A south pad is the north one turned 180 degrees, which put its station at
-	the far (west) end, so south pads build their front strip mirrored (`stripFlip` in
-	buildPlot): the station and bottle on the -X side, the locker on the +X.
+	IT WAS THREE TO A SIDE BEFORE THIS (2026-10-04 to -09): three bases on the north edge
+	and three on the south, facing a shop square between them, the south row's front
+	strips mirrored (`stripFlip`, still in buildPlot for any pad facing north).
 
 	IT WAS TWO TO A SIDE BEFORE THIS (2026-10-03 to -04): two pads each on the north,
 	south and west edges, the wall a stepped outline (a back block for the west pair, two
@@ -213,12 +220,12 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 120 -- cleansing station 4 toward the middle, Hoses pad beside it (2026-10-09)
+local BUILDER_VERSION = 121 -- five bases in one row along the west wall, facing Stage 1 (2026-10-09)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
 
-Plots.COUNT = 6
+Plots.COUNT = 5
 -- Every stand built per base, across all of its floors (Config/Floors): the ground
 -- floor's 12 plus UPPER_SLOTS on each floor above. Floors a plot's owner has not
 -- bought are built too, and hidden at runtime (Plots.setFloors).
@@ -227,7 +234,7 @@ Plots.VISIBLE_SLOTS = Floors.MAX_SLOTS
 --- The accent a CLAIMED plot wears until its owner picks one in Settings, by plot
 --- index. Most players never open Settings, and the gallery (arch caps, plinth bands,
 --- fence caps, slot brackets) is mostly accent — in `C.plotNeutral` it reads as more
---- grey fence. One hue per plot, so the six bases in a server never match. Never saved
+--- grey fence. One hue per plot, so the five bases in a server never match. Never saved
 --- to the profile (ExhibitService.renderAccent picks it at paint time), so a player who
 --- has never chosen simply wears whichever plot they land on. Kept clear of the
 --- quarantine red and the stages' hazard greens.
@@ -237,7 +244,6 @@ Plots.DEFAULT_ACCENTS = {
 	"9B5DE5", -- purple
 	"FF5D8F", -- pink
 	"3FA7F5", -- blue
-	"F9C74F", -- yellow
 }
 assert(#Plots.DEFAULT_ACCENTS == Plots.COUNT, "one default accent per plot")
 -- Tubes in the Quarantine Locker rack (buildQuarantineLocker), one stored nuke each.
@@ -350,32 +356,22 @@ local function buildFrontPath(parent: Instance, origin: CFrame)
 	return part
 end
 
---- THE ROWS. Six pads, three on each of the plaza's north and south edges, each facing
---- the shops. Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are cut to
---- these numbers -- move those with these).
+--- THE ROW. Five pads in one line along the west wall, each facing east at Stage 1
+--- (2026-10-09, on request). Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are
+--- cut to these numbers -- move those with these).
 ---
 --- `facing` is a yaw in degrees. A pad is built with its back fence at +Z and its
 --- spawn/front at -Z, so 0 faces south (a north pad), 180 faces north (a south pad) and
 --- -90 faces east (a west pad).
 ---
 --- A pad's FRONT edge is its local Z = PAD_MIN_Z (-51), so the origin sits 51 studs
---- behind the front:
----   fronts at z = +/-72, centres x -104, -28 and 48, 76 apart (a 19-stud gap between
----   neighbours). The third pad of each row went WEST (the shops stayed put, on
----   request), where the old west pair's back block used to be. The leaderboards and the
----   group chest moved to the middle of the back wall after (LeaderboardService).
---- World.verify() checks that no pad overlaps the plaza, a stage, or another pad.
+--- behind the front: fronts on x = ROW_FRONT_X (a tile line of Hub's grid), centres 76
+--- apart along Z (a 19-stud gap between neighbours, wide enough to walk through to the
+--- back wall). World.verify() checks that no pad overlaps the plaza, a stage, or another
+--- pad.
 local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
--- 2026-10-03, on request: the west pair pulled in twice (-95 -> -87 -> -71); the
--- north/south four 4 toward the stage (x +4), then back out from the middle (fronts
--- 76 -> 72 -> 80).
--- 2026-10-04, on request ("push all the player bases closer to the stage", a ~10-stud
--- nudge, with the shop square shrunk to booths): every pad 10 toward Stage 1 (NS x +10,
--- west fronts -71 -> -59 incl. 2 of grid snap) and the N/S fronts in from 80 to 72.
--- Then (same day, on request) the west pair 12 back from the stage again: -59 -> -71.
--- 2026-10-04, on request: three to a side -- the west pair gone, a third pad at x -104.
-local NS_FRONT_Z = 72
-local NS_X = { -104, -28, 48 }
+local ROW_FRONT_X = -1
+local ROW_Z = { -152, -76, 0, 76, 152 }
 
 local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
@@ -393,19 +389,14 @@ local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 local DECK_CENTER_Z = (DECK_MIN_Z + Plots.PAD.maxZ) / 2
 local DECK_HALF_D = (Plots.PAD.maxZ - DECK_MIN_Z) / 2
 
-local NS_Z = NS_FRONT_Z + PAD_FRONT_REACH
+local ROW_X = ROW_FRONT_X - PAD_FRONT_REACH
 
---- Numbered round from the south-east, clockwise seen from above with the field on the
---- right: 1-3 south (east to west), 4-6 north (west to east) -- the diagram in this
---- file's header.
-Plots.CENTERS = {
-	{ x = NS_X[3], z = -NS_Z, facing = 180 },
-	{ x = NS_X[2], z = -NS_Z, facing = 180 },
-	{ x = NS_X[1], z = -NS_Z, facing = 180 },
-	{ x = NS_X[1], z = NS_Z, facing = 0 },
-	{ x = NS_X[2], z = NS_Z, facing = 0 },
-	{ x = NS_X[3], z = NS_Z, facing = 0 },
-}
+--- Numbered left to right as you stand at the fronts facing Stage 1: 1 at -Z, 5 at +Z.
+--- ExhibitService fills them from the middle out (FILL_ORDER).
+Plots.CENTERS = {}
+for _, z in ROW_Z do
+	table.insert(Plots.CENTERS, { x = ROW_X, z = z, facing = -90 })
+end
 
 --- THE CAMP OUTLINE -- the inner faces of the perimeter wall (Scenery.buildBaseWalls),
 --- derived from the pads so a base (plus BACK_SPARE behind it) clears the wall by
@@ -425,12 +416,13 @@ local WALL_CLEARANCE = 10
 local BACK_SPARE = 6
 local BACK_REACH = Plots.PAD.maxZ + BACK_SPARE -- origin to the wall's reference line
 Plots.CAMP = {
-	-- The west row's outer edge: the grey floor (Hub.GATE_RECTS) runs out to here, and
-	-- Scenery keeps the walk between the rows bare of foliage this far.
-	pavedMinX = NS_X[1] - HALF_W,
+	-- The paved ground in front of the row (Hub.GATE_RECTS): from the fronts east, and
+	-- out to the end pads' outer edges along Z. Scenery keeps it bare of foliage.
+	pavedMinX = ROW_FRONT_X,
+	pavedHalfZ = ROW_Z[#ROW_Z] + HALF_W,
 	eastX = PLAZA.maxX - 4,
-	westX = NS_X[1] - CAMP_HALF_W - WALL_CLEARANCE,
-	halfZ = NS_Z + BACK_REACH + WALL_CLEARANCE,
+	westX = ROW_X - BACK_REACH - WALL_CLEARANCE,
+	halfZ = ROW_Z[#ROW_Z] + CAMP_HALF_W + WALL_CLEARANCE,
 }
 
 --- The camp's floor as axis rectangles (one, now the outline is a plain rectangle),

@@ -426,7 +426,7 @@ the place file has no git history to recover from.
       `DeconService`, the client "plot" panel in `StationController`, and
       `World.verify()`'s plot-board census check. `data.exhibit.bankedCash` is now just
       a sub-dollar carry between deposits.
-- [ ] Set `MaxPlayers = 6` in Studio Game Settings so plots and players are 1:1
+- [ ] Set `MaxPlayers = 5` in Studio Game Settings so plots and players are 1:1
       (a place setting — Rojo cannot capture it)
 
 ## 4. Economy & state backbone — Phase 3
