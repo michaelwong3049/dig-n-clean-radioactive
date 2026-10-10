@@ -75,9 +75,9 @@ WalkSpeed.STAGE_STEPS = { 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 }
 WalkSpeed.BULK = { 3, 10 }
 
 --- The Developer Product the panel's purple button sells: ROBUX_WALK walk speed, flat,
---- nothing spent. 0 = not set up yet, and the button reads SOON.
+--- nothing spent. 0 would mean not set up, and the button would read SOON.
 --- Creator Dashboard -> Monetization -> Developer Products: "+10 Speed".
-WalkSpeed.PRODUCT_ID = 0
+WalkSpeed.PRODUCT_ID = 3717600113
 WalkSpeed.ROBUX_WALK = 10
 
 --- Three significant figures: $1,530 rather than $1,527.70.
