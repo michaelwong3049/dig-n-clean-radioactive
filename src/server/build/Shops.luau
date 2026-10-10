@@ -205,7 +205,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 84 -- Hose Shop booth removed: hoses are on each base's Hoses pad (2026-10-09)
+local BUILDER_VERSION = 85 -- booths in one row in front of the five-base row, facing the bases (2026-10-09)
 
 local C = Kit.C
 local build = Kit.build
@@ -1896,25 +1896,31 @@ end
 --- tier rack, no Aura mannequins, no RackZone. The site camps (CampSite) keep their full
 --- racked stalls -- STALLS above is still their template.
 ---
---- Four corners round PLAZA_MID, mirror-symmetric: Magnet NW, Detector NE, the Aura shop
---- SW and the Hose Shop SE (back 2026-10-04, on request: the base hose sign is gone). The
---- Trader's four-sided kiosk (BaseCamp.buildHubTrader) stands in the middle, on PLAZA_MID.
+--- ONE ROW IN FRONT OF THE BASES (2026-10-09, on request, the five-base row): the
+--- booths stand on Hub's shop strip, each opposite a gap between two bases, facing them
+--- (-X) -- open front and back, so the Stage 1 side sells too. Left to right as you face
+--- Stage 1: Aura, Upgrades (Magnet), the Trader's kiosk (Hub.CAMP_ORIGIN, BaseCamp), Gear
+--- (Detector). The kiosk keeps the slot nearest the middle base's right-hand gap, the
+--- way the first players in (ExhibitService FILL_ORDER, middle out) walk to sell.
 --- Move a booth here, move Hub's SHOP_ZONE with it.
 local BOOTH_WIDTH = 26 -- longer on request (was 14, just the stand); the spine and roof run its length
-local BOOTH_DX = 35 -- east/west of PLAZA_MID (15 -> 19 -> 25 -> 35: out into the square's corners on request, ~6 inside the kerb)
-local BOOTH_ROW_Z = 24 -- each row's build origin (20 -> 24 -> 18 -> 24: into the corners, ~5 inside the square's edge)
+--- The row's build origin on X: a booth's footprint runs from 4.9 in front of it to 12.9
+--- behind (its step pads, mirrored about ISLAND_Z), so x 13.1..30.9, inside the strip's
+--- kerbs (7..35).
+local BOOTH_ROW_X = 18
+local BOOTH_FACE = -90 -- fronts to world -X, at the bases
 local BOOTHS = {
 	-- The Magnet booth is the UPGRADES booth and the Detector booth the GEAR booth
 	-- (Config/Booths, 2026-10-09): same station ids, new names.
-	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
-	{ track = "Detector", at = { PLAZA_MID.x + BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
-	{ track = "Aura", at = { PLAZA_MID.x - BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = C.shopOutfitter, label = "Aura Shop" },
+	{ track = "Aura", at = { BOOTH_ROW_X, -114 }, faceYaw = BOOTH_FACE, color = C.shopOutfitter, label = "Aura Shop" },
+	{ track = "Magnet", at = { BOOTH_ROW_X, -38 }, faceYaw = BOOTH_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
+	{ track = "Detector", at = { BOOTH_ROW_X, 114 }, faceYaw = BOOTH_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
 	-- No Hose Shop booth (2026-10-09, on request): hoses are bought on the Hoses pad beside
-	-- each base's tub (build/Plots ensureHosePad). Its SE corner stands open.
+	-- each base's tub (build/Plots ensureHosePad).
 }
 
---- The Trader's kiosk in the middle (BaseCamp.buildHubTrader): its painted ground square's
---- half-width, which assertNoShopOverlap keeps the booths off.
+--- The Trader's kiosk in the shop row (BaseCamp.buildHubTrader, on Hub.CAMP_ORIGIN): its
+--- painted ground square's half-width, which assertNoShopOverlap keeps the booths off.
 local TRADER_KIOSK_HALF = 11
 
 --- The booth's step pad: a studded strip in `color` on the plaza just in front of the
@@ -2224,7 +2230,7 @@ local function assertNoShopOverlap()
 
 	table.insert(rects, {
 		name = "Trader kiosk",
-		rect = { cx = PLAZA_MID.x, cz = PLAZA_MID.z, halfWidth = TRADER_KIOSK_HALF, halfDepth = TRADER_KIOSK_HALF, yawDeg = 0 },
+		rect = { cx = Hub.CAMP_ORIGIN.X, cz = Hub.CAMP_ORIGIN.Z, halfWidth = TRADER_KIOSK_HALF, halfDepth = TRADER_KIOSK_HALF, yawDeg = 0 },
 	})
 
 	for i = 1, #rects do

@@ -43,11 +43,15 @@ GroupReward.CASH_MULT = 1.1
 -- 2026-10-06, on request: 18 nearer the shops (was x -113), on its own raised square
 -- (build/PrizeSquare, centred here) with a path to the shop square; Y is that square's
 -- top, PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35.
-GroupReward.CHEST_POSITION = Vector3.new(-95, -1.15, 0)
+-- 2026-10-09, the five-base row: out in front of the middle base, near Stage 1's mouth
+-- (x 57, between the shop row and the green strip), still on its raised square.
+GroupReward.CHEST_POSITION = Vector3.new(57, -1.15, 0)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.
-GroupReward.CHEST_FACING = -math.pi / 2 -- front to world +X, toward Stage 1 and the shops (2026-10-04)
+-- 2026-10-09: turned to face the bases and the shop row (world -X) -- they are west of
+-- it now, Stage 1 east.
+GroupReward.CHEST_FACING = math.pi / 2
 
 GroupReward.RING_RADIUS = 8.5 -- to the ring's centre line
 GroupReward.RING_WIDTH = 1.2

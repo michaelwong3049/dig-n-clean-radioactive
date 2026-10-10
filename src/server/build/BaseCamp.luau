@@ -67,7 +67,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 29
+local BUILDER_VERSION = 30 -- Trader kiosk into the shop row of the five-base row (2026-10-09)
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -191,6 +191,8 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- BACK IN THE MIDDLE, FOUR-SIDED AGAIN (2026-10-04, on request): the Hose Shop took the
 	-- SE corner back (Shops BOOTHS), so the kiosk stands on PLAZA_MID with a booth at each
 	-- corner round it.
+	-- 2026-10-09, the five-base row: Hub.CAMP_ORIGIN moved into the shop row, opposite
+	-- the gap right of the middle base, so the kiosk stands in line with the booths.
 	BaseCamp.buildHubTrader(camp, origin)
 end
 

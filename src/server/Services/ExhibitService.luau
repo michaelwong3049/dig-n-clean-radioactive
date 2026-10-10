@@ -71,12 +71,11 @@ local Plots = require(script.Parent.Parent.build.Plots)
 
 local ExhibitService = {}
 
-local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
--- The order players are handed plots, on request (2026-10-09): alternate sides
--- instead of filling one row first. Plots.CENTERS numbers 1-3 south (east to west)
--- and 4-6 north (west to east), so this is south-east, north-east, then the middle
--- pair, then the west pair — mirror twins back to back.
-local FILL_ORDER = { 1, 6, 2, 5, 3, 4 }
+local PLOT_COUNT = 5 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
+-- The order players are handed plots: from the middle of the row out (2026-10-09, on
+-- request, when the bases went five in one row). Plots.CENTERS numbers 1-5 left to
+-- right as you face Stage 1, so a small server gathers round the middle base.
+local FILL_ORDER = { 3, 2, 4, 1, 5 }
 -- Stand display motion: turn rate (radians/sec, ~1 turn per 25s) and bob height (studs).
 local STAND_HOVER = { rate = 0.25, amp = 0.12 }
 local LOCKER_VISIBLE =Tuning.LOCKER_SLOTS -- one per tube; a profile racked past the cap shows the first eight
@@ -972,7 +971,7 @@ local function assign(player: Player)
 			return
 		end
 	end
-	-- All 6 plots taken (should not happen with MaxPlayers = 6, but a place
+	-- All 5 plots taken (should not happen with MaxPlayers = 5, but a place
 	-- setting is not something this code can enforce). Used to mean only "nowhere
 	-- to display"; now that BaseCamp carries no fallback spawn, it also means this
 	-- player never gets a RespawnLocation or a teleport, and is stuck wherever

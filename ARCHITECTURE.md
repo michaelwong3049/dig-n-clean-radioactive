@@ -267,8 +267,8 @@ still asks `ToolModels.has(track)` first so the plaza rack hangs the real geomet
 >    still works and simply draws the plainer primitive hoses. Whether the other two
 >    tracks follow the primitive route is a question about how much a union buys over a
 >    well-composed pile of parts, not a question about tooling.
-> 2. **`MaxPlayers = 6`** is a Studio *Game Settings* value, not repo state. It has to
->    be 6 for the six exhibition plots to be 1:1 with players.
+> 2. **`MaxPlayers = 5`** is a Studio *Game Settings* value, not repo state. It has to
+>    be 5 for the five exhibition plots to be 1:1 with players.
 > 3. **Everything else is now code.** `build/World.rebuild()` regenerates the hub, the
 >    camp, the radiation field, the shops, the plots (each with its own cleansing
 >    station), the scenery and the Lighting, and then runs `World.verify()` over the
