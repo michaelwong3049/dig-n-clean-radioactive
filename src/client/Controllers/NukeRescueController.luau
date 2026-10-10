@@ -5,9 +5,9 @@
 	button for Tuning.NUKE_RESCUE_PRODUCT_ID.
 
 	Not modal: you have just been knocked flat in a field, possibly standing in the
-	crater, so nothing here dims the screen or holds the pointer. It names only the
-	READING (rarity, modifier, kg) -- the nuke is still a crusted "???" -- and a bar
-	under it runs down the offer's seconds. Buying it, closing it or the bar running out
+	crater, so nothing here dims the screen or holds the pointer. A small see-through
+	black card naming only the READING (rarity, modifier) -- the nuke is still a crusted
+	find -- and a bar under it runs down the offer's seconds. Buying it, closing it or the bar running out
 	takes it away; ProductService grants the nuke and the server's Notice confirms it.
 ]]
 
@@ -22,10 +22,8 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Tuning = require(Shared.Config.Tuning)
 local Rarity = require(Shared.Config.Rarity)
-local Weight = require(Shared.Config.Weight)
 
 local RobuxButton = require(script.Parent.Parent.RobuxButton)
-local Studded = require(script.Parent.Parent.Studded)
 local UIKit = require(script.Parent.Parent.UIKit)
 
 local NukeRescueController = {}
@@ -33,27 +31,23 @@ local NukeRescueController = {}
 local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
 local RED = Color3.fromHex("FF4D4D")
-local SUB = Color3.fromHex("C9D3DE")
 
 -- Design px, on the centred 1280x720 canvas.
 local L = {
-	cardW = 360,
-	cardH = 214,
+	cardW = 270,
+	cardH = 142,
 	y = 132, -- the card's top edge, under the rare-drop band
-	outline = 4,
-	shadow = 6,
-	titleY = 12,
-	titleSize = 34,
-	lineY = 54,
-	lineSize = 20,
-	kgY = 80,
-	kgSize = 16,
-	buttonW = 220,
-	buttonH = 62,
-	buttonY = 108,
-	barY = 186,
-	barH = 10,
-	closeSize = 30,
+	backdrop = 0.35, -- see-through black, like the Shop panel's
+	titleY = 8,
+	titleSize = 26,
+	lineY = 38,
+	lineSize = 15,
+	buttonW = 170,
+	buttonH = 48,
+	buttonY = 62,
+	barY = 122,
+	barH = 7,
+	closeSize = 24,
 }
 
 local POP_IN = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -88,7 +82,7 @@ local function open(offer: any)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
-	local pad = 16 -- room in the group for the shadow
+	local pad = 4 -- room in the group for the button's press bounce
 	local group = Instance.new("CanvasGroup")
 	group.Name = "Card"
 	group.AnchorPoint = Vector2.new(0.5, 0)
@@ -101,27 +95,15 @@ local function open(offer: any)
 	popScale.Scale = 0.5
 	popScale.Parent = group
 
-	UIKit.panel(group, {
-		name = "Shadow",
-		position = UDim2.fromOffset(pad, pad + L.shadow),
-		size = UDim2.fromOffset(L.cardW, L.cardH),
-		color = INK,
-		transparency = 0,
-		cornerRadius = UDim.new(0, 12),
-		zIndex = 1,
-	})
 	local face = UIKit.panel(group, {
 		name = "Face",
 		position = UDim2.fromOffset(pad, pad),
 		size = UDim2.fromOffset(L.cardW, L.cardH),
-		color = Color3.fromHex("12161D"),
-		transparency = 0,
+		color = Color3.new(0, 0, 0),
+		transparency = L.backdrop,
 		cornerRadius = UDim.new(0, 12),
-		strokeColor = INK,
-		strokeThickness = L.outline,
 		zIndex = 2,
 	})
-	Studded.darkPanel(face, 12)
 
 	UIKit.label(face, {
 		name = "Title",
@@ -149,23 +131,6 @@ local function open(offer: any)
 		xAlign = Enum.TextXAlignment.Center,
 		zIndex = 10,
 	})
-	local kg = if type(offer.weight) == "number" and type(offer.payload) == "number"
-		then UIKit.formatKg(Weight.shownKg(offer.weight, offer.payload))
-		else nil
-	UIKit.label(face, {
-		name = "Kg",
-		size = UDim2.new(1, -24, 0, 20),
-		position = UDim2.fromOffset(12, L.kgY),
-		text = if kg then `??? · {kg}` else "???",
-		font = Enum.Font.GothamBold,
-		textSize = L.kgSize,
-		color = SUB,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		strokeTransparency = 1,
-		zIndex = 10,
-	})
-
 	local buy = RobuxButton.product(face, function()
 		return Tuning.NUKE_RESCUE_PRODUCT_ID
 	end, "GET IT BACK")
@@ -177,8 +142,8 @@ local function open(offer: any)
 	-- The offer's seconds, running down.
 	local track = UIKit.panel(face, {
 		name = "Timer",
-		position = UDim2.fromOffset(24, L.barY),
-		size = UDim2.new(1, -48, 0, L.barH),
+		position = UDim2.fromOffset(18, L.barY),
+		size = UDim2.new(1, -36, 0, L.barH),
 		color = INK,
 		transparency = 0,
 		cornerRadius = UDim.new(1, 0),
@@ -194,7 +159,7 @@ local function open(offer: any)
 	})
 
 	local closeButton = UIKit.closeButton(face, {
-		position = UDim2.fromOffset(L.cardW - L.closeSize - 8, 8),
+		position = UDim2.fromOffset(L.cardW - L.closeSize - 6, 6),
 		size = L.closeSize,
 		zIndex = 12,
 	})

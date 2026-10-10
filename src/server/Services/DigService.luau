@@ -1391,8 +1391,6 @@ local function offerRescues(signal: Signal)
 		lostRemote:FireClient(player, {
 			rarity = rarity,
 			modifier = modifier,
-			weight = Items.get(itemId).weight,
-			payload = Payload.forUid(signal.uid),
 			expiresAt = expiresAt,
 		})
 	end
