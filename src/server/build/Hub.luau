@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 47 -- no grey path under the bases' front strips either (2026-10-10)
+local BUILDER_VERSION = 48 -- plaza starts at the bases' fronts, 16 nearer Stage 1 (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -217,7 +217,8 @@ local GREEN_STRIP_DEPTH = 19
 -- fronts on x = -1 (Plots ROW_FRONT_X), so the plaza is the open ground in front of
 -- them -- minX -49 -> -1 (12 tiles, an even count: same grid phase, same checker parity)
 -- and |z| 70 -> 182 (28 tiles each side, likewise), out past the end pads' outer edges.
-Hub.PLAZA = { minX = -1, maxX = 100, minZ = -182, maxZ = 182, thickness = 8, topY = -1.5 }
+-- 2026-10-10: minX -1 -> 15 with the bases' fronts (4 tiles: same phase, same parity).
+Hub.PLAZA = { minX = 15, maxX = 100, minZ = -182, maxZ = 182, thickness = 8, topY = -1.5 }
 --- The camp's datum: the blackout respawn ring (buildSpawns) circles it. On the open
 --- ground between the shop row and Stage 1, in front of the middle base (2026-10-10: the
 --- Trader is a booth in the shop row now, Shops SELL_BOOTH, so the ring no longer rings it).

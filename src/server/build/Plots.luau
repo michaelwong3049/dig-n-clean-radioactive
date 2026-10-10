@@ -220,7 +220,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 122 -- no grey base border, front strip on the lawn (2026-10-10)
+local BUILDER_VERSION = 123 -- row 16 nearer Stage 1 (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -352,7 +352,9 @@ end
 --- back wall). World.verify() checks that no pad overlaps the plaza, a stage, or another
 --- pad.
 local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
-local ROW_FRONT_X = -1
+-- -1 -> 15 (2026-10-10, on request: "move the bases closer" to Stage 1, asked 18; 16 is
+-- the nearest move that keeps the fronts on Hub's grid with the same checker parity).
+local ROW_FRONT_X = 15
 local ROW_Z = { -152, -76, 0, 76, 152 }
 
 local PLAZA = Hub.PLAZA
