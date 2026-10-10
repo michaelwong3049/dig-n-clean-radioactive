@@ -142,6 +142,10 @@ local REMOTES: { [string]: string } = {
 	-- Client -> server, (bagId): the owner pressed Recover. The SERVER holds the bag
 	-- and opens the purchase prompt, so the hold is in place before the dialog is.
 	RecoverBag = "RemoteEvent",
+	-- Server -> client: a nuke you were pulling blew up, and you can buy it back
+	-- (Tuning.NUKE_RESCUE_PRODUCT_ID). { rarity, modifier, weight, payload, expiresAt }
+	-- -- the reading only, never the itemId; it is still a crusted "???".
+	NukeLost = "RemoteEvent",
 
 	-- A nuke's pull fuse ran out and it went off (Services/HazardService). Fired to
 	-- EVERY client, not just the puller: the flash, the cloud and the shake are a

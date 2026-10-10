@@ -71,6 +71,9 @@ local TEMPLATE = {
 	gearOwned = {},
 
 	carry = {}, -- array of Decay.CarriedItem. The backpack.
+	-- `lostNuke` (no template key, absent by default): the last nuke that blew up
+	-- mid-pull, { uid, stageId, itemId, rarity, modifier, crateId?, bonus? }, kept in
+	-- the save so a Nuke Rescue receipt landing after a rejoin still finds it (DigService).
 	locker = {}, -- Quarantine Locker (PLAN §10.2): found but not yet cleanable.
 	-- Locker upgrades bought (Tuning.LOCKER_UPGRADE_PRICES); slots = Tuning.lockerSlots.
 	lockerUpgrades = 0,

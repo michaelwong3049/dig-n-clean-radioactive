@@ -620,6 +620,32 @@ COMMANDS["/fuse"] = {
 	end,
 }
 
+COMMANDS["/rescue"] = {
+	-- Nuke Rescue without Robux: a made-up receipt for Tuning.NUKE_RESCUE_PRODUCT_ID
+	-- through the real ProductService path, so DigService's grant runs as if bought.
+	help = "/rescue — buy back the last nuke that blew up on you (fake receipt, no Robux)",
+	run = function(player, _sandbox, _args)
+		if Tuning.NUKE_RESCUE_PRODUCT_ID == 0 then
+			return "Nuke Rescue has no product id yet (Tuning.NUKE_RESCUE_PRODUCT_ID)"
+		end
+		local data = DataService.data(player)
+		if data == nil or data.lostNuke == nil then
+			return "no lost nuke on file -- let one blow up mid-pull first (/fuse 99)"
+		end
+		local rarity = data.lostNuke.rarity -- the grant below clears it before it yields
+		task.spawn(function()
+			local decision = ProductService.debugReceipt({
+				PlayerId = player.UserId,
+				ProductId = Tuning.NUKE_RESCUE_PRODUCT_ID,
+				PurchaseId = `debug-{player.UserId}-{os.clock()}`,
+				CurrencySpent = 0,
+			})
+			print(`[rescue] debug receipt -> {decision}`)
+		end)
+		return `rescuing your lost {rarity} nuke`
+	end,
+}
+
 COMMANDS["/pocket"] = {
 	help = "/pocket — hot pockets belong to StageService and arrive in Phase 4",
 	run = function(_player, _sandbox, _args)
