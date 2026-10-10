@@ -58,7 +58,11 @@ GroupReward.CASH_MULT = 1.1
 -- Later still (on request: "put the chest on the right wall next to stage 1"): against the
 -- east wall's right-hand (+z) shoulder as you face Stage 1, just past the mouth, back on
 -- its own small raised square (build/PrizeSquare). The crate pads stay on the middle square.
-GroupReward.CHEST_POSITION = Vector3.new(83, -1.15, 110)
+-- Then (on request: "remove the grey pad beneath it, and place it closer to the stage like
+-- almost at the corner"): on the bare lawn (Y = PLAZA.topY -1.5), tucked into the corner
+-- where that shoulder meets Stage 1's mouth (x 96, |z| 83-87), its gold ring a stud or so
+-- off the wall and the mouth's edge.
+GroupReward.CHEST_POSITION = Vector3.new(85, -1.5, 97)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.

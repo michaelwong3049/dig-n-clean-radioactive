@@ -49,13 +49,15 @@ end
 --- square is its floor, at the same height (SHOP_FLOOR_LIFT), and a second square on top
 --- would z-fight. The model stays, empty, so World.verify and GroupRewardService still find it.
 --- Off again the same day: the chest went to the east wall's +z shoulder, on its own square.
-local ON_MIDDLE_SQUARE = false
+--- And bare again later still (on request: "remove the grey pad beneath it"): the chest
+--- stands straight on the lawn in the shoulder's corner by Stage 1.
+local LAY_NOTHING = true
 
 --- The square, fully formed and UNPARENTED (Kit.swap's contract).
 function PrizeSquare.build(): Model
 	local model = Instance.new("Model")
 	model.Name = PrizeSquare.MODEL_NAME
-	if ON_MIDDLE_SQUARE then
+	if LAY_NOTHING then
 		return model
 	end
 
