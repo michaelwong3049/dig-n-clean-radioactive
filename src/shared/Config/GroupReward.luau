@@ -52,7 +52,10 @@ GroupReward.CASH_MULT = 1.1
 -- shop booths angled across the corner by Stage 1's mouth.
 -- And 8 back toward the mouth (-164 -> -156) with the corner booths when the stages went
 -- 166 wide.
-GroupReward.CHEST_POSITION = Vector3.new(83, -1.15, -156)
+-- Later 2026-10-10, on request ("move the crates and chest in the middle"): the side bases
+-- took the shoulder, so it stands on the grey middle square (build/Hub MIDDLE), on its
+-- long axis toward Stage 1, still facing the bases.
+GroupReward.CHEST_POSITION = Vector3.new(66, -1.15, 0)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.

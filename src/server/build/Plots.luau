@@ -220,7 +220,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 124 -- U-shaped camp: three on the west wall, one each side facing in (2026-10-10)
+local BUILDER_VERSION = 125 -- side bases 22 nearer the east wall (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -381,9 +381,11 @@ local ROW_X = ROW_FRONT_X - PAD_FRONT_REACH
 --- above) and one more each side, out in front of the row's ends toward Stage 1, turned
 --- to face each other across the middle -- the -Z one faces +Z (180), the +Z one -Z (0).
 --- Their fronts sit SIDE_FRONT_Z out, just past the row's outer edges (|z| 104.5), so a
---- side base never stands in front of an end row base; SIDE_X keeps their east flank
---- clear of the chest square and the leaderboards on the east wall's shoulders.
-local SIDE_X = 36
+--- side base never stands in front of an end row base. SIDE_X 36 -> 58 (later 2026-10-10,
+--- on request: "move the side bases closer to the wall"): their east flank is WALL_CLEARANCE
+--- off the east wall's face, where the chest square stood -- the chest and crates went to
+--- the middle square, the leaderboards to the shoulders by Stage 1's mouth.
+local SIDE_X = 58
 local SIDE_FRONT_Z = 106
 local SIDE_Z = SIDE_FRONT_Z + PAD_FRONT_REACH
 
