@@ -25,7 +25,7 @@
 	NO INCOME CAP, ON REQUEST (balance/economy-pacing-pass). Stands pay exactly what
 	their nukes earn. There used to be an hourly cap (`EXHIBIT_HOURLY_CAP_PER_LEVEL *
 	level`), but `level` never rose past 1, so it pinned every player at ~$139/sec from
-	Stage 3 on. The shop prices in Config/Gear, Config/Floors and Config/Treadmill are
+	Stage 3 on. The shop prices in Config/Gear, Config/Floors and Config/WalkSpeed are
 	sized against the uncapped rate instead.
 ]]
 
@@ -39,7 +39,7 @@ local Net = require(Shared.Net) -- assign(): tell the owning client its plot ind
 local Bag = require(Shared.Bag)
 local Tuning = require(Shared.Config.Tuning)
 local Floors = require(Shared.Config.Floors)
-local Treadmill = require(Shared.Config.Treadmill) -- priceText: "$32M", not "$32000000"
+local WalkSpeed = require(Shared.Config.WalkSpeed) -- priceText: "$32M", not "$32000000"
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
@@ -245,33 +245,12 @@ local function renderHose(index: number, data: any?)
 	Plots.setHoseTier(station, if data then data.gear.cleaner else nil)
 end
 
---- Dress the plot's treadmill in the belt rung this profile owns, or the free
---- starting belt when `data` is nil (an unclaimed plot).
----
---- SAME SHAPE AS renderHose, and it is the same argument: TreadmillService takes the
---- money, this file owns what a plot looks like, and the buy path should not have to
---- know a plot has a treadmill in it. What "dressing" means — which parts repaint,
---- what the sign says — is entirely build/Plots.setTreadmillTier's business.
-local function renderTreadmill(index: number, data: any?)
-	local plot = plotModel(index)
-	if plot == nil then
-		return
-	end
-	local treadmill = plot:FindFirstChild("Treadmill", true)
-	Plots.setTreadmillTier(
-		treadmill,
-		if data then data.treadmill else nil,
-		if data then data.speedPoints else nil,
-		data == nil or data.treadmillUnlocked ~= true
-	)
-end
-
 --- Fill the plot's fluid bottle AND its cleansing tub with the fluid this profile has
 --- loaded, or Plain Water when `data` is nil (an unclaimed plot). Colour only: the
 --- fluid's name, washes left and the ROLL button live on the owner's own panel (the
 --- client's LiquidController).
 ---
---- SAME SHAPE AS renderTreadmill: LiquidService spins, this file owns what a plot
+--- SAME SHAPE AS renderHose: LiquidService spins, this file owns what a plot
 --- looks like, and which parts of the bottle and the tub hold the fluid is
 --- build/Plots' business (Plots.setFluidBottle, Plots.setTubFluid).
 local function renderBottle(index: number, data: any?)
@@ -746,7 +725,6 @@ local function renderAll(index: number, data: any)
 	end
 	renderLocker(index, data)
 	renderHose(index, data)
-	renderTreadmill(index, data)
 	renderBottle(index, data)
 	refreshStandCards(index, data)
 end
@@ -822,7 +800,7 @@ function ExhibitService.plotIndexOf(part: Instance): number?
 end
 
 --- May this player use a station that sits on plot `index`? A base's cleansing station
---- and treadmill are its OWNER's alone (on request — they used to be open to anyone);
+--- is its OWNER's alone (on request — they used to be open to anyone);
 --- `nil` means the station is not on a plot at all, which everyone may use.
 function ExhibitService.ownsPlotStation(player: Player, index: number?): boolean
 	return index == nil or plotOf[player] == index
@@ -853,25 +831,6 @@ function ExhibitService.refreshHose(player: Player)
 	renderHose(index, DataService.data(player))
 end
 
---- Re-dress this player's own treadmill: after an upgrade lands (TreadmillService
---- .buy) and once on data load. Exactly refreshHose's contract, including the no-op
---- when they have no plot this session — which is a state a treadmill owner really can
---- be in, since a belt on somebody else's base trains them just as well (see
---- TreadmillService's header).
----
---- Also the readout's refresh path: the sign shows banked progress, so a player who
---- crosses a point of speed while standing on their own belt wants the world to say so
---- without waiting for a rebuild. TreadmillService does not call this per tick — the
---- sign is repainted on the events that change the RUNG, and the live bar is the
---- client's SpeedState readout.
-function ExhibitService.refreshTreadmill(player: Player)
-	local index = plotOf[player]
-	if index == nil then
-		return
-	end
-	renderTreadmill(index, DataService.data(player))
-end
-
 --- Repaint this player's own stand cards' $/s. Called when something outside this
 --- service raises their yieldMultiplier for good (the group chest's permanent cash
 --- bonus); income itself needs nothing, tickPlayer resolves stats fresh.
@@ -885,7 +844,7 @@ end
 
 --- Refill this player's own fluid bottle from their profile. Called by LiquidService
 --- when their loaded fluid or its charges change, and once a spin has landed on their
---- screen. Exactly refreshTreadmill's contract, including the no-op without a plot.
+--- screen. Exactly refreshHose's contract, including the no-op without a plot.
 function ExhibitService.refreshBottle(player: Player)
 	local index = plotOf[player]
 	if index == nil then
@@ -1041,7 +1000,6 @@ local function release(player: Player)
 		renderAccent(index, nil)
 		renderLuck(index, nil)
 		renderHose(index, nil)
-		renderTreadmill(index, nil)
 		renderBottle(index, nil)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 			renderStand(index, slot, nil, nil)
@@ -1666,11 +1624,11 @@ end
 --- Build the next floor on this player's own base. `plot`/`floor` come from the
 --- sign's own attributes (which base it stands on, which floor it sells), the same
 --- "the prompt IS the thing" rule `interact` follows. Same shape as
---- TreadmillService.buy: check everything, debit FIRST, and only touch the profile
+--- SpeedService.buy: check everything, debit FIRST, and only touch the profile
 --- once the money has actually moved.
 ---
 --- NO PROXIMITY CHECK: only ever reached from a ProximityPrompt.Triggered, which the
---- engine has already range-checked (TreadmillService.buy says the same).
+--- engine has already range-checked.
 function ExhibitService.buyFloor(player: Player, plot: number, floor: number): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
@@ -1702,7 +1660,7 @@ function ExhibitService.buyFloor(player: Player, plot: number, floor: number): (
 	renderAll(plot, data)
 	-- The "YOUR BASE" beacon rides over the top deck; PlotState is what (re)builds it.
 	Net.get("PlotState"):FireClient(player, plot)
-	return true, `floor {floor} built \u{2014} {Floors.UPPER_SLOTS} more stands (paid {Treadmill.priceText(price)})`
+	return true, `floor {floor} built \u{2014} {Floors.UPPER_SLOTS} more stands (paid {WalkSpeed.priceText(price)})`
 end
 
 -- Per sign, so a second refusal inside the flash window restarts it rather than
@@ -1937,9 +1895,12 @@ function ExhibitService.start()
 	-- them all); nobody owns anything yet, so strip every plot to its ground floor.
 	for index = 1, PLOT_COUNT do
 		renderFloors(index, nil)
-		-- And every treadmill gets its upgrade sign up (and a saved place's old E
-		-- prompt taken down) before anyone claims it; Plots.setTreadmillTier does both.
-		renderTreadmill(index, nil)
+		-- The treadmill is gone (Config/WalkSpeed): a place saved with one loses it here,
+		-- so the base is right before anyone rebuilds it.
+		local plot = plotModel(index)
+		if plot then
+			Plots.removeTreadmill(plot)
+		end
 	end
 
 	DataService.onLoaded(function(player, data)

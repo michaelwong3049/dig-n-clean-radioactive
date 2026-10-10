@@ -72,7 +72,8 @@ local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local GearProducts = require(Shared.Config.GearProducts)
 local Camps = require(Shared.Config.Camps) -- the shop's locked zones
-local Treadmill = require(Shared.Config.Treadmill) -- priceText: "$32M", not "$32000000"
+local WalkSpeed = require(Shared.Config.WalkSpeed) -- priceText: "$32M", not "$32000000"
+local Booths = require(Shared.Config.Booths) -- which tracks each booth sells
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial) -- the luck button is shut during the walkthrough
 
@@ -516,13 +517,13 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	data.gear[key] = tier
 	landPurchase(player, track)
 
-	return true, `bought {def.name} for {Treadmill.priceText(def.price)}`
+	return true, `bought {def.name} for {WalkSpeed.priceText(def.price)}`
 end
 
 --- The Walk Speed badge shows the aura's speed bonus, so a swap has to resend it.
---- Lazy: TreadmillService requires this file's neighbours, and nothing here needs it at load.
+--- Lazy: SpeedService requires this file's neighbours, and nothing here needs it at load.
 function pokeSpeedBadge(player: Player)
-	require(script.Parent.TreadmillService).refresh(player)
+	require(script.Parent.SpeedService).refresh(player)
 end
 
 --- What a purchase does outside the profile, shared by the cash and Robux paths.
@@ -647,9 +648,11 @@ function ShopService.buy(player: Player, track: string, tier: number?): (boolean
 	if not isTrack(track) then
 		return false, "no such shop"
 	end
+	-- A booth can sell more than its own track (Config/Booths: the Gear booth, once the
+	-- Detector Shop, sells magnets too), so the test is "does this booth sell it".
 	local kind = StationService.kindOf(player)
 	local id = StationService.idOf(player)
-	if kind ~= "shop" or id ~= track then
+	if kind ~= "shop" or not Booths.sells(id, track) then
 		return false, "you aren't at that shop"
 	end
 
@@ -678,9 +681,11 @@ function ShopService.equip(player: Player, track: string, tier: number?): (boole
 	if not isTrack(track) then
 		return false, "no such shop"
 	end
+	-- A booth can sell more than its own track (Config/Booths: the Gear booth, once the
+	-- Detector Shop, sells magnets too), so the test is "does this booth sell it".
 	local kind = StationService.kindOf(player)
 	local id = StationService.idOf(player)
-	if kind ~= "shop" or id ~= track then
+	if kind ~= "shop" or not Booths.sells(id, track) then
 		return false, "you aren't at that shop"
 	end
 

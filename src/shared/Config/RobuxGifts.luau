@@ -16,7 +16,7 @@
 
 	GAME PASSES ARE NOT HERE. Roblox only sells a pass to the player who owns it, so
 	gifting one would need its own developer product per pass (the user's call, 2026-10-08:
-	not for now). Treadmill rungs and gear tiers are not here either, since they depend
+	not for now). Gear tiers are not here either, since they depend
 	on what the buyer already owns. Neither is the Server Luck Boost, which already
 	benefits everyone in the server.
 ]]
@@ -67,7 +67,7 @@ for _, pack in ShopProducts.CASH do
 	add({ id = pack.id, name = `{pack.label} Cash` })
 end
 for _, pack in ShopProducts.SPEED do
-	add({ id = pack.id, name = `{pack.label} Speed` })
+	add({ id = pack.id, name = `{pack.label} Walk Speed` })
 end
 for _, pad in CrateShop.PADS do
 	for _, offer in pad.offers do

@@ -25,8 +25,8 @@
 	only the fallback when that call fails.
 
 	The grant is the same pieces the packs and the daily calendar use:
-	EconomyService.award, LuckBoostService.grant, and speedPoints the way /train pokes
-	it (then the treadmill refreshes so the walk speed and the Speed badge follow).
+	EconomyService.award, LuckBoostService.grant, and SpeedService.grantWalk (then a
+	refresh, so the walk speed and the Speed badge follow).
 ]]
 
 local GroupService = game:GetService("GroupService")
@@ -42,7 +42,7 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 local ExhibitService = require(script.Parent.ExhibitService)
-local TreadmillService = require(script.Parent.TreadmillService)
+local SpeedService = require(script.Parent.SpeedService)
 local GroupRewardChest = require(script.Parent.Parent.build.GroupRewardChest)
 local PrizeSquare = require(script.Parent.Parent.build.PrizeSquare)
 
@@ -82,9 +82,8 @@ end
 local function grant(player: Player, data: any)
 	data.groupRewardClaimed = true
 	EconomyService.award(player, GroupReward.CASH, "group")
-	data.speedPoints = (data.speedPoints or 0) + GroupReward.SPEED
-	ExhibitService.refreshTreadmill(player)
-	TreadmillService.refresh(player)
+	SpeedService.grantWalk(data, GroupReward.WALK)
+	SpeedService.refresh(player)
 	LuckBoostService.grant(player, data, GroupReward.LUCK_SECONDS)
 	-- The permanent cash bonus is live the moment the flag is set; repaint the $/s.
 	ExhibitService.refreshStandCards(player)

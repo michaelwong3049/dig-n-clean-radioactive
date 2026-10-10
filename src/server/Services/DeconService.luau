@@ -37,6 +37,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
+local Booths = require(Shared.Config.Booths)
 local Decay = require(Shared.Decay)
 local Liquids = require(Shared.Config.Liquids)
 local Contamination = require(Shared.Contamination)
@@ -57,7 +58,7 @@ local DeconService = {}
 
 --- The walkthroughs a client may mark seen ("tutorialSeen"). An allowlist, so a client
 --- cannot grow `data.tutorialsSeen` with whatever strings it likes.
-local TUTORIALS: { [string]: boolean } = { locker = true, treadmill = true, aura = true }
+local TUTORIALS: { [string]: boolean } = { locker = true, aura = true }
 
 local stateRemote: any = nil
 local actionRemote: any = nil
@@ -213,7 +214,21 @@ local function stepPlayer(player: Player, _dt: number)
 		table.insert(locker, CarryService.describe(item, stats))
 	end
 
-	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId, ShopService.campAt(player)) else nil
+	-- One offer per track the booth sells (Config/Booths): the Gear booth sends its
+	-- detectors and its magnets, and the panel's tabs pick one. `offer` is the first,
+	-- for everything that only ever knew one. The Upgrades booth sells no gear: none.
+	local offer, offers = nil, nil
+	if kind == "shop" and stationId then
+		local camp = ShopService.campAt(player)
+		for _, track in Booths.tracks(stationId) do
+			local one = ShopService.offerFor(data, track, camp)
+			if one then
+				offers = offers or {}
+				offers[track] = one
+				offer = offer or one
+			end
+		end
+	end
 
 	-- Pedestals have no panel of their own any more: placing and retrieving are
 	-- both a "Place"/"Take" ProximityPrompt on the stand itself (ExhibitService),
@@ -222,6 +237,7 @@ local function stepPlayer(player: Player, _dt: number)
 		station = kind,
 		stationId = stationId,
 		offer = offer,
+		offers = offers,
 		cash = data.cash,
 		xp = data.xp,
 		potency = stats.cleanPotency,

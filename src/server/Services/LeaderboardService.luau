@@ -31,7 +31,7 @@ local UserService = game:GetService("UserService")
 local Workspace = game:GetService("Workspace")
 
 local DataService = require(script.Parent.DataService)
-local Treadmill = require(ReplicatedStorage.Shared.Config.Treadmill)
+local WalkSpeed = require(ReplicatedStorage.Shared.Config.WalkSpeed)
 
 local LeaderboardService = {}
 
@@ -118,7 +118,7 @@ local BOARDS: { Board } = {
 		key = "speed",
 		storeName = "LB_Speed_v3",
 		title = "Top Speed",
-		subtitle = "Trained walk speed",
+		subtitle = "Walk speed",
 		color = SPEED,
 		format = function(n: number): string
 			return tostring(math.floor(n))
@@ -148,10 +148,10 @@ local function setup(player: Player)
 	cash.Name = "Cash"
 	cash.Value = 0
 	cash.Parent = folder
-	-- Trained walk speed (not the picker's cap), so the board shows what they've earned.
+	-- Bought walk speed (not the picker's cap), so the board shows what they own.
 	local speed = Instance.new("IntValue")
 	speed.Name = "Speed"
-	speed.Value = Treadmill.START_WALK
+	speed.Value = WalkSpeed.START_WALK
 	speed.Parent = folder
 	folder.Parent = player
 	cashValues[player] = cash
@@ -599,7 +599,7 @@ function LeaderboardService.start()
 					if value.Value ~= cash then
 						value.Value = cash
 					end
-					local walk = Treadmill.walkSpeedFor((Treadmill.levelFor(data.speedPoints or 0)))
+					local walk = WalkSpeed.walkFor(data.walkBought or 0)
 					local speedValue = speedValues[player]
 					if speedValue ~= nil and speedValue.Value ~= walk then
 						speedValue.Value = walk

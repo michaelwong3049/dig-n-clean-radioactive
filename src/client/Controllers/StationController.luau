@@ -108,6 +108,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
+local Booths = require(Shared.Config.Booths) -- the Gear booth's tabs, the Upgrades booth's speed panel
 local GearProducts = require(Shared.Config.GearProducts)
 local Camps = require(Shared.Config.Camps) -- a locked card's zone number
 local Rarity = require(Shared.Config.Rarity) -- the rarity word's colour under each card's name
@@ -129,6 +130,7 @@ local LockerPanel = require(script.Parent.Parent.LockerPanel)
 local MergePanel = require(script.Parent.Parent.MergePanel)
 local ReforgePanel = require(script.Parent.Parent.ReforgePanel)
 local FurnacePanel = require(script.Parent.Parent.FurnacePanel)
+local SpeedPanel = require(script.Parent.Parent.SpeedPanel)
 local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 
 local Station = {}
@@ -212,6 +214,10 @@ local SCROLL_GAP = 6
 -- A few px taller than a card so the focused card's stroke is never clipped.
 local CARD_BAND = CARD_HEIGHT + 8
 local CAROUSEL_HEIGHT = CARD_BAND + SCROLL_GAP + SCROLL_HEIGHT
+--- The Gear booth's DETECTORS | MAGNETS pills (Config/Booths).
+local SHOP_TAB_WIDTH = 200
+local SHOP_TAB_HEIGHT = 40
+local SHOP_TAB_TEXT: { [string]: string } = { Detector = "Detectors", Magnet = "Magnets", Cleaner = "Hoses", Aura = "Auras" }
 -- Neighbours sit slightly smaller and behind a slate veil, so the focused card is the
 -- only thing on the row that reads as in front of you.
 local NEIGHBOUR_SCALE = 1
@@ -365,6 +371,35 @@ local FIT_BOTTOM = UIKit.Dock.HOTBAR_BOTTOM + UIKit.Dock.HOTBAR_HEIGHT + UIKit.D
 
 local ui = {}
 local state = { station = nil, items = {}, locker = {} }
+
+--- THE GEAR BOOTH SELLS TWO TRACKS (Config/Booths: the old Detector Shop sells detectors
+--- and magnets), one tab each. `shopTab` is the tab picked at this booth, nil for its
+--- first; it is dropped when you walk to another booth.
+local shopTab: string? = nil
+
+--- The track the shop panel is showing: the picked tab, else the booth's first track.
+local function shopTrack(): string?
+	local tracks = Booths.tracks(state.stationId)
+	if shopTab ~= nil and table.find(tracks, shopTab) then
+		return shopTab
+	end
+	return tracks[1] or state.stationId
+end
+
+--- That track's offer: off the per-track `offers` the server sends for every booth,
+--- else the single `offer` an older server sends.
+local function shopOffer(): any
+	if state.offers then
+		local track = shopTrack()
+		return if track then state.offers[track] else nil
+	end
+	return state.offer
+end
+
+--- Standing at an Upgrades booth (walk speed, client/SpeedPanel) rather than a gear one.
+local function atSpeedBooth(): boolean
+	return state.station == "shop" and Booths.sellsSpeed(state.stationId)
+end
 local actionRemote: any = nil
 local toastToken = 0
 
@@ -1341,7 +1376,7 @@ local function build(): ScreenGui
 	-- zoom the camera.
 	local carousel = Instance.new("Frame")
 	carousel.Name = "Cards"
-	carousel.LayoutOrder = 1
+	carousel.LayoutOrder = 2
 	carousel.Size = UDim2.new(1, 0, 0, CAROUSEL_HEIGHT)
 	carousel.BackgroundTransparency = 1
 	carousel.ClipsDescendants = true
@@ -1400,6 +1435,44 @@ local function build(): ScreenGui
 	end
 	ui.shopPrev = makeArrow("Prev", -1)
 	ui.shopNext = makeArrow("Next", 1)
+
+	-- ── The Gear booth's tabs ─────────────────────────────────────────
+	-- One pill per track a booth sells (Config/Booths), between the header and the
+	-- cards: DETECTORS | MAGNETS at the Gear booth. Hidden at a one-track booth.
+	local tabs = Instance.new("Frame")
+	tabs.Name = "ShopTabs"
+	tabs.LayoutOrder = 1
+	tabs.Size = UDim2.new(1, 0, 0, SHOP_TAB_HEIGHT)
+	tabs.BackgroundTransparency = 1
+	tabs.Visible = false
+	tabs.Parent = shop
+	ui.shopTabs = tabs
+	local tabsLayout = Instance.new("UIListLayout")
+	tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+	tabsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	tabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabsLayout.Padding = UDim.new(0, 12)
+	tabsLayout.Parent = tabs
+	ui.shopTabButtons = {} :: { [string]: TextButton }
+	for order, tabTrack in Gear.TRACKS do
+		local tab = UIKit.button(tabs, {
+			name = `Tab{tabTrack}`,
+			size = UDim2.fromOffset(SHOP_TAB_WIDTH, SHOP_TAB_HEIGHT),
+			text = string.upper(SHOP_TAB_TEXT[tabTrack] or tabTrack),
+			font = FIELD.headline,
+			textSize = 20,
+			color = FIELD.text,
+			fillColor = FIELD.edge,
+			fillTransparency = 0,
+			cornerRadius = UDim.new(0.5, 0),
+			strokeColor = FIELD.ink,
+			strokeThickness = 3,
+			outline = false,
+			visible = false,
+		})
+		tab.LayoutOrder = order
+		ui.shopTabButtons[tabTrack] = tab
+	end
 
 	-- ── The scrollbar ────────────────────────────────────────────────
 	-- One full-width track along the bottom of the card window, with a thumb as wide as
@@ -1674,6 +1747,8 @@ local function build(): ScreenGui
 	ui.reforge = ReforgePanel.new(panel, 23)
 	-- And the Slag Furnace's.
 	ui.furnace = FurnacePanel.new(panel, 24)
+	-- And the Upgrades booth's walk speed (Config/Booths).
+	ui.speed = SpeedPanel.new(panel, 26)
 
 	-- Centred and inked, like the reference's "NEW SHOVEL EQUIPPED!" line (STUDDED).
 	ui.toast = UIKit.label(panel, {
@@ -2002,7 +2077,8 @@ local function paintShopCard(card: Frame, entry, track: string, _cash: number, h
 		-- twilight or magma hollow"): a later camp unlocks it, an earlier one is just
 		-- where it is sold. Shrunk to fit, since a camp name is longer than "ZONE 2".
 		local zone = entry.lockedZone :: number
-		local here = (Camps.get((state.offer and state.offer.camp) or "base") or { id = 1 }).id
+		local offerNow = shopOffer()
+		local here = (Camps.get((offerNow and offerNow.camp) or "base") or { id = 1 }).id
 		local def = Camps.byId(zone)
 		local where = string.upper(if def then def.name else `Zone {zone}`)
 		flag.Text = "LOCKED"
@@ -2220,7 +2296,8 @@ end
 --- fingerprint or the repaint gets skipped and the rack lies until you walk away.
 local function refreshRack()
 	local atShop = state.station == "shop"
-	local tiers = if atShop and state.offer then state.offer.tiers else nil
+	local offer = if atShop then shopOffer() else nil
+	local tiers = if offer then offer.tiers else nil
 
 	local owned = {}
 	local equipped = 0
@@ -2235,12 +2312,12 @@ local function refreshRack()
 		end
 	end
 
-	local key = if tiers then `{tostring(state.stationId)}:{equipped}:{table.concat(owned, ",")}` else nil
+	local key = if tiers then `{tostring(shopTrack())}:{equipped}:{table.concat(owned, ",")}` else nil
 	if key == rackKey then
 		return
 	end
 	rackKey = key
-	paintRack(state.stationId, tiers)
+	paintRack(shopTrack(), tiers)
 end
 
 -- ── Carousel focus ───────────────────────────────────────────────────────────
@@ -2359,6 +2436,7 @@ local function tutorialPinnedIndex(): number?
 		tiers == nil
 		or state.station ~= "shop"
 		or state.stationId ~= "Detector"
+		or shopTrack() ~= "Detector"
 		or dismissed
 		or not Tutorial.isActive(Players.LocalPlayer)
 		or Players.LocalPlayer:GetAttribute("TutorialStep") ~= "upgrade"
@@ -2521,26 +2599,30 @@ local function render()
 	-- One body of three: the shop's storefront, the locker's tube rack, or the trader's
 	-- buyback counter. Each builds its own header, so there is nothing shared to repaint
 	-- between them.
-	local atShop = state.station == "shop"
+	-- The Upgrades booth is a "shop" station with a body of its own (client/SpeedPanel).
+	local atSpeed = atSpeedBooth()
+	local atShop = state.station == "shop" and not atSpeed
 	local atLocker = state.station == "locker"
 	local atMerge = state.station == "merge"
 	local atReforge = state.station == "reforge"
 	local atFurnace = state.station == "furnace"
 	ui.shop.Visible = atShop
+	ui.speed.frame.Visible = atSpeed
 	ui.locker.frame.Visible = atLocker
 	ui.merge.frame.Visible = atMerge
 	ui.reforge.frame.Visible = atReforge
 	ui.furnace.frame.Visible = atFurnace
-	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge and not atReforge and not atFurnace
+	ui.trader.frame.Visible = not atShop and not atSpeed and not atLocker and not atMerge and not atReforge and not atFurnace
 	ui.fitPanel() -- the trader and the stalls each sit higher than the rest (TRADER_LIFT, SHOP_LIFT)
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
-	local offerTiers = if atShop and state.offer and state.offer.tiers then sortedTiers(state.offer.tiers) else nil
+	local offer = if atShop then shopOffer() else nil
+	local offerTiers = if offer and offer.tiers then sortedTiers(offer.tiers) else nil
 	-- The rack card's position in THIS stall's list (see tierIndex), nil when it is not
 	-- listed here, which is what makes it not a rack card at all.
 	local rackIndex: number? = if atShop
 			and rackCard ~= nil
-			and rackCard.track == state.stationId
+			and rackCard.track == shopTrack()
 			and offerTiers ~= nil
 		then tierIndex(offerTiers, (rackCard :: any).tier)
 		else nil
@@ -2554,6 +2636,7 @@ local function render()
 			elseif atMerge then MergePanel.WIDTH
 			elseif atReforge then ReforgePanel.WIDTH
 			elseif atFurnace then FurnacePanel.WIDTH
+			elseif atSpeed then SpeedPanel.WIDTH
 			else TraderPanel.WIDTH,
 		math.huge
 	)
@@ -2564,22 +2647,38 @@ local function render()
 	ui.panel.BackgroundColor3 = FIELD.panel
 	ui.panel.BackgroundTransparency = 0 -- solid: it sits over the depth readout and vitals bars now
 	-- The dark studded backdrop sits under the shop, the trader and the reactor alike.
-	local atTrader = not (atShop or atLocker or atMerge or atReforge or atFurnace)
-	ui.shopBackdrop.Visible = atShop or atTrader or atMerge or atReforge or atFurnace
+	local atTrader = not (atShop or atSpeed or atLocker or atMerge or atReforge or atFurnace)
+	ui.shopBackdrop.Visible = atShop or atSpeed or atTrader or atMerge or atReforge or atFurnace
 
 	if atShop then
 		-- The row in the SORT pill's order, narrowed by SHOW. A rack card keeps the whole
 		-- (sorted) list: SHOW never hides the one card a rack hook opened.
 		local tiers = if offerTiers == nil then nil elseif single then offerTiers else filteredTiers(offerTiers)
-		local track = state.stationId or "Shop"
+		local track = shopTrack() or "Shop"
 		local accent = STALL_ACCENT[track] or FIELD.amber
+		-- The Gear booth's tabs (Config/Booths), one per track it sells.
+		local boothTracks = Booths.tracks(state.stationId)
+		local tabbed = #boothTracks > 1 and not single
+		ui.shopTabs.Visible = tabbed
+		for tabTrack, tab in ui.shopTabButtons do
+			local shown = tabbed and table.find(boothTracks, tabTrack) ~= nil
+			tab.Visible = shown
+			if shown then
+				local on = tabTrack == track
+				tab.BackgroundColor3 = if on then (STALL_ACCENT[tabTrack] or FIELD.amber) else FIELD.edge
+				tab.TextColor3 = if on then FIELD.text else FIELD.dim
+			end
+		end
 		local cash = state.cash or 0
 
 		ui.panel.BackgroundColor3 = STUDDED.panel
 		ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
 		ui.panelStroke.Color = STUDDED.cardEdge
 		ui.shopAccent.BackgroundColor3 = accent
-		ui.shopTitle.Text = track
+		-- A one-track booth is titled by its track; the Gear booth by its own name, with
+		-- the tabs under it saying which track is showing.
+		local title = if #boothTracks > 1 then Booths.label(state.stationId, track) else track
+		ui.shopTitle.Text = title
 
 		local count = if tiers then #tiers else 0
 
@@ -2592,7 +2691,7 @@ local function render()
 		ui.introButton.Visible = overview ~= nil and listed > 0
 		paintShopFilters(listed > 0 and not single)
 		-- Measured in design px: TextBounds is screen px, under the canvas and fit scales.
-		local titleWidth = TextService:GetTextSize(track, ui.shopTitle.TextSize, ui.shopTitle.Font, Vector2.new(1000, 100)).X
+		local titleWidth = TextService:GetTextSize(title, ui.shopTitle.TextSize, ui.shopTitle.Font, Vector2.new(1000, 100)).X
 		ui.introButton.Position = UDim2.new(0, 20 + titleWidth + 14, 0.5, -1)
 		ui.intro.scrim.Visible = introTrack == track
 		if introTrack == track then
@@ -2688,6 +2787,13 @@ local function render()
 		ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
 		ui.panelStroke.Color = STUDDED.cardEdge
 		ui.furnace.paint(state)
+		return
+	end
+
+	if atSpeed then
+		ui.panel.BackgroundTransparency = 1 -- the dark studded backdrop shows through
+		ui.panelStroke.Color = STUDDED.cardEdge
+		ui.speed.paint(state)
 		return
 	end
 
@@ -2827,9 +2933,24 @@ function Station.start()
 		end)
 	end
 	ui.introButton.MouseButton1Click:Connect(function()
-		introTrack = if introTrack == nil then state.stationId else nil
+		introTrack = if introTrack == nil then shopTrack() else nil
 		render()
 	end)
+	-- The Gear booth's tabs: show that track's row, from its default card.
+	for tabTrack, tab in ui.shopTabButtons do
+		tab.MouseButton1Click:Connect(function()
+			if shopTab == tabTrack then
+				return
+			end
+			shopTab = tabTrack
+			rackCard = nil
+			introTrack = nil
+			carousel.openedFor = nil
+			Sfx.play("click")
+			pcall(refreshRack)
+			render()
+		end)
+	end
 	local function overCarousel(position: Vector3): boolean
 		local corner = ui.shopCarousel.AbsolutePosition
 		local size = ui.shopCarousel.AbsoluteSize
@@ -3036,14 +3157,15 @@ function Station.start()
 		buy.MouseButton1Click:Connect(function()
 			-- `dragMoved` is left over from the last drag of the row, and a rack card
 			-- cannot be dragged (shopShowing), so it never resets there: ignore it.
-			if state.stationId == nil or (dragMoved and not carousel.single) then
+			local track = shopTrack()
+			if track == nil or (dragMoved and not carousel.single) then
 				return
 			end
 			if card:GetAttribute("Buyable") then
-				actionRemote:FireServer({ action = "buy", track = state.stationId, tier = card:GetAttribute("Tier") })
+				actionRemote:FireServer({ action = "buy", track = track, tier = card:GetAttribute("Tier") })
 			elseif card:GetAttribute("Equippable") then
-				actionRemote:FireServer({ action = "equip", track = state.stationId, tier = card:GetAttribute("Tier") })
-				if state.stationId ~= "Aura" then
+				actionRemote:FireServer({ action = "equip", track = track, tier = card:GetAttribute("Tier") })
+				if track ~= "Aura" then
 					Sfx.play("gearEquip")
 				end
 			end
@@ -3142,6 +3264,8 @@ function Station.start()
 				dismissed = true
 			else
 				rackCard = { track = track, tier = tier }
+				-- A Gear booth's rack hook opens its own track's tab.
+				shopTab = track
 				dismissed = false
 			end
 			render()
@@ -3172,7 +3296,7 @@ function Station.start()
 			--
 			-- THE LOCKER ARRIVES DISMISSED too, and opens on its E -- unless that E came
 			-- a moment before this tick did (LOCKER_PRESS_GRACE).
-			if rackCard ~= nil and payload.station == "shop" and payload.stationId == rackCard.track then
+			if rackCard ~= nil and payload.station == "shop" and Booths.sells(payload.stationId, rackCard.track) then
 				dismissed = false
 			elseif payload.station == "locker" then
 				rackCard = nil
@@ -3198,6 +3322,10 @@ function Station.start()
 				dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)
 			end
 			lastKey = key
+			-- A new booth opens on its first tab, unless a rack hook just picked one.
+			if rackCard == nil then
+				shopTab = nil
+			end
 		end
 
 		state = payload

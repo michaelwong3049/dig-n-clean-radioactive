@@ -17,7 +17,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
 local Prefs = require(Shared.Config.Prefs)
-local Treadmill = require(Shared.Config.Treadmill)
+local WalkSpeed = require(Shared.Config.WalkSpeed)
 local Decay = require(Shared.Decay)
 
 local ProfileStore = require(script.Parent.Parent.lib.ProfileStore)
@@ -123,8 +123,8 @@ local TEMPLATE = {
 	-- that set, and a record is extra detail about a discovery, not the discovery.
 	indexStats = {},
 	perks = {}, -- perkId -> true. Read by StatResolver.
-	-- Which one-time walkthroughs this player has finished or skipped, by id ("locker"
-	-- and "treadmill", both run by client/LockerTutorial). An array of strings, not a set, for the
+	-- Which one-time walkthroughs this player has finished or skipped, by id ("locker",
+	-- run by client/LockerTutorial; "aura"). An array of strings, not a set, for the
 	-- same no-gaps storage rule as everything else here.
 	tutorialsSeen = {},
 
@@ -156,30 +156,12 @@ local TEMPLATE = {
 	cleanTokens = 0,
 	rebirths = 0,
 
-	-- THE TREADMILL (Config/Treadmill, Services/TreadmillService). `speedPoints` is
-	-- lifetime SPEED -- the visible unit a belt pays per second -- and it is the ONLY
-	-- thing that decides how fast this player walks: the speed level is read off it
-	-- against Treadmill.REQUIREMENTS. `treadmill` is the belt rung they own, 1-based
-	-- like every gear track's tier.
-	--
-	-- A FLOAT, AND DELIBERATELY NOT A LEVEL. Banking the input and resolving the level
-	-- on read keeps the progress bar across saves and lets the requirement curve be
-	-- retuned without rewriting anyone's save.
-	--
-	-- NO `speedXp` HERE ANY MORE. Saves from before the Speed unit carry it; see
-	-- convertLegacySpeed, which is keyed on it being present. Leaving it in the template
-	-- would make Reconcile hand every new save one to convert.
-	speedPoints = 0,
-	treadmill = 1,
-	-- Which belt ladder `treadmill` is numbered against: 4 is the four-belt ladder, one
-	-- imported model per rung (Config/Treadmill). A save from the six-belt days has no
-	-- key, is detected before Reconcile like `detectorLadder`, and is collapsed once by
-	-- collapseTreadmillLadder.
-	treadmillLadder = 4,
-	-- Whether this player has treadmill access. No belt trains them until they have.
-	-- Free now (Treadmill.UNLOCK_PRICE = 0), so every save starts with it, and
-	-- TreadmillService unlocks older `false` saves on load; only `/train lock` clears it.
-	treadmillUnlocked = true,
+	-- WALK SPEED BOUGHT at the Upgrades booth (Config/WalkSpeed, Services/SpeedService),
+	-- on top of WalkSpeed.START_WALK. The ONLY thing that decides how fast this player
+	-- walks before bonuses. A save from the treadmill days carries `speedPoints` instead
+	-- and is converted once (convertTreadmill), keyed on that key being present, so it
+	-- must never come back into this template.
+	walkBought = 0,
 
 	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
 	-- they have never picked one, which renders the same neutral grey as an unclaimed
@@ -204,8 +186,8 @@ local TEMPLATE = {
 	fastModeSwitchedOn = false,
 
 	-- The walk-speed picker (the pencil by the HUD's WALK SPEED). 0 = walk at your full
-	-- trained speed; a number caps it there (Treadmill.chosenWalk). Set via Net.WalkCap
-	-- -> TreadmillService.
+	-- bought speed; a number caps it there (WalkSpeed.chosenWalk). Set via Net.WalkCap
+	-- -> SpeedService.
 	walkCap = 0,
 
 	railStations = {}, -- stageId -> parts found (PLAN §5.3)
@@ -280,6 +262,8 @@ local TEMPLATE = {
 		dug = 0,
 		merges = 0,
 		bagsStolen = 0,
+		-- Speed purchases at the Upgrades booth, cash or Robux (SpeedService): the Runner mastery.
+		speedUpgrades = 0,
 		-- Settings > Stats only (StatsService): seconds in game, bombs dropped
 		-- (BombService), deaths (ExposureService) and Legendary+ dug (DigService).
 		playtime = 0,
@@ -390,8 +374,8 @@ end
 
 --- THE BOOTS REFUND — a one-time, self-erasing migration.
 ---
---- The Boots track was retired when speed became something you train rather than buy
---- (Config/Treadmill). A player who had spent up to $140,000 climbing that ladder
+--- The Boots track was retired when speed became something you trained on a treadmill
+--- (itself retired since, for the Upgrades booth: Config/WalkSpeed). A player who had spent up to $140,000 climbing that ladder
 --- would otherwise log in one day to find the purchase gone and the cash with it,
 --- which is the single most trust-destroying thing a live game can do.
 ---
@@ -426,35 +410,26 @@ local function refundRetiredBoots(data: any): number
 	return refund
 end
 
---- THE SPEED CONVERSION — one-time, self-erasing, same shape as the Boots refund.
+--- THE TREADMILL CONVERSION — one-time, self-erasing, same shape as the Boots refund.
 ---
---- Before Speed was a visible unit, training was banked as hidden `speedXp` on a
---- different curve. Treadmill.fromLegacyXp turns it into lifetime Speed that lands
---- the player on the SAME walk speed with the same fraction of the bar filled, so
---- nobody loses a level to the rework. Keyed on `speedXp` being present (the evidence
---- IS the state); clearing it is what makes this run once.
-local function convertLegacySpeed(data: any): number?
-	local legacy = data.speedXp
-	if legacy == nil then
+--- Speed used to be trained on a treadmill and banked as lifetime `speedPoints` (and
+--- before that as hidden `speedXp`). The treadmill is gone (2026-10-09); walk speed is
+--- bought now, as `walkBought`. A save from the treadmill days keeps the walk it had
+--- trained (the user's call). Keyed on the old keys being present (the evidence IS the
+--- state); clearing them is what makes this run once. Belts bought are not refunded:
+--- nobody has played yet (they were test saves). Returns the walk kept, or nil.
+local function convertTreadmill(data: any): number?
+	if data.speedPoints == nil and data.speedXp == nil and data.treadmill == nil then
 		return nil
 	end
+	local kept = WalkSpeed.fromLegacyPoints(data.speedPoints)
+	data.walkBought = math.max(WalkSpeed.bought(data.walkBought), kept)
+	data.speedPoints = nil
 	data.speedXp = nil
-	data.speedPoints = math.max(data.speedPoints or 0, Treadmill.fromLegacyXp(legacy))
-	return data.speedPoints
-end
-
---- THE FOUR-BELT COLLAPSE — one-time, keyed on `treadmillLadder` being missing before
---- Reconcile, the same way as shiftDetectorLadder.
----
---- The treadmill ladder went from six belts to four when each rung got its own
---- imported model. Treadmill.fromSixRungLadder puts the player on the best new belt
---- their old spend covers and returns the remainder, which is paid back as cash.
-local function collapseTreadmillLadder(data: any): number
-	local tier, refund = Treadmill.fromSixRungLadder(data.treadmill or 1)
-	data.treadmill = tier
-	data.cash += refund
-	data.treadmillLadder = 4
-	return refund
+	data.treadmill = nil
+	data.treadmillLadder = nil
+	data.treadmillUnlocked = nil
+	return WalkSpeed.walkFor(data.walkBought)
 end
 
 -- ── Save reset (/resetdata) ───────────────────────────────────────────────────
@@ -511,7 +486,6 @@ local function onPlayerAdded(player: Player)
 	-- TEMPLATE and already has them.
 	local predatesTutorial = profile.Data.onboarding == nil
 	local predatesRustBucket = profile.Data.detectorLadder == nil
-	local predatesFourBelts = profile.Data.treadmillLadder == nil
 	profile:Reconcile() -- fill in keys added to TEMPLATE since this save was made
 	-- Live-only (FriendBoostService): a copy saved by a server that died mid-session
 	-- must not pay out before FriendBoostService re-derives it.
@@ -524,18 +498,14 @@ local function onPlayerAdded(player: Player)
 		shiftDetectorLadder(profile.Data)
 		print(`[data] {player.Name}: detector ladder shifted, now tier {profile.Data.gear.detector}`)
 	end
-	if predatesFourBelts then
-		local refund = collapseTreadmillLadder(profile.Data)
-		print(`[data] {player.Name}: treadmill ladder collapsed to belt {profile.Data.treadmill}, refunded ${refund}`)
-	end
 	-- Strictly after the backfill — see refundRetiredBoots for why the order matters.
 	local refunded = refundRetiredBoots(profile.Data)
 	if refunded > 0 then
 		print(`[data] {player.Name}: refunded ${refunded} for the retired Boots track`)
 	end
-	local converted = convertLegacySpeed(profile.Data)
+	local converted = convertTreadmill(profile.Data)
 	if converted then
-		print(`[data] {player.Name}: converted old treadmill training to {math.floor(converted)} Speed`)
+		print(`[data] {player.Name}: treadmill training converted, walk speed {converted} kept`)
 	end
 
 	profile.OnSessionEnd:Connect(function()

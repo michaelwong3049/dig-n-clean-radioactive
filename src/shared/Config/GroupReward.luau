@@ -19,7 +19,9 @@ local GroupReward = {}
 GroupReward.GROUP_ID = 924430099
 
 GroupReward.CASH = 25_000
-GroupReward.SPEED = 25_000
+-- Walk speed (Config/WalkSpeed), added to `walkBought`. Was 25K treadmill Speed, which
+-- trained a fresh player about 18 walk; a round 15 since the treadmill went.
+GroupReward.WALK = 15
 GroupReward.LUCK_SECONDS = 15 * 60
 -- PERMANENT: once claimed, every sale and every stand's income pays this much more
 -- for good (StatResolver folds it into sellMultiplier + yieldMultiplier, like the
@@ -55,7 +57,7 @@ GroupReward.CLAIMED_ATTR = "GroupRewardClaimed"
 
 --- The line on the sign and the toast: what the chest pays.
 function GroupReward.rewardText(): string
-	return `$25K Cash  •  25K Speed  •  2x Luck {math.floor(GroupReward.LUCK_SECONDS / 60)} min  •  +{GroupReward.cashPercent()}% Cash forever`
+	return `$25K Cash  •  +{GroupReward.WALK} Walk Speed  •  2x Luck {math.floor(GroupReward.LUCK_SECONDS / 60)} min  •  +{GroupReward.cashPercent()}% Cash forever`
 end
 
 --- The permanent cash bonus as a whole percent (10 for CASH_MULT 1.1).

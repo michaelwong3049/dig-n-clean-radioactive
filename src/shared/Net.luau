@@ -125,16 +125,10 @@ local REMOTES: { [string]: string } = {
 	WashState = "RemoteEvent", -- server -> client, the session (nil payload = ended)
 	WashInput = "RemoteEvent", -- client -> server, { spraying, patchIndex }
 
-	-- The treadmill (Config/Treadmill, Services/TreadmillService). What the player's
-	-- banked training is worth right now: speed, the bar to the next point, the rate
-	-- the belt they are standing on is paying, and what the next rung costs.
-	--
-	-- CHANGE-DRIVEN, NOT PER-TICK, with one deliberate exception: while a player is
-	-- actually ON a belt this fires on the training cadence, because the bar creeping
-	-- forward IS the feedback and a readout that only moves once every few minutes is
-	-- indistinguishable from a broken one. Off the belt it goes quiet entirely, which
-	-- is most of the time for most players.
-	SpeedState = "RemoteEvent", -- server -> client, lifetime Speed + level + belt readout
+	-- Walk speed (Config/WalkSpeed, Services/SpeedService): what you walk at, the walk
+	-- picker's cap, and the Upgrades booth's next purchase (step and price).
+	-- CHANGE-DRIVEN: sent on load and whenever any of it moves.
+	SpeedState = "RemoteEvent", -- server -> client, walk + walkCap + next purchase
 
 	-- Phase 2: exposure.
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick
@@ -297,10 +291,10 @@ local REMOTES: { [string]: string } = {
 	-- walk to cap at, or 0 for full speed. The confirmed value comes back on SpeedState
 	-- (`walkCap`), so there is no echo remote of its own.
 	WalkCap = "RemoteEvent",
-	-- The red cash button on a treadmill's upgrade sign (client TreadmillSignController):
-	-- "buy my next belt". No payload: the server prices the rung the save is on, and
-	-- checks the player owns the base and is standing by its sign.
-	TreadmillBuy = "RemoteEvent", -- client -> server, no payload
+	-- The BUY button on the Upgrades booth's speed panel (client/SpeedPanel): "one more
+	-- purchase of walk speed". No payload: the server prices it from the save and checks
+	-- the player is standing at an Upgrades booth (Config/Booths).
+	SpeedBuy = "RemoteEvent", -- client -> server, no payload
 
 	-- Nuke models on demand (Services/ModelCacheService, Shared/ItemModels). The
 	-- templates live in ServerStorage so nobody downloads all 10k parts at join; a

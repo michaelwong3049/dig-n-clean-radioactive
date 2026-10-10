@@ -439,9 +439,9 @@ Gear.Aura = {
 --
 -- THE BOOTS TRACK NO LONGER EXISTS. It is not in Gear.TRACKS, it has no STAT_META
 -- entry, no shop counter and no stall: nothing sells it and nothing reads a stat off
--- it. Speed is TRAINED now, on the treadmill on your own plot — see
--- Config/Treadmill.luau, which owns `walkSpeed` outright and explains why a purchase
--- became a grind.
+-- it. Speed was trained on a treadmill on your own plot after it, and is BOUGHT now at
+-- the Upgrades booth (2026-10-09) — see Config/WalkSpeed.luau, which owns `walkSpeed`
+-- outright.
 --
 -- WHY THE TABLE IS STILL HERE, when the rule for a retired ITEM is to empty its
 -- stages and leave the entry (see Config/Items): DataService's one-time refund prices
@@ -450,7 +450,7 @@ Gear.Aura = {
 -- been deleted.
 --
 -- WHERE THE FOUR STATS WENT:
---   walkSpeed    -> Config/Treadmill. The whole feature.
+--   walkSpeed    -> Config/WalkSpeed. The whole feature.
 --   haulPenalty  -> Gear.Aura. It went to the Satchel first, and moved on to the
 --                   Aura when the Satchel was retired too (see below).
 --   stamina      -> nowhere. Verified inert before removal: StatResolver was the only

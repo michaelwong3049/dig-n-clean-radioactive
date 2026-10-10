@@ -35,7 +35,7 @@ local Gear = require(Shared.Config.Gear)
 local Liquids = require(Shared.Config.Liquids)
 local Crates = require(Shared.Config.Crates)
 local Camps = require(Shared.Config.Camps)
-local Treadmill = require(Shared.Config.Treadmill)
+local WalkSpeed = require(Shared.Config.WalkSpeed)
 local LuckBoost = require(Shared.Config.LuckBoost)
 local Weather = require(Shared.Config.Weather)
 local GamePasses = require(Shared.Config.GamePasses)
@@ -64,7 +64,7 @@ local CashBoostService = require(script.Parent.CashBoostService)
 local PotionService = require(script.Parent.PotionService)
 local PackService = require(script.Parent.PackService)
 local RareDropService = require(script.Parent.RareDropService)
-local TreadmillService = require(script.Parent.TreadmillService)
+local SpeedService = require(script.Parent.SpeedService)
 local TutorialService = require(script.Parent.TutorialService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
 local DailyRewardService = require(script.Parent.DailyRewardService)
@@ -438,11 +438,11 @@ COMMANDS["/mastery"] = {
 			return "usage: /mastery [id] [count]"
 		end
 		-- Counters only. The index (collector) is a share of `discovered`, not a number
-		-- that can be set; /give the nukes instead. Speed and cash are written in place,
-		-- which also moves the walk-speed level and the Top Cash board.
+		-- that can be set; /give the nukes instead. Cash is written in place, which also
+		-- moves the Top Cash board.
 		if def.source == "indexPercent" then
 			return "collector reads the index; /give nukes to move it"
-		elseif def.source == "speedPoints" or def.source == "cashEarned" then
+		elseif def.source == "cashEarned" then
 			data[def.source] = math.max(0, count)
 		else
 			data.stats[def.source] = math.max(0, math.floor(count))
@@ -460,15 +460,15 @@ COMMANDS["/speed"] = {
 	-- penalty while set; `/speed off` returns you to normal. It does NOT override the
 	-- dig/wash root -- you still stand still while locked to a signal.
 	--
-	-- SESSION-ONLY, AND THAT IS THE DIFFERENCE FROM /train BELOW. This pins the number
-	-- the Humanoid gets and banks nothing; /train writes real profile state. Use this
-	-- to test how a speed FEELS, and /train to test the progression around it.
-	help = "/speed <value> — pin base walk speed there for the session (ignores training + haul; your aura's bonus still applies); /speed off to clear",
+	-- SESSION-ONLY, AND THAT IS THE DIFFERENCE FROM /walk BELOW. This pins the number
+	-- the Humanoid gets and banks nothing; /walk writes real profile state. Use this
+	-- to test how a speed FEELS, and /walk to test the progression around it.
+	help = "/speed <value> — pin base walk speed there for the session (ignores bought speed + haul; your aura's bonus still applies); /speed off to clear",
 	run = function(player, _sandbox, args)
 		local raw = args[1]
 		if raw == nil or raw == "off" or raw == "clear" or raw == "reset" then
 			ExposureService.setSpeedOverride(player, nil)
-			return "speed override cleared — back to boots gear"
+			return "speed override cleared — back to your bought speed"
 		end
 		local value = tonumber(raw)
 		if value == nil then
@@ -480,71 +480,34 @@ COMMANDS["/speed"] = {
 	end,
 }
 
-COMMANDS["/train"] = {
-	-- REAL PROFILE STATE, unlike /speed. Sets lifetime Speed to exactly a level's
-	-- requirement (Config/Treadmill.REQUIREMENTS), which is the only practical way to
-	-- test the top of a curve whose endgame is eleven hours of standing still.
-	--
-	-- Pokes data.speedPoints directly, the same way /gear pokes data.gear -- there is
-	-- no "grant Speed" path on TreadmillService, and there should not be one: the tick
-	-- loop is the only thing that ought to earn it. ExposureService picks the new walk
-	-- speed up on its next tick; the readout is re-pushed so the HUD follows at once.
-	--
-	-- `/train speed <n>` sets the raw total (to test a point just under a requirement),
-	-- `/train belt <n>` moves the RUNG.
-	help = "/train <level> — set Speed to that level's requirement; /train speed <n>; /train belt <1-5>; /train lock|unlock",
+COMMANDS["/walk"] = {
+	-- REAL PROFILE STATE, unlike /speed: sets the walk speed bought at the Upgrades booth
+	-- (data.walkBought, Config/WalkSpeed), to test the price ladder without buying up it.
+	-- ExposureService picks the new walk up on its next tick; the readout is re-pushed so
+	-- the HUD and the booth's panel follow at once.
+	help = "/walk <speed> — set your bought walk speed (from " .. WalkSpeed.START_WALK .. "); /walk upgrades <n> sets the Runner count",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
 			return "your save hasn't loaded"
 		end
-
-		-- `/train lock` puts the treadmill back behind its (now free) unlock AND forgets
-		-- the walkthrough, so pressing the console again replays both; `/train unlock`
-		-- skips the press. Rejoining unlocks it again (TreadmillService.start).
-		if args[1] == "lock" or args[1] == "unlock" then
-			data.treadmillUnlocked = args[1] == "unlock"
-			if args[1] == "lock" then
-				local seen = table.find(data.tutorialsSeen, "treadmill")
-				if seen then
-					table.remove(data.tutorialsSeen, seen)
-				end
+		if args[1] == "upgrades" then
+			local n = tonumber(args[2])
+			if n == nil then
+				return "usage: /walk upgrades <n>"
 			end
-			ExhibitService.refreshTreadmill(player)
-			TreadmillService.refresh(player)
-			return `treadmill {args[1]}ed`
+			data.stats.speedUpgrades = math.max(0, math.floor(n))
+			SpeedService.refresh(player)
+			return `speed upgrades -> {data.stats.speedUpgrades}`
 		end
-
-		if args[1] == "belt" then
-			local rung = tonumber(args[2])
-			if rung == nil then
-				return `usage: /train belt <1-{Treadmill.maxTier()}>`
-			end
-			data.treadmill = math.clamp(math.floor(rung), 1, Treadmill.maxTier())
-			ExhibitService.refreshTreadmill(player)
-			TreadmillService.refresh(player)
-			local def = Treadmill.tier(data.treadmill)
-			return `belt -> {def.name} (+{Treadmill.rateText(def.rate)} Speed/s)`
+		local wanted = tonumber(args[1])
+		if wanted == nil then
+			return "usage: /walk <speed>  |  /walk upgrades <n>"
 		end
-
-		if args[1] == "speed" then
-			local points = tonumber(args[2])
-			if points == nil then
-				return "usage: /train speed <n>"
-			end
-			data.speedPoints = math.max(0, points)
-		else
-			local wanted = tonumber(args[1])
-			if wanted == nil then
-				return "usage: /train <level>  |  /train speed <n>  |  /train belt <n>"
-			end
-			wanted = math.clamp(math.floor(wanted), 1, 500)
-			data.speedPoints = Treadmill.requirementFor(wanted) :: number
-		end
-		ExhibitService.refreshTreadmill(player)
-		TreadmillService.refresh(player)
-		local level = Treadmill.levelFor(data.speedPoints)
-		return `Speed {math.floor(data.speedPoints)} — level {level}, walk {Treadmill.walkSpeedFor(level)}`
+		data.walkBought = math.clamp(math.floor(wanted), WalkSpeed.START_WALK, 1000) - WalkSpeed.START_WALK
+		SpeedService.refresh(player)
+		local bought = WalkSpeed.bought(data.walkBought)
+		return `walk {WalkSpeed.walkFor(bought)} — next +{WalkSpeed.stepFor(data.stats.deepestStage)} for {WalkSpeed.priceText(WalkSpeed.priceFor(bought))}`
 	end,
 }
 

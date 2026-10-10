@@ -2,8 +2,7 @@
 --[[
 	OwnStationPromptController.luau — hides a base's "Wash" (cleansing station) prompt
 	from everyone but that base's owner. (The treadmill's "Upgrade" prompt it used to
-	gate too is gone: TreadmillSignController shows the upgrade sign's buttons to the
-	owner only.)
+	gate too is gone, with the treadmill.)
 
 	THE SERVER ALREADY REFUSES IT: StationService treats someone else's tub as no
 	station at all, and WashService.begin says "that's someone else's ...". This only
@@ -34,8 +33,7 @@ local Net = require(ReplicatedStorage.Shared.Net)
 
 local OwnStationPromptController = {}
 
---- prompt name -> the part it hangs off (build/Plots.buildCleansingStation). The
---- treadmill's Upgrade prompt is gone: its sign sells to the owner only (TreadmillSignController).
+--- prompt name -> the part it hangs off (build/Plots.buildCleansingStation).
 local GATED: { [string]: string } = { Wash = "Basin" }
 
 local myPlot: number? = nil

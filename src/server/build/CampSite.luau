@@ -87,6 +87,7 @@ local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local Camps = require(Shared.Config.Camps)
 local Gear = require(Shared.Config.Gear)
+local Booths = require(Shared.Config.Booths) -- the Magnet slot is the Upgrades booth
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -101,7 +102,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 41 -- gate end posts clear of the shoulders (2026-10-08)
+local BUILDER_VERSION = 42 -- Magnet slot is the Upgrades booth, Detector the Gear stall (2026-10-09)
 
 local C = Kit.C
 local build = Kit.build
@@ -140,7 +141,8 @@ local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 --- The trader stands at the square's middle with the four shops pinwheeled around it on
 --- the diagonals, each facing the kiosk (buildStalls). Slot order = SLOT_ANGLES order;
 --- angles are compass bearings off +Z (north), clockwise toward +X (east).
---- Aura and Detector swapped places on request (Detector NW, Aura NE).
+--- Aura and Detector swapped places on request (Detector NW, Aura NE). The Detector slot
+--- is the GEAR stall and the Magnet slot the UPGRADES booth (Config/Booths, 2026-10-09).
 local SLOT_TRACKS = { "Detector", "Aura", "Cleaner", "Magnet" }
 local SLOT_ANGLES = { -45, 45, 135, -135 } -- NW, NE, SE, SW
 --- Ring radius = widest shop's half-width + this, so neighbours' front corners never meet.
@@ -1038,7 +1040,16 @@ local function buildStalls(parent: Instance, L: Layout)
 	for i, track in SLOT_TRACKS do
 		local accent = accents[(i - 1) % #accents + 1]
 		local shopColor = L.palette.shopColors and L.palette.shopColors[track]
-		if #Gear.tiersAt(track, L.def.key) > 0 then
+		if Booths.sellsSpeed(track) and not L.def.comingSoon then
+			-- The Upgrades booth sells walk speed, not a rung of this camp's: a Base
+			-- Camp-style booth with no rack, wherever the camp is open.
+			table.insert(slots, {
+				width = Shops.boothWidth(),
+				build = function(origin)
+					Shops.buildCampBooth(folder, origin, track, L.def.key, shopColor)
+				end,
+			})
+		elseif #Gear.tiersAt(track, L.def.key) > 0 then
 			if track == "Aura" then
 				table.insert(slots, {
 					width = Shops.campOutfitterWidth(L.def.key),

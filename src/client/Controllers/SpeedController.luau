@@ -1,36 +1,26 @@
 --[[
 	SpeedController.lua — the persistent SPEED row, and the one reader of SpeedState.
 
-	SPEED IS A UNIT NOW (Config/Treadmill): a lifetime total a treadmill pays per
-	second, with one more point of walk speed unlocked at each requirement. This row is
-	where a player sees it at all times — the bottom-left corner, directly over the cash
-	row (Dock.SPEED_BOTTOM), so the two numbers you earn read as one cluster.
+	WALK SPEED IS BOUGHT (Config/WalkSpeed) at the Upgrades booth (client/SpeedPanel).
+	This row is where a player sees it at all times — the bottom-left corner, directly
+	over the cash row (Dock.SPEED_BOTTOM), so the two numbers read as one cluster.
 
 	NO BOX, THE SAME AS THE CASH ROW (CashController's header): the glossy sneaker
 	standing on its own with a hard drop shadow, and the number beside it in light blue
 	in Gotham Black with a heavy INK outline and drop shadow (UIKit.hudNumber). Light blue where cash is
 	green, and a sneaker where cash has a bundle of notes, so the two never read as the
 	same counter at a glance. The small WALK SPEED caption stays, so the number reads as
-	your speed. No level is shown: the requirements are levels internally
-	(SpeedState still carries `level`), but on screen the player only ever hears about
-	walk speed.
-
-	THE NUMBER COUNTS SMOOTHLY WHILE YOU RUN. The server only re-sends the readout once a
-	second (TreadmillService.PUSH_INTERVAL), so between pushes this counts up locally
-	from the belt's `rate`. It never leads the last push by more than LEAD_CAP seconds,
-	so a stalled server shows a paused counter, not a runaway one. A walk-speed point
-	punches the badge. The "+10" and "WALK SPEED 35!" popups float off the training bar
-	instead (TreadmillController), where the player is looking while they earn.
+	your speed. A purchase punches the badge.
 
 	THE PENCIL PICKS YOUR WALK SPEED. Beside the number, a white edit pencil opens a
-	small picker above the row: a slider from Treadmill.MIN_PICKED_WALK up to what you
-	have trained, and MAX. Letting go sends Net.WalkCap; the server saves it on the
-	profile (`walkCap`, 0 = full speed) and ExposureService walks you at it. The badge
-	shows the speed you WALK at (Treadmill.chosenWalk), not the one you have trained.
+	small picker above the row: a slider from WalkSpeed.MIN_PICKED_WALK up to what you
+	own, and MAX. Letting go sends Net.WalkCap; the server saves it on the profile
+	(`walkCap`, 0 = full speed) and ExposureService walks you at it. The badge shows the
+	speed you WALK at (WalkSpeed.chosenWalk), not the one you own.
 
-	TreadmillController reads `Speed.view()` / `Speed.shownPoints()` / `Speed.onChanged`
-	rather than listening to the remote itself, so the bar and the badge can never
-	disagree about the number.
+	The speed panel (client/SpeedPanel, via StationController) reads `Speed.view()` /
+	`Speed.onChanged` rather than listening to the remote itself, so the panel and the
+	badge can never disagree about the number.
 ]]
 
 local Players = game:GetService("Players")
@@ -42,7 +32,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
-local Treadmill = require(Shared.Config.Treadmill)
+local WalkSpeed = require(Shared.Config.WalkSpeed)
 local FriendBoost = require(Shared.Config.FriendBoost)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -52,9 +42,6 @@ local Dock = UIKit.Dock
 local Speed = {}
 
 local BADGE_W = Dock.SPEED_SIZE.X.Offset
-
---- How far past the last push the local count may run, in seconds of belt time.
-local LEAD_CAP = 1.5
 
 local STYLE = {
 	value = Color3.fromHex("9FE3FF"),
@@ -109,71 +96,16 @@ local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirect
 
 local ui: any = {}
 local view: any = nil
-local receivedAt = 0
 local listeners: { (view: any, previous: any) -> () } = {}
 --- The walk being dragged to, shown on the badge before the server confirms it; nil
 --- when the server's `walkCap` is what to show.
 local pending: number? = nil
-
--- ── Formatting ────────────────────────────────────────────────────────────
-
---- Treadmill.DISPLAY_SCALE: every on-screen Speed number goes through format(), so
---- they all agree.
-local DISPLAY_SCALE = Treadmill.DISPLAY_SCALE
-
---- 91,500 in full under a million (so the ticking number keeps visibly moving), then
---- 1.30M / 2.1B.
-function Speed.format(points: number): string
-	local n = math.floor(points * DISPLAY_SCALE + 0.5)
-	if n >= 1_000_000_000 then
-		return string.format("%.2fB", n / 1_000_000_000)
-	elseif n >= 1_000_000 then
-		return string.format("%.2fM", n / 1_000_000)
-	end
-	local text = tostring(n)
-	while true do
-		local swapped, count = string.gsub(text, "^(-?%d+)(%d%d%d)", "%1,%2")
-		text = swapped
-		if count == 0 then
-			break
-		end
-	end
-	return text
-end
 
 -- ── State ─────────────────────────────────────────────────────────────────
 
 --- The last SpeedState readout, or nil before the load snapshot lands.
 function Speed.view(): any
 	return view
-end
-
---- Lifetime Speed as it should be SHOWN right now: the last push, plus what the belt
---- has paid since if the player is still on it.
---- The client-side count between pushes climbs this many DISPLAYED points at a time.
-local COUNT_STEP = 11 / DISPLAY_SCALE
-
-function Speed.shownPoints(): number
-	if view == nil then
-		return 0
-	end
-	if not view.training then
-		return view.points
-	end
-	-- The counted lead ticks up in whole steps of COUNT_STEP rather than 1 at a time.
-	local lead = Speed.smoothPoints() - view.points
-	return view.points + lead // COUNT_STEP * COUNT_STEP
-end
-
---- The same count unstepped, for things that should glide (the training bar's fill).
-function Speed.smoothPoints(): number
-	if view == nil then
-		return 0
-	end
-	if not view.training then
-		return view.points
-	end
-	return view.points + view.rate * math.min(os.clock() - receivedAt, LEAD_CAP)
 end
 
 --- Called with (view, previous) on every SpeedState push.
@@ -288,10 +220,10 @@ end
 
 -- ── The walk-speed picker ─────────────────────────────────────────────────
 
---- The range the slider covers right now: the floor, and what they have trained.
+--- The range the slider covers right now: the floor, and what they own.
 local function pickRange(): (number, number)
-	local trained = if view then view.walk else Treadmill.START_WALK
-	return Treadmill.MIN_PICKED_WALK, math.max(trained, Treadmill.MIN_PICKED_WALK)
+	local owned = if view then view.walk else WalkSpeed.START_WALK
+	return WalkSpeed.MIN_PICKED_WALK, math.max(owned, WalkSpeed.MIN_PICKED_WALK)
 end
 
 --- The walk the badge and the slider show: a drag in progress, else the server's
@@ -300,12 +232,12 @@ local function shownWalk(): number
 	if view == nil then
 		return 0
 	end
-	return Treadmill.chosenWalk(view.walk, pending or view.walkCap)
+	return WalkSpeed.chosenWalk(view.walk, pending or view.walkCap)
 end
 
---- What the badge prints: the walk you chose from what the treadmill has trained. A worn
---- aura still moves you faster (ExposureService), but its bonus is NOT counted here --
---- the badge is your treadmill stat, not your live speed.
+--- What the badge prints: the walk you chose from what you own. A worn aura still moves
+--- you faster (ExposureService), but its bonus is NOT counted here -- the badge is your
+--- bought stat, not your live speed.
 local function badgeWalk(): number
 	local walk = shownWalk()
 	if view == nil then
@@ -326,8 +258,8 @@ local function drawPicker()
 	end
 	ui.pickFill.Size = UDim2.fromScale(alpha, 1)
 	ui.pickKnob.Position = UDim2.fromScale(alpha, 0.5)
-	-- Trained units, the same as the badge (no aura bonus), with the debug /speed pin
-	-- standing in for the trained top, so the slider and the badge never disagree.
+	-- Owned units, the same as the badge (no aura bonus), with the debug /speed pin
+	-- standing in for the owned top, so the slider and the badge never disagree.
 	local override = view and view.override
 	ui.pickValue.Text = tostring(override or walk)
 	ui.pickLow.Text = tostring(low)
@@ -337,7 +269,7 @@ local function drawPicker()
 	ui.pickMax.TextColor3 = if atMax then UIKit.C.dim else UIKit.C.outline
 end
 
---- 0 = "full speed", so a pick at the top keeps following the next level up.
+--- 0 = "full speed", so a pick at the top keeps following the next purchase up.
 local function send(walk: number)
 	local _, high = pickRange()
 	Net.get("WalkCap"):FireServer(if walk >= high then 0 else walk)
@@ -533,20 +465,19 @@ local function punch()
 end
 
 local function onState(next: any)
-	if type(next) ~= "table" or type(next.points) ~= "number" then
+	if type(next) ~= "table" or type(next.walk) ~= "number" then
 		return
 	end
 	local previous = view
 	view = next
-	receivedAt = os.clock()
 	-- Once the server agrees with a sent pick, its word is what shows.
-	if pending ~= nil and Treadmill.chosenWalk(next.walk, next.walkCap) == Treadmill.chosenWalk(next.walk, pending) then
+	if pending ~= nil and WalkSpeed.chosenWalk(next.walk, next.walkCap) == WalkSpeed.chosenWalk(next.walk, pending) then
 		pending = nil
 	end
 	drawPicker()
 
-	-- One more point of walk speed. Its popup is the training bar's.
-	if previous ~= nil and next.level > previous.level then
+	-- A purchase landed.
+	if previous ~= nil and next.walk > previous.walk then
 		punch()
 	end
 
@@ -575,9 +506,8 @@ function Speed.start()
 	ui.picker:GetPropertyChangedSignal("Visible"):Connect(drawFriend)
 	drawFriend()
 
-	-- The badge shows the walk you WALK at (your pick, under what you have trained), not
-	-- the Speed total (that lives on the training bar). Checked every frame, but only
-	-- written when it changes.
+	-- The badge shows the walk you WALK at (your pick, under what you own). Checked every
+	-- frame, but only written when it changes.
 	local lastText = ""
 	RunService.RenderStepped:Connect(function()
 		local text = tostring(badgeWalk())

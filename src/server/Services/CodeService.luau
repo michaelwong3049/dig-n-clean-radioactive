@@ -31,11 +31,10 @@ local CashBoostService = require(script.Parent.CashBoostService)
 local CrateService = require(script.Parent.CrateService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
-local ExhibitService = require(script.Parent.ExhibitService)
 local GroupRewardService = require(script.Parent.GroupRewardService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 local PotionService = require(script.Parent.PotionService)
-local TreadmillService = require(script.Parent.TreadmillService)
+local SpeedService = require(script.Parent.SpeedService)
 
 local CodeService = {}
 
@@ -50,9 +49,8 @@ local function grant(player: Player, data: any, entry: Codes.Code)
 		EconomyService.award(player, entry.cash, "code")
 	end
 	if entry.speed and entry.speed > 0 then
-		data.speedPoints = (data.speedPoints or 0) + entry.speed
-		ExhibitService.refreshTreadmill(player)
-		TreadmillService.refresh(player)
+		SpeedService.grantWalk(data, entry.speed)
+		SpeedService.refresh(player)
 	end
 	if entry.luckSeconds and entry.luckSeconds > 0 then
 		LuckBoostService.grant(player, data, entry.luckSeconds)

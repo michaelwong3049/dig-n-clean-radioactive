@@ -26,8 +26,8 @@
 	StationIds.
 
 	THE OUTFITTER USED TO BE THREE COUNTERS WIDE. Boots was the middle one, and the
-	track was retired when speed stopped being something you buy — see
-	Config/Treadmill.luau, and the treadmill build/Plots now stands on every base. The
+	track was retired when speed moved to a treadmill on every base (itself retired
+	2026-10-09: speed is bought at the Upgrades booth now, Config/WalkSpeed). The
 	building resized itself: its span and width are both derived from
 	`#OUTFITTER.counters`, so removing an entry was the whole edit.
 
@@ -182,6 +182,7 @@ local TextService = game:GetService("TextService")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
+local Booths = require(Shared.Config.Booths) -- the Gear and Upgrades booths
 local ToolModels = require(Shared.ToolModels)
 local ToolFX = require(Shared.ToolFX)
 local MagnetHang = require(Shared.MagnetHang)
@@ -204,7 +205,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 82 -- stall signs sized in studs, range 150 (2026-10-08)
+local BUILDER_VERSION = 83 -- Detector booth = Gear, Magnet booth = Upgrades (Config/Booths, 2026-10-09)
 
 local C = Kit.C
 local build = Kit.build
@@ -554,8 +555,8 @@ local OUTFITTER = {
 	counters = {
 		{ track = "Aura", label = "Aura Shop" },
 		-- BOOTS IS NOT HERE ANY MORE. The track is retired (Config/Gear's `Gear.Boots`
-		-- header): speed is trained on a treadmill at your own base now, not bought at
-		-- a counter. Nothing here had to learn that -- dropping it from Gear.TRACKS
+		-- header): speed is bought at the Upgrades booth (Config/WalkSpeed), not with
+		-- a gear rung. Nothing here had to learn that -- dropping it from Gear.TRACKS
 		-- is what took it out of the sell path, and this entry only had to go so the
 		-- bench would not build a counter selling a track the shop refuses.
 		-- NEITHER IS THE SATCHEL, for the same reason: retired (Config/Gear's RETIRED
@@ -1903,8 +1904,10 @@ local BOOTH_WIDTH = 26 -- longer on request (was 14, just the stand); the spine 
 local BOOTH_DX = 35 -- east/west of PLAZA_MID (15 -> 19 -> 25 -> 35: out into the square's corners on request, ~6 inside the kerb)
 local BOOTH_ROW_Z = 24 -- each row's build origin (20 -> 24 -> 18 -> 24: into the corners, ~5 inside the square's edge)
 local BOOTHS = {
-	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
-	{ track = "Detector", at = { PLAZA_MID.x + BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop" },
+	-- The Magnet booth is the UPGRADES booth and the Detector booth the GEAR booth
+	-- (Config/Booths, 2026-10-09): same station ids, new names.
+	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
+	{ track = "Detector", at = { PLAZA_MID.x + BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
 	{ track = "Aura", at = { PLAZA_MID.x - BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = C.shopOutfitter, label = "Aura Shop" },
 	{ track = "Cleaner", at = { PLAZA_MID.x + BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop" },
 }
@@ -2014,20 +2017,39 @@ local BOOTH_PLINTH_HEIGHT = 1
 local BOOTH_DISPLAY_HEIGHT = 4.5
 local BOOTH_DISPLAY_WIDTH = 4
 local BOOTH_MANNEQUIN_SCALE = 1.2 -- the racks' 0.8 left only the head over the wall
-local function buildBoothDisplays(parent: Instance, origin: CFrame, track: string, color: string)
+local function stallFor(track: string): StallSpec?
 	local stall: StallSpec? = nil
 	for _, row in STALLS do
 		if row.track == track then
 			stall = row
 		end
 	end
-	local tiers = stallTiers({ track = track, hideTiers = if stall then stall.hideTiers else nil })
-	local picks = { tiers[1], tiers[#tiers] }
+	return stall
+end
+
+local function buildBoothDisplays(parent: Instance, origin: CFrame, boothId: string, color: string)
+	-- A booth selling two tracks (the Gear booth: detectors and magnets) shows the dearest
+	-- of each, one per side; a one-track booth its cheapest and dearest.
+	local sold = Booths.tracks(boothId)
+	local picks: { { track: string, tier: number } } = {}
+	if #sold >= 2 then
+		for i = 1, 2 do
+			local stall = stallFor(sold[i])
+			local tiers = stallTiers({ track = sold[i], hideTiers = if stall then stall.hideTiers else nil })
+			table.insert(picks, { track = sold[i], tier = tiers[#tiers] })
+		end
+	elseif #sold == 1 then
+		local stall = stallFor(sold[1])
+		local tiers = stallTiers({ track = sold[1], hideTiers = if stall then stall.hideTiers else nil })
+		picks = { { track = sold[1], tier = tiers[1] }, { track = sold[1], tier = tiers[#tiers] } }
+	end
 
 	local displays = Instance.new("Model")
 	displays.Name = "Displays"
 	displays.Parent = parent
-	for index, tier in picks do
+	for index, pick in picks do
+		local track, tier = pick.track, pick.tier
+		local stall = stallFor(track)
 		-- The cheap one on the front frame, the dear one on the back (see backFrame):
 		-- the same local x lands them on opposite halves of the booth.
 		local frame = if index == 1 then origin else backFrame(origin, 0)
@@ -2075,11 +2097,12 @@ local function buildBoothDisplays(parent: Instance, origin: CFrame, track: strin
 	end
 end
 
---- One booth.
-local function buildBooth(parent: Instance, spec: { track: string, at: { number }, faceYaw: number, color: string, label: string })
+--- One booth. `originOverride` and `spec.camp` are a site camp's (Shops.buildCampBooth).
+type BoothSpec = { track: string, at: { number }, faceYaw: number, color: string, label: string, camp: string? }
+local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFrame?)
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
-	local origin = facingOrigin(spec.at[1], spec.at[2], spec.faceYaw)
+	local origin = originOverride or facingOrigin(spec.at[1], spec.at[2], spec.faceYaw)
 	local width = BOOTH_WIDTH
 
 	build(m, origin, {
@@ -2109,6 +2132,7 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 			z = BOOTH_WALL_Z,
 			stationKind = "shop",
 			stationId = spec.track,
+			stationCamp = spec.camp,
 			radius = STAND_RADIUS,
 			promptText = spec.label,
 			material = "Plastic",
@@ -2139,7 +2163,10 @@ local function buildBooth(parent: Instance, spec: { track: string, at: { number 
 
 	buildPlainRoof(m, origin, spec.color, width, BOOTH_FRAME)
 	buildRoofTop(m, origin, width, spec.color, spec.label)
-	buildBoothDisplays(m, origin, spec.track, spec.color)
+	-- The Upgrades booth sells walk speed, not gear: nothing to stand on its plinths.
+	if not Booths.sellsSpeed(spec.track) then
+		buildBoothDisplays(m, origin, spec.track, spec.color)
+	end
 
 	-- A studded pad in the shop's colour in front of each stand, rimmed in glowing Neon,
 	-- so you can see where to stand to buy (2026-10-04, on request).
@@ -2432,10 +2459,35 @@ function Shops.buildCampStall(parent: Instance, origin: CFrame, track: string, c
 		at = plaza.at,
 		faceYaw = plaza.faceYaw,
 		color = accent or plaza.color,
-		label = plaza.label,
+		label = Booths.label(track, plaza.label),
 		present = plaza.present,
 		camp = camp,
 	}, origin)
+end
+
+--- A site camp's Base Camp-style booth at `origin` (customer side along +Z): the
+--- Upgrades booth (Config/Booths), which has no rack to hang. Returns the model.
+function Shops.buildCampBooth(parent: Instance, origin: CFrame, track: string, camp: string, accent: string?): Model
+	local base: BoothSpec? = nil
+	for _, row in BOOTHS do
+		if row.track == track then
+			base = row
+		end
+	end
+	assert(base, `{track} has no Base Camp booth to base a camp booth on`)
+	return buildBooth(parent, {
+		track = track,
+		at = base.at,
+		faceYaw = base.faceYaw,
+		color = accent or base.color,
+		label = base.label,
+		camp = camp,
+	}, origin)
+end
+
+--- How wide a booth is, so a camp can lay out around it.
+function Shops.boothWidth(): number
+	return BOOTH_WIDTH
 end
 
 --- How wide that stall is, so a camp can lay out around it before it builds it.

@@ -24,7 +24,7 @@
 	directions, so the tag can never silently drift out of sync with the world.
 
 	THE WORLD CONTRACT (see ARCHITECTURE.md):
-	    StationKind = "trader" | "decon" | "shop" | "pedestal" | "treadmill" | "locker" | "merge" | "reforge" | "furnace"
+	    StationKind = "trader" | "decon" | "shop" | "pedestal" | "locker" | "merge" | "reforge" | "furnace"
 	    StationId   = optional discriminator within a kind ("Detector", "3:2", ...)
 	    Radius      = studs, default 12
 
@@ -54,21 +54,20 @@ local DEFAULT_RADIUS = 12
 --- station layout only changes when a builder runs.
 local CACHE_REFRESH = 2
 
---- Kinds tested against the part's own footprint instead of a sphere. A treadmill belt
---- is ~4 studs wide, so its old 6.6-stud sphere kept a player "on the belt" after they
---- stepped off the side: the training bar stayed up and the run animation kept playing
---- over their walk. Inside the box = feet over the belt (plus FOOTPRINT_MARGIN), with
---- the root anywhere from just under the belt to a jump above it.
-local FOOTPRINT_KINDS: { [string]: boolean } = { treadmill = true }
+--- Kinds tested against the part's own footprint instead of a sphere: inside the box =
+--- feet over the part (plus FOOTPRINT_MARGIN), with the root anywhere from just under it
+--- to a jump above it. None today: it was the treadmill belt's (removed 2026-10-09), and
+--- is kept for the next station that is a surface to stand on rather than a spot.
+local FOOTPRINT_KINDS: { [string]: boolean } = {}
 local FOOTPRINT_MARGIN = 0.75
 local FOOTPRINT_BELOW = 1
 local FOOTPRINT_ABOVE = 7
 
---- Kinds that belong to the base they are built on. A plot's cleansing station and
---- treadmill are its owner's alone: for anyone else they are nowhere, so nothing that
---- asks kindOf (docking, the hose, belt training) works there. The camps' public
+--- Kinds that belong to the base they are built on. A plot's cleansing station is its
+--- owner's alone: for anyone else it is nowhere, so nothing that asks kindOf (docking,
+--- the hose) works there. The camps' public
 --- cleansing stations are on no plot and stay open to all (ExhibitService.ownsPlotStation).
-local OWNER_ONLY_KINDS: { [string]: boolean } = { decon = true, treadmill = true }
+local OWNER_ONLY_KINDS: { [string]: boolean } = { decon = true }
 
 type Entry = {
 	part: BasePart,
@@ -185,7 +184,7 @@ local function step(dt: number)
 		end
 
 		local kind, id, part, plot = StationService.at(root.Position)
-		-- Someone else's cleansing station or treadmill is nowhere, the same way.
+		-- Someone else's cleansing station is nowhere, the same way.
 		if not ExhibitService.ownsPlotStation(player, plot) then
 			kind, id, part = nil, nil, nil
 		end

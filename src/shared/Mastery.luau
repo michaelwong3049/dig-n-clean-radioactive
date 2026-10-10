@@ -53,7 +53,7 @@ function Mastery.count(profile: any, def: Masteries.Def): number
 	local n: any
 	if source == "indexPercent" then
 		n = Mastery.indexPercent(profile.discovered)
-	elseif source == "speedPoints" or source == "cashEarned" then
+	elseif source == "cashEarned" then
 		n = profile[source]
 	else
 		n = if type(profile.stats) == "table" then profile.stats[source] else nil
@@ -147,8 +147,8 @@ function Mastery.rewardText(def: Masteries.Def, tier: number): string
 		return `{x} cash`
 	elseif kind == "walkSpeed" then
 		return `+{math.floor(v * 100 + 0.5)}% walk speed`
-	elseif kind == "training" then
-		return `{x} treadmill Speed`
+	elseif kind == "speedPrice" then
+		return `-{percentOff(v)} speed upgrade price`
 	elseif kind == "luck" then
 		return `{x} luck`
 	elseif kind == "capacity" then

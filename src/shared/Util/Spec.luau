@@ -34,7 +34,8 @@ local Liquids = require(Config.Liquids)
 local Items = require(Config.Items)
 local Weight = require(Config.Weight)
 local Payload = require(Config.Payload)
-local Treadmill = require(Config.Treadmill)
+local WalkSpeed = require(Config.WalkSpeed)
+local Booths = require(Config.Booths)
 local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
 local Weather = require(Config.Weather)
@@ -944,14 +945,14 @@ function Spec.run(): boolean
 	-- EVERY ZONE'S LAST STAGE IS A CAMP'S DOORSTEP (Stages.CAMP_AFTER). Its last 40% is a
 	-- dead zone (Tuning.ZONE_SURVIVAL.DEAD_ZONE), so the stage's own aura no longer HOLDS
 	-- at the gate -- it has to SPRINT there. Pinned as a crossing: an untrained walker
-	-- (Treadmill.START_WALK) from the dead zone's line to the east edge, integrating the
+	-- (WalkSpeed.START_WALK) from the dead zone's line to the east edge, integrating the
 	-- aura's share of the damage, arrives with health to spare. The aura under it must
 	-- fail at the edge, or reaching the camp stops being earned.
 	do
 		local function crossingCost(stageId: number, auraTier: number): number
 			local from = (Tuning.ZONE_SURVIVAL.DEAD_ZONE[stageId] or { from = 1 }).from
 			local minX, _, maxX = Stages.bounds(stageId)
-			local seconds = (1 - from) * (maxX - minX) / Treadmill.START_WALK
+			local seconds = (1 - from) * (maxX - minX) / WalkSpeed.START_WALK
 			local steps, lost = 50, 0
 			for i = 1, steps do
 				local d = from + (1 - from) * (i - 0.5) / steps
@@ -1317,28 +1318,26 @@ function Spec.run(): boolean
 		check("§mastery the Reactor discount lowers the merge fee", dearest ~= nil and Merge.fee(dearest.id, 0, 0.7) < Merge.fee(dearest.id, 0))
 		check("§mastery the Brewer can never brew faster than the spin lasts", Tuning.LIQUID_SPIN_COOLDOWN * (Mastery.get("brewer") :: any).values[3] > Tuning.LIQUID_SPIN_SECONDS)
 		check("§mastery reward text reads like a reward", Mastery.rewardText(scrub, 3) == "x2 cash" and Mastery.rewardText(thief, 3) == "+6% walk speed")
-		check("§mastery goals print short", Mastery.goalText(Mastery.get("tycoon") :: any, 1e9) == "$1B" and Mastery.goalText(Mastery.get("runner") :: any, 50000) == "500K")
+		check("§mastery goals print short", Mastery.goalText(Mastery.get("tycoon") :: any, 1e9) == "$1B" and Mastery.goalText(Mastery.get("runner") :: any, 30) == "30")
 	end
 
 	-- PLAN §9.2 / §5.1 — one resolver, perks folded in exactly once
 	local profile = {
 		level = 20,
 		-- No `boots` key: the track is retired (Config/Gear's Gear.Boots header) and
-		-- StatResolver no longer looks for one. Speed comes from `speedPoints` below.
+		-- StatResolver no longer looks for one. Speed comes from `walkBought` below.
 		gear = { detector = 3, magnet = 2, cleaner = 4, aura = 3 },
 		perks = { steadyHands = true, sureFooting = true },
 		multipliers = { sell = 2 },
-		speedPoints = Treadmill.requirementFor(45 - Treadmill.START_WALK + 1),
+		walkBought = 45 - WalkSpeed.START_WALK,
 	}
 	local stats = StatResolver.get(profile)
 	check("§9.2 Steady Hands adds exactly +1 potency", stats.cleanPotency == Gear.tier("Cleaner", 4).power + 1)
 	check("§9.2 level 20 = 20% resist", math.abs(stats.levelResist - 0.20) < 1e-9)
 	check("§9.2 level 20 = +4 carry capacity", stats.capacity == Gear.tier("Aura", 3).capacity + 4)
 	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Aura", 3).haulPenalty * 0.5) < 1e-9)
-	-- SPEED COMES OUT OF THE TREADMILL AND NOTHING ELSE. The profile above holds
-	-- exactly the requirement for walk 45, so this is also the check that a player
-	-- sitting on a requirement reads as that level and not the one below it.
-	check("§5.1 walk speed is whatever the treadmill trained", stats.walkSpeed == 45)
+	-- SPEED COMES OUT OF WHAT WAS BOUGHT AND NOTHING ELSE (Config/WalkSpeed).
+	check("§5.1 walk speed is whatever was bought", stats.walkSpeed == 45)
 	check("§5.1 a full bag physically slows you", StatResolver.effectiveWalkSpeed(stats, stats.capacity, false) < stats.walkSpeed)
 	check("§5.1 but never immobilises you", StatResolver.effectiveWalkSpeed(stats, 999, false) >= 6)
 	-- speedBonus: an aura bonus, never a penalty, and never slower than the rung under it.
@@ -1390,155 +1389,86 @@ function Spec.run(): boolean
 		check("§8 a full base has nothing left to buy", Floors.nextPrice(Floors.MAX) == nil and Floors.nextPrice(1) == Floors.PRICES[2])
 	end
 
-	-- ── §5.1 THE TREADMILL ────────────────────────────────────────────────
+	-- ── §5.1 WALK SPEED, BOUGHT ──────────────────────────────────────────
 	--
-	-- The Speed unit and its levels (Config/Treadmill). These are the checks that stop
-	-- a retune from quietly turning an 11-hour endgame into a 2-hour one.
+	-- The Upgrades booth (Config/WalkSpeed, Config/Booths). The treadmill was removed on
+	-- request (2026-10-09); these stop a retune making speed free or unreachable.
 
-	check("§5.1 level 1 walks at the starting speed, 30", Treadmill.walkSpeedFor(1) == 30)
-	check("§5.1 one level is one stud/sec: level 71 walks at 100, the old cap", Treadmill.walkSpeedFor(71) == Treadmill.ENDGAME_WALK)
-	check("§5.1 level 1 needs no Speed", Treadmill.requirementFor(1) == 0 and Treadmill.levelFor(0) == 1)
+	check("§5.1 nothing bought walks at the starting speed, 30", WalkSpeed.walkFor(0) == 30)
 	check(
-		"§5.1 there is no top level: past the old cap still has a next requirement",
-		Treadmill.requirementFor(76) ~= nil and Treadmill.requirementFor(150) ~= nil and Treadmill.walkSpeedFor(150) == 179
+		"§5.1 a broken walkBought reads as nothing bought",
+		WalkSpeed.bought(0 / 0) == 0 and WalkSpeed.bought(-5) == 0 and WalkSpeed.bought("x") == 0 and WalkSpeed.bought(3.7) == 3
 	)
-
-	-- Every requirement is dearer than the last, and holding EXACTLY a requirement
-	-- reads as that level with an empty bar — never the level below with a full one,
-	-- which is the most visible bug this feature could have.
-	do
-		local rising, exact = true, true
-		for level = 1, 150 do
-			local req = Treadmill.requirementFor(level) :: number
-			if level > 1 and req <= (Treadmill.requirementFor(level - 1) :: number) then
-				rising = false
-			end
-			local got, progress = Treadmill.levelFor(req)
-			if got ~= level or progress ~= 0 then
-				exact = false
-			end
-			if level > 1 and Treadmill.levelFor(req - 0.01) ~= level - 1 then
-				exact = false
-			end
-		end
-		check("§5.1 each level's Speed requirement is higher than the last", rising)
-		check("§5.1 reaching a requirement levels you up exactly on it", exact)
-		-- A huge or broken total still reads as a finite level, not a hang or an error.
-		local huge = Treadmill.levelFor(1e12)
-		check("§5.1 any Speed total reads as a finite level", huge > 75 and huge < 1000 and Treadmill.levelFor(0 / 0) == 1)
-	end
-
-	-- THE BELTS: dearer each rung, and each pays meaningfully more Speed/sec. With no
-	-- rated-speed falloff left, the rate ladder is the whole reason to upgrade.
 	do
 		local rising = true
-		for index = 2, Treadmill.maxTier() do
-			local prev, def = Treadmill.TIERS[index - 1], Treadmill.TIERS[index]
-			if def.price <= prev.price or def.rate < prev.rate * 1.5 then
+		for stage = 2, #WalkSpeed.STAGE_STEPS do
+			if WalkSpeed.stepFor(stage) < WalkSpeed.stepFor(stage - 1) then
 				rising = false
 			end
 		end
-		check("§5.1 each belt costs more and pays at least 1.5x the Speed/sec of the last", rising)
-		check("§5.1 a belt's rate does not fall off with level", Treadmill.rateFor(1) == Treadmill.TIERS[1].rate)
-	end
-
-	-- The three numbers the curve was tuned against, measured the way a player
-	-- experiences them: buying one belt per 18 levels (four belts over 75 levels). Bands are ±25%, wide enough that
-	-- a cosmetic tweak to one rung does not fail the suite and narrow enough that
-	-- "11 hours" cannot drift into "3 hours" unnoticed.
-	do
-		local function hoursTo(walk: number, belt: ((level: number) -> number)?): number
-			local seconds = 0
-			for level = 1, walk - Treadmill.START_WALK do
-				local tier = if belt then belt(level) else math.min(Treadmill.maxTier(), (level - 1) // 18 + 1)
-				local cost = (Treadmill.requirementFor(level + 1) :: number) - (Treadmill.requirementFor(level) :: number)
-				seconds += cost / Treadmill.rateFor(tier)
-			end
-			return seconds / 3600
-		end
-
-		for _, milestone in { { at = 45, hours = 0.24 }, { at = 70, hours = 1.05 }, { at = 100, hours = 3.7 } } do
-			local actual = hoursTo(milestone.at)
-			check(
-				string.format("§5.1 walk %d is about %.1f h of training (got %.2f h)", milestone.at, milestone.hours, actual),
-				actual > milestone.hours * 0.75 and actual < milestone.hours * 1.25
-			)
-		end
-
-		-- ...and never upgrading costs something real without walling anyone out.
-		local stuck = hoursTo(64, function()
-			return 1
-		end)
+		check("§5.1 a deeper stage never buys a smaller step", rising)
 		check(
-			string.format("§5.1 skipping the belts is slow, not blocked (%.1f h to walk 64 on the free belt)", stuck),
-			stuck > hoursTo(64) * 2 and stuck < math.huge
+			"§5.1 the step runs +1 in Stage 1 to +6 in Stage 12, clamped either side",
+			WalkSpeed.stepFor(1) == 1 and WalkSpeed.stepFor(12) == 6 and WalkSpeed.stepFor(0) == 1 and WalkSpeed.stepFor(99) == 6 and WalkSpeed.stepFor(nil) == 1
 		)
 	end
-
-	-- THE CONVERSION KEEPS EVERY LEVEL. Old saves banked hidden `speedXp` on a
-	-- different curve; DataService converts it once. A player must land on the same
-	-- walk speed with the same fraction of the bar, at every walk speed.
 	do
-		local kept = true
-		for walk = Treadmill.START_WALK, Treadmill.ENDGAME_WALK - 1 do
-			local n = walk - Treadmill.START_WALK
-			local base = 110 * (1.068 ^ n - 1) / 0.068
-			local halfway = base + 0.5 * 110 * 1.068 ^ n
-			local w1, p1 = Treadmill.walkFor(Treadmill.fromLegacyXp(base))
-			local w2, p2 = Treadmill.walkFor(Treadmill.fromLegacyXp(halfway))
-			if w1 ~= walk or p1 > 1e-6 or w2 ~= walk or math.abs(p2 - 0.5) > 1e-6 then
-				kept = false
+		local rising = true
+		for bought = 1, 200 do
+			if WalkSpeed.priceFor(bought) <= WalkSpeed.priceFor(bought - 1) then
+				rising = false
 			end
 		end
-		check("§5.1 converting an old save keeps its walk speed and its bar", kept)
-		check("§5.1 a maxed old save converts to walk 100, its old cap", Treadmill.walkFor(Treadmill.fromLegacyXp(1e9)) == Treadmill.ENDGAME_WALK)
-	end
-
-	-- THE FOUR-BELT COLLAPSE LOSES NOBODY A DOLLAR. The ladder went from six belts to
-	-- four (one imported model each); DataService moves an old save onto the best new
-	-- belt its old spend covers and pays the rest back. New belt + refund must add back
-	-- up to exactly what the old rungs cost, at every old rung, and never hand anyone a
-	-- belt dearer than they paid for.
-	do
-		local oldPrices = { 0, 11500, 32500, 90000, 255000, 700000 }
-		local fair = true
-		local spent = 0
-		for oldTier = 1, #oldPrices do
-			spent += oldPrices[oldTier]
-			local tier, refund = Treadmill.fromSixRungLadder(oldTier)
-			local newSpent = 0
-			for index = 2, tier do
-				newSpent += Treadmill.TIERS[index].price
-			end
-			local nextRung = Treadmill.TIERS[tier + 1]
-			if newSpent + refund ~= spent or refund < 0 or (nextRung and refund >= nextRung.price) then
-				fair = false
-			end
+		check("§5.1 every point of walk makes the next purchase dearer", rising)
+		check("§5.1 the first purchase costs FIRST_PRICE", WalkSpeed.priceFor(0) == WalkSpeed.FIRST_PRICE)
+		check("§5.1 the Runner discount takes its share off", WalkSpeed.priceFor(40, 0.7) < WalkSpeed.priceFor(40))
+		-- The price lands where each zone's cash is (Config/Gear's prices): bands wide
+		-- enough for a retune, narrow enough that speed cannot go free or out of reach.
+		for _, milestone in { { walk = 45, low = 2e3, high = 2e4 }, { walk = 70, low = 1e5, high = 2e6 }, { walk = 100, low = 1e7, high = 3e8 } } do
+			local price = WalkSpeed.priceFor(milestone.walk - WalkSpeed.START_WALK)
+			check(
+				string.format("§5.1 walk %d costs %s, between %s and %s", milestone.walk, WalkSpeed.priceText(price), WalkSpeed.priceText(milestone.low), WalkSpeed.priceText(milestone.high)),
+				price >= milestone.low and price <= milestone.high
+			)
 		end
-		check("§5.1 collapsing a six-belt save refunds exactly what the new belt does not cover", fair)
-		-- "A maxed six-belt save lands on the top belt" used to be pinned here. It only held
-		-- while the top belt kept the old ladder's $700k price; the economy pacing pass
-		-- repriced every belt, so a maxed old save now lands lower and takes the rest as
-		-- cash -- still exactly what it spent, which the check above pins.
-		check("§5.1 a free-belt save stays on the free belt with no refund", select(2, Treadmill.fromSixRungLadder(1)) == 0)
 	end
 
-	-- Treadmill ACCESS is free on request (it used to cost $1,000): every player starts
-	-- on the Scrap Belt, and only the belt upgrades cost cash.
+	-- THE CONVERSION KEEPS THE WALK. A treadmill save's lifetime Speed lands on the walk
+	-- it had trained (DataService.convertTreadmill), on the curve the treadmill used.
 	check(
-		string.format("§5.1 unlocking the treadmill is free (%s)", Treadmill.unlockPriceText()),
-		Treadmill.UNLOCK_PRICE == 0 and Treadmill.unlockPriceText() == "Free"
+		"§5.1 a treadmill save keeps its trained walk",
+		WalkSpeed.fromLegacyPoints(0) == 0
+			and WalkSpeed.fromLegacyPoints(299) == 0
+			and WalkSpeed.fromLegacyPoints(300) == 1
+			and WalkSpeed.fromLegacyPoints(25000) == 18
+			and WalkSpeed.fromLegacyPoints(1500000) == 61
+			and WalkSpeed.fromLegacyPoints(nil) == 0
 	)
 
-	-- Every belt names the imported model it wears (build/Plots.setTreadmillTier).
+	-- THE BOOTHS: the Gear booth sells detectors and magnets, the Upgrades booth speed,
+	-- and every gear track is still sold by some booth.
+	check(
+		"§5.1 the Gear booth sells detectors and magnets; the Upgrades booth sells speed",
+		Booths.sells("Detector", "Detector")
+			and Booths.sells("Detector", "Magnet")
+			and not Booths.sells("Magnet", "Magnet")
+			and Booths.sellsSpeed("Magnet")
+			and not Booths.sellsSpeed("Detector")
+			and Booths.sells("Aura", "Aura")
+			and Booths.sells("Cleaner", "Cleaner")
+	)
 	do
-		local named = true
-		for _, belt in Treadmill.TIERS do
-			if type(belt.model) ~= "string" or belt.model == "" then
-				named = false
+		local sold = {}
+		for id in Booths.BY_ID do
+			for _, track in Booths.tracks(id) do
+				sold[track] = true
 			end
 		end
-		check("§5.1 every belt rung names its treadmill model", named)
+		local all = true
+		for _, track in Gear.TRACKS do
+			all = all and sold[track] == true
+		end
+		check("§5.1 every gear track is sold at some booth", all)
 	end
 
 	-- The track really is gone from the storefront. `Gear.Boots` surviving as data for
@@ -2011,7 +1941,7 @@ function Spec.run(): boolean
 	-- *** THIS CHECK FAILS ON PURPOSE, AND IT IS THE THIRD KNOWN FAILURE. ***
 	--
 	-- The ceiling used to be the top Boots rung (36), then the treadmill cap (100). There
-	-- is no cap now, so this measures at Treadmill.ENDGAME_WALK (100), the old one.
+	-- is no cap now, so this measures at WalkSpeed.ENDGAME_WALK (100), the old one.
 	-- That is not a rename — it is a real and unsolvable tightening. The gap
 	-- between the starting detector's reveal edge and DIG_RADIUS is 8 studs; a fully
 	-- trained player crosses it in 0.08s, and client/SpotCracks' REVEAL is 0.25s on an
@@ -2034,7 +1964,7 @@ function Spec.run(): boolean
 	-- cheaper half" of exactly this fix.
 	do
 		local reach = Gear.tier("Detector", 1).radius - Tuning.DIG_RADIUS
-		local fastest = Treadmill.ENDGAME_WALK
+		local fastest = WalkSpeed.ENDGAME_WALK
 		check(
 			string.format("§2.1 a spot has time to fade in before you reach it (%.2fs of walk)", reach / fastest),
 			reach / fastest >= 0.2
@@ -2056,7 +1986,7 @@ function Spec.run(): boolean
 
 	local field = Stages.builtIds()[1]
 	if field then
-		local walk = Treadmill.START_WALK
+		local walk = WalkSpeed.START_WALK
 		local lo = Gear.tier("Detector", 1).radius
 		local hi = Gear.tier("Detector", Gear.maxTier("Detector")).radius
 		local slow = Stages.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_STAGE)
@@ -2517,11 +2447,11 @@ function Spec.run(): boolean
 
 		-- A Common going off in your hands is a bruise, not a blackout: the point-blank
 		-- hit, then walking straight out of the orb at HALF an UNTRAINED player's speed.
-		-- Deliberately the floor of the speed curve rather than anything a treadmill
-		-- buys: the worst case is the player who has never trained, and a check written
-		-- against a trained speed would pass while that player died.
+		-- Deliberately the floor of the speed curve rather than anything bought: the
+		-- worst case is the player who has bought none, and a check written against a
+		-- bought speed would pass while that player died.
 		local common = Detonation.blastFor("Common", D.SIZE_REF)
-		local walk = Treadmill.START_WALK * 0.5
+		local walk = WalkSpeed.START_WALK * 0.5
 		local taken, walked, step = common.hit, 0, 0.02
 		while walked < common.orbRadius do
 			taken += Detonation.orbBurnAt(walked, common.orbRadius, common.orbBurn, 1) * step
@@ -2928,7 +2858,6 @@ function Spec.run(): boolean
 				"§pass every pass moves its own stat",
 				owned.capacity == plain.capacity + GamePasses.BACKPACK_SLOTS
 					and math.abs(owned.bombDamageMult / plain.bombDamageMult - GamePasses.BOMB_DAMAGE) < 1e-9
-					and math.abs(owned.trainingMult / plain.trainingMult - GamePasses.SPEED) < 1e-9
 					and owned.digPower == GamePasses.DIG_POWER
 					and owned.luckBoost == plain.luckBoost * GamePasses.LUCK
 					and math.abs(owned.sellMultiplier / plain.sellMultiplier - GamePasses.CASH) < 1e-9
@@ -2990,7 +2919,6 @@ function Spec.run(): boolean
 					and near(totals.speed, StatResolver.walkBonus(got))
 					and near(totals.strength, got.digPower)
 					and near(totals.clean, got.scrubRate / Gear.tier("Cleaner", 1).volume)
-					and near(totals.training, got.trainingMult)
 					and near(totals.bomb, got.bombDamageMult)
 					and near(totals.health, got.healthMult)
 					and totals.luck == GamePasses.LUCK * LuckBoost.MULT * Potions.get("luck").mult

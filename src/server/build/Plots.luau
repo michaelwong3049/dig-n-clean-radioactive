@@ -31,7 +31,7 @@
 	EVERY BASE'S CLEANSING STATION SITS AT THE STAGE END of its front strip (on request,
 	same day). A south pad is the north one turned 180 degrees, which put its station at
 	the far (west) end, so south pads build their front strip mirrored (`stripFlip` in
-	buildPlot): the station, bottle and locker on the -X side, the treadmill on the +X.
+	buildPlot): the station and bottle on the -X side, the locker on the +X.
 
 	IT WAS TWO TO A SIDE BEFORE THIS (2026-10-03 to -04): two pads each on the north,
 	south and west edges, the wall a stepped outline (a back block for the west pair, two
@@ -100,7 +100,7 @@
 	    │   ═══════ cross band ═══════         │
 	    │  [locker]       ║                    │
 	    └──────── hazard line, deck edge ──────┘
-	       WASHER [bottle]          TREADMILL     ← deck-coloured strip, ground level, open
+	       WASHER [bottle]                        ← deck-coloured strip, ground level, open
 	                  entry (spawn)
 
 	THE GALLERY PASS (on request, picked from three live previews) dressed that grid
@@ -125,9 +125,8 @@
 	12 stands: a full 3-column (`GRID_COLS`) by 4-row (`GRID_ROWS`) grid,
 	numbered left to right then back row to front row. Slot 1 is back-left,
 	slot 3 back-right, slot 12 front-right (`GRID_SLOTS`, `slotOffset`). The cleansing station, its hose rig and the fluid bottle occupy the +X side of
-	the entrance extension, the treadmill the -X side (where the wash pad stood
-	until the pad was removed on request), with a deliberate safe gap between
-	their station radii.
+	the entrance extension, the Quarantine Locker the -X side (the treadmill stood
+	beside it until 2026-10-09), with a deliberate safe gap between their station radii.
 
 	FLOORS: THE GROUND 12 ARE FREE, AND UP TO TWO MORE STOREYS ARE BOUGHT.
 	A base can be built up to Config/Floors.MAX = 3 floors. The ground floor's 12
@@ -178,14 +177,6 @@
 	                owner's loaded fluid (Plots.setFluidBottle, written by
 	                ExhibitService.renderBottle, never by name elsewhere), and so
 	                does the tub's `Water` / `WaterSheen` (Plots.setTubFluid).
-	    Belt        StationKind = "treadmill", Radius sized to the fitted model — the treadmill's running
-	                surface (see buildTreadmill). Standing on it IS training; no
-	                prompt, no session. Services/TreadmillService owns the clock.
-	    Console     UpgradesTreadmill = true + a ProximityPrompt — unlocks the treadmill
-	                (Treadmill.UNLOCK_PRICE), then buys the next belt rung. TreadmillService wires it at boot, by tag, the same way
-	                ShopService wires the luck button.
-	    Look        the imported treadmill model for the owner's belt rung, swapped
-	                by Plots.setTreadmillTier (ExhibitService.renderTreadmill).
 	    Floor<f>    Model, one per floor above the ground (f = 2..Floors.MAX): deck,
 	                pillars, the flight of stairs up to it, its railings and its
 	                Stand/StandTop/Display parts for slots Floors.firstSlot(f)... Moved
@@ -213,7 +204,6 @@ local Shared = ReplicatedStorage.Shared
 local Floors = require(Shared.Config.Floors)
 local Liquids = require(Shared.Config.Liquids)
 local Mastery = require(Shared.Mastery)
-local Treadmill = require(Shared.Config.Treadmill)
 local Tuning = require(Shared.Config.Tuning)
 local ToolModels = require(Shared.ToolModels)
 local ToolFX = require(Shared.ToolFX)
@@ -223,7 +213,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 118 -- treadmill 4 more toward the locker, locker radius 5.5 (2026-10-09)
+local BUILDER_VERSION = 119 -- treadmill removed: speed is bought at the Upgrades booth (2026-10-09)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -2219,7 +2209,7 @@ end
 
 --- Dress one plot's bottle in a fluid: every `Liquid` part and its light take the
 --- fluid's colour. `liquidId` nil (an unclaimed plot) is Plain Water. The only writer
---- is ExhibitService.renderBottle, the same split setTreadmillTier has: the service
+--- is ExhibitService.renderBottle, the same split setHoseTier has: the service
 --- decides WHAT, this file knows WHERE. The fluid's NAME is on the owner's panel, not
 --- over the bottle -- the floating sign was removed on request.
 function Plots.setFluidBottle(bottleModel: Instance?, liquidId: string?)
@@ -2572,535 +2562,19 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, index: nu
 	m.Parent = parent
 end
 
--- ── The treadmill ─────────────────────────────────────────────────────────
+-- ── The treadmill (removed) ─────────────────────────────────────────────────
 --
--- Where speed comes from, now that the Boots track is retired (Config/Treadmill).
--- Step on the belt and the number climbs; press the red button on the upgrade sign
--- beside it to buy a faster belt. Services/TreadmillService owns both halves.
---
--- IT SHARES THE ENTRANCE SERVICE STRIP with the cleansing station (+X), and the
--- clearances here are a CORRECTNESS constraint, not a layout
--- preference. Training is an edge, so overlapping station radii would mean a player at
--- one machine being registered at another. MOVED TO THE -X SIDE, into the wash pad's
--- old spot, when the pad was removed on request -- it used to stand in the middle of
--- the strip, on the entrance path. Belt centre sits at plot-local (-17.5, -31), Radius
--- up to ~9 on the diamond rung (installTreadmillLook sizes it to the belt):
---
---   to the Basin  (26, -32), Radius 9 ...... 43.5 studs against an 18-stud combined reach
---   to the Locker station, Radius 5.5 ....... 6.2 studs off the belt's footprint against 5.5
---   to PlotSpawn  (0, -24), 6x6 ............ 18.9 studs against 12
---   to Stand10    (-20, -6), Radius 7 ...... 25.1 studs against 16
---
--- Keep those gaps if either moves. World.verify() is the actual authority and asserts
--- the first every rebuild, not this comment.
---
--- THE RUNNER FACES -Z, out through the entrance arch at the wasteland, with the
--- console at that end, clear of the spawn pad.
-local TREADMILL = {
-	-- From -21 to -11.5 (2026-10-08) so the Quarantine Locker fits between the belt and
-	-- the fence: the two reaches must not meet on ANY rung, and the diamond belt's is
-	-- ~8.7 (locker 6), so 14.7 against a 15.2 gap. A saved place keeps the old spot
-	-- until it is rebuilt. Then 2 closer to the locker and 4 more (2026-10-09, on
-	-- request; 8 more would put the diamond rung, 6.8 to its side, into the locker's
-	-- kerb). The locker's station is 9.2 off the belt's centre, 6.2 off its footprint
-	-- (diamond, + margin) against the locker's 5.5 reach.
-	cx = -17.5,
-	-- Moved back from -35 as the models grew, so the gold rung's console end stays on
-	-- the pad: see `scale`. Then from -33.5 to -31 (2026-10-02), because the diamond
-	-- rung's nose ran 1.2 studs through the front fence. A saved place built at the
-	-- old spot is moved at runtime (placeTreadmill), so this needs no rebuild.
-	cz = -31,
-	-- The imported models come in at ~2 studs long; every rung is scaled by the SAME
-	-- factor, so the machine visibly grows as it is upgraded (the gold one is half again
-	-- the basic one's length, as authored). 4.5, then 5, then 5.6, each on request
-	-- ("slightly bigger", "a little bit bigger again"). At 5.6 the diamond one (the
-	-- biggest) reaches plot-local z -40.8, clear of the front fence's rail at ~-41.7,
-	-- and its back end z -23.7. Behind it the strip is
-	-- clear to the upper-floor posts at z -11 (PlotSpawn is off at x 0), so a bigger
-	-- scale moves `cz` back by 1.62 studs per unit of scale to keep the console end put.
-	scale = 5.6,
-	-- The belt surface above the pad top. The models' belts sit ~0.1 model units above
-	-- their lowest part, so at `scale` this rests every rung on the pad.
-	beltTop = 0.55,
-	-- The skeleton belt before a model is fitted to it, and what shows if the templates
-	-- are missing (a place without Assets.TreadmillTemplates).
-	beltW = 3.2,
-	beltL = 8,
-}
+-- Speed was trained on a treadmill on the -X side of the entrance strip, beside the
+-- Quarantine Locker, until 2026-10-09: walk speed is bought at the Upgrades booth now
+-- (Config/WalkSpeed). Nothing builds one any more, and a place saved with one loses it
+-- at boot (ExhibitService -> removeTreadmill), so the base is right before a rebuild.
 
---- Where the imported rungs live: one Model per `Treadmill.TIERS[i].model`, as the
---- user imported them (Import 3D, coloured). Their parts are named
---- `<model>_belt`, `<model>_belt_stripe_<k>`, `<model>_screen`, `<model>_console_body`,
---- and the runner stands facing the model's +Z, with the console at that end.
-local TEMPLATE_FOLDER = "TreadmillTemplates"
-
---- Imported parts that stay solid: the motor hood at the head, the uprights, and the
---- low side rails, which are the machine's walls. Everything above them does not
---- collide, so nothing catches a player's head on the way on or off.
-local SOLID_SUFFIXES = { "_motor_hood", "_upright_L", "_upright_R", "_side_rail_L", "_side_rail_R" }
-
-local warnedMissing: { [string]: boolean } = {}
-
-local function treadmillTemplate(name: string): Model?
-	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local folder = assets and assets:FindFirstChild(TEMPLATE_FOLDER)
-	local template = folder and folder:FindFirstChild(name)
-	if template and template:IsA("Model") then
-		return template
+--- Take a saved place's treadmill (and its upgrade sign) off plot model `plot`.
+function Plots.removeTreadmill(plot: Instance)
+	local treadmill = plot:FindFirstChild("Treadmill", true)
+	if treadmill then
+		treadmill:Destroy()
 	end
-	if not warnedMissing[name] then
-		warnedMissing[name] = true
-		warn(`[plots] no treadmill model ReplicatedStorage.Assets.{TEMPLATE_FOLDER}.{name}; the belt stays bare`)
-	end
-	return nil
-end
-
---- Per-rung glow, on request ("add effects to the upgraded treadmills", then "remove
---- sparkles, I was thinking glowed parts"). No particles: each paid rung turns more of
---- its own model's parts Neon in the rung's colour, plus a light under the belt, so
---- the machine reads as more powerful at a glance. The free Scrap Belt stays plain.
----
----   Servo Track      side rails glow green
----   Reactor Mill     side rails + uprights glow blue
----   Isotope Strider  side rails + uprights + motor hood + belt slats glow gold
----   Diamond Drive    its own crystals, neon strips, belt edges + slats glow ice-blue
----
---- Everything is inside `look`, so a swap to the next rung takes the old glow with it.
-local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { string } } } = {
-	[2] = { color = "5BE36B", light = 0.25, parts = { "_side_rail_L", "_side_rail_R" } },
-	[3] = { color = "3AA8FF", light = 0.35, parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R" } },
-	[4] = {
-		color = "FFC21A",
-		light = 0.5,
-		parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R", "_motor_hood", "Slat" },
-	},
-	-- The diamond model brings its own crystals and neon strips, so those are what glow;
-	-- its uprights and hood keep their texture, which is most of what makes it diamond.
-	[5] = {
-		color = "8EF4FF",
-		light = 0.6,
-		parts = {
-			"_neon_strip_L",
-			"_neon_strip_R",
-			"_belt_edge_L",
-			"_belt_edge_R",
-			"_crystal",
-			"_upright_crystal_L",
-			"_upright_crystal_R",
-			"_halo_arch_glow",
-			"Slat",
-		},
-	},
-}
-
-local TREADMILL_NEON_DIM = 0.7
-
-local function addTreadmillFx(look: Model, belt: BasePart, tier: number, model: string)
-	local glow = TREADMILL_GLOW[tier]
-	if glow == nil then
-		return
-	end
-	local color = Color3.fromHex(glow.color)
-	-- Neon blooms by colour, so the parts take a dimmed shade ("too bright"); the lamp keeps the full hue.
-	local neonColor = color:Lerp(Color3.new(0, 0, 0), TREADMILL_NEON_DIM)
-	local names: { [string]: boolean } = {}
-	for _, suffix in glow.parts do
-		names[if suffix == "Slat" then suffix else model .. suffix] = true
-	end
-	for _, d in look:GetDescendants() do
-		if d:IsA("BasePart") and names[d.Name] then
-			d.Material = Enum.Material.Neon
-			d.Color = color
-			if d:IsA("MeshPart") then
-				d.TextureID = "" -- a baked texture would paint over the glow
-			end
-		end
-	end
-
-	local lamp = Instance.new("PointLight")
-	lamp.Color = color
-	lamp.Brightness = glow.light
-	lamp.Range = math.max(8, belt.Size.Z * 0.7)
-	lamp.Shadows = false
-	local anchor = Instance.new("Part")
-	anchor.Name = "FxGlow"
-	anchor.Size = Vector3.new(1, 0.2, 1)
-	anchor.CFrame = belt.CFrame * CFrame.new(0, belt.Size.Y / 2 + 0.5, 0)
-	anchor.Transparency = 1
-	anchor.Anchored = true
-	anchor.CanCollide = false
-	anchor.CanQuery = false
-	anchor.CanTouch = false
-	anchor.CastShadow = false
-	anchor.Parent = look
-	lamp.Parent = anchor
-end
-
---- Swap the treadmill's `Look` for the imported model of belt rung `tier`, fitted to
---- the skeleton: the model's belt top lands on the skeleton `Belt`'s top centre, the
---- skeleton belt is resized to the model's (its CENTRE never moves, and that centre is
---- all StationService and World.verify read), and the `Console` anchor -- prompt,
---- billboard and tag -- is moved onto the model's console.
----
---- THE STRIPES ARE REBUILT, NOT KEPT. TreadmillController scrolls every `Slat` down
---- the belt and wraps it modulo the skeleton belt's length, which is only seamless if
---- that length is a whole number of stripe pitches with a stripe in every one. The
---- imported models leave the stretch under the motor hood bare and their belts are not
---- a whole number of pitches long, so the skeleton belt is trimmed to the largest whole
---- number that fits and one stripe is laid per pitch, cloned from the model's own.
-local function installTreadmillLook(treadmill: Instance, tier: number): boolean
-	local belt = treadmill:FindFirstChild("Belt")
-	local console = treadmill:FindFirstChild("Console")
-	if belt == nil or not belt:IsA("BasePart") or console == nil or not console:IsA("BasePart") then
-		return false
-	end
-	local def = Treadmill.tier(tier)
-	local template = treadmillTemplate(def.model)
-	if template == nil then
-		return false
-	end
-
-	local look = template:Clone()
-	look:ScaleTo(TREADMILL.scale)
-	local modelBelt = look:FindFirstChild(def.model .. "_belt", true)
-	if modelBelt == nil or not modelBelt:IsA("BasePart") then
-		look:Destroy()
-		warn(`[plots] treadmill model {def.model} has no {def.model}_belt part`)
-		return false
-	end
-
-	-- Belt top centre to belt top centre, turned half round so the model's +Z runner
-	-- faces the skeleton's -Z.
-	local skeletonTop = belt.CFrame * CFrame.new(0, belt.Size.Y / 2, 0) * CFrame.Angles(0, math.pi, 0)
-	local modelTop = modelBelt.CFrame * CFrame.new(0, modelBelt.Size.Y / 2, 0)
-	look:PivotTo(skeletonTop * modelTop:Inverse() * look:GetPivot())
-
-	local stripes: { BasePart } = {}
-	local consoleBody: BasePart? = nil
-	for _, d in look:GetDescendants() do
-		if not d:IsA("BasePart") then
-			continue
-		end
-		d.Anchored = true
-		d.CanCollide = false
-		d.CanQuery = false
-		d.CanTouch = false
-		for _, suffix in SOLID_SUFFIXES do
-			if d.Name == def.model .. suffix then
-				d.CanCollide = true
-			end
-		end
-		if string.find(d.Name, "_belt_stripe_", 1, true) then
-			table.insert(stripes, d)
-		elseif d.Name == def.model .. "_console_body" then
-			consoleBody = d
-		end
-	end
-
-	-- The model's own belt is the running surface you see; the skeleton belt under it
-	-- is the one you stand on, so it goes clear and takes the model's footprint.
-	local travel = belt.CFrame.LookVector * -1
-	if #stripes >= 2 then
-		table.sort(stripes, function(a, b)
-			return a.Position:Dot(travel) < b.Position:Dot(travel)
-		end)
-		local pitch = (stripes[#stripes].Position - stripes[1].Position):Dot(travel) / (#stripes - 1)
-		local count = math.max(1, math.floor(modelBelt.Size.Z / pitch + 1e-3))
-		local length = count * pitch
-		belt.Size = Vector3.new(modelBelt.Size.X, belt.Size.Y, length)
-		local proto = stripes[1]
-		local lift = proto.Position.Y - belt.Position.Y
-		for k = 0, count - 1 do
-			local slat = proto:Clone()
-			slat.Name = "Slat"
-			local at = belt.CFrame * CFrame.new(0, 0, length / 2 - (k + 0.5) * pitch)
-			slat.CFrame = proto.CFrame.Rotation + at.Position + Vector3.new(0, lift, 0)
-			slat.Parent = proto.Parent
-		end
-		for _, stripe in stripes do
-			stripe:Destroy()
-		end
-	else
-		belt.Size = Vector3.new(modelBelt.Size.X, belt.Size.Y, modelBelt.Size.Z)
-	end
-	belt.Transparency = 1
-	-- The training zone covers the whole belt, whatever its size: StationService
-	-- measures from the belt's centre to the runner's HumanoidRootPart (~3.3 studs
-	-- above the belt part's centre), and the gold rung's belt runs well past a fixed 5.
-	-- Re-read by StationService every CACHE_REFRESH, so a swap lands within 2 s.
-	local halfL, halfW = belt.Size.Z / 2, belt.Size.X / 2
-	belt:SetAttribute("Radius", math.ceil((math.sqrt(halfL * halfL + halfW * halfW + 3.3 * 3.3) + 0.5) * 10) / 10)
-
-	addTreadmillFx(look, belt, tier, def.model)
-	if consoleBody then
-		console.CFrame = consoleBody.CFrame
-		console.Size = consoleBody.Size
-	end
-
-	local old = treadmill:FindFirstChild("Look")
-	if old then
-		old:Destroy()
-	end
-	look.Name = "Look"
-	look.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
-	look.Parent = treadmill
-	treadmill:SetAttribute("LookTier", tier)
-	return true
-end
-
---- THE UPGRADE SIGN: a studded navy board on a post beside the belt, the way to buy the
---- next rung (on request, in place of the console's E prompt). Only the geometry is
---- built here. What it says, and its red cash and purple Robux buttons, are drawn by
---- the client (TreadmillSignController) from the treadmill's `Tier` / `Locked`
---- attributes: buttons on a world gui only take input from a gui under PlayerGui.
----
---- PLACED OFF THE BELT, never from plot-local numbers: the sign stands at a fixed
---- offset from the skeleton `Belt`, whose centre never moves (installTreadmillLook),
---- on the +X side between the machine and the entrance path, PARALLEL TO THE FRONT
---- FENCE (on request), its face turned back into the base (+Z), a little ahead of the
---- belt's centre so a runner facing out sees it front-on to their right. Its near
---- edge stands `gap` off the INSTALLED rung's +X side (treadmillSideX), so it hugs
---- the small belts too instead of always clearing the diamond (on request: closer).
-local UPGRADE_SIGN = {
-	gap = 0.5, -- board's near edge to the installed rung's +X side
-	fallbackSide = 6.8, -- the diamond rung's side, for a treadmill with no Look
-	z = -3, -- toward the entrance (-Z), ahead of the runner
-	-- Five sixths of the second cut (on request: slightly smaller again). The client
-	-- draws its face at the board's own size, so these can change freely.
-	boardW = 5,
-	boardH = 2.75,
-	boardT = 1,
-	boardBottom = 2.2, -- above the pad
-	-- The post is exactly as thick as the board and centred under it, so its front
-	-- and back run flush into the board's (on request: line up, same width).
-	postW = 1,
-	color = "1D2B4F",
-}
-
---- Where a treadmill built before `TREADMILL.cz` moved stood (no `BeltZ` attribute).
-local LEGACY_TREADMILL_CZ = -33.5
-
---- Move a treadmill saved in the place at an older `TREADMILL.cz` to the current one:
---- the skeleton belt, console, look and sign all slide along the plot's Z axis by the
---- difference, and `BeltZ` records where it now is. A no-op once it is in place, so
---- setTreadmillTier calls it on every repaint. The belt's rotation IS the plot's.
-local function placeTreadmill(treadmill: Instance)
-	local belt = treadmill:FindFirstChild("Belt")
-	if belt == nil or not belt:IsA("BasePart") then
-		return
-	end
-	local at = treadmill:GetAttribute("BeltZ")
-	local shift = TREADMILL.cz - (if type(at) == "number" then at else LEGACY_TREADMILL_CZ)
-	if math.abs(shift) < 1e-3 then
-		return
-	end
-	local offset = belt.CFrame.ZVector * shift
-	for _, child in treadmill:GetChildren() do
-		if child:IsA("BasePart") then
-			child.CFrame += offset
-		elseif child:IsA("Model") then
-			child:PivotTo(child:GetPivot() + offset)
-		end
-	end
-	treadmill:SetAttribute("BeltZ", TREADMILL.cz)
-end
-
---- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
---- setTreadmillTier calls it on every repaint. A sign built to an older UPGRADE_SIGN
---- (its board a different size, or stood at a different offset) is taken down and put up again to the current one.
---- Which side of the belt the sign stands on: +1 (+X, the default) or -1, set by
---- buildTreadmill on a pad whose strip is mirrored (buildPlot's `stripFlip`), so the sign
---- always stands toward the middle of the pad rather than into the fence.
-local function signSide(treadmill: Instance): number
-	return if treadmill:GetAttribute("SignSide") == -1 then -1 else 1
-end
-
---- How far the installed rung's `Look` reaches off the belt's centre line on the sign's
---- side, measured once per look and kept as its `SideX` attribute (`SideXNeg` for the
---- -X side): setTreadmillTier asks on every repaint and the look only changes on a swap.
-local function treadmillSideX(treadmill: Instance, belt: BasePart): number
-	local look = treadmill:FindFirstChild("Look")
-	if look == nil then
-		return UPGRADE_SIGN.fallbackSide
-	end
-	local dir = signSide(treadmill)
-	local key = if dir < 0 then "SideXNeg" else "SideX"
-	local cached = look:GetAttribute(key)
-	if type(cached) == "number" then
-		return cached
-	end
-	local side = 0
-	for _, d in look:GetDescendants() do
-		if d:IsA("BasePart") and d.Transparency < 1 then
-			local h = d.Size / 2
-			for _, sx in { 1, -1 } do
-				for _, sy in { 1, -1 } do
-					for _, sz in { 1, -1 } do
-						local corner = d.CFrame * Vector3.new(h.X * sx, h.Y * sy, h.Z * sz)
-						side = math.max(side, dir * belt.CFrame:PointToObjectSpace(corner).X)
-					end
-				end
-			end
-		end
-	end
-	side = math.ceil(side * 10) / 10
-	look:SetAttribute(key, side)
-	return side
-end
-
-local function ensureUpgradeSign(treadmill: Instance)
-	local belt = treadmill:FindFirstChild("Belt")
-	if belt == nil or not belt:IsA("BasePart") then
-		return
-	end
-	local u = UPGRADE_SIGN
-	local x = signSide(treadmill) * (treadmillSideX(treadmill, belt) + u.gap + u.boardW / 2)
-	local existing = treadmill:FindFirstChild("UpgradeSign")
-	if existing then
-		local board = existing:FindFirstChild("Board")
-		if
-			board
-			and board:IsA("BasePart")
-			and (board.Size - Vector3.new(u.boardW, u.boardH, u.boardT)).Magnitude < 1e-3
-			and existing:GetAttribute("OffsetX") == x
-			and existing:GetAttribute("OffsetZ") == u.z
-		then
-			return
-		end
-		existing:Destroy()
-	end
-	local padTop = belt.Position.Y + belt.Size.Y / 2 - TREADMILL.beltTop
-	local level = belt.CFrame.Rotation + Vector3.new(belt.Position.X, padTop, belt.Position.Z)
-	-- The board's front face (-Z) is turned to look along +Z, back into the base.
-	local frame = level * CFrame.new(x, 0, u.z) * CFrame.Angles(0, math.pi, 0)
-
-	local sign = Instance.new("Model")
-	sign.Name = "UpgradeSign"
-	local postH = u.boardBottom + 0.5 -- runs half a stud up into the board
-	build(sign, frame, {
-		name = "Post",
-		pos = { 0, postH / 2, 0 },
-		size = { u.postW, postH, u.boardT },
-		color = u.color,
-		material = "Plastic",
-		studs = true,
-	})
-	build(sign, frame, {
-		name = "Board",
-		pos = { 0, u.boardBottom + u.boardH / 2, 0 },
-		size = { u.boardW, u.boardH, u.boardT },
-		color = u.color,
-		material = "Plastic",
-		studs = true,
-	})
-	sign:SetAttribute("OffsetX", x)
-	sign:SetAttribute("OffsetZ", u.z)
-	sign.Parent = treadmill
-end
-
---- Dress one plot's treadmill in a belt rung. Returns the tier actually applied, or
---- nil if this plot has no treadmill to dress (a place file saved before the machine
---- existed — degrade quietly, exactly as setHoseTier does).
----
---- EACH RUNG IS ITS OWN MODEL: the five imported treadmills in
---- ReplicatedStorage.Assets.TreadmillTemplates, one per Treadmill.TIERS entry. Buying a
---- belt swaps the machine for the next one (installTreadmillLook). A treadmill built
---- before the imported models (no `ImportedLook` attribute) keeps its old body and
---- only has its sign rewritten, until the world is rebuilt.
----
---- `points` (the owner's lifetime Speed) is optional and no longer read here.
----
---- `locked` means the owner has not bought treadmill access (Treadmill.UNLOCK_PRICE),
---- or there is no owner. The sign says so, the prompt offers the unlock, and
---- the `Locked` attribute tells TreadmillController to leave this belt standing still.
-function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, _points: number?, locked: boolean?): number?
-	if treadmill == nil then
-		return nil
-	end
-
-	local wanted = math.clamp(math.floor(tier or 1), 1, Treadmill.maxTier())
-	placeTreadmill(treadmill)
-	if treadmill:GetAttribute("ImportedLook") and treadmill:GetAttribute("LookTier") ~= wanted then
-		installTreadmillLook(treadmill, wanted)
-	end
-
-	treadmill:SetAttribute("Locked", locked == true)
-	-- The upgrade sign replaced the console's E prompt (on request). A place saved
-	-- before it still has the prompt, so it goes here, and the sign is put up here
-	-- too: both land on the first repaint, with no world rebuild needed.
-	local console = treadmill:FindFirstChild("Console")
-	local prompt = console and console:FindFirstChild("Upgrade")
-	if prompt and prompt:IsA("ProximityPrompt") then
-		prompt:Destroy()
-	end
-	-- The floating "WALK SPEED n / belt — n% to walk speed n+1" billboard is gone (on
-	-- request): the console screen and the upgrade sign say it. A place saved with it
-	-- still has it, so it is taken down here, same as the prompt above.
-	local oldSign = console and console:FindFirstChild("Sign")
-	if oldSign and oldSign:IsA("BillboardGui") then
-		oldSign:Destroy()
-	end
-	ensureUpgradeSign(treadmill)
-
-	-- The console's "WALK n" screen readout is gone (on request). A Look saved with it
-	-- still carries its clear `Screen` part, so that comes down here too.
-	local readout = treadmill:FindFirstChild("Readout", true)
-	if readout and readout.Parent and readout.Parent.Name == "Screen" then
-		readout.Parent:Destroy()
-	end
-
-	treadmill:SetAttribute("Tier", wanted)
-	return wanted
-end
-
---- THE TREADMILL: a skeleton the world is built with, dressed at runtime in the
---- imported model of whichever belt the plot's owner has bought.
----
---- THE SKELETON IS THE STATION CONTRACT, and it never moves:
----
----   * `Belt` carries StationKind/Radius at the same plot-local centre (World.verify's
----     clearances are measured from it) and is the solid surface a runner stands on.
----     It goes clear once a model is fitted over it, and it is what TreadmillController
----     scrolls the model's `Slat` stripes down.
----   * `Console` carries UpgradesTreadmill + the prompt + the billboard. It is an
----     invisible anchor, moved onto each model's console as the model changes.
----
---- Everything visible is the `Look` model, which Plots.setTreadmillTier swaps per rung.
---- Tier 1 is fitted here, so an unclaimed plot in the saved place already shows the
---- basic treadmill.
-local function buildTreadmill(parent: Instance, origin: CFrame, _accent: string, signDir: number)
-	local m = Instance.new("Model")
-	m.Name = "Treadmill"
-	m:SetAttribute("ImportedLook", true)
-	m:SetAttribute("SignSide", signDir) -- which side of the belt the upgrade sign takes (ensureUpgradeSign)
-	m:SetAttribute("BeltZ", TREADMILL.cz) -- where it was built (placeTreadmill)
-	local t = TREADMILL
-	local B = Plots.PAD.topY + t.beltTop
-
-	build(m, origin, {
-		name = "Belt",
-		pos = { t.cx, B - 0.3, t.cz },
-		size = { t.beltW, 0.6, t.beltL },
-		color = "1A1F24",
-		material = "Rubber",
-		attributes = { StationKind = "treadmill", Radius = 5 },
-	})
-
-	local console = build(m, origin, {
-		name = "Console",
-		pos = { t.cx, B + 5, t.cz - 3 },
-		size = { 1, 1, 1 },
-		color = "2E3338",
-		material = "SmoothPlastic",
-		transparency = 1,
-		canCollide = false,
-		attributes = { UpgradesTreadmill = true },
-	})
-	console.CanQuery = false
-	console.CanTouch = false
-
-	Plots.setTreadmillTier(m, 1, nil, true)
-	m.Parent = parent
 end
 
 --- A plain grey guard rail down the LEFT and RIGHT long edges of the base, on
@@ -4288,16 +3762,14 @@ local function buildPlot(parent: Instance, index: number)
 		buildDisplayStand(m, origin, index, slot, accent)
 	end
 
-	-- The +X machines and the -X treadmill and locker moved in with the fences (STRIP_INSET).
+	-- The +X machines and the -X locker moved in with the fences (STRIP_INSET).
 	local plusIn = CFrame.new(-STRIP_INSET, 0, 0)
 	local minusIn = CFrame.new(STRIP_INSET, 0, 0)
-	local treadmillAt = minusIn
 	-- THE CLEANSING STATION GOES AT THE STAGE END (on request, 2026-10-04). Written on the
 	-- +X side, which is east on a north pad but west on a south one (turned 180), so a
 	-- pad whose +X points away from the stage swaps the strip: the station and bottle
 	-- turned 180 about their own centre onto the -X fence and the locker onto the +X one
-	-- (each still backed onto its fence, still facing the aisle), the treadmill slid
-	-- across to +X (not turned: its runner faces out of the base either way).
+	-- (each still backed onto its fence, still facing the aisle).
 	-- THE BOTTLE TURNS WITH THE STATION, about the tub's centre, not its own: the pump
 	-- tank stands off the tub's +Z face and the bottle off its -Z face, so turning only
 	-- the station swung the tank straight onto the bottle's table. Turned as one, the
@@ -4308,13 +3780,10 @@ local function buildPlot(parent: Instance, index: number)
 		stationAt = flipAbout(STATION_CENTER.x - STRIP_INSET, STATION_CENTER.z) * plusIn
 		lockerAt = flipAbout(LOCKER.x + STRIP_INSET, LOCKER.z) * minusIn
 		bottleAt = stationAt
-		treadmillAt = CFrame.new(-2 * TREADMILL.cx - STRIP_INSET, 0, 0)
 	end
 	buildCleansingStation(m, ground * stationAt, accent)
 	buildQuarantineLocker(m, origin * lockerAt, index)
 	buildFluidBottle(m, ground * bottleAt)
-	-- The treadmill's upgrade sign stands on the side toward the middle of the pad.
-	buildTreadmill(m, ground * treadmillAt, accent, if stripFlip then -1 else 1)
 
 	buildBaseGlow(m, origin)
 

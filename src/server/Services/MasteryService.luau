@@ -14,7 +14,8 @@
 	  merges        MergeService      a merge that gained stars
 	  bagsStolen    ExposureService   first take from someone else's dropped bag
 	  rolls         LiquidService     a fluid brewed
-	  speedPoints, cashEarned, discovered — the profile's own lifetime numbers
+	  speedUpgrades SpeedService     a walk-speed purchase at the Upgrades booth
+	  cashEarned, discovered — the profile's own lifetime numbers
 
 	and `deepestStage`, which nothing else kept, is written here off StageService.
 
