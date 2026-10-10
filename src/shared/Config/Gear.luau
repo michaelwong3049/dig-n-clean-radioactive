@@ -678,10 +678,12 @@ Gear.STAT_META = {
 		volume = { label = "Volume", color = C.blue, tip = "Cleans faster." },
 	},
 	Aura = {
-		order = { "reduction", "tolerance", "capacity", "speedBonus" },
+		order = { "tolerance", "capacity" },
 		-- Haul (speed lost per nuke carried) is off the card on request (2026-10-05);
-		-- the column still slows a loaded player.
-		hidden = { haulPenalty = true },
+		-- the column still slows a loaded player. Shield and Speed followed on request
+		-- (2026-10-10, "too confusing with all these stats"); both columns still apply,
+		-- and their entries below are kept so putting one back is a one-word change.
+		hidden = { haulPenalty = true, reduction = true, speedBonus = true },
 		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log", tip = "Radiation it blocks." },
 		tolerance = { label = "Tolerance", color = C.green, tip = "Radiation you can take before it hurts." },
 		capacity = { label = "Carry", color = C.yellow, tip = "Nukes you can carry." },
