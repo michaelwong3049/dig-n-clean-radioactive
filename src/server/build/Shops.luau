@@ -192,6 +192,7 @@ local Mastery = require(Shared.Mastery) -- Mastery.short: "$360M"
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 local ShopThemes = require(script.Parent.ShopThemes)
+local ImportedStation = require(script.Parent.ImportedStation)
 
 local Shops = {}
 
@@ -205,7 +206,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 89 -- corner pairs ~20 out of the corners toward the middle (2026-10-10)
+local BUILDER_VERSION = 91 -- booths are the imported studded shop stand, each in its own colour (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -1197,6 +1198,27 @@ export type CounterSpec = {
 	height: number?,
 }
 
+--- The E prompt that opens a shop's panel, on `desk`. See buildCounter's `promptText`.
+local function addViewShopPrompt(desk: BasePart, text: string, reach: number?)
+	local prompt = Instance.new("ProximityPrompt")
+	-- StationController matches on this name, and on nothing else: the rack's own
+	-- hooks are "Upgrade" prompts that buy a tier outright, and the two must never
+	-- be confused for each other by whatever is listening.
+	prompt.Name = "ViewShop"
+	prompt.ActionText = "Browse"
+	prompt.ObjectText = text
+	-- NO HOLD. The rack's buy prompts hold for 0.4s because they spend money on
+	-- release; this one opens a window, and a window that makes you hold a key to
+	-- look through it is just a slower window.
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = reach or STAND_PROMPT_REACH
+	-- The trim cap overhangs the desk by a couple of studs, which is enough to
+	-- occlude a prompt anchored in the desk's own centre from a player standing at
+	-- normal height in front of it.
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = desk
+end
+
 --- The counter desk — the interactive part — in grey storefront lumber
 --- (C.shopWood) with a coloured trim cap on top in the shop's own accent.
 --- Returns the desk so the caller can billboard it. `name` defaults to "Counter"
@@ -1234,23 +1256,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 	build(parent, origin, { name = `{name}Trim`, pos = { 0, h + 0.05, z }, size = { w + lip, 0.3, d + lip }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
 
 	if spec.promptText then
-		local prompt = Instance.new("ProximityPrompt")
-		-- StationController matches on this name, and on nothing else: the rack's own
-		-- hooks are "Upgrade" prompts that buy a tier outright, and the two must never
-		-- be confused for each other by whatever is listening.
-		prompt.Name = "ViewShop"
-		prompt.ActionText = "Browse"
-		prompt.ObjectText = spec.promptText
-		-- NO HOLD. The rack's buy prompts hold for 0.4s because they spend money on
-		-- release; this one opens a window, and a window that makes you hold a key to
-		-- look through it is just a slower window.
-		prompt.HoldDuration = 0
-		prompt.MaxActivationDistance = spec.promptReach or STAND_PROMPT_REACH
-		-- The trim cap overhangs the desk by a couple of studs, which is enough to
-		-- occlude a prompt anchored in the desk's own centre from a player standing at
-		-- normal height in front of it.
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = desk
+		addViewShopPrompt(desk, spec.promptText, spec.promptReach)
 	end
 
 	return desk
@@ -2024,7 +2030,7 @@ end
 --- hangTierModel (the racks' own fitting, magnets seated poles-down). The
 --- Aura shop shows two mannequins wearing their rung's aura instead (ShopThemes'
 --- dressOutfitter), standing on the floor: their torsos already clear the wall.
-local BOOTH_DISPLAY_X = 4 -- each display's distance from the booth's centre line (6.5 -> 4 with the narrower booths)
+local BOOTH_DISPLAY_X = 3 -- each display's distance from the booth's centre line (6.5 -> 4 -> 3: inside the imported stall's posts)
 local BOOTH_PLINTH = 2.4 -- the plinth's width and depth
 local BOOTH_PLINTH_HEIGHT = 1
 -- The racks' sizes read as specks from the plaza (a magnet came out ~1 stud), so a
@@ -2112,6 +2118,101 @@ local function buildBoothDisplays(parent: Instance, origin: CFrame, boothId: str
 	end
 end
 
+--- THE IMPORTED SHOP STAND (2026-10-10, on request: "i imported new shop stands, replace
+--- all the current shops with this, with their own unique color, also give them studded
+--- textures like how the game theme is"): a market stall -- four posts on feet, roof
+--- beams, an eight-stripe awning sloping down to the front with a valance, a counter
+--- across the front. The template lives in the place (ServerStorage.StationTemplates.
+--- ShopStand, see build/ImportedStation), authored facing -Z; a place without it builds
+--- the old booth instead, one booth at a time.
+---
+--- Every piece is repainted (ImportedStation.paint) and studded: the posts, feet and
+--- counter pieces become studded blocks of their own boxes; the awning stripes and roof
+--- beams are sloped plates, so each is rebuilt as a studded block tilted to the awning's
+--- pitch (standPlate) -- a block of a sloped plate's bounding box would be a wedge-thick
+--- slab. The stripes alternate the shop's colour and white, the counter panel wears the
+--- shop's colour a shade darker, the lumber is the camp's warm wood.
+local SHOP_STAND_TEMPLATE = "ShopStand"
+--- The stall's width once scaled (its awning, side to side). Narrower than the booth's
+--- 16-stud footprint so its counter stands about chest high on a player (~3.8 studs).
+local STAND_LOOK_WIDTH = 13
+local STAND_WOOD = "9A6A3E"
+local STAND_WOOD_DARK = "6B4220"
+local STAND_WOOD_LIGHT = "B88A5A"
+local STAND_STRIPE_LIGHT = "F4F4F4"
+
+local function standPalette(color: string): { [string]: ImportedStation.Paint }
+	local palette: { [string]: ImportedStation.Paint } = {
+		counter_panel = { color = Kit.blendHex(color, "000000", 0.2), studs = "Block" },
+		counter_top = { color = STAND_WOOD_LIGHT, studs = "Block" },
+		counter_kick = { color = STAND_WOOD_DARK, studs = "Block" },
+		counter_rail = { color = STAND_WOOD_DARK, studs = "Block" },
+		counter_groove = { color = STAND_WOOD_DARK, studs = "Block" },
+		roof_beam_left = { color = STAND_WOOD },
+		roof_beam_right = { color = STAND_WOOD },
+	}
+	for _, corner in { "front_left", "front_right", "back_left", "back_right" } do
+		palette[`post_{corner}`] = { color = STAND_WOOD, studs = "Block" }
+		palette[`post_foot_{corner}`] = { color = STAND_WOOD_DARK, studs = "Block" }
+	end
+	for i = 0, 7 do
+		local stripe = if i % 2 == 0 then color else STAND_STRIPE_LIGHT
+		palette[`stripe_{i}`] = { color = stripe }
+		palette[`valance_{i}`] = { color = stripe, studs = "Block" }
+	end
+	return palette
+end
+
+local STUD_FACES = { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" }
+
+--- Rebuild the painted sloped plate `p` (its mesh still on) as a studded block lying at
+--- `pitch` radians, high at the back and low toward `front`, filling the same box: as
+--- deep as the box along the slope, and as thick as what the slope leaves of its height.
+local function standPlate(p: BasePart, front: Vector3, pitch: number)
+	local mesh = p:FindFirstChildOfClass("SpecialMesh")
+	if mesh then
+		mesh:Destroy()
+	end
+	local size, at = p.Size, p.Position
+	local thick = math.max(size.Y - size.Z * math.tan(pitch), 0.2)
+	local down = (front * math.cos(pitch) - Vector3.yAxis * math.sin(pitch)).Unit
+	p.Size = Vector3.new(size.X, thick, size.Z / math.cos(pitch))
+	p.CFrame = CFrame.lookAt(at, at + down)
+	p.Material = Enum.Material.Plastic
+	for _, face in STUD_FACES do
+		(p :: any)[face] = Enum.SurfaceType.Studs
+	end
+end
+
+--- The awning's pitch, read off the placed stall: the back posts stand taller than the
+--- front ones. 0 if either post is missing.
+local function standPitch(look: Model): number
+	local fore, aft = look:FindFirstChild("post_front_left", true), look:FindFirstChild("post_back_left", true)
+	if not (fore and fore:IsA("BasePart") and aft and aft:IsA("BasePart")) then
+		return 0
+	end
+	local rise = (aft.Position.Y + aft.Size.Y / 2) - (fore.Position.Y + fore.Size.Y / 2)
+	local run = ((aft.Position - fore.Position) * Vector3.new(1, 0, 1)).Magnitude
+	return if run > 1e-3 then math.atan(rise / run) else 0
+end
+
+--- The stall itself, in `m`, centred on the booth's island (ISLAND_Z) and facing the
+--- booth's front (local +Z). Returns the stall's top, local Y, for the name sign.
+local function buildImportedStand(m: Model, origin: CFrame, color: string, template: Model): number
+	local _, size = template:GetBoundingBox()
+	local look = ImportedStation.place(template, m, origin * CFrame.new(0, 0, ISLAND_Z), STAND_LOOK_WIDTH / size.X)
+	ImportedStation.paint(look, standPalette(color))
+	local pitch = standPitch(look)
+	local front = origin.ZVector
+	for _, d in look:GetDescendants() do
+		if d:IsA("BasePart") and (d.Name:match("^stripe_%d+$") or d.Name:match("^roof_beam_")) then
+			standPlate(d, front, pitch)
+		end
+	end
+	local box, lookSize = look:GetBoundingBox()
+	return origin:PointToObjectSpace(box.Position).Y + lookSize.Y / 2
+end
+
 --- One booth. `originOverride` and `spec.camp` are a site camp's (Shops.buildCampBooth).
 type BoothSpec = { track: string, at: { number }, faceYaw: number, color: string, label: string, camp: string?, sell: boolean? }
 local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFrame?)
@@ -2120,69 +2221,105 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 	local origin = originOverride or facingOrigin(spec.at[1], spec.at[2], spec.faceYaw)
 	local width = BOOTH_WIDTH
 
-	build(m, origin, {
-		name = "StallFloor",
-		pos = { 0, 0.05, -4 },
-		size = { width, 0.1, 12 },
-		color = C.steelDark,
-		material = "Plastic",
-		studs = true,
-		canCollide = false,
-	})
-	-- Black legs, plain roof, no trade props or floor markers (2026-10-04, on request:
-	-- "simplify shop designs, remove decorations, make the legs of each stand black").
-	buildStorefrontPosts(m, origin, width, BOOTH_FRAME)
-	-- No spine between the two stands (2026-10-04, on request: "remove the wall in between").
-
-	-- The stand, front and back: the black wall's long runs (see BOOTH_WALL_Z). ONE-SIDED
-	-- since 2026-10-10 (on request): only the front run is a counter you shop at; the back
-	-- run is plain wall.
-	for _, side in { { name = "Stand", frame = origin, sells = true }, { name = "StandBack", frame = backFrame(origin, 0), sells = false } } do
-		local shopHere = side.sells and not spec.sell
-		buildCounter(m, side.frame, {
-			name = side.name,
-			color = BOOTH_FRAME,
-			bodyColor = BOOTH_FRAME,
-			trimOverhang = BOOTH_WALL_LIP,
-			height = BOOTH_WALL_HEIGHT,
-			width = BOOTH_POST_X * 2,
-			depth = BOOTH_WALL_THICK,
-			z = BOOTH_WALL_Z,
-			-- The back run, and both of the Sell booth's (its TraderStation does the
-			-- selling), are plain walls.
-			stationKind = if shopHere then "shop" else nil,
-			stationId = if shopHere then spec.track else nil,
-			stationCamp = spec.camp,
-			radius = if shopHere then STAND_RADIUS else nil,
-			promptText = if shopHere then spec.label else nil,
-			material = "Plastic",
-			studded = true,
+	local template = ImportedStation.template(SHOP_STAND_TEMPLATE)
+	if template then
+		-- The imported stall (see SHOP_STAND_TEMPLATE), with an invisible desk along its
+		-- counter carrying the shop's station and E prompt -- front only, and none on the
+		-- Sell booth (its TraderStation sells).
+		local top = buildImportedStand(m, origin, spec.color, template)
+		if not spec.sell then
+			local desk = build(m, origin, {
+				name = "Stand",
+				pos = { 0, 2, SHOPFRONT_Z },
+				size = { STAND_LOOK_WIDTH - 1, 4, 1 },
+				color = C.steel,
+				material = "SmoothPlastic",
+				transparency = 1,
+				canCollide = false,
+				attributes = { StationKind = "shop", StationId = spec.track, Radius = STAND_RADIUS, ShopCamp = spec.camp },
+			})
+			desk.CanQuery = false
+			desk.CanTouch = false
+			addViewShopPrompt(desk, spec.label)
+		end
+		local anchor = build(m, origin, {
+			name = "SignAnchor",
+			pos = { 0, top, ISLAND_Z },
+			size = { 1, 1, 1 },
+			color = C.steel,
+			material = "SmoothPlastic",
+			transparency = 1,
+			canCollide = false,
 		})
-	end
-	-- The wall's two ends, joining the runs through the posts.
-	local endLength = BOOTH_WALL_Z - mirrorZ(BOOTH_WALL_Z)
-	for _, x in { -BOOTH_POST_X, BOOTH_POST_X } do
+		anchor.CanQuery = false
+		anchor.CanTouch = false
+		buildStoreBillboard(anchor, spec.label, spec.color, 5)
+	else
 		build(m, origin, {
-			name = "BoothWall",
-			pos = { x, BOOTH_WALL_HEIGHT / 2, ISLAND_Z },
-			size = { BOOTH_WALL_THICK, BOOTH_WALL_HEIGHT, endLength },
-			color = BOOTH_FRAME,
-			material = "Plastic",
-			studs = true,
-		})
-		build(m, origin, {
-			name = "BoothWallTrim",
-			pos = { x, BOOTH_WALL_HEIGHT + 0.05, ISLAND_Z },
-			size = { BOOTH_WALL_THICK + BOOTH_WALL_LIP * 2, 0.3, endLength },
-			color = BOOTH_FRAME,
+			name = "StallFloor",
+			pos = { 0, 0.05, -4 },
+			size = { width, 0.1, 12 },
+			color = C.steelDark,
 			material = "Plastic",
 			studs = true,
 			canCollide = false,
 		})
-	end
+		-- Black legs, plain roof, no trade props or floor markers (2026-10-04, on request:
+		-- "simplify shop designs, remove decorations, make the legs of each stand black").
+		buildStorefrontPosts(m, origin, width, BOOTH_FRAME)
+		-- No spine between the two stands (2026-10-04, on request: "remove the wall in between").
 
-	buildPlainRoof(m, origin, spec.color, width, BOOTH_FRAME)
-	buildRoofTop(m, origin, width, spec.color, spec.label)
+		-- The stand, front and back: the black wall's long runs (see BOOTH_WALL_Z). ONE-SIDED
+		-- since 2026-10-10 (on request): only the front run is a counter you shop at; the back
+		-- run is plain wall.
+		for _, side in { { name = "Stand", frame = origin, sells = true }, { name = "StandBack", frame = backFrame(origin, 0), sells = false } } do
+			local shopHere = side.sells and not spec.sell
+			buildCounter(m, side.frame, {
+				name = side.name,
+				color = BOOTH_FRAME,
+				bodyColor = BOOTH_FRAME,
+				trimOverhang = BOOTH_WALL_LIP,
+				height = BOOTH_WALL_HEIGHT,
+				width = BOOTH_POST_X * 2,
+				depth = BOOTH_WALL_THICK,
+				z = BOOTH_WALL_Z,
+				-- The back run, and both of the Sell booth's (its TraderStation does the
+				-- selling), are plain walls.
+				stationKind = if shopHere then "shop" else nil,
+				stationId = if shopHere then spec.track else nil,
+				stationCamp = spec.camp,
+				radius = if shopHere then STAND_RADIUS else nil,
+				promptText = if shopHere then spec.label else nil,
+				material = "Plastic",
+				studded = true,
+			})
+		end
+		-- The wall's two ends, joining the runs through the posts.
+		local endLength = BOOTH_WALL_Z - mirrorZ(BOOTH_WALL_Z)
+		for _, x in { -BOOTH_POST_X, BOOTH_POST_X } do
+			build(m, origin, {
+				name = "BoothWall",
+				pos = { x, BOOTH_WALL_HEIGHT / 2, ISLAND_Z },
+				size = { BOOTH_WALL_THICK, BOOTH_WALL_HEIGHT, endLength },
+				color = BOOTH_FRAME,
+				material = "Plastic",
+				studs = true,
+			})
+			build(m, origin, {
+				name = "BoothWallTrim",
+				pos = { x, BOOTH_WALL_HEIGHT + 0.05, ISLAND_Z },
+				size = { BOOTH_WALL_THICK + BOOTH_WALL_LIP * 2, 0.3, endLength },
+				color = BOOTH_FRAME,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
+		end
+
+		buildPlainRoof(m, origin, spec.color, width, BOOTH_FRAME)
+		buildRoofTop(m, origin, width, spec.color, spec.label)
+		buildNameBoard(m, origin, boardText(spec.label))
+	end
 	-- The Upgrades booth sells walk speed, not gear, and the Sell booth buys: nothing to
 	-- stand on their plinths.
 	if spec.sell then
@@ -2206,7 +2343,6 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 	-- so you can see where to stand to buy (2026-10-04, on request). Front only since the
 	-- booths went one-sided (2026-10-10).
 	buildStepPad(m, origin, spec.color)
-	buildNameBoard(m, origin, boardText(spec.label))
 
 	m.Parent = parent
 	return m
