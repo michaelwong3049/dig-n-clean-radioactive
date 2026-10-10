@@ -180,8 +180,9 @@ local PACK_H = 222
 -- left, its five prizes in rarity frames with their odds, and an xN R$ button per bundle.
 local NUKE_PACK_H = 268
 local NUKE_PACK_ART = 196
--- The prize tiles grow left to right, most likely (smallest) to rarest (biggest), on
--- request (2026-10-10), bottoms lined up. Sizes run evenly between these two.
+-- The prize tiles grow with RARITY, on request (2026-10-10): every prize of one rarity
+-- the same size (both Legendaries, both Mythics), the pack's lowest rarity smallest and
+-- its highest biggest, bottoms lined up. Sizes run evenly between these two.
 local PRIZE_SMALL = Vector2.new(84, 92)
 local PRIZE_BIG = Vector2.new(128, 132)
 -- How far each prize tile's camera zooms in past ItemArt's fit. Kept under ItemArt's
@@ -717,6 +718,16 @@ local function buildNukePack(parent: Instance)
 		return a.itemId < b.itemId
 	end)
 
+	-- Each rarity in the pack, lowest first, for the tile sizes.
+	local tiers: { number } = {}
+	for _, prize in prizes do
+		local order = Rarity.get(Items.get(prize.itemId).rarity).order
+		if not table.find(tiers, order) then
+			table.insert(tiers, order)
+		end
+	end
+	table.sort(tiers)
+
 	local right = Instance.new("Frame")
 	right.Name = "Right"
 	right.BackgroundTransparency = 1
@@ -745,7 +756,8 @@ local function buildNukePack(parent: Instance)
 		local tile = Instance.new("Frame")
 		tile.Name = `Prize_{prize.itemId}`
 		tile.LayoutOrder = index
-		local grow = if #prizes > 1 then (index - 1) / (#prizes - 1) else 1
+		local tier = table.find(tiers, rarity.order) or #tiers
+		local grow = if #tiers > 1 then (tier - 1) / (#tiers - 1) else 1
 		local size = PRIZE_SMALL:Lerp(PRIZE_BIG, grow)
 		tile.Size = UDim2.fromOffset(math.round(size.X), math.round(size.Y))
 		tile.BackgroundColor3 = Color3.new(0, 0, 0)
