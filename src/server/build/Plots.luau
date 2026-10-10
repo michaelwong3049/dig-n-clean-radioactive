@@ -221,7 +221,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 126 -- four bases in the west row, 8 further back; side bases out past them (2026-10-10)
+local BUILDER_VERSION = 127 -- side bases 8 nearer the middle (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -392,8 +392,10 @@ local ROW_X = ROW_FRONT_X - PAD_FRONT_REACH
 --- off the east wall's face, where the chest square stood -- the chest and crates went to
 --- the middle square, the leaderboards to the shoulders by Stage 1's mouth.
 local SIDE_X = 58
--- 106 -> 136 when the row went to four (its outer edges at |z| 133.5).
-local SIDE_FRONT_Z = 136
+-- 106 -> 136 when the row went to four (its outer edges at |z| 133.5), then 128 on
+-- request ("move the side bases closer to the middle by 8 studs"); the row's ends stand
+-- well west of them (x <= 7 vs >= 29.5), so the pads still never overlap.
+local SIDE_FRONT_Z = 128
 local SIDE_Z = SIDE_FRONT_Z + PAD_FRONT_REACH
 
 --- Numbered left to right as you stand at the row's fronts facing Stage 1: 1 is the -Z
