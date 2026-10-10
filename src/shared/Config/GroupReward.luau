@@ -55,7 +55,10 @@ GroupReward.CASH_MULT = 1.1
 -- Later 2026-10-10, on request ("move the crates and chest in the middle"): the side bases
 -- took the shoulder, so it stands on the grey middle square (build/Hub MIDDLE), on its
 -- long axis toward Stage 1, still facing the bases.
-GroupReward.CHEST_POSITION = Vector3.new(66, -1.15, 0)
+-- Later still (on request: "put the chest on the right wall next to stage 1"): against the
+-- east wall's right-hand (+z) shoulder as you face Stage 1, just past the mouth, back on
+-- its own small raised square (build/PrizeSquare). The crate pads stay on the middle square.
+GroupReward.CHEST_POSITION = Vector3.new(83, -1.15, 110)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.

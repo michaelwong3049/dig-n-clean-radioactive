@@ -74,7 +74,9 @@ export type Pad = {
 local CHEST_X = 66
 local CHEST_Z = 0
 local FLOOR_Y = -1.15
-local PAD_Z = 18
+-- 18 -> 9 when the chest left for the east wall (2026-10-10): the two pads close up into
+-- one pair, ~3 studs apart, on the middle square.
+local PAD_Z = 9
 
 -- Each pad is a stadium: a round end round each crate, joined down the middle.
 CrateShop.SPREAD = 3.3 -- pad centre to each crate's centre, along Z

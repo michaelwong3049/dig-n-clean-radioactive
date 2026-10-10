@@ -33,7 +33,8 @@ PrizeSquare.MODEL_NAME = "PrizeSquare"
 -- 18 -> 12 when it moved against the east wall (2026-10-10): its east edge stops at x 95,
 -- a stud short of the wall's face, and the chest's ring (9.1) still clears the kerb.
 PrizeSquare.HALF_X = 12 -- half its depth along X, kerb included (24)
-PrizeSquare.HALF_Z = 30 -- half its length along Z, kerb included (60)
+-- 30 -> 12 when the crate pads stayed in the middle (2026-10-10): the chest's alone, a square.
+PrizeSquare.HALF_Z = 12 -- half its length along Z, kerb included (24)
 local KERB = 2 -- the kerb band, half a tile like the shop strip's
 
 --- The floor's top face: level with the shop square's pavers. The chest and the
@@ -47,7 +48,8 @@ end
 --- NOTHING TO LAY WHILE THE CHEST IS ON THE MIDDLE SQUARE (2026-10-10): Hub's grey middle
 --- square is its floor, at the same height (SHOP_FLOOR_LIFT), and a second square on top
 --- would z-fight. The model stays, empty, so World.verify and GroupRewardService still find it.
-local ON_MIDDLE_SQUARE = true
+--- Off again the same day: the chest went to the east wall's +z shoulder, on its own square.
+local ON_MIDDLE_SQUARE = false
 
 --- The square, fully formed and UNPARENTED (Kit.swap's contract).
 function PrizeSquare.build(): Model

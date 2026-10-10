@@ -57,7 +57,9 @@ local FLOOR_Y_FALLBACK = -1.5
 -- Later 2026-10-10: the side bases moved up against the east wall, hiding the +z shoulder,
 -- so the boards hang one each side of Stage 1's mouth, between it (|z| 83, corridor wall
 -- face 87) and the side bases' fronts (|z| 106): Cash on the left (-z), Speed on the right.
-local BOARD_Z = { -95, 95 }
+-- Later again: the chest took the +z shoulder, so both boards hang together on the -z one
+-- (as they did on +z before), Cash nearer the mouth.
+local BOARD_Z = { -98, -117 }
 local OUT = Vector3.new(-1, 0, 0) -- the way the boards face, off the wall into the camp
 local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
 local BOARD_H = 22.5 -- keep W:H at 2:3 so the canvas stays 800 x 1200
