@@ -205,7 +205,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 87 -- booths in two angled pairs across the corners by Stage 1, on the lawn (2026-10-10)
+local BUILDER_VERSION = 88 -- one-sided booths; corner pairs 9 nearer the narrower Stage 1 mouth (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -1899,10 +1899,10 @@ end
 --- TWO PAIRS ACROSS THE CORNERS BY STAGE 1 (2026-10-10, on request: "split the shops into
 --- two on one side two on the other, position them ... against the corner of the stages",
 --- angled 45 degrees): where the east wall's shoulders end at Stage 1's mouth (x 96,
---- |z| 92), each pair is set diagonally across the corner, side by side, facing out of it
+--- |z| 83 since the stages went 166 wide; 9 nearer the middle than at 184), each pair is set diagonally across the corner, side by side, facing out of it
 --- toward the middle of the camp. Left of the mouth as you face Stage 1 (-z): Upgrades
 --- (Magnet) in the corner, Aura beside it; right (+z): Sell (SELL_BOOTH) in the corner,
---- Gear (Detector) beside it. Every footprint stays clear of the mouth (|z| > 92) and the
+--- Gear (Detector) beside it. Every footprint stays clear of the mouth (|z| > 83) and the
 --- wall (x < 96); the chest square (Config/GroupReward) and the leaderboards
 --- (LeaderboardService) sit further along the walls. Open front and back, as ever.
 --- Earlier the same day: one tight row in front of the middle base.
@@ -1912,9 +1912,9 @@ local LEFT_FACE, RIGHT_FACE = -45, -135 -- fronts to (-x, +z) and (-x, -z): out 
 local BOOTHS = {
 	-- The Magnet booth is the UPGRADES booth and the Detector booth the GEAR booth
 	-- (Config/Booths, 2026-10-09): same station ids, new names.
-	{ track = "Magnet", at = { 80, -102 }, faceYaw = LEFT_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
-	{ track = "Aura", at = { 66.5, -115.5 }, faceYaw = LEFT_FACE, color = C.shopOutfitter, label = "Aura Shop" },
-	{ track = "Detector", at = { 66.5, 115.5 }, faceYaw = RIGHT_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
+	{ track = "Magnet", at = { 80, -93 }, faceYaw = LEFT_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
+	{ track = "Aura", at = { 66.5, -106.5 }, faceYaw = LEFT_FACE, color = C.shopOutfitter, label = "Aura Shop" },
+	{ track = "Detector", at = { 66.5, 106.5 }, faceYaw = RIGHT_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
 	-- No Hose Shop booth (2026-10-09, on request): hoses are bought on the Hoses pad beside
 	-- each base's tub (build/Plots ensureHosePad).
 }
@@ -1924,10 +1924,10 @@ local BOOTHS = {
 --- the right-hand corner pair. It replaces Base Camp's four-sided hazmat kiosk. BaseCamp builds it (as its
 --- `Trader` model, which WarpService's SELL button and World.verify's trader census look
 --- for) through Shops.buildSellBooth. Its counters carry no shop station; one invisible
---- TraderStation in the middle opens the sell panel within SELL_RADIUS, which reaches past
---- both step pads.
-local SELL_BOOTH = { track = "Sell", at = { 80, 102 }, faceYaw = RIGHT_FACE, color = "3DBE5C", label = "Sell", sell = true }
-local SELL_RADIUS = 12
+--- TraderStation over the front step pad opens the sell panel within SELL_RADIUS -- the
+--- front only, since the booths went one-sided (2026-10-10).
+local SELL_BOOTH = { track = "Sell", at = { 80, 93 }, faceYaw = RIGHT_FACE, color = "3DBE5C", label = "Sell", sell = true }
+local SELL_RADIUS = 7
 
 --- The booth's step pad: a studded strip in `color` on the plaza just in front of the
 --- stand (inside STAND_PROMPT_REACH of the desk), with a thin Neon rim in the same colour.
@@ -2063,10 +2063,10 @@ local function buildBoothDisplays(parent: Instance, origin: CFrame, boothId: str
 	for index, pick in picks do
 		local track, tier = pick.track, pick.tier
 		local stall = stallFor(track)
-		-- The cheap one on the front frame, the dear one on the back (see backFrame):
-		-- the same local x lands them on opposite halves of the booth.
-		local frame = if index == 1 then origin else backFrame(origin, 0)
-		local x = -BOOTH_DISPLAY_X
+		-- Both face the front since the booths went one-sided (2026-10-10): the cheap one
+		-- on the left half, the dear one on the right.
+		local frame = origin
+		local x = if index == 1 then -BOOTH_DISPLAY_X else BOOTH_DISPLAY_X
 		if track == "Aura" then
 			ShopThemes.dressOutfitter(displays, frame, { { x = x, tier = tier } }, BOOTH_MANNEQUIN_SCALE)
 			continue
@@ -2132,8 +2132,11 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 	buildStorefrontPosts(m, origin, width, BOOTH_FRAME)
 	-- No spine between the two stands (2026-10-04, on request: "remove the wall in between").
 
-	-- The stand, front and back: the black wall's long runs (see BOOTH_WALL_Z).
-	for _, side in { { name = "Stand", frame = origin }, { name = "StandBack", frame = backFrame(origin, 0) } } do
+	-- The stand, front and back: the black wall's long runs (see BOOTH_WALL_Z). ONE-SIDED
+	-- since 2026-10-10 (on request): only the front run is a counter you shop at; the back
+	-- run is plain wall.
+	for _, side in { { name = "Stand", frame = origin, sells = true }, { name = "StandBack", frame = backFrame(origin, 0), sells = false } } do
+		local shopHere = side.sells and not spec.sell
 		buildCounter(m, side.frame, {
 			name = side.name,
 			color = BOOTH_FRAME,
@@ -2143,12 +2146,13 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 			width = BOOTH_POST_X * 2,
 			depth = BOOTH_WALL_THICK,
 			z = BOOTH_WALL_Z,
-			-- The Sell booth's counters are plain walls; its TraderStation does the selling.
-			stationKind = if spec.sell then nil else "shop",
-			stationId = if spec.sell then nil else spec.track,
+			-- The back run, and both of the Sell booth's (its TraderStation does the
+			-- selling), are plain walls.
+			stationKind = if shopHere then "shop" else nil,
+			stationId = if shopHere then spec.track else nil,
 			stationCamp = spec.camp,
-			radius = if spec.sell then nil else STAND_RADIUS,
-			promptText = if spec.sell then nil else spec.label,
+			radius = if shopHere then STAND_RADIUS else nil,
+			promptText = if shopHere then spec.label else nil,
 			material = "Plastic",
 			studded = true,
 		})
@@ -2182,7 +2186,7 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 	if spec.sell then
 		local station = build(m, origin, {
 			name = "TraderStation",
-			pos = { 0, 1.5, ISLAND_Z },
+			pos = { 0, 1.5, BOOTH_PAD_FRONT - BOOTH_PAD_DEPTH / 2 },
 			size = { 1, 1, 1 },
 			color = C.steel,
 			material = "SmoothPlastic",
@@ -2196,12 +2200,11 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 		buildBoothDisplays(m, origin, spec.track, spec.color)
 	end
 
-	-- A studded pad in the shop's colour in front of each stand, rimmed in glowing Neon,
-	-- so you can see where to stand to buy (2026-10-04, on request).
-	for _, frame in { origin, backFrame(origin, 0) } do
-		buildStepPad(m, frame, spec.color)
-		buildNameBoard(m, frame, boardText(spec.label))
-	end
+	-- A studded pad in the shop's colour in front of the stand, rimmed in glowing Neon,
+	-- so you can see where to stand to buy (2026-10-04, on request). Front only since the
+	-- booths went one-sided (2026-10-10).
+	buildStepPad(m, origin, spec.color)
+	buildNameBoard(m, origin, boardText(spec.label))
 
 	m.Parent = parent
 	return m

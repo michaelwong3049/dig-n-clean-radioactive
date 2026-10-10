@@ -71,7 +71,7 @@ export type Pad = {
 -- 2026-10-10, on request: moved with the chest onto the east wall's left-hand (-z)
 -- shoulder, the pads either side of it along the wall.
 local CHEST_X = 83
-local CHEST_Z = -164 -- -128 -> -164 with the chest, past the corner booths (2026-10-10)
+local CHEST_Z = -156 -- with the chest: past the corner booths (2026-10-10)
 local FLOOR_Y = -1.15
 local PAD_Z = 18
 
