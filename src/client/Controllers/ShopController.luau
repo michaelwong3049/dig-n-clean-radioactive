@@ -211,6 +211,7 @@ local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out
 
 local panelFrame: Frame? = nil
 local panelScale: UIScale? = nil
+local panelBody: ScrollingFrame? = nil
 local codeRemote: any = nil
 
 --- A label in the panel's cartoon voice: white, INK-outlined. `props` are set as-is.
@@ -1349,6 +1350,25 @@ function Shop.open()
 	end
 end
 
+--- Open the Shop scrolled to its CASH packs (the cash badge's yellow "+").
+function Shop.openCash()
+	Shop.open()
+	local body = panelBody
+	local heading = body and body:FindFirstChild("CASHHeading") :: GuiObject?
+	if body == nil or heading == nil or not body.Parent or not (body.Parent :: GuiObject).Visible then
+		return
+	end
+	-- Screen px is canvas px at the panel's resting size, so the gap measured on screen
+	-- is the scroll. While the open pop is still shrunk it isn't, so scroll once now
+	-- (near enough to land on the packs) and once more when the pop has settled.
+	local function scroll()
+		local gap = heading.AbsolutePosition.Y - body.AbsolutePosition.Y
+		body.CanvasPosition = Vector2.new(0, math.max(0, body.CanvasPosition.Y + gap - 4))
+	end
+	task.defer(scroll)
+	task.delay(OPEN.Time + 0.05, scroll)
+end
+
 function Shop.close()
 	if panelFrame then
 		panelFrame.Visible = false
@@ -1452,6 +1472,7 @@ local function buildPanel(): ScreenGui
 
 	panelFrame = panel
 	panelScale = scale
+	panelBody = body
 	return gui
 end
 

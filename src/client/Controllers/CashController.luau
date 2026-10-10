@@ -51,6 +51,11 @@
 	2x CASH TIME (Config/CashBoost, bought in a pack) is a small green pill over the
 	bundle's top edge: "2x 59:12", or "4x" when the 2x Cash pass stacks on it. It reads
 	the end time CashBoostService puts on the Player and shows only while one runs.
+
+	A YELLOW "+" ON THE BUNDLE'S BOTTOM-RIGHT CORNER opens the Shop scrolled to its
+	CASH packs (2026-10-10, on request: "make the shop easier accessible"). It is the
+	house close-X badge (UIKit.closeButton) in yellow with a "+" glyph, so it reads as
+	the same family of button.
 ]]
 
 local Players = game:GetService("Players")
@@ -68,6 +73,7 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
 local Sfx = require(script.Parent.Parent.Sfx)
+local Shop = require(script.Parent.ShopController)
 
 local Cash = {}
 
@@ -104,6 +110,15 @@ local LAYOUT = {
 	valueMinTextSize = 28, -- floor for setValueText's shrink-to-fit
 	valueStroke = 3.5, -- 6 was asked to be thinner, then 4 scaled with the text
 	textDrop = Vector2.new(2, 3),
+}
+
+-- The "+" that opens the Shop's CASH packs, centred on the bundle's bottom-right
+-- corner, lifted so the row's foot on the screen edge doesn't clip it.
+local PLUS = {
+	size = 36,
+	centre = Vector2.new(Dock.SIDE_ICON - 4, Dock.SIDE_ICON - 16),
+	color = Color3.fromHex("FFD23F"),
+	hover = Color3.fromHex("FFE27A"),
 }
 
 -- The 2x cash pill over the bundle, in the clover pill's green.
@@ -218,6 +233,28 @@ local function build(): ScreenGui
 	end)
 
 	Artwork.droppedPicture(badge, "Bundle", Artwork.IMAGE.cashBundle, L.icon, L.iconDrop, 3)
+
+	-- The yellow "+" (see the header).
+	local plus = UIKit.closeButton(badge, {
+		name = "ShopPlus",
+		size = PLUS.size,
+		position = UDim2.fromOffset(PLUS.centre.X, PLUS.centre.Y),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		zIndex = 14,
+	})
+	plus.BackgroundColor3 = PLUS.color
+	local glyph = plus:FindFirstChild("Glyph") :: TextLabel
+	glyph.Text = "+"
+	glyph.TextSize = math.round(PLUS.size * 0.8)
+	plus.MouseEnter:Connect(function()
+		plus.BackgroundColor3 = PLUS.hover
+	end)
+	plus.MouseLeave:Connect(function()
+		plus.BackgroundColor3 = PLUS.color
+	end)
+	plus.Activated:Connect(function()
+		Shop.openCash()
+	end)
 
 	-- The 2x cash pill, over the bundle (see the header). Hidden until a boost runs.
 	local pill = UIKit.panel(badge, {
