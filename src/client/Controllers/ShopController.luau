@@ -182,6 +182,11 @@ local NUKE_PACK_H = 268
 local NUKE_PACK_ART = 196
 local PRIZE_W = 104
 local PRIZE_H = 112
+-- How far each prize tile's camera zooms in past ItemArt's fit, left to right: every
+-- nuke reads bigger in its frame, and the rarer the prize the bigger (on request,
+-- 2026-10-10). The fit leaves room for faint FX shells, so the nukes sat small.
+local PRIZE_ZOOM = 1.3
+local PRIZE_ZOOM_STEP = 0.08
 -- Storm violet on the left through a lightning-yellow middle to bright sea blue on the
 -- right, for Storm vs Abyss (was fire red -> gold -> blue for Inferno vs Abyss).
 local NUKE_PACK_STORM = Color3.fromHex("8A3CFF")
@@ -768,12 +773,15 @@ local function buildNukePack(parent: Instance)
 		local well = Instance.new("Frame")
 		well.Name = "Art"
 		well.BackgroundTransparency = 1
-		well.Position = UDim2.fromOffset(4, 18)
-		well.Size = UDim2.new(1, -8, 1, -22)
+		well.Position = UDim2.fromOffset(2, 2)
+		well.Size = UDim2.new(1, -4, 1, -4)
 		well.ZIndex = 14
 		well.Parent = tile
 		local viewport = ItemArt.newViewport(well)
 		viewport.ZIndex = 14
+		-- ItemArt frames at its own fixed FOV, so a narrower one here zooms the fit in.
+		local camera = viewport.CurrentCamera :: Camera
+		camera.FieldOfView /= PRIZE_ZOOM + PRIZE_ZOOM_STEP * (index - 1)
 		local entry = { uid = `nukepack-{prize.itemId}`, itemId = prize.itemId, identified = true, rarity = item.rarity }
 		local function paint()
 			local size = well.AbsoluteSize
