@@ -6,7 +6,8 @@
 	walking up to a stall on the plaza (StationController). One scrolling body, five
 	sections: the PACKS (Config/Packs) first, two once-per-player bundles that turn to
 	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), seven permanent upgrades on top, which
-	turn to OWNED off the Player attribute GamePassService writes; the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
+	turn to OWNED off the Player attribute GamePassService writes; the SERVER LUCK BOOST
+	(the Lucky Clover card beside it was removed 2026-10-10, on request); a CASH
 	row of four packs (Config/ShopProducts, granted in EconomyService). The WALK SPEED
 	packs that followed it were retired 2026-10-10 (on request): speed is bought at the
 	Upgrades booth (Config/WalkSpeed). The Mystery crates that used to close the
@@ -14,16 +15,13 @@
 	crates on Base Camp's PREMIUM CRATES pad (Config/CrateShop). Every buy button is the gear
 	cards' purple R$, so real money always looks the same. The client only ever
 	PROMPTS the purchase -- the grant is ProductService's receipt handler on the server,
-	and the clover in the corner (LuckBoostController) lights up off the attribute that
-	grant writes, so nothing here has to trust or wait on the prompt's own callback.
+	so nothing here has to trust or wait on the prompt's own callback.
 
-	With no product id configured (LuckBoost.PRODUCT_ID = 0) the card still shows, its
-	button reads COMING SOON and does nothing.
+	With no product id configured (0) a card still shows, its button reads COMING SOON
+	and does nothing.
 
 	Its look is the gear panel's (StationController's FIELD): slate panel, the HUD's
-	text on it (all Gotham Black, INK outlines), with the
-	clover card in the clover's own green: green is x2, and x2 is what it sells
-	(CloverArt's header -- purple is kept for the stacked x4).
+	text on it (all Gotham Black, INK outlines).
 ]]
 
 local GroupService = game:GetService("GroupService")
@@ -31,7 +29,6 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 
 local LuckBoost = require(ReplicatedStorage.Shared.Config.LuckBoost)
 local ShopProducts = require(ReplicatedStorage.Shared.Config.ShopProducts)
@@ -113,7 +110,6 @@ end
 local PANEL_W = 860
 -- The panel's tallest; a short screen gets less, and the body scrolls.
 local PANEL_H = 720
-local CLOVER_H = 220
 local SERVER_BOOST_H = 132
 -- The Violet Aurora's purple, so the card reads as "the server event".
 local SERVER_BOOST_TINT = Color3.fromHex("7A3FC8")
@@ -188,7 +184,6 @@ local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out
 
 local panelFrame: Frame? = nil
 local panelScale: UIScale? = nil
-local statusLabel: TextLabel? = nil
 local codeRemote: any = nil
 
 --- A label in the panel's cartoon voice: white, INK-outlined. `props` are set as-is.
@@ -345,113 +340,7 @@ local function robuxButton(parent: Instance, productId: number, isPass: boolean?
 	return buy
 end
 
---- The Lucky Clover card: art well on the left, the pitch and the buy button right.
-local function buildCloverCard(parent: Frame)
-	local card = Instance.new("Frame")
-	card.Name = "LuckyClover"
-	card.Size = UDim2.new(1, -8, 0, CLOVER_H)
-	card.LayoutOrder = -19
-	card.BackgroundColor3 = PANEL.card
-	darkGlass(card, 16)
-	card.BorderSizePixel = 0
-	card.ZIndex = 12
-	card.Parent = parent
-	round(card, 16)
-	edge(card, PANEL.cardEdge, 3)
-	gloss(card)
-
-	local well = Instance.new("Frame")
-	well.Name = "Art"
-	well.Size = UDim2.fromOffset(ART, ART)
-	well.Position = UDim2.new(0, 16, 0.5, 0)
-	well.AnchorPoint = Vector2.new(0, 0.5)
-	well.BackgroundColor3 = PANEL.well
-	well.BorderSizePixel = 0
-	well.ZIndex = 13
-	well.Parent = card
-	round(well, 14)
-	edge(well, PANEL.ink, 3)
-	local clover = CloverArt.build(well, 124, 14)
-	clover.AnchorPoint = Vector2.new(0.5, 0.5)
-	clover.Position = UDim2.fromScale(0.5, 0.5)
-	clover.Rotation = -8
-	inked(well, {
-		Name = "Mult",
-		Text = `{LuckBoost.MULT}x`,
-		Font = PANEL.headline,
-		TextSize = 40,
-		Size = UDim2.fromOffset(ART, 44),
-		Position = UDim2.new(0, 4, 0.5, -16),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		Rotation = -8,
-		ZIndex = 30,
-	})
-
-	local textLeft = 16 + ART + 18
-	inked(card, {
-		Name = "Name",
-		Text = "LUCKY CLOVER",
-		Font = PANEL.headline,
-		TextSize = 30,
-		Size = UDim2.new(1, -textLeft - 12, 0, 36),
-		Position = UDim2.fromOffset(textLeft, 16),
-		ZIndex = 14,
-	})
-	inked(card, {
-		Name = "Pitch",
-		Text = `{LuckBoost.MULT}x LUCK for {math.floor(LuckBoost.PRODUCT_SECONDS / 60)} minutes`,
-		Font = PANEL.label,
-		TextSize = 20,
-		TextColor3 = PANEL.light,
-		Size = UDim2.new(1, -textLeft - 12, 0, 24),
-		Position = UDim2.fromOffset(textLeft, 54),
-		ZIndex = 14,
-	})
-	inked(card, {
-		Name = "Details",
-		Text = table.concat({
-			"• Rarer nukes when you dig",
-			"• Rarer liquids on the wash pad",
-			`• Stacks with the {LuckBoost.EVENT_NAME}: x{LuckBoost.MULT * LuckBoost.MULT}`,
-			"• Only counts down while you play",
-		}, "\n"),
-		Font = PANEL.label,
-		TextSize = 16,
-		TextColor3 = PANEL.dim,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		LineHeight = 1.1,
-		Size = UDim2.new(1, -textLeft - 12, 0, 84),
-		Position = UDim2.fromOffset(textLeft, 84),
-		ZIndex = 14,
-	})
-
-	statusLabel = inked(card, {
-		Name = "Status",
-		Text = "",
-		Font = PANEL.label,
-		TextSize = 16,
-		TextColor3 = PANEL.light,
-		Size = UDim2.new(1, -textLeft - 196 - (BUY_H + 8), 0, 46),
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, textLeft, 1, -14),
-		TextWrapped = true,
-		ZIndex = 14,
-	})
-
-	local buy = robuxButton(card, LuckBoost.PRODUCT_ID)
-	buy.Size = UDim2.fromOffset(230, BUY_H + 4)
-	buy.TextSize = BUY_TEXT + 4
-	buy.AnchorPoint = Vector2.new(1, 1)
-	buy.Position = UDim2.new(1, -16, 1, -14)
-	local gift = RobuxGift.button(card, LuckBoost.PRODUCT_ID)
-	if gift then
-		gift.Size = UDim2.fromOffset(BUY_H + 4, BUY_H + 4)
-		gift.AnchorPoint = Vector2.new(1, 1)
-		gift.Position = UDim2.new(1, -16 - 230 - 4, 1, -14)
-	end
-end
-
---- The Server Luck Boost card under the clover: everyone on the server gets the
+--- The Server Luck Boost card: everyone on the server gets the
 --- Violet Aurora's luck for SERVER_SECONDS, and the buyer is named to all of them.
 local function buildServerBoostCard(parent: Frame)
 	local card = Instance.new("Frame")
@@ -733,10 +622,11 @@ local function buildPacks(parent: Instance)
 	end
 end
 
---- The LUCK BOOST section above the passes: the Lucky Clover, then the Server Luck Boost.
+--- The LUCK BOOST section above the passes: the Server Luck Boost. The Lucky Clover
+--- card that sat above it was taken out on request (2026-10-10); clover time still
+--- comes in the Starter / Pro packs, and its product still grants if bought elsewhere.
 local function buildLuck(parent: Frame)
 	section(parent, -20, "LUCK BOOST")
-	buildCloverCard(parent)
 	buildServerBoostCard(parent)
 end
 
@@ -1121,31 +1011,12 @@ local function buildCodes(parent: Instance)
 	end)
 end
 
---- "Active: 9:42 left" while a bought clover is running, else nothing.
-local function refreshStatus()
-	local label = statusLabel
-	if label == nil then
-		return
-	end
-	local ends = Players.LocalPlayer:GetAttribute(LuckBoost.PERSONAL_ATTR)
-	local left = if type(ends) == "number" then ends - Workspace:GetServerTimeNow() else 0
-	if left <= 0 then
-		label.Text = ""
-		return
-	end
-	local s = math.ceil(left)
-	local h, m, r = s // 3600, (s % 3600) // 60, s % 60
-	local clock = if h > 0 then string.format("%d:%02d:%02d", h, m, r) else string.format("%d:%02d", m, r)
-	label.Text = `Active: {clock} left`
-end
-
 --- Open the Shop panel.
 function Shop.open()
 	local panel = panelFrame
 	if panel == nil or panel.Visible or HudTile.blocked("Shop") then
 		return
 	end
-	refreshStatus()
 	panel.Visible = true
 	if panelScale then
 		panelScale.Scale = 0.85
@@ -1282,16 +1153,6 @@ function Shop.start()
 	build().Parent = playerGui
 	buildPanel().Parent = playerGui
 	HudTile.registerPanel("Shop", panelFrame :: Frame)
-
-	player:GetAttributeChangedSignal(LuckBoost.PERSONAL_ATTR):Connect(refreshStatus)
-	task.spawn(function()
-		while true do
-			task.wait(1)
-			if panelFrame and panelFrame.Visible then
-				refreshStatus()
-			end
-		end
-	end)
 end
 
 return Shop
