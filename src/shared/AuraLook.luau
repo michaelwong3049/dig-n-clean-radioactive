@@ -571,6 +571,25 @@ end
 --- frame. A ViewportFrame redraws whenever anything in it moves, so only the electrons
 --- and the camera ever do.
 AuraLook.ICON_TAG = "AuraIcon"
+
+--- THE SHOP CARDS SHOW PICTURES NOW (2026-10-10, on request: the user's AI aura art in
+--- place of the live atoms). Tier -> image, cut out of its white background and saved
+--- at 512x512 in tools/aura-art/aura_<tier>.png. client/GearArt draws the picture in
+--- the card's well and skips `icon` for a tier listed here; a tier missing from the
+--- table (the free "None" rung) keeps the built model.
+AuraLook.IMAGES = {
+	[2] = "rbxassetid://126371632468775", -- Static Veil: one cyan ring
+	[3] = "rbxassetid://101000645327425", -- Lead Halo: two rings
+	[4] = "rbxassetid://105987428728992", -- Ion Shroud: two rings and a core
+	[5] = "rbxassetid://130236987712803", -- Isotope Mantle: three rings
+	[6] = "rbxassetid://92926076393635", -- Containment Nimbus: the gold helix
+	[7] = "rbxassetid://128184694141839", -- Toxic Aurora: ribbons
+	[8] = "rbxassetid://117306330905806", -- Eclipse Veil: the field-line torus
+	[9] = "rbxassetid://114455500906703", -- Twilight Singularity: wings
+	[10] = "rbxassetid://123229653695674", -- Seraph: gold wings under a halo
+	[11] = "rbxassetid://122287088356407", -- Crimson Vortex
+	[12] = "rbxassetid://70423664935766", -- Molten Serpent
+} :: { [number]: string }
 --- The moment a moving form's icon is frozen at (its curves never move on a card).
 local ICON_TIME = 0.9
 

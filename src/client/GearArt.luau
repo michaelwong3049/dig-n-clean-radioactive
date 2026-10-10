@@ -8,6 +8,9 @@
 	Magnet, Shared/ToolModels for the hose, AuraLook for the aura), so it cannot drift
 	from the rack or the hand when a model is re-imported.
 
+	EXCEPT THE AURAS (2026-10-10): every sold rung has a picture in AuraLook.IMAGES,
+	and `show` puts that in the well instead. The atom below is the fallback.
+
 	The aura's atom moves on its own: it is tagged AuraLook.ICON_TAG, and AuraController
 	circles the camera of whatever ViewportFrame it sits in. Gear pictures asked for
 	`effects` (the shop card) also get their tier's ToolFX — sparks, glow, moving parts
@@ -222,6 +225,29 @@ function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspe
 		if child:IsA("Model") then
 			child:Destroy()
 		end
+	end
+
+	-- An aura with a picture (AuraLook.IMAGES) shows that instead of the live atom: an
+	-- ImageLabel over the empty viewport, square in the middle of the well.
+	local picture = viewport:FindFirstChild("AuraPicture") :: ImageLabel?
+	local image = if track == "Aura" then AuraLook.IMAGES[tier] else nil
+	if image then
+		if picture == nil then
+			local label = Instance.new("ImageLabel")
+			label.Name = "AuraPicture"
+			label.BackgroundTransparency = 1
+			label.AnchorPoint = Vector2.new(0.5, 0.5)
+			label.Position = UDim2.fromScale(0.5, 0.5)
+			label.Size = UDim2.fromScale(1, 1)
+			label.ScaleType = Enum.ScaleType.Fit
+			label.ZIndex = viewport.ZIndex + 1
+			label.Parent = viewport
+			picture = label
+		end
+		(picture :: ImageLabel).Image = image
+		return
+	elseif picture then
+		picture:Destroy()
 	end
 
 	local view = ART_VIEW[track]
