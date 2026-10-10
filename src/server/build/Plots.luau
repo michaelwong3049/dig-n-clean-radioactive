@@ -362,8 +362,10 @@ local ROW_FRONT_X = 7
 -- 2026-10-10, the U (from the user's sketch): the row is the middle bases only; the two
 -- end bases became SIDE pads (below). Three, then FOUR the same day (on request: "put a
 -- 4th base amongst the 3 to even it out"), 70 apart (13-stud gaps) so the row stays
--- centred on the middle square at z 0.
-local ROW_Z = { -105, -35, 35, 105 }
+-- centred on the middle square at z 0. 70 -> 78 apart (21-stud gaps) later the same day,
+-- on request: "a little more spacing between each of the 4 player bases" (the side bases
+-- stay put; the row's ends, |z| 145.5, sit well west of them, x <= 7 vs >= 29.5).
+local ROW_Z = { -117, -39, 39, 117 }
 
 local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
