@@ -138,6 +138,7 @@ local PASS_TINT: { [string]: Color3 } = {
 	cash = Color3.fromHex("2EA552"),
 	luck = Color3.fromHex("17A589"),
 	digPower = Color3.fromHex("E0413A"),
+	autoMagnet = Color3.fromHex("3A6FD0"),
 	backpack = Color3.fromHex("EE7A1E"),
 	bombDamage = Color3.fromHex("D81B60"),
 	instantClean = Color3.fromHex("1E88E5"),
@@ -736,8 +737,8 @@ end
 --- the button for a green OWNED, off the attribute GamePassService sets.
 local function buildPasses(parent: Instance)
 	section(parent, -10, "PASSES")
-	-- An odd count leaves the first pass (2x Cash) alone on a full-width row up top: seven
-	-- since the 2x Speed pass went with the treadmill, so 2x Cash leads on its own.
+	-- An odd count leaves the first pass (2x Cash) alone on a full-width row up top. Eight
+	-- now (Auto Magnet took the old 2x Speed slot), so every row is a pair again.
 	local count = #GamePasses.PASSES
 	local lead = count % PASSES_PER_ROW
 	local spans = {}
