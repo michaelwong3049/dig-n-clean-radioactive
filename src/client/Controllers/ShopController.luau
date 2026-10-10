@@ -180,10 +180,11 @@ local NUKE_PACK_H = 268
 local NUKE_PACK_ART = 196
 local PRIZE_W = 104
 local PRIZE_H = 112
--- Fire on the left fading through black to the deep sea on the right.
-local NUKE_PACK_FIRE = Color3.fromHex("E8401C")
-local NUKE_PACK_MID = Color3.fromHex("2A1414")
-local NUKE_PACK_SEA = Color3.fromHex("1565C0")
+-- Fire on the left through a hot gold middle to bright sea blue on the right (brighter
+-- on request, 2026-10-10: it went through near-black first).
+local NUKE_PACK_FIRE = Color3.fromHex("FF4A1C")
+local NUKE_PACK_MID = Color3.fromHex("FFB020")
+local NUKE_PACK_SEA = Color3.fromHex("1EA0FF")
 local PACK_ART = 96
 local PASSES_PER_ROW = 2
 local GAP = 12
