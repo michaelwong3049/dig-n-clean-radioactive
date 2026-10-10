@@ -763,6 +763,13 @@ Tuning.STEAL_MIN_STAGE = 4
 --- the bag tracker pill). 0 = not set up: the buttons read SOON and nothing registers.
 Tuning.BAG_RECOVER_PRODUCT_ID = 3716083374
 
+--- NUKE RESCUE, the Robux product that buys back a nuke whose pull fuse ran out while
+--- you were hauling it (DigService.offerRescues; NukeRescueController's popup). One
+--- price for every rarity. 0 = not set up: no popup, nothing registers.
+Tuning.NUKE_RESCUE_PRODUCT_ID = 0
+--- How long the "get it back" popup stays up after the blast.
+Tuning.NUKE_RESCUE_OFFER_SECONDS = 20
+
 --- Seconds after a bag drops in which ONLY its owner may take from it, so they have
 --- time to press Recover before anyone can grab it.
 Tuning.BAG_STEAL_GRACE = 3

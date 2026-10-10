@@ -130,6 +130,7 @@ local DataService = require(script.Parent.DataService)
 local StageService = require(script.Parent.StageService)
 local IdentifyService = require(script.Parent.IdentifyService)
 local HazardService = require(script.Parent.HazardService)
+local ProductService = require(script.Parent.ProductService)
 
 local DigService = {}
 
@@ -312,6 +313,8 @@ local sweepRemote: any = nil
 local digRemote: any = nil
 local lockRemote: any = nil
 local unearthedRemote: any = nil
+local lostRemote: any = nil
+local noticeRemote: any = nil
 
 --- The scale a dug item comes up at: per item TYPE (Config/Weight off its kg, times
 --- the authored `sizeMult` nudge) times this dig's OWN roll (Config/Payload, seeded on
@@ -1219,12 +1222,12 @@ end
 --- from one on every surface until the wash takes the last patch off -- at which point
 --- WashService moves it to `data.crates` and it becomes a crate you can open. It always
 --- has crust (crateModifier never rolls a no-clean modifier), so it can never identify here.
-local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string, crateId: string?)
-	clearHaul(player)
-	local item = Items.get(itemId)
-
+--- A find as it goes into `data.carry`, crusted. Shared by unearth and Nuke Rescue
+--- (the Robux buy-back of a nuke that blew up mid-pull), so a rescued nuke comes back
+--- exactly as a dug one would have: same uid (so the same Payload roll), its own crust.
+local function carriedFrom(uid: string, stageId: number, itemId: string, rarity: string, modifier: string, crateId: string?, bonus: any): any
 	local carried = {
-		uid = signal.uid,
+		uid = uid,
 		itemId = itemId,
 		rarity = rarity,
 		modifier = modifier,
@@ -1232,14 +1235,30 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		frozen = false,
 		-- Contamination is rolled the moment it leaves the ground, not at the station,
 		-- because that is when it picked the dirt up. Extends ARCHITECTURE's CarriedItem.
-		patches = Contamination.rollPatches(rarity, modifier, signal.stageId),
+		patches = Contamination.rollPatches(rarity, modifier, stageId),
 		crateId = crateId,
 		-- An announced drop's stacked qualities (Config/RareDrop's buffs).
-		bonus = if signal.rareDrop then signal.bonus else nil,
+		bonus = bonus,
 	}
 	if crateId and #carried.patches == 0 then
-		carried.patches = { Contamination.gateHardness(rarity, signal.stageId) }
+		carried.patches = { Contamination.gateHardness(rarity, stageId) }
 	end
+	return carried
+end
+
+local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string, crateId: string?)
+	clearHaul(player)
+	local item = Items.get(itemId)
+
+	local carried = carriedFrom(
+		signal.uid,
+		signal.stageId,
+		itemId,
+		rarity,
+		modifier,
+		crateId,
+		if signal.rareDrop then signal.bonus else nil
+	)
 	table.insert(data.carry, carried)
 	-- The Prospector mastery's counter (Config/Masteries): every nuke out of the ground.
 	data.stats.dug = (data.stats.dug or 0) + 1
@@ -1330,10 +1349,89 @@ local function stampSignal(signal: Signal, lit: boolean, now: number)
 	end
 end
 
+-- ── Nuke Rescue (Robux) ────────────────────────────────────────────────
+
+--- Who loses this nuke if it goes off now: anyone locked on to it, or partway through
+--- pulling it. Each is offered THEIR reading of it back (rollFor is pinned at the lock,
+--- so it is the very nuke the lump was), saved as `data.lostNuke` so the grant still
+--- finds it after a rejoin mid-purchase. A newer loss replaces an older one.
+local function offerRescues(signal: Signal)
+	if Tuning.NUKE_RESCUE_PRODUCT_ID == 0 then
+		return
+	end
+	local losers: { [Player]: true } = {}
+	for player, uid in lockedTo do
+		if uid == signal.uid then
+			losers[player] = true
+		end
+	end
+	for player, target in digTarget do
+		if target == signal.uid and (digProgress[player] or 0) > 0 then
+			losers[player] = true
+		end
+	end
+
+	local expiresAt = Workspace:GetServerTimeNow() + Tuning.NUKE_RESCUE_OFFER_SECONDS
+	for player in losers do
+		local data = DataService.data(player)
+		if data == nil or safeDiggers[player.UserId] then
+			continue
+		end
+		local itemId, rarity, modifier, crateId = rollFor(signal, StatResolver.get(data), player.UserId)
+		data.lostNuke = {
+			uid = signal.uid,
+			stageId = signal.stageId,
+			itemId = itemId,
+			rarity = rarity,
+			modifier = modifier,
+			crateId = crateId,
+			bonus = if signal.rareDrop then signal.bonus else nil,
+		}
+		-- The reading only, never the identity: it is still a crusted "???".
+		lostRemote:FireClient(player, {
+			rarity = rarity,
+			modifier = modifier,
+			weight = Items.get(itemId).weight,
+			payload = Payload.forUid(signal.uid),
+			expiresAt = expiresAt,
+		})
+	end
+end
+
+--- ProductService grant: the lost nuke goes into the carry, crusted, past capacity if
+--- need be (they paid for it). Mutates only, never yields.
+local function grantRescue(player: Player, data: any)
+	local lost = data.lostNuke
+	data.lostNuke = nil
+	if type(lost) ~= "table" or not Items.has(lost.itemId) then
+		warn(`[rescue] {player.Name} bought Nuke Rescue with no lost nuke on file`)
+		task.defer(function()
+			if player.Parent then
+				noticeRemote:FireClient(player, "no lost nuke to bring back", "info")
+			end
+		end)
+		return
+	end
+	table.insert(
+		data.carry,
+		carriedFrom(lost.uid, lost.stageId, lost.itemId, lost.rarity, lost.modifier, lost.crateId, lost.bonus)
+	)
+	print(`[rescue] {player.Name} bought back a {lost.modifier} {lost.rarity}`)
+	task.defer(function()
+		if player.Parent then
+			noticeRemote:FireClient(player, `{lost.rarity} nuke rescued! It's back in your bag`, "success")
+		end
+	end)
+end
+
 --- The fuse ran out. Everyone on it is let go (RELEASE 8) and anyone partway through
 --- pulling it loses the lump, the signal goes and a fresh one is buried somewhere else
 --- -- exactly like a dig, except nobody gets the nuke -- and HazardService does the rest.
 local function detonate(signal: Signal)
+	-- NUKE RESCUE: everyone who was pulling this one is offered it back for Robux
+	-- (Tuning.NUKE_RESCUE_PRODUCT_ID), before the lock and the haul are torn down.
+	offerRescues(signal)
+
 	for player, uid in lockedTo do
 		if uid == signal.uid then
 			-- RELEASE 8.
@@ -2048,6 +2146,11 @@ function DigService.init()
 	digRemote = Net.get("DigYank")
 	lockRemote = Net.get("DigLock")
 	unearthedRemote = Net.get("Unearthed")
+	lostRemote = Net.get("NukeLost")
+	noticeRemote = Net.get("Notice")
+	if Tuning.NUKE_RESCUE_PRODUCT_ID ~= 0 then
+		ProductService.register(Tuning.NUKE_RESCUE_PRODUCT_ID, grantRescue)
+	end
 
 	-- Auras are runtime objects, but Workspace is a thing people save from Studio, so
 	-- a folder full of them can absolutely end up published into the place. Those
