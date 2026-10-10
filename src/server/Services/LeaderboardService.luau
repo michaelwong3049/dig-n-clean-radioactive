@@ -43,16 +43,18 @@ local TOP = 25
 local MAX_SCORE = 2 ^ 53 -- OrderedDataStore takes integers; keep them exact
 
 -- ── Board placement ──────────────────────────────────────────────────────────
--- The east wall's shoulders either side of Stage 1's mouth (2026-10-09, the five-base
--- row: the back wall stands behind the bases now, out of sight). Inner face at x = 96
+-- The east wall's right-hand shoulder as you face Stage 1 from the bases (+z), side by
+-- side (2026-10-09, on request: "put leaderboards together on one side of the wall"; the
+-- five-base row put the back wall behind the bases). Inner face at x = 96
 -- (Plots.CAMP.eastX), floor (the green strip's tiles) top at y = -1.5. Boards face WEST,
--- into the camp, at the bases: Cash on the left as you face the wall (-z), Speed on the
--- right, one each side of the mouth (|z| < 76.5).
--- History: back wall (x -147, z +/-9.5) from 2026-10-04 ("move leaderboards and the group
--- chest near the backend"); the east shoulder (x 96, z 104 / 123) before that.
+-- into the camp: Cash on the left as you face the wall (nearer the mouth), Speed on the
+-- right. The mouth's edge is |z| 92 (Stages FOOTPRINT_Z 184), so the nearer board's
+-- edge sits ~11 studs past it, clear of the corridor wall's corner.
+-- History: one each side of the mouth (z +/-100) earlier on 2026-10-09; back wall (x -147,
+-- z +/-9.5) from 2026-10-04; the east shoulder (x 96, z 104 / 123) before that.
 local WALL_X_FALLBACK = 96
 local FLOOR_Y_FALLBACK = -1.5
-local BOARD_Z = { -100, 100 }
+local BOARD_Z = { 111, 130 }
 local OUT = Vector3.new(-1, 0, 0) -- the way the boards face, off the wall into the camp
 local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
 local BOARD_H = 22.5 -- keep W:H at 2:3 so the canvas stays 800 x 1200

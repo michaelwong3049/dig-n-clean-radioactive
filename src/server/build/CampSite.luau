@@ -102,7 +102,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 43 -- no Hose Shop stall: hoses are on each base's Hoses pad (2026-10-09)
+local BUILDER_VERSION = 44 -- walls 12 shorter, stages 184 wide (2026-10-09)
 
 local C = Kit.C
 local build = Kit.build
@@ -208,7 +208,7 @@ local SPUR_MIN_X, SPUR_MAX_X = -134, -114
 --- The perimeter wall. Height matches the stage corridor's (Scenery WALL_HEIGHT), so
 --- the shoulder meets the Crater's wall flush.
 local WALL_T = 8
-local WALL_H = 48
+local WALL_H = 36 -- 48 -> 36 with Scenery WALL_HEIGHT (2026-10-09, every wall 12 shorter)
 local WALL_TILE = 4
 local CAP_T = 2
 local LIP_OVERHANG = 0.5
@@ -217,7 +217,7 @@ local LIP_OVERHANG = 0.5
 --- and a taller outer ring standing flush behind it, so from inside the camp the wall
 --- reads as a stepped cliff -- the inner ring's turf crown becomes a ledge in front of
 --- the outer face. Same height as Base Camp's outer ring (Scenery OUTER_WALL_HEIGHT).
-local OUTER_WALL_H = 72
+local OUTER_WALL_H = 60 -- 72 -> 60 with Scenery OUTER_WALL_HEIGHT (2026-10-09)
 
 --- The barricade across the east mouth while the stage beyond it is unbuilt. It stands
 --- on the camp's own floor just inside the clip line (there is nothing past it yet), and

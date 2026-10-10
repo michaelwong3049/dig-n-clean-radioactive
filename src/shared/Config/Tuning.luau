@@ -335,7 +335,10 @@ end
 --
 -- 28 -> 25 WITH THE 10%-THINNER PASS (2026-10-04: FOOTPRINT_Z 170 -> 153, area x0.9;
 -- 25.2 rounded down).
-Tuning.SIGNALS_PER_STAGE = 25
+--
+-- 25 -> 30 WITH THE 20%-WIDER PASS (2026-10-09: FOOTPRINT_Z 153 -> 184, area x1.203;
+-- 30.07 rounded down).
+Tuning.SIGNALS_PER_STAGE = 30
 -- THE FIELD RESHUFFLE (on request, 2026-10-05). Every this-many seconds every ordinary
 -- signal goes stale, and a stale one is reburied somewhere else the moment nobody can
 -- see it: no aura up (lit or fading), outside every detector radius, no magnet on it,
