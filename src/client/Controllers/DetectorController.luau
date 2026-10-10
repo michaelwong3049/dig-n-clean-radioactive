@@ -152,6 +152,9 @@ local BAR_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset - BAR_Y
 local BADGE = Dock.VITALS_ICON -- the LET GO badge, the vitals badges' size
 local TITLE_TEXT = 22 -- the rarity word
 local TITLE_WIDTH = 220 -- clears "Legendary", the longest rarity in Rarity.ORDER
+local WEAK_TEXT = 18 -- "Weak magnet!", right end of the label row
+local WEAK_WIDTH = 160
+local WEAK_PULSE = 6 -- radians per second of its breathing
 
 -- How fast the bar's nuke chases the server's value (1/seconds). Smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
@@ -867,6 +870,24 @@ local function build(): ScreenGui
 		text = "?",
 	})
 
+	-- "Weak magnet!", AT THE ROW'S RIGHT END (on request, 2026-10-09: mockup 1). Shown
+	-- only while the soil round this nuke outclasses the magnet (state.overGrip > 0), in
+	-- red with a slow pulse, so the cracks and judder on the bar finally come with words.
+	ui.haulWeak = UIKit.label(haul, {
+		name = "WeakMagnet",
+		position = UDim2.fromOffset(PANEL_WIDTH, LABEL_HEIGHT / 2),
+		anchorPoint = Vector2.new(1, 0.5),
+		size = UDim2.fromOffset(WEAK_WIDTH, LABEL_HEIGHT),
+		font = UIKit.Font.title,
+		textSize = WEAK_TEXT,
+		color = COLOR.red,
+		xAlign = Enum.TextXAlignment.Right,
+		text = "Weak magnet!",
+		visible = false,
+	})
+	ui.haulWeakPulse = Instance.new("UIScale")
+	ui.haulWeakPulse.Parent = ui.haulWeak
+
 	return gui
 end
 
@@ -902,6 +923,7 @@ local function renderFrame(dt: number)
 		local since = os.clock() - successAt
 		if since < SUCCESS_FLASH then
 			ui.haul.Visible = true
+			ui.haulWeak.Visible = false
 			HaulRope.step(ui.rope, {
 				progress = 1,
 				strain = 0,
@@ -937,6 +959,13 @@ local function renderFrame(dt: number)
 		shownFuse += (fuse - shownFuse) * (1 - math.exp(-FILL_LERP_RATE * dt))
 		local fill = math.clamp(shownFuse, 0, 1)
 		local alarm = if state.fuseArmed then 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE) else 0
+
+		-- The soil outclasses the magnet: say so, breathing, at the label row's right end.
+		local weak = state.overGrip > 0
+		ui.haulWeak.Visible = weak
+		if weak then
+			ui.haulWeakPulse.Scale = 1 + 0.06 * math.sin(os.clock() * WEAK_PULSE)
+		end
 
 		HaulRope.step(ui.rope, {
 			progress = climbed,
@@ -1155,10 +1184,10 @@ local function renderState()
 		end
 		ui.haulTitle.TextColor3 = accent
 		ui.haulQuestion.Visible = not state.rarityHint
-		-- An under-rated magnet still locks on, still pulls, and is never told it is too
-		-- weak -- the grind says it. The rope says it too, without words: the soil
-		-- around the nuke cracks and glows and the nuke judders, harder the further the
-		-- soil outclasses the magnet (renderFrame hands state.overGrip to HaulRope.step).
+		-- An under-rated magnet still locks on and still pulls. The rope shows it (the
+		-- soil around the nuke cracks and glows, the nuke judders, harder the further the
+		-- soil outclasses the magnet) and renderFrame adds "Weak magnet!" to the label
+		-- row while state.overGrip > 0.
 	end
 
 	if not state.inStage then

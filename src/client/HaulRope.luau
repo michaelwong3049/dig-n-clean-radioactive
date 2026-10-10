@@ -24,9 +24,9 @@
 	(keyboard only) that kicks on every yank, and DetectorController lays a clear button
 	over the whole bar for touch.
 
-	STRAIN IS CRACKS, NOT A WARNING. An outclassed magnet is never told it is too weak
-	(DigService's over-tier grind); the soil round the nuke cracks in glowing orange and
-	the nuke judders -- harder while nobody is yanking.
+	STRAIN IS CRACKS. Against an outclassed magnet (DigService's over-tier grind) the
+	soil round the nuke cracks in glowing orange and the nuke judders -- harder while
+	nobody is yanking. DetectorController adds "Weak magnet!" to the label row above.
 
 	Frames only, like every other piece of HUD, except the magnet icon: that is the
 	user's own glossy horseshoe picture (tools/haul-art/magnet_icon.png, uploaded).
