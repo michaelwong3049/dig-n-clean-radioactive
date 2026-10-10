@@ -182,10 +182,10 @@ local NUKE_PACK_H = 268
 local NUKE_PACK_ART = 196
 local PRIZE_W = 104
 local PRIZE_H = 112
--- Fire on the left through a hot gold middle to bright sea blue on the right (brighter
--- on request, 2026-10-10: it went through near-black first).
-local NUKE_PACK_FIRE = Color3.fromHex("FF4A1C")
-local NUKE_PACK_MID = Color3.fromHex("FFB020")
+-- Storm violet on the left through a lightning-yellow middle to bright sea blue on the
+-- right, for Storm vs Abyss (was fire red -> gold -> blue for Inferno vs Abyss).
+local NUKE_PACK_STORM = Color3.fromHex("8A3CFF")
+local NUKE_PACK_MID = Color3.fromHex("FFD23F")
 local NUKE_PACK_SEA = Color3.fromHex("1EA0FF")
 local PACK_ART = 96
 local PASSES_PER_ROW = 2
@@ -669,7 +669,7 @@ local function buildNukePack(parent: Instance)
 	local wash = Instance.new("UIGradient")
 	wash.Rotation = 20
 	wash.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, NUKE_PACK_FIRE),
+		ColorSequenceKeypoint.new(0, NUKE_PACK_STORM),
 		ColorSequenceKeypoint.new(0.5, NUKE_PACK_MID),
 		ColorSequenceKeypoint.new(1, NUKE_PACK_SEA),
 	})

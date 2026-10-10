@@ -243,24 +243,26 @@ Crates.DEFS = {
 	},
 	-- The Shop's NUKE PACK (Config/NukePack): bought with Robux in x1/x3/x5/x10 bundles,
 	-- never dug. A fixed five-nuke draw instead of a rarity table, after a reference
-	-- "pack" card the user sent (2026-10-10): fire against the deep sea, all Stage 7-8.
+	-- "pack" card the user sent (2026-10-10). Stage 8-9 nukes, on request (it opened
+	-- as Stage 7-8 "Inferno vs Abyss"): the storm above against the deep sea below.
+	-- Mirage (Stage 9 Anomaly, $188M) is left out; Kraken is the 1% top prize.
 	nuke8 = {
 		id = "nuke8",
 		kind = "nuke",
 		variant = 8,
-		name = "Inferno vs Abyss Pack",
-		short = "Inferno Pack",
-		flavor = "Half of it is on fire and half of it is soaking wet. Something in there is very rare.",
-		color = "FF5A1F",
+		name = "Storm vs Abyss Pack",
+		short = "Storm Pack",
+		flavor = "Lightning on the lid, seawater leaking from the hinges. Something big is coiled inside.",
+		color = "2F8CFF",
 		tier = "Mythic",
 		prizes = {
-			phoenix_nuke = 44,
-			submarine_nuke = 40,
-			eclipse_nuke = 10,
-			abyssal_nuke = 5,
-			inferno_nuke = 1,
+			submarine_nuke = 44,
+			chandelier_nuke = 40,
+			abyssal_nuke = 10,
+			fulgurite_nuke = 5,
+			kraken_nuke = 1,
 		},
-		stages = { 7, 8 },
+		stages = { 8, 9 },
 		special = true,
 		looksLike = "nuke7",
 		pullWeight = 250,
