@@ -3,8 +3,9 @@
 	top-left square of the left-edge 2x3 grid, built by HudTile like the other five.
 
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
-	walking up to a stall on the plaza (StationController). One scrolling body, five
-	sections: the PACKS (Config/Packs) first, two once-per-player bundles that turn to
+	walking up to a stall on the plaza (StationController). One scrolling body: the
+	NUKE PACK card (Config/NukePack) on top, a fixed five-nuke crate sold in x1/x3/x10
+	bundles; then five sections: the PACKS (Config/Packs), two once-per-player bundles that turn to
 	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), seven permanent upgrades on top, which
 	turn to OWNED off the Player attribute GamePassService writes; the SERVER LUCK BOOST
 	(the Lucky Clover card beside it was removed 2026-10-10, on request); a CASH
@@ -35,6 +36,9 @@ local ShopProducts = require(ReplicatedStorage.Shared.Config.ShopProducts)
 local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 local GamePasses = require(ReplicatedStorage.Shared.Config.GamePasses)
 local Packs = require(ReplicatedStorage.Shared.Config.Packs)
+local NukePack = require(ReplicatedStorage.Shared.Config.NukePack)
+local Items = require(ReplicatedStorage.Shared.Config.Items)
+local Rarity = require(ReplicatedStorage.Shared.Config.Rarity)
 local CashBoost = require(ReplicatedStorage.Shared.Config.CashBoost)
 local GroupReward = require(ReplicatedStorage.Shared.Config.GroupReward)
 local Net = require(ReplicatedStorage.Shared.Net)
@@ -172,6 +176,29 @@ local PACK_TINT: { [string]: Color3 } = {
 	pro = Color3.fromHex("7A2FD6"),
 }
 local PACK_H = 222
+-- THE NUKE PACK card (Config/NukePack), first in the body: the pack's crate big on the
+-- left, its five prizes in rarity frames with their odds, and an xN R$ button per bundle.
+local NUKE_PACK_H = 268
+local NUKE_PACK_ART = 196
+-- The prize tiles grow with RARITY, on request (2026-10-10): every prize of one rarity
+-- the same size (both Legendaries, both Mythics), the pack's lowest rarity smallest and
+-- its highest biggest, bottoms lined up. Sizes run evenly between these two.
+-- Square, on request (2026-10-10).
+local PRIZE_SMALL = Vector2.new(92, 92)
+local PRIZE_BIG = Vector2.new(132, 132)
+-- The light rays behind each prize, in its rarity's colour, turning slowly.
+local PRIZE_RAYS_SPIN = TweenInfo.new(14, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1)
+-- The Anomaly's spectrum (label, frame, rays) turns once in this long.
+local PRIZE_SPECTRUM_SPIN = TweenInfo.new(Rarity.ANOMALY_CYCLE, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1)
+-- How far each prize tile's camera zooms in past ItemArt's fit. Kept under ItemArt's
+-- own 1.12 margin so every nuke stays wholly in its frame (on request: a stepped zoom
+-- up to x1.62 cropped the Kraken and the Fulgurite's lightning).
+local PRIZE_ZOOM = 1.1
+-- Storm violet on the left through a lightning-yellow middle to bright sea blue on the
+-- right, for Storm vs Abyss (was fire red -> gold -> blue for Inferno vs Abyss).
+local NUKE_PACK_STORM = Color3.fromHex("8A3CFF")
+local NUKE_PACK_MID = Color3.fromHex("FFD23F")
+local NUKE_PACK_SEA = Color3.fromHex("1EA0FF")
 local PACK_ART = 96
 local PASSES_PER_ROW = 2
 local GAP = 12
@@ -620,6 +647,304 @@ local function buildPacks(parent: Instance)
 		end
 		player:GetAttributeChangedSignal(attr):Connect(refresh)
 		refresh()
+	end
+end
+
+--- "44%" / "5%" / "0.5%".
+local function percent(p: number): string
+	local pct = p * 100
+	if pct >= 1 then
+		return `{math.floor(pct + 0.5)}%`
+	end
+	return `{(string.format("%.1f", pct):gsub("%.0$", ""))}%`
+end
+
+--- Rarity.ANOMALY_SPECTRUM as one looping ColorSequence.
+local function spectrum(): ColorSequence
+	local stops = Rarity.ANOMALY_SPECTRUM
+	local keys = {}
+	for index, colour in stops do
+		table.insert(keys, ColorSequenceKeypoint.new((index - 1) / #stops, colour))
+	end
+	table.insert(keys, ColorSequenceKeypoint.new(1, stops[1]))
+	return ColorSequence.new(keys)
+end
+
+--- A spectrum gradient on `parent`, turning for ever (the Anomaly's colours).
+local function spinningSpectrum(parent: Instance)
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = spectrum()
+	gradient.Parent = parent
+	TweenService:Create(gradient, PRIZE_SPECTRUM_SPIN, { Rotation = 360 }):Play()
+end
+
+--- The NUKE PACK card: title across the top, the pack crate on the left, its prizes
+--- (most likely first) each in a frame of its rarity's colour with the odds in the
+--- corner, and one R$ button per bundle along the bottom, "xN" on its shoulder.
+local function buildNukePack(parent: Instance)
+	local crateId = NukePack.crateId
+	if not Crates.has(crateId) then
+		return
+	end
+	local def = Crates.get(crateId)
+
+	local card = Instance.new("Frame")
+	card.Name = "NukePack"
+	card.LayoutOrder = -40
+	card.Size = UDim2.new(1, -8, 0, NUKE_PACK_H)
+	card.BackgroundColor3 = Color3.new(1, 1, 1)
+	card.BorderSizePixel = 0
+	card.ZIndex = 12
+	card.Parent = parent
+	round(card, 16)
+	edge(card, PANEL.tileEdge, 4)
+	local wash = Instance.new("UIGradient")
+	wash.Rotation = 20
+	wash.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, NUKE_PACK_STORM),
+		ColorSequenceKeypoint.new(0.5, NUKE_PACK_MID),
+		ColorSequenceKeypoint.new(1, NUKE_PACK_SEA),
+	})
+	wash.Parent = card
+	Studded.pattern(card, { radius = 16, bands = { 0.2, 0.47, 0.56, 0.64 }, bandTransparency = 0.7, glowTransparency = 0.8 })
+	shine(card, 16, 0)
+
+	inked(card, {
+		Name = "PackName",
+		Text = string.upper(def.name),
+		Font = PANEL.headline,
+		TextSize = 32,
+		Size = UDim2.new(1, -28, 0, 38),
+		Position = UDim2.fromOffset(14, 8),
+		ZIndex = 14,
+	})
+
+	-- The pack crate, big, down the left side.
+	local art = Instance.new("Frame")
+	art.Name = "Art"
+	art.BackgroundTransparency = 1
+	art.Size = UDim2.fromOffset(NUKE_PACK_ART, NUKE_PACK_ART)
+	art.Position = UDim2.fromOffset(6, 52)
+	art.ZIndex = 13
+	art.Parent = card
+	if def.image then
+		crateImage(art, def.image, 0, 14)
+	end
+
+	-- The prizes, most likely first.
+	local prizes = {}
+	for itemId, p in Crates.nukeOdds(crateId) do
+		table.insert(prizes, { itemId = itemId, p = p })
+	end
+	table.sort(prizes, function(a, b)
+		if a.p ~= b.p then
+			return a.p > b.p
+		end
+		return a.itemId < b.itemId
+	end)
+
+	-- Each rarity in the pack, lowest first, for the tile sizes.
+	local tiers: { number } = {}
+	for _, prize in prizes do
+		local order = Rarity.get(Items.get(prize.itemId).rarity).order
+		if not table.find(tiers, order) then
+			table.insert(tiers, order)
+		end
+	end
+	table.sort(tiers)
+
+	local right = Instance.new("Frame")
+	right.Name = "Right"
+	right.BackgroundTransparency = 1
+	right.Position = UDim2.fromOffset(NUKE_PACK_ART + 14, 50)
+	right.Size = UDim2.new(1, -(NUKE_PACK_ART + 28), 1, -60)
+	right.ZIndex = 13
+	right.Parent = card
+
+	local strip = Instance.new("Frame")
+	strip.Name = "Prizes"
+	strip.BackgroundTransparency = 1
+	strip.Size = UDim2.new(1, 0, 0, PRIZE_BIG.Y)
+	strip.ZIndex = 13
+	strip.Parent = right
+	local stripList = Instance.new("UIListLayout")
+	stripList.FillDirection = Enum.FillDirection.Horizontal
+	stripList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	stripList.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	stripList.Padding = UDim.new(0, 10)
+	stripList.SortOrder = Enum.SortOrder.LayoutOrder
+	stripList.Parent = strip
+
+	for index, prize in prizes do
+		local item = Items.get(prize.itemId)
+		local rarity = Rarity.get(item.rarity)
+		local tile = Instance.new("Frame")
+		tile.Name = `Prize_{prize.itemId}`
+		tile.LayoutOrder = index
+		local tier = table.find(tiers, rarity.order) or #tiers
+		local grow = if #tiers > 1 then (tier - 1) / (#tiers - 1) else 1
+		local size = PRIZE_SMALL:Lerp(PRIZE_BIG, grow)
+		tile.Size = UDim2.fromOffset(math.round(size.X), math.round(size.Y))
+		tile.BackgroundColor3 = Color3.new(0, 0, 0)
+		tile.BackgroundTransparency = 0.45
+		tile.BorderSizePixel = 0
+		tile.ZIndex = 13
+		tile.Parent = strip
+		round(tile, 8)
+		local anomaly = item.rarity == "Anomaly"
+		local frame = Instance.new("UIStroke")
+		frame.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		frame.Color = rarity.color
+		frame.Thickness = 4
+		frame.Parent = tile
+		if anomaly then
+			spinningSpectrum(frame)
+		end
+		-- A soft wash of the rarity's colour up from the floor of the tile.
+		local glow = Instance.new("Frame")
+		glow.Name = "Glow"
+		glow.Size = UDim2.fromScale(1, 1)
+		glow.BackgroundColor3 = rarity.color
+		glow.BackgroundTransparency = 0.35
+		glow.BorderSizePixel = 0
+		glow.ZIndex = 13
+		glow.Parent = tile
+		round(glow, 8)
+		local fade = Instance.new("UIGradient")
+		fade.Rotation = -90
+		fade.Transparency = NumberSequence.new(0.2, 1)
+		fade.Parent = glow
+
+		-- Light rays in the rarity's colour fanning out from behind the nuke, turning
+		-- slowly; clipped to the tile so they never spill onto the card.
+		local rayClip = Instance.new("Frame")
+		rayClip.Name = "RayClip"
+		rayClip.BackgroundTransparency = 1
+		rayClip.Size = UDim2.fromScale(1, 1)
+		rayClip.ClipsDescendants = true
+		rayClip.ZIndex = 14
+		rayClip.Parent = tile
+		local rays = Instance.new("ImageLabel")
+		rays.Name = "Rays"
+		rays.BackgroundTransparency = 1
+		rays.Image = Artwork.IMAGE.sunburst
+		rays.ImageColor3 = if anomaly then Color3.new(1, 1, 1) else rarity.color:Lerp(Color3.new(1, 1, 1), 0.25)
+		rays.ImageTransparency = 0.2
+		rays.ScaleType = Enum.ScaleType.Fit
+		rays.AnchorPoint = Vector2.new(0.5, 0.5)
+		rays.Position = UDim2.fromScale(0.5, 0.55)
+		rays.Size = UDim2.fromScale(1.7, 1.7)
+		rays.ZIndex = 14
+		rays.Parent = rayClip
+		if anomaly then
+			spinningSpectrum(rays)
+		end
+		TweenService:Create(rays, PRIZE_RAYS_SPIN, { Rotation = 360 }):Play()
+
+		local well = Instance.new("Frame")
+		well.Name = "Art"
+		well.BackgroundTransparency = 1
+		well.Position = UDim2.fromOffset(2, 2)
+		well.Size = UDim2.new(1, -4, 1, -4)
+		well.ZIndex = 15
+		well.Parent = tile
+		local viewport = ItemArt.newViewport(well)
+		viewport.ZIndex = 15
+		-- ItemArt frames at its own fixed FOV, so a narrower one here zooms the fit in.
+		local camera = viewport.CurrentCamera :: Camera
+		camera.FieldOfView /= PRIZE_ZOOM
+		local entry = { uid = `nukepack-{prize.itemId}`, itemId = prize.itemId, identified = true, rarity = item.rarity }
+		local function paint()
+			local size = well.AbsoluteSize
+			if size.X < 1 or size.Y < 1 then
+				return
+			end
+			ItemArt.paint(viewport, entry, size.X / size.Y)
+		end
+		well:GetPropertyChangedSignal("AbsoluteSize"):Connect(paint)
+		task.defer(paint)
+
+		-- The rarity name sitting on the tile's top edge: big, heavy-outlined, white at the
+		-- top shading down into the rarity's colour (the Anomaly's whole spectrum, turning).
+		local label = inked(tile, {
+			Name = "Rarity",
+			Text = string.upper(item.rarity),
+			Font = Enum.Font.FredokaOne,
+			TextSize = math.round(17 + 5 * grow),
+			TextColor3 = Color3.new(1, 1, 1),
+			TextXAlignment = Enum.TextXAlignment.Center,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0, 1),
+			Size = UDim2.new(1, 16, 0, 26),
+			Rotation = -4,
+			ZIndex = 17,
+		})
+		local labelStroke = label:FindFirstChildOfClass("UIStroke")
+		if labelStroke then
+			labelStroke.Thickness = 3
+		end
+		if anomaly then
+			spinningSpectrum(label)
+		else
+			local shade = Instance.new("UIGradient")
+			shade.Rotation = 90
+			shade.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+				ColorSequenceKeypoint.new(0.45, rarity.color:Lerp(Color3.new(1, 1, 1), 0.3)),
+				ColorSequenceKeypoint.new(1, rarity.color),
+			})
+			shade.Parent = label
+		end
+		inked(tile, {
+			Name = "Odds",
+			Text = percent(prize.p),
+			Font = PANEL.headline,
+			TextSize = math.round(20 + 8 * grow),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -4, 1, -2),
+			Size = UDim2.new(1, -8, 0, math.round(22 + 8 * grow)),
+			ZIndex = 17,
+		})
+	end
+
+	-- The bundles: one R$ button each, "xN" sitting on its top-left shoulder.
+	local buttons = Instance.new("Frame")
+	buttons.Name = "Bundles"
+	buttons.BackgroundTransparency = 1
+	buttons.AnchorPoint = Vector2.new(0, 1)
+	buttons.Position = UDim2.fromScale(0, 1)
+	buttons.Size = UDim2.new(1, 0, 0, BUY_H + 14)
+	buttons.ZIndex = 13
+	buttons.Parent = right
+	local count = #NukePack.BUNDLES
+	local grid = Instance.new("UIGridLayout")
+	grid.CellPadding = UDim2.fromOffset(GAP, 0)
+	grid.CellSize = UDim2.new(1 / count, -GAP * (count - 1) / count, 1, 0)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = buttons
+	for index, bundle in NukePack.BUNDLES do
+		local slot = Instance.new("Frame")
+		slot.Name = `Bundle_{bundle.count}`
+		slot.LayoutOrder = index
+		slot.BackgroundTransparency = 1
+		slot.ZIndex = 13
+		slot.Parent = buttons
+		local color = Color3.fromHex(bundle.color)
+		local buy = robuxButton(slot, bundle.productId, false, color, color:Lerp(Color3.new(1, 1, 1), 0.25))
+		buy.AnchorPoint = Vector2.new(0.5, 1)
+		buy.Position = UDim2.fromScale(0.5, 1)
+		buy.Size = UDim2.new(1, 0, 0, BUY_H)
+		buy.TextSize = if bundle.productId ~= 0 then BUY_TEXT else 16
+		inked(slot, {
+			Name = "Count",
+			Text = `x{bundle.count}`,
+			Font = PANEL.headline,
+			TextSize = 20,
+			Position = UDim2.fromOffset(2, -4),
+			Size = UDim2.fromOffset(60, 22),
+			ZIndex = 17,
+		})
 	end
 end
 
@@ -1138,6 +1463,7 @@ local function buildPanel(): ScreenGui
 	bodyPad.PaddingBottom = UDim.new(0, 4)
 	bodyPad.Parent = body
 
+	buildNukePack(body)
 	buildPacks(body)
 	buildLuck(body)
 	buildPasses(body)

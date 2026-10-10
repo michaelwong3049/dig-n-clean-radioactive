@@ -384,6 +384,7 @@ local BUILDERS: { [string]: (Model) -> BasePart } = {
 	nuke5 = reactor,
 	nuke6 = reactor,
 	nuke7 = reactor,
+	nuke8 = reactor,
 	liquid4 = cryo,
 	liquid5 = cryo,
 	potion1 = hazmat,
@@ -403,7 +404,7 @@ local IMPORTED_FOOTPRINT = 3.2
 local function imported(crateId: string): Model?
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local folder = assets and assets:FindFirstChild("CrateTemplates")
-	local template = folder and folder:FindFirstChild(crateId)
+	local template = folder and folder:FindFirstChild(Crates.get(crateId).looksLike or crateId)
 	if template == nil or not template:IsA("Model") then
 		return nil
 	end

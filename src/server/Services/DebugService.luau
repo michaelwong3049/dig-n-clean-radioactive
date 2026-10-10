@@ -42,6 +42,7 @@ local GamePasses = require(Shared.Config.GamePasses)
 local CashBoost = require(Shared.Config.CashBoost)
 local Potions = require(Shared.Config.Potions)
 local Packs = require(Shared.Config.Packs)
+local NukePack = require(Shared.Config.NukePack)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -912,11 +913,25 @@ COMMANDS["/potion"] = {
 COMMANDS["/pack"] = {
 	-- A pack without Robux: exactly the grant a real purchase runs. `off` clears
 	-- ownership so the Shop card can be bought (or tested) again.
-	help = "/pack <starter|pro> [off] — grant a pack to yourself, or clear it so it can be bought again",
+	help = "/pack <starter|pro> [off] | /pack nuke <1|3|10> — grant a pack to yourself (nuke: a Nuke Pack bundle through its product's real receipt handler), or clear one so it can be bought again",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
 			return "your profile hasn't loaded yet"
+		end
+		if args[1] == "nuke" then
+			local count = tonumber(args[2]) or 1
+			for _, bundle in NukePack.BUNDLES do
+				if bundle.count == count then
+					local grant = ProductService.grantFor(bundle.productId)
+					if grant == nil then
+						return `x{count} bundle has no product registered (id {bundle.productId})`
+					end
+					grant(player, data)
+					return `Nuke Pack x{count}: granted through product {bundle.productId}`
+				end
+			end
+			return "usage: /pack nuke <1|3|10>"
 		end
 		local pack = Packs.byKey(args[1] or "")
 		if pack == nil then

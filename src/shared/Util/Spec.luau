@@ -3149,6 +3149,9 @@ function Spec.run(): boolean
 				for rarity in def.rarities or {} do
 					floor = math.min(floor, Rarity.get(rarity).order)
 				end
+				for itemId in def.prizes or {} do
+					floor = math.min(floor, Rarity.get(Items.get(itemId).rarity).order)
+				end
 				if lowest < floor then
 					floors = false
 				end
