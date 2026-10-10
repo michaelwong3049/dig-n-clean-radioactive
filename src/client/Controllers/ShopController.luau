@@ -180,13 +180,14 @@ local PACK_H = 222
 -- left, its five prizes in rarity frames with their odds, and an xN R$ button per bundle.
 local NUKE_PACK_H = 268
 local NUKE_PACK_ART = 196
-local PRIZE_W = 104
-local PRIZE_H = 112
--- How far each prize tile's camera zooms in past ItemArt's fit, left to right: every
--- nuke reads bigger in its frame, and the rarer the prize the bigger (on request,
--- 2026-10-10). The fit leaves room for faint FX shells, so the nukes sat small.
-local PRIZE_ZOOM = 1.3
-local PRIZE_ZOOM_STEP = 0.08
+-- The prize tiles grow left to right, most likely (smallest) to rarest (biggest), on
+-- request (2026-10-10), bottoms lined up. Sizes run evenly between these two.
+local PRIZE_SMALL = Vector2.new(84, 92)
+local PRIZE_BIG = Vector2.new(128, 132)
+-- How far each prize tile's camera zooms in past ItemArt's fit. Kept under ItemArt's
+-- own 1.12 margin so every nuke stays wholly in its frame (on request: a stepped zoom
+-- up to x1.62 cropped the Kraken and the Fulgurite's lightning).
+local PRIZE_ZOOM = 1.1
 -- Storm violet on the left through a lightning-yellow middle to bright sea blue on the
 -- right, for Storm vs Abyss (was fire red -> gold -> blue for Inferno vs Abyss).
 local NUKE_PACK_STORM = Color3.fromHex("8A3CFF")
@@ -727,12 +728,13 @@ local function buildNukePack(parent: Instance)
 	local strip = Instance.new("Frame")
 	strip.Name = "Prizes"
 	strip.BackgroundTransparency = 1
-	strip.Size = UDim2.new(1, 0, 0, PRIZE_H)
+	strip.Size = UDim2.new(1, 0, 0, PRIZE_BIG.Y)
 	strip.ZIndex = 13
 	strip.Parent = right
 	local stripList = Instance.new("UIListLayout")
 	stripList.FillDirection = Enum.FillDirection.Horizontal
 	stripList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	stripList.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	stripList.Padding = UDim.new(0, 10)
 	stripList.SortOrder = Enum.SortOrder.LayoutOrder
 	stripList.Parent = strip
@@ -743,7 +745,9 @@ local function buildNukePack(parent: Instance)
 		local tile = Instance.new("Frame")
 		tile.Name = `Prize_{prize.itemId}`
 		tile.LayoutOrder = index
-		tile.Size = UDim2.fromOffset(PRIZE_W, PRIZE_H)
+		local grow = if #prizes > 1 then (index - 1) / (#prizes - 1) else 1
+		local size = PRIZE_SMALL:Lerp(PRIZE_BIG, grow)
+		tile.Size = UDim2.fromOffset(math.round(size.X), math.round(size.Y))
 		tile.BackgroundColor3 = Color3.new(0, 0, 0)
 		tile.BackgroundTransparency = 0.45
 		tile.BorderSizePixel = 0
@@ -781,7 +785,7 @@ local function buildNukePack(parent: Instance)
 		viewport.ZIndex = 14
 		-- ItemArt frames at its own fixed FOV, so a narrower one here zooms the fit in.
 		local camera = viewport.CurrentCamera :: Camera
-		camera.FieldOfView /= PRIZE_ZOOM + PRIZE_ZOOM_STEP * (index - 1)
+		camera.FieldOfView /= PRIZE_ZOOM
 		local entry = { uid = `nukepack-{prize.itemId}`, itemId = prize.itemId, identified = true, rarity = item.rarity }
 		local function paint()
 			local size = well.AbsoluteSize
@@ -797,7 +801,7 @@ local function buildNukePack(parent: Instance)
 			Name = "Rarity",
 			Text = item.rarity,
 			Font = PANEL.headline,
-			TextSize = 16,
+			TextSize = math.round(14 + 4 * grow),
 			TextColor3 = rarity.color:Lerp(Color3.new(1, 1, 1), 0.35),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -809,11 +813,11 @@ local function buildNukePack(parent: Instance)
 			Name = "Odds",
 			Text = percent(prize.p),
 			Font = PANEL.headline,
-			TextSize = 24,
+			TextSize = math.round(20 + 8 * grow),
 			TextXAlignment = Enum.TextXAlignment.Right,
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -4, 1, -2),
-			Size = UDim2.new(1, -8, 0, 26),
+			Size = UDim2.new(1, -8, 0, math.round(22 + 8 * grow)),
 			ZIndex = 16,
 		})
 	end
