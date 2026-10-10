@@ -12,11 +12,16 @@
 	OWNERSHIP is `data.packs[key] = true`, mirrored to a Player attribute (Packs.attr) on
 	join and on purchase, so the Shop card can say OWNED without a remote. A repeat
 	receipt still grants -- see Config/Packs' header.
+
+	It also sells the NUKE PACK bundles (Config/NukePack): N pack crates into the bag,
+	any number of times.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Packs = require(ReplicatedStorage.Shared.Config.Packs)
+local NukePack = require(ReplicatedStorage.Shared.Config.NukePack)
+local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 
 local DataService = require(script.Parent.DataService)
 local ProductService = require(script.Parent.ProductService)
@@ -65,12 +70,28 @@ function PackService.clear(player: Player, data: any, key: string)
 	player:SetAttribute(Packs.attr(key), false)
 end
 
+--- One Nuke Pack bundle: `count` pack crates into the bag. Mutates `data`, never yields.
+function PackService.grantNukePack(player: Player, data: any, count: number)
+	for _ = 1, count do
+		CrateService.give(data, NukePack.crateId)
+	end
+	local name = Crates.get(NukePack.crateId).name
+	task.defer(CrateService.notify, player, if count == 1 then `{name} added to your bag` else `{count}x {name} added to your bag`)
+end
+
 function PackService.init()
 	-- In init, not start, so no receipt can land before these are registered.
 	for _, pack in Packs.PACKS do
 		ProductService.register(pack.id, function(player, data)
 			PackService.grant(player, data, pack)
 		end)
+	end
+	for _, bundle in NukePack.BUNDLES do
+		if bundle.productId ~= 0 then
+			ProductService.register(bundle.productId, function(player, data)
+				PackService.grantNukePack(player, data, bundle.count)
+			end)
+		end
 	end
 end
 

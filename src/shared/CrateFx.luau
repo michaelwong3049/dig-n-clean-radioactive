@@ -27,6 +27,7 @@
 local CollectionService = game:GetService("CollectionService")
 
 local ItemFx = require(script.Parent.ItemFx)
+local Crates = require(script.Parent.Config.Crates)
 
 local CrateFx = {}
 
@@ -562,7 +563,7 @@ end
 function CrateFx.apply(model: Model, crateId: string, hex: string, variant: number)
 	brighten(model, hex)
 	tagMotion(model, crateId)
-	local build = EFFECTS[crateId]
+	local build = EFFECTS[crateId] or EFFECTS[Crates.get(crateId).looksLike or ""]
 	if build == nil then -- Scrap: bare on purpose, no aura either
 		return
 	end

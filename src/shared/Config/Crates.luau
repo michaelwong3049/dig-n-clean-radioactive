@@ -78,6 +78,13 @@ export type CrateDef = {
 	-- NUKE: inside a rarity, each stage after the first multiplies an item's weight by
 	-- this (its earliest stage counts), so later stages' nukes come up rarer. 1 if absent.
 	stageFalloff: number?,
+	-- NUKE: a FIXED prize list, item id -> relative weight, in place of `rarities`
+	-- (the Shop's Nuke Pack, Config/NukePack). Only these nukes ever roll, at exactly
+	-- these odds; detector luck and the stage falloff play no part.
+	prizes: { [string]: number }?,
+	-- An imported crate template (Assets.CrateTemplates) and effects (CrateFx) to borrow
+	-- from another crate id, for a crate with no model of its own yet.
+	looksLike: string?,
 	-- A JACKPOT crate: off the variant ladder, never re-rolled by detector luck, and
 	-- dug only as its own drop -- `digChance` per spawned signal on `digStages`.
 	special: boolean?,
@@ -123,6 +130,7 @@ Crates.ORDER = {
 	"nuke5",
 	"nuke6",
 	"nuke7",
+	"nuke8",
 	"liquid1",
 	"liquid2",
 	"liquid3",
@@ -233,6 +241,30 @@ Crates.DEFS = {
 		digChance = 1 / 3000000,
 		pullWeight = 300,
 	},
+	-- The Shop's NUKE PACK (Config/NukePack): bought with Robux in x1/x3/x5/x10 bundles,
+	-- never dug. A fixed five-nuke draw instead of a rarity table, after a reference
+	-- "pack" card the user sent (2026-10-10): fire against the deep sea, all Stage 7-8.
+	nuke8 = {
+		id = "nuke8",
+		kind = "nuke",
+		variant = 8,
+		name = "Inferno vs Abyss Pack",
+		short = "Inferno Pack",
+		flavor = "Half of it is on fire and half of it is soaking wet. Something in there is very rare.",
+		color = "FF5A1F",
+		tier = "Mythic",
+		prizes = {
+			phoenix_nuke = 44,
+			submarine_nuke = 40,
+			eclipse_nuke = 10,
+			abyssal_nuke = 5,
+			inferno_nuke = 1,
+		},
+		stages = { 7, 8 },
+		special = true,
+		looksLike = "nuke7",
+		pullWeight = 250,
+	},
 	liquid1 = {
 		id = "liquid1",
 		kind = "liquid",
@@ -323,6 +355,7 @@ Crates.IMAGES = {
 	nuke5 = "rbxassetid://70848925473815",
 	nuke6 = "rbxassetid://117182713481345",
 	nuke7 = "rbxassetid://138263067071021",
+	nuke8 = "rbxassetid://138263067071021", -- the Anomaly crate's until it has its own art
 	liquid1 = "rbxassetid://87548059959283",
 	liquid2 = "rbxassetid://117050988206747",
 	liquid3 = "rbxassetid://103980106023210",
@@ -530,9 +563,26 @@ end
 --- Normalised prize odds for a nuke crate, keyed by item id. Only nukes in the crate's
 --- stage range are in it. The rarity is picked off the crate's `rarities` table (a
 --- rarity the range doesn't stock drops out and the rest renormalise); within a
---- rarity, rarer items (bigger `odds`) come up less (withinWeight). Sums to 1.
+--- rarity, rarer items (bigger `odds`) come up less (withinWeight). A crate with
+--- `prizes` is just those weights, normalised. Sums to 1.
 function Crates.nukeOdds(crateId: string): { [string]: number }
 	local def = Crates.get(crateId)
+	local prizes = def.prizes
+	if prizes then
+		local out: { [string]: number } = {}
+		local total = 0
+		for itemId, w in prizes do
+			if Items.has(itemId) and Crates.inStageRange(def, Items.get(itemId)) then
+				total += w
+			end
+		end
+		for itemId, w in prizes do
+			if total > 0 and Items.has(itemId) and Crates.inStageRange(def, Items.get(itemId)) then
+				out[itemId] = w / total
+			end
+		end
+		return out
+	end
 	local rarities = def.rarities or {}
 
 	local withinTotal: { [string]: number } = {}
