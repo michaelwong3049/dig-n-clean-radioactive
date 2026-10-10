@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 75 -- camp walls round the five-base row, foliage off its grey ground (2026-10-09)
+local BUILDER_VERSION = 76 -- stages 184 wide, every wall 12 shorter (2026-10-09)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -302,7 +302,10 @@ local BONE_HOLLOW = "2B251D"
 --- two shoulder pieces themselves straddle x = clipX, which is shoulder void-fill
 --- either side, not walkable ground -- so doubling the depth never eats into a
 --- walking surface (verified live: north-wall inner face still exactly on z = minZ).
-local WALL_HEIGHT = 48
+-- 48 -> 36 ON REQUEST (2026-10-09, "make every wall in the map slightly shorter"): every
+-- wall 12 lower -- stage corridors 44 -> 32, camp inner rings 48 -> 36, the outer cliffs
+-- 72 -> 60 (OUTER_WALL_HEIGHT); build/CampSite's WALL_H/OUTER_WALL_H follow.
+local WALL_HEIGHT = 36
 local WALL_THICKNESS = 8
 local WALL_TILE = 4
 -- A studded sheet laid flat over each wall's crown -- "the stage floor, stacked on top
@@ -355,7 +358,7 @@ local CORRIDOR_SALT = 101
 -- inside the base the wall reads as a stepped cliff -- the inner wall's grass crown
 -- becomes a ledge, bushes and all, in front of the outer face. Base only: the Stage 1
 -- corridor walls stay one layer. See buildBaseWalls.
-local OUTER_WALL_HEIGHT = 72
+local OUTER_WALL_HEIGHT = 60 -- 72 -> 60 with WALL_HEIGHT (2026-10-09)
 
 -- PER-STAGE WALL COLOUR. The chain used to wear ONE uniform rust its whole length,
 -- on the principle that an engineered containment barrier reads as one consistent
