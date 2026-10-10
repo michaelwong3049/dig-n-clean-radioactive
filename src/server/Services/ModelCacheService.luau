@@ -66,12 +66,11 @@ end
 --- every shadow caster is drawn a second time into the shadow map. Flipping the
 --- templates once covers every clone: server copies and each player's cache.
 ---
---- Base machines too, the same rule Kit.swap gives the built world: the treadmill is
---- swapped for its belt rung's model at runtime (Plots.setTreadmillTier), so a clone
---- would bring the template's shadows back onto all six bases. The locker template is
---- covered for the same reason should it ever be re-cloned. Set on the server, so the
---- replicated templates arrive at every client already shadowless.
-local BASE_TEMPLATES = { "TreadmillTemplates", "QuarantineLocker" }
+--- Base machines too, the same rule Kit.swap gives the built world: the locker template
+--- is covered should it ever be re-cloned onto the six bases. Set on the server, so the
+--- replicated templates arrive at every client already shadowless. (The treadmill's
+--- templates were here until the treadmill went, 2026-10-09.)
+local BASE_TEMPLATES = { "QuarantineLocker" }
 
 local function stripShadows()
 	local folders: { Instance } = {}

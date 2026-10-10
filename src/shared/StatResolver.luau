@@ -30,7 +30,7 @@ local Config = script.Parent.Config
 local Tuning = require(Config.Tuning)
 local Gear = require(Config.Gear)
 local Liquids = require(Config.Liquids)
-local Treadmill = require(Config.Treadmill)
+local WalkSpeed = require(Config.WalkSpeed)
 local LuckBoost = require(Config.LuckBoost)
 local GamePasses = require(Config.GamePasses)
 local CashBoost = require(Config.CashBoost)
@@ -47,12 +47,10 @@ export type Profile = {
 	level: number,
 	gear: { [string]: number },
 	perks: { [string]: boolean },
-	-- The treadmill (Config/Treadmill). `speedPoints` is lifetime Speed, `treadmill`
-	-- the belt rung owned. Both optional for the same reason `liquids` is: Util/Spec builds
-	-- fake profiles by hand and every call site predates them. Absent means "untrained,
-	-- on the free belt" -- a real starting state, not a degraded one.
-	speedPoints: number?,
-	treadmill: number?,
+	-- Walk speed bought at the Upgrades booth (Config/WalkSpeed), on top of START_WALK.
+	-- Optional for the same reason `liquids` is: Util/Spec builds fake profiles by hand
+	-- and every call site predates it. Absent means "nothing bought", a real starting state.
+	walkBought: number?,
 	multipliers: { [string]: number }?, -- rebirth / gamepass / pet, all pre-summed
 	-- The wash pad's rolled liquids (Config/Liquids). Both optional because
 	-- Util/Spec builds fake profiles by hand and every existing call site predates
@@ -93,20 +91,17 @@ export type Stats = {
 	auraTolerance: number,
 	levelResist: number,
 	capacity: number,
-	-- movement. `walkSpeed` is TRAINED (Config/Treadmill), not bought: it is the
-	-- studs/sec of the speed level the player's lifetime `speedPoints` has reached.
-	-- `speedProgress` is how far toward the next level's requirement they are (0..1),
-	-- carried here rather than recomputed so nothing owns a second copy of the curve.
+	-- movement. `walkSpeed` is BOUGHT (Config/WalkSpeed) at the Upgrades booth: the
+	-- studs/sec the profile's `walkBought` adds up to.
 	--
 	-- `stamina`, `canVault` and `canDash` USED TO BE HERE, off the Boots track. All
 	-- three were resolved every tick and read by nothing at all; they went with the
 	-- track (see Gear.Boots' header). Do not restore them as constants -- an inert
 	-- field that every service can see is how a perk gets wired to nothing twice.
 	walkSpeed: number,
-	speedProgress: number,
 	haulPenalty: number,
 	-- The worn aura's walk-speed bonus as a fraction (Gear.Aura speedBonus, 0.03 = +3%).
-	-- Kept OUT of `walkSpeed` so the treadmill's trained number (the HUD, the picker, the
+	-- Kept OUT of `walkSpeed` so the bought number (the HUD, the picker, the
 	-- leaderboard) stays the player's own; effectiveWalkSpeed applies it last.
 	auraSpeedBonus: number,
 	-- loop
@@ -145,13 +140,13 @@ export type Stats = {
 	-- about them; `masteryCash` is carried on its own for display, like indexCash.
 	masteryCash: number,
 	bombDamageMult: number, -- BombService (the 1.5x Bomb Damage pass)
-	trainingMult: number, -- TreadmillService
+	speedPriceMult: number, -- Config/WalkSpeed.priceFor's discount (the Runner mastery)
 	radDamageMult: number, -- ExposureService: aura wear, aura failure and sickness
 	mergeFeeMult: number, -- Config/Merge.fee's discount (the Reactor mastery)
 	brewCooldownMult: number, -- LiquidService
 	awayRate: number, -- ExhibitService's offline share of $/s
 	-- GAME PASSES (Config/GamePasses) that need a field of their own. The rest fold
-	-- into capacity, luckBoost, trainingMult, bombDamageMult and the two cash ones.
+	-- into capacity, luckBoost, bombDamageMult and the two cash ones.
 	digPower: number, -- DigService: scales the magnet's side of a haul (yank + draw)
 	instantClean: boolean, -- WashService: a patch breaks the moment water touches it
 	healthMult: number, -- ExposureService: max health (the 2x Health pass)
@@ -209,10 +204,9 @@ function StatResolver.get(profile: Profile): Stats
 	local magnet = Gear.tier("Magnet", g.magnet or 1)
 	local cleaner = Gear.tier("Cleaner", g.cleaner or 1)
 	local aura = Gear.tier("Aura", g.aura or 1)
-	-- SPEED IS TRAINED, NOT EQUIPPED, so it is the one stat in this function that does
-	-- not come out of `profile.gear` at all. The Boots track that used to answer this
-	-- is retired (Gear.Boots' header); Config/Treadmill owns the number now.
-	local walkSpeed, speedProgress = Treadmill.walkFor(profile.speedPoints or 0)
+	-- SPEED IS BOUGHT, NOT EQUIPPED, so it is the one stat in this function that does
+	-- not come out of `profile.gear` at all: Config/WalkSpeed owns the number.
+	local walkSpeed = WalkSpeed.walkFor(profile.walkBought or 0)
 	local luckMultiplier = Gear.luckMultiplier(g.luck or 1)
 	-- The 2x Luck pass is one more source on the same boost, so it reaches the dig
 	-- roll and the wash pad exactly like the aurora and the clover (Config/GamePasses).
@@ -258,7 +252,6 @@ function StatResolver.get(profile: Profile): Stats
 		capacity = capacity,
 
 		walkSpeed = walkSpeed,
-		speedProgress = speedProgress,
 		-- Sure Footing (PLAN §9.2). Reads off the AURA now -- the perk halves the haul
 		-- penalty wherever that stat lives, and it has moved tracks twice (Boots, then
 		-- Satchel, then Aura) without changing what the perk means.
@@ -308,7 +301,7 @@ function StatResolver.get(profile: Profile): Stats
 
 		masteryCash = masteryCash,
 		bombDamageMult = if GamePasses.owns(profile, "bombDamage") then GamePasses.BOMB_DAMAGE else 1,
-		trainingMult = Mastery.value(profile, "training") * (if GamePasses.owns(profile, "speed") then GamePasses.SPEED else 1),
+		speedPriceMult = Mastery.value(profile, "speedPrice"),
 		radDamageMult = Mastery.value(profile, "radDamage"),
 		mergeFeeMult = Mastery.value(profile, "mergeFee"),
 		brewCooldownMult = Mastery.value(profile, "brewCooldown"),
@@ -408,10 +401,6 @@ function StatResolver.boosts(profile: Profile): { Boost }
 		potion("strength"),
 	})
 	add("clean", "Wash Speed", { potion("clean") })
-	add("training", "Training", {
-		{ name = "2x Speed Pass", mult = pass("speed", GamePasses.SPEED) },
-		{ name = "Masteries", mult = Mastery.value(profile, "training") },
-	})
 	add("bomb", "Bomb Damage", {
 		{ name = "1.5x Bomb Damage Pass", mult = pass("bombDamage", GamePasses.BOMB_DAMAGE) },
 	})
@@ -424,15 +413,14 @@ end
 --- physically slow you, which is what turns capacity from a bigger number into
 --- a decision.
 ---
---- UNCHANGED BY THE BOOTS RETIREMENT, which is the whole reason the treadmill was
---- wired into `walkSpeed` rather than added as a separate bonus anywhere downstream.
---- Both halves moved tracks underneath this function -- speed to Config/Treadmill,
---- the penalty to Gear.Aura -- and it did not have to notice, so neither did
---- ExposureService's tick loop, still the only thing in the game that writes
---- Humanoid.WalkSpeed.
+--- UNCHANGED BY THE BOOTS RETIREMENT OR THE TREADMILL'S, which is why speed is wired
+--- into `walkSpeed` rather than added as a separate bonus anywhere downstream. Speed
+--- moved to Config/WalkSpeed and the penalty to Gear.Aura underneath this function and
+--- it did not have to notice, so neither did ExposureService's tick loop, still the
+--- only thing in the game that writes Humanoid.WalkSpeed.
 ---
---- `picked` is the walk-speed picker's cap (profile `walkCap`, Treadmill.chosenWalk). It
---- trims the trained speed BEFORE the haul penalty, so a full bag still slows you down
+--- `picked` is the walk-speed picker's cap (profile `walkCap`, WalkSpeed.chosenWalk). It
+--- trims the bought speed BEFORE the haul penalty, so a full bag still slows you down
 --- from the speed you chose. The worn aura's `speedBonus` and the Speed Potion multiply
 --- the result last (walkBonus).
 --- Every multiplier on top of the chosen walk: the worn aura's bonus and the Speed
@@ -442,7 +430,7 @@ function StatResolver.walkBonus(stats: Stats): number
 end
 
 function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean, picked: number?): number
-	local speed = Treadmill.chosenWalk(stats.walkSpeed, picked) - (carriedCount * stats.haulPenalty)
+	local speed = WalkSpeed.chosenWalk(stats.walkSpeed, picked) - (carriedCount * stats.haulPenalty)
 	-- The aura's bonus and the Speed Potion ride on what is left, so a slowed-down pick
 	-- or a full bag is still scaled by them rather than handed a flat top-up.
 	speed *= StatResolver.walkBonus(stats)

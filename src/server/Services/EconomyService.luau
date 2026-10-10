@@ -30,7 +30,7 @@ local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
 local Merge = require(Shared.Config.Merge)
 local ShopProducts = require(Shared.Config.ShopProducts)
-local Treadmill = require(Shared.Config.Treadmill) -- priceText: "$32M", not "$32000000"
+local WalkSpeed = require(Shared.Config.WalkSpeed) -- priceText: "$32M", not "$32000000"
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -179,7 +179,7 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	EconomyService.pushCash(player, "sell")
 
 	local note = if clean then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
-	return true, `sold {name} for {Treadmill.priceText(value)}{note}`
+	return true, `sold {name} for {WalkSpeed.priceText(value)}{note}`
 end
 
 --- The trader's bulk sales. Only the BAG is swept -- the Quarantine Locker is a shelf
@@ -229,7 +229,7 @@ local function soldMessage(count: number, total: number, blind: number): string
 		then ""
 		elseif blind == count then ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
 		else ` ({blind} dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
-	return `sold {count} {noun} for {Treadmill.priceText(total)}{note}`
+	return `sold {count} {noun} for {WalkSpeed.priceText(total)}{note}`
 end
 
 --- SELL ALL CLEAN / SELL ALL ???, by kind. `which` is "clean" or "dirty".
@@ -308,12 +308,12 @@ function EconomyService.spend(player: Player, amount: number): (boolean, string)
 
 	if data.cash < price then
 		SfxService.play(player, "denied")
-		return false, `you need {Treadmill.priceText(price - data.cash)} more`
+		return false, `you need {WalkSpeed.priceText(price - data.cash)} more`
 	end
 
 	data.cash -= price
 	EconomyService.pushCash(player, "spend")
-	return true, `paid {Treadmill.priceText(price)}`
+	return true, `paid {WalkSpeed.priceText(price)}`
 end
 
 --- The counterpart, so refunds and payouts do not open-code the field either.

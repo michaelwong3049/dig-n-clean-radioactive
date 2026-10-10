@@ -7,7 +7,7 @@
 	pay whatever you want it to; leave a field out and it pays none of that.
 
 	  cash               dollars, through EconomyService.award
-	  speed              Speed points (the treadmill stat)
+	  speed              walk speed, added to what the player has bought (Config/WalkSpeed)
 	  luckSeconds        seconds of 2x luck
 	  cashBoostSeconds   seconds of 2x cash
 	  crates             list of Config/Crates ids, e.g. { "nuke1", "liquid2" }
@@ -100,7 +100,7 @@ function Codes.describe(entry: Code): string
 		table.insert(parts, `${entry.cash} cash`)
 	end
 	if entry.speed then
-		table.insert(parts, `{entry.speed} Speed`)
+		table.insert(parts, `+{entry.speed} walk speed`)
 	end
 	if entry.luckSeconds then
 		table.insert(parts, `{math.floor(entry.luckSeconds / 60)} min of 2x luck`)

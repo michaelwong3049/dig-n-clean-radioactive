@@ -35,7 +35,7 @@ local ORDER = {
 	"StationService", -- what you are standing at; DeconService, ShopService and ExhibitService read it
 	"ShopService", -- turning cash back into capability; needs Station + Economy
 	"ProductService", -- Robux developer products; the ONE owner of ProcessReceipt; needs Data
-	"GamePassService", -- the seven permanent passes: ownership into data.passes for StatResolver; needs Data
+	"GamePassService", -- the permanent passes: ownership into data.passes for StatResolver; needs Data
 	"LuckBoostService", -- 2x luck: the Violet Aurora event + the bought Lucky Clover; needs Product
 	"CashBoostService", -- 2x cash for a while, bought inside a pack; needs Data
 	"PotionService", -- the potion stash + ten-minute potion clocks; needs Data
@@ -45,17 +45,17 @@ local ORDER = {
 	"AwayEarningsService", -- the "While you were away" card: holds offline income for COLLECT / Robux DOUBLE IT; needs Economy + Product
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
 	"FriendBoostService", -- +10% cash while a Roblox friend is in the server; needs Data + Exhibit
-	"TreadmillService", -- the speed grind on your plot's belt; needs Station + Economy + Exhibit
+	"SpeedService", -- walk speed bought at the Upgrades booth, the walk picker, speed Robux; needs Station + Economy + Product
 	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Camp + Dig + Exhibit + Exposure
 	"LiquidService", -- the fluid bottle + panel: rolling liquids, charges, Luck; needs Exhibit + Shop
 	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
 	"CrateService", -- opening dug-up supply crates; needs Dig + Wash + Liquid + Identify
 	"PackService", -- the Starter / Pro Packs: cash, crates, luck + cash time in one receipt; needs Product + Economy + Crate + LuckBoost + CashBoost
 	"DailyRewardService", -- the 7-day login calendar; needs Economy + Crate + LuckBoost + CashBoost + Exhibit
-	"GroupRewardService", -- the group chest on Stage 1: join the group for cash + Speed + 2x luck, once; needs Economy + LuckBoost + Exhibit + Treadmill
+	"GroupRewardService", -- the group chest on Stage 1: join the group for cash + walk speed + 2x luck, once; needs Economy + LuckBoost + Exhibit + Speed
 	"RobuxGiftService", -- buying a Robux product for someone else: the intent, the receipt route, delivery via save messages; needs Data + Product (and every grant registered in init)
 	"CrateShopService", -- the two crate pads either side of the group chest: Scrap + Coolant for cash, Fusion + Plasma for Robux; needs Economy + Product + Crate
-	"CodeService", -- the Shop's CODES section: group members redeem a code once for its reward; needs Economy + Crate + LuckBoost + CashBoost + Potion + Exhibit + Treadmill + GroupReward
+	"CodeService", -- the Shop's CODES section: group members redeem a code once for its reward; needs Economy + Crate + LuckBoost + CashBoost + Potion + Exhibit + Speed + GroupReward
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"MergeService", -- the Merge Reactor at Toxic Twilight: 3 copies in, 1 out; needs Station + Economy + Carry + Exhibit + Wash
 	"ReforgeService", -- the Reforge Station at Toxic Twilight: pay to reroll a nuke's bomb damage/radius, rare quality; same needs as Merge

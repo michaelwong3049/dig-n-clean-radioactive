@@ -5,10 +5,10 @@
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
 	walking up to a stall on the plaza (StationController). One scrolling body, five
 	sections: the PACKS (Config/Packs) first, two once-per-player bundles that turn to
-	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), eight permanent upgrades on top, which
+	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), seven permanent upgrades on top, which
 	turn to OWNED off the Player attribute GamePassService writes; the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
 	row of four packs; and a SPEED row (Config/ShopProducts, whose grants live in
-	EconomyService and TreadmillService). The Mystery crates that used to close the
+	EconomyService and SpeedService). The Mystery crates that used to close the
 	panel were retired 2026-10-05: their two products now sell the Fusion and Plasma
 	crates on Base Camp's PREMIUM CRATES pad (Config/CrateShop). Every buy button is the gear
 	cards' purple R$, so real money always looks the same. The client only ever
@@ -742,12 +742,12 @@ local function buildLuck(parent: Frame)
 	buildServerBoostCard(parent)
 end
 
---- The eight passes, PASSES_PER_ROW to a row. A bought one keeps its card and swaps
+--- The passes, PASSES_PER_ROW to a row. A bought one keeps its card and swaps
 --- the button for a green OWNED, off the attribute GamePassService sets.
 local function buildPasses(parent: Instance)
 	section(parent, -10, "PASSES")
-	-- An odd count would leave the first pass (2x Cash) alone on a full-width row up top;
-	-- with eight, every row is a pair.
+	-- An odd count leaves the first pass (2x Cash) alone on a full-width row up top: seven
+	-- since the 2x Speed pass went with the treadmill, so 2x Cash leads on its own.
 	local count = #GamePasses.PASSES
 	local lead = count % PASSES_PER_ROW
 	local spans = {}
@@ -791,27 +791,12 @@ local function buildPasses(parent: Instance)
 			local art = Instance.new("ImageLabel")
 			art.Name = "Art"
 			art.BackgroundTransparency = 1
-			-- 2x Speed wears the HUD's walk-speed shoe, with an x2 beside it.
-			art.Image = if pass.key == "speed" then Artwork.IMAGE.speedShoe else pass.image
+			art.Image = pass.image
 			art.ScaleType = Enum.ScaleType.Fit
 			art.Size = UDim2.fromOffset(PASS_ART, PASS_ART)
 			art.Position = UDim2.fromOffset(10, 46)
 			art.ZIndex = 13
 			art.Parent = card
-			if pass.key == "speed" then
-				art.Size = UDim2.fromOffset(PASS_ART - 30, PASS_ART - 30)
-				art.Position = UDim2.fromOffset(6, 61)
-				inked(card, {
-					Name = "Times",
-					Text = "x2",
-					Font = PANEL.headline,
-					TextSize = 40,
-					TextColor3 = PANEL.white,
-					Size = UDim2.fromOffset(56, 44),
-					Position = UDim2.fromOffset(PASS_ART - 30, 94),
-					ZIndex = 14,
-				})
-			end
 			inked(card, {
 				Name = "PassName",
 				Text = pass.name,
@@ -971,9 +956,9 @@ local SPEED_PILES: { { { x: number, y: number, size: number, turn: number } } } 
 	},
 }
 
---- The four Speed packs, right under CASH, in blue with the speed badge's shoe.
+--- The four walk-speed packs (+10 to +60 walk), right under CASH, in blue with the speed badge's shoe.
 local function buildSpeed(parent: Instance)
-	buildPackRows(parent, 6, "SPEED", ShopProducts.SPEED, SPEED_CARD, function()
+	buildPackRows(parent, 6, "WALK SPEED", ShopProducts.SPEED, SPEED_CARD, function()
 		return Artwork.IMAGE.speedShoe
 	end, function(art, index)
 		local pile = SPEED_PILES[index] or SPEED_PILES[#SPEED_PILES]

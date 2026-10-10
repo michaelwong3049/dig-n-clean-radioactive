@@ -45,8 +45,6 @@ local ORDER = {
 	"CrateController", -- supply crates: the Open prompt on a held crate + the nuke-crate reveal; reads CrateOpened
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
 	"CrustController", -- crust on a washed item: eases the server's erode level every frame, tumbles shed pieces off; watches ItemCrust-tagged parts
-	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedController
-	"TreadmillSignController", -- the upgrade sign beside each treadmill: "Level 1 > Level 2", red cash + purple Robux buttons; fires TreadmillBuy
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
 	"StandNukeController", -- the nuke on every display stand, built here from ExhibitService's StandNuke attributes: still copy far, full model near
 	"MergeReactorController", -- the Merge Reactor's show: nukes into the hoppers, the core charging, the result on the lift; reads the reactor's Merge* attributes

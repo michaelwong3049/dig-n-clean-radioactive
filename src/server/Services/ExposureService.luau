@@ -156,7 +156,7 @@ local function noteDeath(victim: Player)
 end
 
 -- Debug console only (see DebugService's /speed). A sustained WalkSpeed override:
--- nil follows the player's trained speed as normal (Config/Treadmill), a number pins
+-- nil follows the player's bought speed as normal (Config/WalkSpeed), a number pins
 -- WalkSpeed to exactly that and ignores the haul penalty. Session-only and deliberately NOT persisted --
 -- unlike /cash and /gear, which are real game state, this is a testing convenience
 -- that should die with the session.
@@ -790,11 +790,9 @@ local function stepPlayer(player: Player, dt: number)
 	-- mismatch") -- the same reason a new tier is in your hands within a third of a
 	-- second with no event.
 	--
-	-- IT IS ALSO WHAT MAKES THE TREADMILL WORK AT ALL. `walkSpeed` is trained now
-	-- (Config/Treadmill) and climbs while the player stands on a belt, so the number
-	-- this loop reads genuinely changes mid-session -- where a Boots tier only ever
-	-- changed at a shop counter. Nothing here had to learn that: the stat moved tracks
-	-- underneath StatResolver and this loop still just asks for it.
+	-- IT IS ALSO WHAT MAKES A SPEED PURCHASE LAND. `walkSpeed` is bought at the
+	-- Upgrades booth now (Config/WalkSpeed); nothing here had to learn that: the stat
+	-- moved underneath StatResolver and this loop still just asks for it.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		-- LOCKED ON, OR WASHING == ROOTED. Two independent features each need to plant
@@ -1111,13 +1109,13 @@ function ExposureService.healFull(player: Player)
 end
 
 --- Debug console (/speed). A number pins the player's WalkSpeed there until cleared;
---- nil clears it and hands movement back to their trained speed. The dig/wash root still
+--- nil clears it and hands movement back to their bought speed. The dig/wash root still
 --- wins over this -- an override does not let you walk while locked to a signal.
 function ExposureService.setSpeedOverride(player: Player, walkSpeed: number?)
 	speedOverrides[player] = walkSpeed
 	-- The Walk Speed badge shows the override, so resend it now rather than at the next
-	-- training tick. Lazy: TreadmillService is not otherwise a dependency of this file.
-	require(script.Parent.TreadmillService).refresh(player)
+	-- push. Lazy: SpeedService is not otherwise a dependency of this file.
+	require(script.Parent.SpeedService).refresh(player)
 end
 
 function ExposureService.speedOverrideOf(player: Player): number?

@@ -105,8 +105,8 @@ Tutorial.DIG_SPOT_IN = 18
 --
 -- ON REQUEST: nothing the walkthrough does not ask for works until it is over. Your
 -- cleansing station and stands stay open (the "clean" and "place" steps need them),
--- and the Detector shop opens on the "upgrade" step, which asks for the Bent Coil.
--- The Trader, every other shop, the Quarantine Locker, the treadmill, the luck button
+-- and the Detector shop (the Gear booth) opens on the "upgrade" step, which asks for the
+-- Bent Coil. The Trader, every other shop, the Quarantine Locker, the luck button
 -- and the floor signs are shut until you finish or SKIP.
 --
 -- Read off two attributes TutorialService writes every tick, `TutorialActive` and
@@ -152,7 +152,7 @@ function Tutorial.promptOpen(player: Player, prompt: ProximityPrompt): boolean
 		-- The desk / the rack carries the station attributes itself.
 		return Tutorial.stationOpen(player, parent:GetAttribute("StationKind"), parent:GetAttribute("StationId"))
 	elseif name == "Upgrade" then
-		-- A rack mount names its track; the treadmill console names none. Luck's
+		-- A rack mount names its track. Luck's
 		-- button is a "Luck" mount, so it stays shut with the other shops.
 		local track = parent:GetAttribute("SellsTrack")
 		return type(track) == "string" and Tutorial.stationOpen(player, "shop", track)

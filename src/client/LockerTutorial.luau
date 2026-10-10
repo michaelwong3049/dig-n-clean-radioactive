@@ -15,8 +15,8 @@
 	next and keeps up if the panel refits to a resized window.
 
 	A STEP CAN RING A THING IN THE WORLD, not only a panel: `world` (a Model or a part)
-	is projected to the screen every frame, so the treadmill's walkthrough
-	(TreadmillController) can ring the machine itself and follow the camera.
+	is projected to the screen every frame, so a walkthrough can ring a machine itself
+	and follow the camera (the treadmill's did, until the treadmill went).
 
 	ONCE PER PLAYER. The server says whether it is still owed (`lockerTutorial` on the
 	locker's StationState, from `data.tutorialsSeen`); finishing or skipping reports it

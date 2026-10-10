@@ -39,6 +39,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
 local Camps = require(Shared.Config.Camps)
 local CrateShop = require(Shared.Config.CrateShop)
+local Booths = require(Shared.Config.Booths)
 
 local Kit = require(script.Parent.Kit)
 local BaseCamp = require(script.Parent.BaseCamp)
@@ -601,13 +602,9 @@ function World.verify(): (boolean, { string })
 	check(bottles == Plots.COUNT, `expected {Plots.COUNT} fluid bottles (one per base), found {bottles}`)
 	check((census.roller or 0) == 0, `found {census.roller or 0} leftover wash pads (StationKind "roller") — the pad was removed`)
 
-	-- One treadmill per base (Plots.buildTreadmill) — the only place speed comes from
-	-- now that the Boots track is retired. A base without one is a base whose owner has
-	-- no way to train at home at all.
-	check(
-		(census.treadmill or 0) == Plots.COUNT,
-		`expected {Plots.COUNT} treadmills (one per base), found {census.treadmill or 0}`
-	)
+	-- The treadmill is gone (2026-10-09): speed is bought at the Upgrades booth
+	-- (Config/WalkSpeed). A leftover belt would sit on the base doing nothing.
+	check((census.treadmill or 0) == 0, `found {census.treadmill or 0} leftover treadmills — speed is bought at the Upgrades booth now`)
 
 	-- One Quarantine Locker rack per base (Plots.buildQuarantineLocker). Without its
 	-- station a base's locker cannot be opened at all, which is exactly how it went
@@ -689,7 +686,11 @@ function World.verify(): (boolean, { string })
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") then
 			if d:GetAttribute("StationKind") == "shop" then
-				sells[d:GetAttribute("StationId") :: string] = true
+				-- A booth sells every track Config/Booths gives it (the Gear booth: detectors
+				-- and magnets), not only the one in its id.
+				for _, track in Booths.tracks(d:GetAttribute("StationId")) do
+					sells[track] = true
+				end
 			end
 			local direct = d:GetAttribute("SellsTrack")
 			if type(direct) == "string" then
@@ -723,19 +724,16 @@ function World.verify(): (boolean, { string })
 	end
 
 	-- THE MACHINES IN THE SERVICE STRIP MUST NOT OVERLAP EACH OTHER, and this is a real
-	-- correctness check rather than a layout preference. All three of these fire off
-	-- StationService's ENTRY EDGE: docking freezes your bag and stepping onto a belt
-	-- starts banking training. A player scrubbing at the basin who drifts into an
-	-- overlapping belt radius would be registered at both. Nearest-wins settles which
-	-- panel opens; it does not settle which edges fire. See Plots.buildTreadmill for
-	-- the numbers this protects. (The wash pad's paid `roller` edge was the third kind
-	-- here until the pad was removed.)
+	-- correctness check rather than a layout preference. Docking fires off
+	-- StationService's ENTRY EDGE (it freezes your bag). Nearest-wins settles which
+	-- panel opens; it does not settle which edges fire. (The wash pad's paid `roller`
+	-- edge and the treadmill's training were kinds here until each was removed.)
 	--
 	-- THE LOCKER IS CHECKED WITH THEM, though it fires no edge: StationService reports
 	-- one station per player, so a locker reaching over the tub would make standing at
 	-- the tub read as "locker" and put your hose away (ToolService only hands it out at
 	-- "decon"), and dock nothing. See Plots.buildQuarantineLocker for its gap.
-	local EDGE_KINDS = { "decon", "treadmill", "locker" }
+	local EDGE_KINDS = { "decon", "locker" }
 	local edgeStations: { [string]: { BasePart } } = {}
 	for _, kind in EDGE_KINDS do
 		edgeStations[kind] = {}
@@ -752,29 +750,11 @@ function World.verify(): (boolean, { string })
 	local function reachOf(part: BasePart): number
 		return (part:GetAttribute("Radius") :: number?) or 12
 	end
-	-- A treadmill only counts you while your feet are over its belt (StationService's
-	-- FOOTPRINT_KINDS, 0.75 margin), so against one the other station's sphere has to
-	-- stay off the belt's box, not off the belt's own sphere.
-	local FOOTPRINT_KINDS = { treadmill = true }
-	local FOOTPRINT_MARGIN = 0.75
-	local function boxGap(box: BasePart, point: Vector3): number
-		local p = box.CFrame:PointToObjectSpace(point)
-		local dx = math.max(math.abs(p.X) - box.Size.X / 2 - FOOTPRINT_MARGIN, 0)
-		local dz = math.max(math.abs(p.Z) - box.Size.Z / 2 - FOOTPRINT_MARGIN, 0)
-		return math.sqrt(dx * dx + dz * dz)
-	end
 	for i = 1, #EDGE_KINDS do
 		for j = i + 1, #EDGE_KINDS do
 			for _, a in edgeStations[EDGE_KINDS[i]] do
 				for _, b in edgeStations[EDGE_KINDS[j]] do
-					local reach, gap
-					if FOOTPRINT_KINDS[EDGE_KINDS[i]] then
-						reach, gap = reachOf(b), boxGap(a, b.Position)
-					elseif FOOTPRINT_KINDS[EDGE_KINDS[j]] then
-						reach, gap = reachOf(a), boxGap(b, a.Position)
-					else
-						reach, gap = reachOf(a) + reachOf(b), (a.Position - b.Position).Magnitude
-					end
+					local reach, gap = reachOf(a) + reachOf(b), (a.Position - b.Position).Magnitude
 					check(
 						gap > reach,
 						`{a:GetFullName()} and {b:GetFullName()} are {gap // 1} studs apart but reach {reach} — walking between them would fire an edge nobody asked for`

@@ -9,7 +9,7 @@
 	tiers' values together: Gold in both is +12%.
 
 	NOTHING ABOUT A MASTERY IS STORED BUT ITS COUNTER. Every counter only ever goes up
-	(cleans, kills, lifetime cash, lifetime Speed, the deepest stage, the index), so the
+	(cleans, kills, lifetime cash, speed upgrades, the deepest stage, the index), so the
 	tier is read off it on demand (Shared/Mastery) and a tier once reached can never be
 	lost. Retuning a goal re-tiers everyone on their next read, with no migration.
 
@@ -21,12 +21,11 @@
 
 	`source` is what Shared/Mastery.count reads:
 	  * a key of `data.stats` ("itemsCleaned", "kills", "dug", ...);
-	  * "speedPoints" / "cashEarned", the two lifetime numbers on the profile itself;
+	  * "cashEarned", the lifetime number on the profile itself;
 	  * "indexPercent", how much of the whole index has been found, 0-100.
 ]]
 
 local Tuning = require(script.Parent.Tuning)
-local Treadmill = require(script.Parent.Treadmill)
 
 local Masteries = {}
 
@@ -40,8 +39,7 @@ export type Def = {
 	goals: { number },
 	-- How the goals are written: "$" for cash, "%" for a share, nil for a plain count.
 	unit: string?,
-	-- Shown counts and goals are the real number times this (Treadmill.DISPLAY_SCALE
-	-- for Speed, which every screen shows x10). Goals are in REAL units.
+	-- Shown counts and goals are the real number times this. Goals are in REAL units.
 	shown: number?,
 	reward: string,
 	-- The reward at Bronze, Silver, Gold.
@@ -61,7 +59,7 @@ Masteries.TIER_COLORS = {
 Masteries.BASE = {
 	cash = 1, -- x on every sale and every stand's income
 	walkSpeed = 0, -- + share of walk speed (0.02 = +2%); every mastery paying it ADDS
-	training = 1, -- x on the Speed a treadmill pays
+	speedPrice = 1, -- x on the price of a walk-speed upgrade (Config/WalkSpeed.priceFor)
 	luck = 1, -- x on luck (the wash pad's roll and the merge crit)
 	capacity = 0, -- + bag slots
 	radDamage = 1, -- x on the health radiation takes (aura wear, aura failure, sickness)
@@ -94,12 +92,13 @@ Masteries.LIST = {
 	{
 		id = "runner",
 		name = "Runner",
-		counts = "Speed trained",
-		source = "speedPoints",
-		goals = { 50000, 1000000, 10000000 },
-		shown = Treadmill.DISPLAY_SCALE,
-		reward = "training",
-		values = { 1.25, 1.5, 2 },
+		-- Was "Speed trained" for x1.25-x2 treadmill Speed; the treadmill went
+		-- (2026-10-09), so it counts Upgrades booth purchases and cheapens the next ones.
+		counts = "Speed upgrades",
+		source = "speedUpgrades",
+		goals = { 10, 30, 60 },
+		reward = "speedPrice",
+		values = { 0.9, 0.8, 0.7 },
 		color = Color3.fromRGB(70, 160, 255),
 	},
 	{
