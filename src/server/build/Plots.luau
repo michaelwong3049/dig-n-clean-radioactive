@@ -2557,21 +2557,22 @@ end
 --
 -- WHERE HOSES ARE BOUGHT (2026-10-09, on request: "remove hose shop booth, instead make
 -- a pad to the right of the cleaning station"). Every hose shop (Base Camp's booth, the
--- Twilight and Magma stalls) is gone; this studded pad on the fence side of the base's
+-- Twilight and Magma stalls) is gone; this studded pad off the end of the base's
 -- own tub is the only place left, and it sells every hose with no camp lock
 -- (Gear.CAMP_FREE). It is a shop station (StationKind "shop", StationId "Cleaner") with
 -- the stands' "ViewShop" prompt, so StationController opens the usual card row on its E,
 -- titled "Hoses" (Config/Booths). `OwnerOnly` makes it its base owner's alone, like the
 -- tub (StationService, client OwnStationPromptController).
 --
--- PLACED OFF THE TUB'S DECK, NOT AT A PLOT COORDINATE: beside it toward the fence, at
--- its entrance end. The deck's local +Z is the fence side on every pad, mirrored strip or not (buildCleansingStation turns the bay a
--- quarter-turn, and a flipped strip turns it 180 more). So this one rule lands the pad in
--- the gap the station left when it moved toward the middle (STATION_SHIFT), and the same
--- rule fixes a place saved before the pad existed (ExhibitService calls it at boot).
+-- PLACED OFF THE TUB'S DECK, NOT AT A PLOT COORDINATE: off its ENTRANCE end, the side
+-- closest to the stages (2026-10-10, on request: "put the hose upgrade on the left of the
+-- cleansing station (the side closest to the stages)"; it sat on the fence side before).
+-- Which end of the deck's long axis that is flips between mirrored strips, so it is read
+-- off where the stands are (the entrance is the other way). The same rule moves the pad
+-- on a place saved with it elsewhere (ExhibitService calls this at boot).
 local HOSE_PAD = {
-	width = 3.6, -- across, toward the fence
-	length = 6, -- along the fence
+	width = 3.6, -- out from the deck's end, toward the entrance
+	length = 6, -- across the deck's end
 	gap = 0.5, -- between the tub's deck and the pad
 	radius = 4, -- the station circle: well inside the pad's own reach, off the tub's spot
 	rim = 0.3,
@@ -2592,20 +2593,19 @@ function Plots.ensureHosePad(plot: Instance): BasePart?
 	local P = HOSE_PAD
 	local m = Instance.new("Model")
 	m.Name = "HosePad"
-	-- Deck-local: +Z toward the fence, Y up. The deck's top stands 0.15 over the strip's
+	-- Deck-local: X is the long axis, Y up. The deck's top stands 0.15 over the strip's
 	-- floor (buildCleansingStation), so the floor is that far under it.
 	local floorY = deck.Position.Y + deck.Size.Y / 2 - 0.15
-	-- Along the fence, flush with the deck's ENTRANCE end: centred, the tub's tall back
-	-- panel hid it. Which end that is flips between the north and south rows, so it is
-	-- read off where the stands are (the entrance is the other way).
-	local along = 0
+	local toEntrance = 1
 	local stand = plot:FindFirstChild("Stand1", true)
-	if stand and stand:IsA("BasePart") then
-		local reach = deck.Size.X / 2 - P.length / 2
-		along = if deck.CFrame.RightVector:Dot(stand.Position - deck.Position) > 0 then -reach else reach
+	if stand and stand:IsA("BasePart") and deck.CFrame.RightVector:Dot(stand.Position - deck.Position) > 0 then
+		toEntrance = -1
 	end
-	local center = deck.CFrame * CFrame.new(along, 0, deck.Size.Z / 2 + P.gap + P.width / 2)
-	local frame = CFrame.new(center.Position.X, floorY, center.Position.Z) * (deck.CFrame - deck.CFrame.Position)
+	local center = deck.CFrame * CFrame.new(toEntrance * (deck.Size.X / 2 + P.gap + P.width / 2), 0, 0)
+	-- A quarter-turn, so the pad's length runs across the deck's end (its local Z).
+	local frame = CFrame.new(center.Position.X, floorY, center.Position.Z)
+		* (deck.CFrame - deck.CFrame.Position)
+		* CFrame.Angles(0, math.pi / 2, 0)
 	local color = C.shopCleaner
 	local padPart = build(m, frame, {
 		name = "Pad",
@@ -3690,7 +3690,7 @@ end
 local STATION_CENTER = { x = 26, z = -32 }
 --- The station and its bottle slid this far toward the middle of the pad (2026-10-09,
 --- on request: "shift the cleaning station 4 studs to the left, closer to the nuke
---- displays"), making room for the Hoses pad on its fence side (Plots.ensureHosePad).
+--- displays"). The Hoses pad stands off its entrance end (Plots.ensureHosePad).
 --- Applied in the strip's written space, before a mirrored strip's flip, so it is always
 --- toward the middle.
 local STATION_SHIFT = -4
