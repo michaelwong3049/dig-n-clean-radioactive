@@ -206,7 +206,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 93 -- no gear/mannequin displays; booths are the imported studded shop stand, each in its own colour (2026-10-10)
+local BUILDER_VERSION = 94 -- camp Upgrades booth helper gone; no gear/mannequin displays; booths are the imported studded shop stand, each in its own colour (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -2538,37 +2538,12 @@ function Shops.buildCampStall(parent: Instance, origin: CFrame, track: string, c
 	}, origin)
 end
 
---- A site camp's Base Camp-style booth at `origin` (customer side along +Z): the
---- Upgrades booth (Config/Booths), which has no rack to hang. Returns the model.
-function Shops.buildCampBooth(parent: Instance, origin: CFrame, track: string, camp: string, accent: string?): Model
-	local base: BoothSpec? = nil
-	for _, row in BOOTHS do
-		if row.track == track then
-			base = row
-		end
-	end
-	assert(base, `{track} has no Base Camp booth to base a camp booth on`)
-	return buildBooth(parent, {
-		track = track,
-		at = base.at,
-		faceYaw = base.faceYaw,
-		color = accent or base.color,
-		label = base.label,
-		camp = camp,
-	}, origin)
-end
-
 --- Base Camp's Sell booth (SELL_BOOTH), named `Trader` and parented to `parent`
 --- (BaseCamp's model). Returns it.
 function Shops.buildSellBooth(parent: Instance): Model
 	local m = buildBooth(parent, SELL_BOOTH)
 	m.Name = "Trader"
 	return m
-end
-
---- How wide a booth is, so a camp can lay out around it.
-function Shops.boothWidth(): number
-	return BOOTH_WIDTH
 end
 
 --- How wide that stall is, so a camp can lay out around it before it builds it.

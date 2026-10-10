@@ -87,7 +87,6 @@ local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local Camps = require(Shared.Config.Camps)
 local Gear = require(Shared.Config.Gear)
-local Booths = require(Shared.Config.Booths) -- the Magnet slot is the Upgrades booth
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -102,7 +101,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 45 -- stages 166 wide, one-sided booths (2026-10-10)
+local BUILDER_VERSION = 46 -- Gear north, Aura south of the kiosk; no Upgrades booth (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -138,20 +137,22 @@ local PATH_HALF = 10
 --- Grown from 42 x 38 on request, then trimmed a little from 78.
 local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 
---- The trader stands at the square's middle with the four shops pinwheeled around it on
---- the diagonals, each facing the kiosk (buildStalls). Slot order = SLOT_ANGLES order;
---- angles are compass bearings off +Z (north), clockwise toward +X (east).
---- Aura and Detector swapped places on request (Detector NW, Aura NE). The Detector slot
---- is the GEAR stall and the Magnet slot the UPGRADES booth (Config/Booths, 2026-10-09).
---- The Cleaner slot builds nothing: hoses are bought on each base's Hoses pad
---- (build/Plots ensureHosePad, 2026-10-09), so its SE corner stands open.
-local SLOT_TRACKS = { "Detector", "Aura", "Cleaner", "Magnet" }
-local SLOT_ANGLES = { -45, 45, 135, -135 } -- NW, NE, SE, SW
---- Ring radius = widest shop's half-width + this, so neighbours' front corners never meet.
---- Was 28. Trimmed when the Aura Shop grew to six mannequins (Seraph, Crimson Vortex):
---- at 28 its back corner ran 1.5 past the paver square. The ring still sits ~3 further
---- out than it did, so every aisle is wider than before.
-local RING_AISLE = 25
+--- The trader stands at the square's middle with the shops on its NORTH and SOUTH sides
+--- (2026-10-10, on request, from the user's sketch: "remove the upgrade stands, keep the
+--- gear and aura, but make them on one side each"): the Gear stall (the Detector slot,
+--- Config/Booths) along the north side, toward the wash deck, the Aura shop along the
+--- south side, each long along the walk from stage to stage and facing the kiosk. The
+--- north/south paths go round their ends. No Upgrades booth (walk speed is Base Camp's)
+--- and no Hose Shop (each base's Hoses pad, build/Plots ensureHosePad).
+--- It was a pinwheel before: four shops on the diagonals.
+local SLOT_TRACKS = { "Detector", "Aura" }
+local SLOT_SIDES = { 1, -1 } -- +1 north (+z), -1 south
+--- Each stall's build origin, out from the kiosk along z. Its back (the racks, ~14 behind
+--- the shopfront) stays inside the paver square (SHOP_HALF_Z), and its front leaves a
+--- ~30-stud aisle to the kiosk.
+local SLOT_OUT = 46
+--- How far a stall reaches behind its build origin, for the square check below.
+local SLOT_BACK = 14
 local STALL_WIDTH = 24
 local STALL_LABEL = "COMING SOON"
 --- How far west of the kiosk a warp lands you.
@@ -1034,70 +1035,36 @@ local function buildStalls(parent: Instance, L: Layout)
 	folder.Name = "Stalls"
 	local accents = L.palette.awnings
 
-	-- THE PINWHEEL, ON REQUEST: the trader stands alone at the middle of the square and
-	-- the four shops ring it on the diagonals, each turned to face the kiosk. A slot sells
-	-- its track when Config/Gear sells any rung of it at this camp, else it is a shell.
-	type Slot = { width: number, build: (origin: CFrame) -> (), angle: number?, track: string? }
-	local slots: { Slot } = {}
+	-- One stall a side (see SLOT_TRACKS). A slot sells its track when Config/Gear sells
+	-- any rung of it at this camp, else it is a shell.
 	for i, track in SLOT_TRACKS do
-		if track == "Cleaner" then
-			continue
-		end
 		local accent = accents[(i - 1) % #accents + 1]
 		local shopColor = L.palette.shopColors and L.palette.shopColors[track]
-		if Booths.sellsSpeed(track) and not L.def.comingSoon then
-			-- The Upgrades booth sells walk speed, not a rung of this camp's: a Base
-			-- Camp-style booth with no rack, wherever the camp is open.
-			table.insert(slots, {
-				width = Shops.boothWidth(),
-				build = function(origin)
-					Shops.buildCampBooth(folder, origin, track, L.def.key, shopColor)
-				end,
-			})
-		elseif #Gear.tiersAt(track, L.def.key) > 0 then
+		local width: number, buildAt: (origin: CFrame) -> ()
+		if #Gear.tiersAt(track, L.def.key) > 0 then
 			if track == "Aura" then
-				table.insert(slots, {
-					width = Shops.campOutfitterWidth(L.def.key),
-					build = function(origin)
-						Shops.buildCampOutfitter(folder, origin, L.def.key, shopColor)
-					end,
-				})
+				width = Shops.campOutfitterWidth(L.def.key)
+				buildAt = function(origin)
+					Shops.buildCampOutfitter(folder, origin, L.def.key, shopColor)
+				end
 			else
-				table.insert(slots, {
-					width = Shops.campStallWidth(track, L.def.key),
-					build = function(origin)
-						Shops.buildCampStall(folder, origin, track, L.def.key, shopColor)
-					end,
-				})
+				width = Shops.campStallWidth(track, L.def.key)
+				buildAt = function(origin)
+					Shops.buildCampStall(folder, origin, track, L.def.key, shopColor)
+				end
 			end
 		else
-			table.insert(slots, {
-				width = STALL_WIDTH,
-				build = function(origin)
-					Shops.buildStallShell(folder, origin, STALL_WIDTH, accent, STALL_LABEL)
-				end,
-			})
+			width = STALL_WIDTH
+			buildAt = function(origin)
+				Shops.buildStallShell(folder, origin, STALL_WIDTH, accent, STALL_LABEL)
+			end
 		end
-		-- Each slot keeps its own corner, so a skipped one leaves its corner open.
-		slots[#slots].angle = SLOT_ANGLES[i]
-		slots[#slots].track = track
-	end
-
-	-- One ring distance for all four, far enough out that the widest shop's front corners
-	-- clear its neighbours' and the kiosk with an aisle to spare.
-	local widest = 0
-	for _, slot in slots do
-		widest = math.max(widest, slot.width)
-	end
-	local ring = widest / 2 + RING_AISLE
-	for _, slot in slots do
-		local angle = math.rad(slot.angle :: number)
-		local dx, dz = math.sin(angle) * ring, math.cos(angle) * ring
-		-- A shop's customer side is local +Z; turn it to point back at the kiosk.
-		local yaw = math.atan2(-dx, -dz)
-		local reach = (slot.width / 2 + 12) / math.sqrt(2) + math.abs(dx)
-		assert(reach <= SHOP_HALF_X, `{L.def.key}'s {tostring(slot.track)} shop runs off the paver square ({reach})`)
-		slot.build(CFrame.new(L.ox + dx, PLAZA_Y, L.oz + dz) * CFrame.Angles(0, yaw, 0))
+		assert(width / 2 <= SHOP_HALF_X, `{L.def.key}'s {track} shop runs off the paver square ({width})`)
+		assert(SLOT_OUT + SLOT_BACK <= SHOP_HALF_Z, `{L.def.key}'s {track} shop runs off the paver square`)
+		-- A shop's customer side is local +Z; turn it back at the kiosk (north faces south).
+		local side = SLOT_SIDES[i]
+		local yaw = if side > 0 then math.pi else 0
+		buildAt(CFrame.new(L.ox, PLAZA_Y, L.oz + side * SLOT_OUT) * CFrame.Angles(0, yaw, 0))
 	end
 	folder.Parent = parent
 
