@@ -205,7 +205,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 85 -- booths in one row in front of the five-base row, facing the bases (2026-10-09)
+local BUILDER_VERSION = 86 -- smaller booths clustered in front of the middle base, green Sell booth (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -1896,14 +1896,15 @@ end
 --- tier rack, no Aura mannequins, no RackZone. The site camps (CampSite) keep their full
 --- racked stalls -- STALLS above is still their template.
 ---
---- ONE ROW IN FRONT OF THE BASES (2026-10-09, on request, the five-base row): the
---- booths stand on Hub's shop strip, each opposite a gap between two bases, facing them
---- (-X) -- open front and back, so the Stage 1 side sells too. Left to right as you face
---- Stage 1: Aura, Upgrades (Magnet), the Trader's kiosk (Hub.CAMP_ORIGIN, BaseCamp), Gear
---- (Detector). The kiosk keeps the slot nearest the middle base's right-hand gap, the
---- way the first players in (ExhibitService FILL_ORDER, middle out) walk to sell.
+--- ONE TIGHT ROW IN FRONT OF THE MIDDLE BASE (2026-10-10, on request: "make every shop
+--- booth smaller and less long ... put all the shop booths near together"): four booths
+--- side by side on Hub's shop strip, 8-stud aisles between them, facing the bases (-X) --
+--- open front and back, so the Stage 1 side sells too. Left to right as you face Stage 1:
+--- Aura, Upgrades (Magnet), Sell (SELL_BOOTH, built by BaseCamp as its Trader), Gear
+--- (Detector). They were spread one per gap along the whole row the day before.
 --- Move a booth here, move Hub's SHOP_ZONE with it.
-local BOOTH_WIDTH = 26 -- longer on request (was 14, just the stand); the spine and roof run its length
+--- 26 -> 16 wide (2026-10-10, on request), so a booth is about as wide as it is deep.
+local BOOTH_WIDTH = 16
 --- The row's build origin on X: a booth's footprint runs from 4.9 in front of it to 12.9
 --- behind (its step pads, mirrored about ISLAND_Z), so x 13.1..30.9, inside the strip's
 --- kerbs (7..35).
@@ -1912,16 +1913,22 @@ local BOOTH_FACE = -90 -- fronts to world -X, at the bases
 local BOOTHS = {
 	-- The Magnet booth is the UPGRADES booth and the Detector booth the GEAR booth
 	-- (Config/Booths, 2026-10-09): same station ids, new names.
-	{ track = "Aura", at = { BOOTH_ROW_X, -114 }, faceYaw = BOOTH_FACE, color = C.shopOutfitter, label = "Aura Shop" },
-	{ track = "Magnet", at = { BOOTH_ROW_X, -38 }, faceYaw = BOOTH_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
-	{ track = "Detector", at = { BOOTH_ROW_X, 114 }, faceYaw = BOOTH_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
+	{ track = "Aura", at = { BOOTH_ROW_X, -36 }, faceYaw = BOOTH_FACE, color = C.shopOutfitter, label = "Aura Shop" },
+	{ track = "Magnet", at = { BOOTH_ROW_X, -12 }, faceYaw = BOOTH_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
+	{ track = "Detector", at = { BOOTH_ROW_X, 36 }, faceYaw = BOOTH_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
 	-- No Hose Shop booth (2026-10-09, on request): hoses are bought on the Hoses pad beside
 	-- each base's tub (build/Plots ensureHosePad).
 }
 
---- The Trader's kiosk in the shop row (BaseCamp.buildHubTrader, on Hub.CAMP_ORIGIN): its
---- painted ground square's half-width, which assertNoShopOverlap keeps the booths off.
-local TRADER_KIOSK_HALF = 11
+--- THE SELL BOOTH (2026-10-10, on request: "make sell booth look the same as others with a
+--- unique color, preferably green"): the same booth as the shops, in green, standing in
+--- the row. It replaces Base Camp's four-sided hazmat kiosk. BaseCamp builds it (as its
+--- `Trader` model, which WarpService's SELL button and World.verify's trader census look
+--- for) through Shops.buildSellBooth. Its counters carry no shop station; one invisible
+--- TraderStation in the middle opens the sell panel within SELL_RADIUS, which reaches past
+--- both step pads.
+local SELL_BOOTH = { track = "Sell", at = { BOOTH_ROW_X, 12 }, faceYaw = BOOTH_FACE, color = "3DBE5C", label = "Sell", sell = true }
+local SELL_RADIUS = 12
 
 --- The booth's step pad: a studded strip in `color` on the plaza just in front of the
 --- stand (inside STAND_PROMPT_REACH of the desk), with a thin Neon rim in the same colour.
@@ -1980,7 +1987,7 @@ end
 --- gotham black"). A studded black board across the roof's outer edge, its bottom below
 --- the roof line like a fascia, the name painted on its outward face in white GothamBlack.
 --- Built in the side's own frame, so the outward face is the part's Back (+z).
-local NAME_BOARD_WIDTH = 16
+local NAME_BOARD_WIDTH = 12 -- 16 -> 12 with the narrower booths (2026-10-10)
 local NAME_BOARD_HEIGHT = 3
 local NAME_BOARD_DEPTH = 0.5
 local function buildNameBoard(parent: Instance, frame: CFrame, text: string)
@@ -2016,7 +2023,7 @@ end
 --- hangTierModel (the racks' own fitting, magnets seated poles-down). The
 --- Aura shop shows two mannequins wearing their rung's aura instead (ShopThemes'
 --- dressOutfitter), standing on the floor: their torsos already clear the wall.
-local BOOTH_DISPLAY_X = 6.5 -- each display's distance from the booth's centre line
+local BOOTH_DISPLAY_X = 4 -- each display's distance from the booth's centre line (6.5 -> 4 with the narrower booths)
 local BOOTH_PLINTH = 2.4 -- the plinth's width and depth
 local BOOTH_PLINTH_HEIGHT = 1
 -- The racks' sizes read as specks from the plaza (a magnet came out ~1 stud), so a
@@ -2105,7 +2112,7 @@ local function buildBoothDisplays(parent: Instance, origin: CFrame, boothId: str
 end
 
 --- One booth. `originOverride` and `spec.camp` are a site camp's (Shops.buildCampBooth).
-type BoothSpec = { track: string, at: { number }, faceYaw: number, color: string, label: string, camp: string? }
+type BoothSpec = { track: string, at: { number }, faceYaw: number, color: string, label: string, camp: string?, sell: boolean? }
 local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFrame?)
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
@@ -2137,11 +2144,12 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 			width = BOOTH_POST_X * 2,
 			depth = BOOTH_WALL_THICK,
 			z = BOOTH_WALL_Z,
-			stationKind = "shop",
-			stationId = spec.track,
+			-- The Sell booth's counters are plain walls; its TraderStation does the selling.
+			stationKind = if spec.sell then nil else "shop",
+			stationId = if spec.sell then nil else spec.track,
 			stationCamp = spec.camp,
-			radius = STAND_RADIUS,
-			promptText = spec.label,
+			radius = if spec.sell then nil else STAND_RADIUS,
+			promptText = if spec.sell then nil else spec.label,
 			material = "Plastic",
 			studded = true,
 		})
@@ -2170,8 +2178,22 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 
 	buildPlainRoof(m, origin, spec.color, width, BOOTH_FRAME)
 	buildRoofTop(m, origin, width, spec.color, spec.label)
-	-- The Upgrades booth sells walk speed, not gear: nothing to stand on its plinths.
-	if not Booths.sellsSpeed(spec.track) then
+	-- The Upgrades booth sells walk speed, not gear, and the Sell booth buys: nothing to
+	-- stand on their plinths.
+	if spec.sell then
+		local station = build(m, origin, {
+			name = "TraderStation",
+			pos = { 0, 1.5, ISLAND_Z },
+			size = { 1, 1, 1 },
+			color = C.steel,
+			material = "SmoothPlastic",
+			transparency = 1,
+			canCollide = false,
+			attributes = { StationKind = "trader", Radius = SELL_RADIUS },
+		})
+		station.CanQuery = false
+		station.CanTouch = false
+	elseif not Booths.sellsSpeed(spec.track) then
 		buildBoothDisplays(m, origin, spec.track, spec.color)
 	end
 
@@ -2229,8 +2251,8 @@ local function assertNoShopOverlap()
 	end
 
 	table.insert(rects, {
-		name = "Trader kiosk",
-		rect = { cx = Hub.CAMP_ORIGIN.X, cz = Hub.CAMP_ORIGIN.Z, halfWidth = TRADER_KIOSK_HALF, halfDepth = TRADER_KIOSK_HALF, yawDeg = 0 },
+		name = "Sell booth",
+		rect = shopFootprint(SELL_BOOTH.at[1], SELL_BOOTH.at[2], BOOTH_WIDTH, mirrorZ(BOOTH_PAD_FRONT + 0.15), BOOTH_PAD_FRONT + 0.15, SELL_BOOTH.faceYaw),
 	})
 
 	for i = 1, #rects do
@@ -2490,6 +2512,14 @@ function Shops.buildCampBooth(parent: Instance, origin: CFrame, track: string, c
 		label = base.label,
 		camp = camp,
 	}, origin)
+end
+
+--- Base Camp's Sell booth (SELL_BOOTH), named `Trader` and parented to `parent`
+--- (BaseCamp's model). Returns it.
+function Shops.buildSellBooth(parent: Instance): Model
+	local m = buildBooth(parent, SELL_BOOTH)
+	m.Name = "Trader"
+	return m
 end
 
 --- How wide a booth is, so a camp can lay out around it.

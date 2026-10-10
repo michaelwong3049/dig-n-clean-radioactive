@@ -67,7 +67,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 30 -- Trader kiosk into the shop row of the five-base row (2026-10-09)
+local BUILDER_VERSION = 31 -- the Trader is a green Sell booth in the shop row (2026-10-10)
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -138,7 +138,7 @@ end
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
-local function buildShell(camp: Model, origin: CFrame)
+local function buildShell(camp: Model, _origin: CFrame)
 	-- NO FLOOR PAD. There used to be a 64x46 slab of cream Pavement here whose top
 	-- face landed on exactly Y = 0 — the same plane as the plaza it sits inside. That
 	-- was invisible while the plaza was cream too: two coplanar faces in the same
@@ -193,7 +193,10 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- corner round it.
 	-- 2026-10-09, the five-base row: Hub.CAMP_ORIGIN moved into the shop row, opposite
 	-- the gap right of the middle base, so the kiosk stands in line with the booths.
-	BaseCamp.buildHubTrader(camp, origin)
+	-- 2026-10-10, on request: NO KIOSK HERE ANY MORE. The Trader is a booth like the
+	-- shops, in green, in their row (Shops SELL_BOOTH / buildSellBooth); Toxic Twilight
+	-- still stands buildHubTrader's kiosk.
+	Shops.buildSellBooth(camp)
 end
 
 -- ── The trader kiosk ──────────────────────────────────────────────────────────

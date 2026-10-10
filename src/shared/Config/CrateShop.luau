@@ -68,7 +68,10 @@ export type Pad = {
 -- 25.5). Same floor top as the chest: PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35.
 -- 2026-10-09 (five-base row): in front of the middle base, by Stage 1's mouth, and turned
 -- to face the bases (-X) like the chest.
-local CHEST_X = 57
+-- 2026-10-10, on request: moved with the chest onto the east wall's left-hand (-z)
+-- shoulder, the pads either side of it along the wall.
+local CHEST_X = 83
+local CHEST_Z = -128
 local FLOOR_Y = -1.15
 local PAD_Z = 18
 
@@ -121,7 +124,7 @@ CrateShop.PADS = {
 	{
 		name = "CashCratePad",
 		title = "Crate Shop",
-		position = Vector3.new(CHEST_X, FLOOR_Y, -PAD_Z),
+		position = Vector3.new(CHEST_X, FLOOR_Y, CHEST_Z - PAD_Z),
 		facing = -Vector3.xAxis,
 		offers = {
 			{ crateId = "nuke1", cash = 75_000, offset = CrateShop.SPREAD },
@@ -131,7 +134,7 @@ CrateShop.PADS = {
 	{
 		name = "RobuxCratePad",
 		title = "Premium Crates",
-		position = Vector3.new(CHEST_X, FLOOR_Y, PAD_Z),
+		position = Vector3.new(CHEST_X, FLOOR_Y, CHEST_Z + PAD_Z),
 		facing = -Vector3.xAxis,
 		offers = {
 			{ crateId = "nuke5", productId = 3716022009, offset = -CrateShop.SPREAD },

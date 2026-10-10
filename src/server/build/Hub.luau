@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 44 -- five-base row: plaza in front of it, a shop strip down the middle (2026-10-09)
+local BUILDER_VERSION = 45 -- shop strip cut to the booth cluster, respawn ring on open ground (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -218,10 +218,10 @@ local GREEN_STRIP_DEPTH = 19
 -- them -- minX -49 -> -1 (12 tiles, an even count: same grid phase, same checker parity)
 -- and |z| 70 -> 182 (28 tiles each side, likewise), out past the end pads' outer edges.
 Hub.PLAZA = { minX = -1, maxX = 100, minZ = -182, maxZ = 182, thickness = 8, topY = -1.5 }
---- The camp's datum: the Trader's kiosk (BaseCamp.buildHubTrader) and the blackout
---- respawn ring (buildSpawns) stand on it. In the shop row, opposite the gap between the
---- middle base and the one to its right (Shops BOOTHS keeps that slot for it).
-Hub.CAMP_ORIGIN = CFrame.new(22, -0.6, 38)
+--- The camp's datum: the blackout respawn ring (buildSpawns) circles it. On the open
+--- ground between the shop row and Stage 1, in front of the middle base (2026-10-10: the
+--- Trader is a booth in the shop row now, Shops SELL_BOOTH, so the ring no longer rings it).
+Hub.CAMP_ORIGIN = CFrame.new(55, -0.6, 0)
 
 --- THE PLAZA FLOOR IS THE PLAZA RECTANGLE. It was an octagon centred on the old plot
 --- ring (and a circle before that); with the bases squared round it, the straight edges
@@ -300,7 +300,9 @@ end
 --- 2026-10-09, the five-base row: a long strip down the middle of the open ground, parallel
 --- to the bases' fronts, with a booth (and the Trader) opposite each gap between them
 --- (Shops BOOTHS, booth row x 18). Every edge on a tile line.
-local SHOP_ZONE = { minX = 7, maxX = 35, minZ = -134, maxZ = 134 }
+--- 2026-10-10: shortened to the four booths clustered in front of the middle base
+--- (z -44..44 of booth), on request ("put all the shop booths near together").
+local SHOP_ZONE = { minX = 7, maxX = 35, minZ = -50, maxZ = 50 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
@@ -1038,8 +1040,8 @@ local function buildSpawns(hub: Model)
 	-- now) and the Trader moved to the SE corner. It is back on this point (2026-10-04,
 	-- with the Hose Shop in the SE corner), so 16 lands you just past its sell radius again,
 	-- in the four aisles between the corner booths.
-	-- 2026-10-09: the datum moved into the shop row with the Trader (five-base row); the
-	-- ring still circles the kiosk, just outside its sell radius.
+	-- 2026-10-09: the datum moved into the shop row with the Trader (five-base row).
+	-- 2026-10-10: out onto the open ground before Stage 1, clear of every booth.
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",

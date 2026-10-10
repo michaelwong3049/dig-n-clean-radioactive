@@ -10,9 +10,9 @@
 	the shop floor's height (PLAZA.topY + SHOP_FLOOR_LIFT), so its checker runs in register
 	with the shop strip.
 
-	A RECTANGLE SINCE THE FIVE-BASE ROW (2026-10-09): it stands between the shop strip and
-	Stage 1's green border, so it is narrow along X (HALF_X) and long along Z (HALF_Z),
-	where the chest and the two pads line up. The path that led to the old shop square is
+	A RECTANGLE SINCE THE FIVE-BASE ROW (2026-10-09): narrow along X (HALF_X) and long along
+	Z (HALF_Z), where the chest and the two pads line up. Since 2026-10-10 it stands against
+	the east wall's left-hand shoulder, on Stage 1's green border strip. The path that led to the old shop square is
 	gone -- the square sits on the open grey floor, reachable from every side.
 
 	Every edge sits on a 4-stud grid line (x = PLAZA.minX + 4k, z = PLAZA.minZ + 4k), and
@@ -30,7 +30,9 @@ local PrizeSquare = {}
 
 PrizeSquare.MODEL_NAME = "PrizeSquare"
 
-PrizeSquare.HALF_X = 18 -- half its depth along X, kerb included (36)
+-- 18 -> 12 when it moved against the east wall (2026-10-10): its east edge stops at x 95,
+-- a stud short of the wall's face, and the chest's ring (9.1) still clears the kerb.
+PrizeSquare.HALF_X = 12 -- half its depth along X, kerb included (24)
 PrizeSquare.HALF_Z = 30 -- half its length along Z, kerb included (60)
 local KERB = 2 -- the kerb band, half a tile like the shop strip's
 
