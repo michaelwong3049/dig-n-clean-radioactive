@@ -766,7 +766,7 @@ Tuning.BAG_RECOVER_PRODUCT_ID = 3716083374
 --- NUKE RESCUE, the Robux product that buys back a nuke whose pull fuse ran out while
 --- you were hauling it (DigService.offerRescues; NukeRescueController's popup). One
 --- price for every rarity. 0 = not set up: no popup, nothing registers.
-Tuning.NUKE_RESCUE_PRODUCT_ID = 0
+Tuning.NUKE_RESCUE_PRODUCT_ID = 3717804659
 --- How long the "get it back" popup stays up after the blast.
 Tuning.NUKE_RESCUE_OFFER_SECONDS = 20
 
