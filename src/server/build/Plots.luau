@@ -220,7 +220,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 123 -- row 16 nearer Stage 1 (2026-10-10)
+local BUILDER_VERSION = 124 -- U-shaped camp: three on the west wall, one each side facing in (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -338,8 +338,8 @@ local function buildFrontPath(parent: Instance, origin: CFrame)
 	return part
 end
 
---- THE ROW. Five pads in one line along the west wall, each facing east at Stage 1
---- (2026-10-09, on request). Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are
+--- THE ROW. Three pads in one line along the west wall, each facing east at Stage 1
+--- (five from 2026-10-09; the end two became the U's side bases on 2026-10-10). Hand-placed, like Hub's SHOP_ZONE and GATE_RECTS (which are
 --- cut to these numbers -- move those with these).
 ---
 --- `facing` is a yaw in degrees. A pad is built with its back fence at +Z and its
@@ -355,7 +355,9 @@ local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
 -- -1 -> 15 (2026-10-10, on request: "move the bases closer" to Stage 1, asked 18; 16 is
 -- the nearest move that keeps the fronts on Hub's grid with the same checker parity).
 local ROW_FRONT_X = 15
-local ROW_Z = { -152, -76, 0, 76, 152 }
+-- 2026-10-10, the U (from the user's sketch): the row is the middle three only; the two
+-- end bases became SIDE pads (below).
+local ROW_Z = { -76, 0, 76 }
 
 local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
@@ -375,12 +377,25 @@ local DECK_HALF_D = (Plots.PAD.maxZ - DECK_MIN_Z) / 2
 
 local ROW_X = ROW_FRONT_X - PAD_FRONT_REACH
 
---- Numbered left to right as you stand at the fronts facing Stage 1: 1 at -Z, 5 at +Z.
---- ExhibitService fills them from the middle out (FILL_ORDER).
+--- THE U (2026-10-10, from the user's sketch): three bases on the west wall (the row
+--- above) and one more each side, out in front of the row's ends toward Stage 1, turned
+--- to face each other across the middle -- the -Z one faces +Z (180), the +Z one -Z (0).
+--- Their fronts sit SIDE_FRONT_Z out, just past the row's outer edges (|z| 104.5), so a
+--- side base never stands in front of an end row base; SIDE_X keeps their east flank
+--- clear of the chest square and the leaderboards on the east wall's shoulders.
+local SIDE_X = 36
+local SIDE_FRONT_Z = 106
+local SIDE_Z = SIDE_FRONT_Z + PAD_FRONT_REACH
+
+--- Numbered left to right as you stand at the row's fronts facing Stage 1: 1 is the -Z
+--- side base, 2-4 the row (-Z to +Z), 5 the +Z side base. ExhibitService fills them from
+--- the middle out (FILL_ORDER).
 Plots.CENTERS = {}
+table.insert(Plots.CENTERS, { x = SIDE_X, z = -SIDE_Z, facing = 180 })
 for _, z in ROW_Z do
 	table.insert(Plots.CENTERS, { x = ROW_X, z = z, facing = -90 })
 end
+table.insert(Plots.CENTERS, { x = SIDE_X, z = SIDE_Z, facing = 0 })
 
 --- THE CAMP OUTLINE -- the inner faces of the perimeter wall (Scenery.buildBaseWalls),
 --- derived from the pads so a base (plus BACK_SPARE behind it) clears the wall by
@@ -403,10 +418,11 @@ Plots.CAMP = {
 	-- The paved ground in front of the row (Hub.GATE_RECTS): from the fronts east, and
 	-- out to the end pads' outer edges along Z. Scenery keeps it bare of foliage.
 	pavedMinX = ROW_FRONT_X,
-	pavedHalfZ = ROW_Z[#ROW_Z] + HALF_W,
+	pavedHalfZ = SIDE_Z + BACK_REACH,
 	eastX = PLAZA.maxX - 4,
 	westX = ROW_X - BACK_REACH - WALL_CLEARANCE,
-	halfZ = ROW_Z[#ROW_Z] + CAMP_HALF_W + WALL_CLEARANCE,
+	-- The side bases' backs set the north and south walls now (the U, 2026-10-10).
+	halfZ = SIDE_Z + BACK_REACH + WALL_CLEARANCE,
 }
 
 --- The camp's floor as axis rectangles (one, now the outline is a plain rectangle),
