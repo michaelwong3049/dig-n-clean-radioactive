@@ -17,8 +17,8 @@
 	(StationService), not mid-tutorial, and able to pay.
 
 	Robux: the panel's purple button is WalkSpeed.PRODUCT_ID (one purchase at the buyer's
-	step), and the Shop's four walk-speed packs (ShopProducts.SPEED) add a fixed amount.
-	Both are granted through ProductService.
+	step), granted through ProductService. The Shop's walk-speed packs were retired
+	2026-10-10.
 
 	SpeedState carries everything the client shows about speed: the HUD badge and walk
 	picker (client SpeedController) and the booth's panel. It is pushed on load, on every
@@ -32,7 +32,6 @@ local Shared = ReplicatedStorage.Shared
 local Tutorial = require(Shared.Config.Tutorial)
 local WalkSpeed = require(Shared.Config.WalkSpeed)
 local Booths = require(Shared.Config.Booths)
-local ShopProducts = require(Shared.Config.ShopProducts)
 local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
 
@@ -169,19 +168,6 @@ local function grantRobuxUpgrade(player: Player, data: any)
 	end)
 end
 
---- A Shop walk-speed pack (ShopProducts.SPEED): a fixed amount of walk. Same receipt
---- rules as above. Packs do not count toward the Runner mastery: it counts purchases.
-local function grantSpeedPack(player: Player, data: any, amount: number)
-	addWalk(data, amount)
-	task.defer(function()
-		if player.Parent == nil then
-			return
-		end
-		push(player)
-		noticeRemote:FireClient(player, `+{amount} WALK SPEED`, "success")
-	end)
-end
-
 --- Walk speed handed out by something other than a purchase (a code, the group chest).
 --- Touches `data` only; the caller pushes with `refresh`.
 function SpeedService.grantWalk(data: any, amount: number)
@@ -225,11 +211,6 @@ function SpeedService.init()
 	-- In init, not start: ProductService.start() switches ProcessReceipt on, and a
 	-- receipt landing before a product was registered would be bounced.
 	ProductService.register(WalkSpeed.PRODUCT_ID, grantRobuxUpgrade)
-	for _, pack in ShopProducts.SPEED do
-		ProductService.register(pack.id, function(player, data)
-			grantSpeedPack(player, data, pack.amount)
-		end)
-	end
 end
 
 function SpeedService.start()

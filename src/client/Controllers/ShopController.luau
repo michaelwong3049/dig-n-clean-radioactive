@@ -7,8 +7,9 @@
 	sections: the PACKS (Config/Packs) first, two once-per-player bundles that turn to
 	OWNED off the Player attribute PackService writes; the PASSES (Config/GamePasses), seven permanent upgrades on top, which
 	turn to OWNED off the Player attribute GamePassService writes; the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
-	row of four packs; and a SPEED row (Config/ShopProducts, whose grants live in
-	EconomyService and SpeedService). The Mystery crates that used to close the
+	row of four packs (Config/ShopProducts, granted in EconomyService). The WALK SPEED
+	packs that followed it were retired 2026-10-10 (on request): speed is bought at the
+	Upgrades booth (Config/WalkSpeed). The Mystery crates that used to close the
 	panel were retired 2026-10-05: their two products now sell the Fusion and Plasma
 	crates on Base Camp's PREMIUM CRATES pad (Config/CrateShop). Every buy button is the gear
 	cards' purple R$, so real money always looks the same. The client only ever
@@ -127,16 +128,6 @@ local CASH_CARD = {
 	buyHover = Color3.fromHex("85FF01"),
 	buyEdge = Color3.fromHex("1F6E12"),
 }
--- The SPEED cards: the cash cards' build in the speed badge's blue.
-local SPEED_CARD = {
-	top = Color3.fromHex("3E8BD6"),
-	middle = Color3.fromHex("6AB8F0"),
-	edge = Color3.fromHex("2B2B33"),
-	-- Green like every other Shop R$ button (on request, 2026-10-08; was blue).
-	buy = Color3.fromHex("5CFE01"),
-	buyHover = Color3.fromHex("85FF01"),
-	buyEdge = Color3.fromHex("1F6E12"),
-}
 -- Every Robux button: the R$ is Roblox's own Robux glyph (private-use U+E002, which
 -- every Roblox font draws as the hexagon icon), big enough to read across the room.
 local ROBUX = utf8.char(0xE002)
@@ -147,7 +138,6 @@ local PASS_TINT: { [string]: Color3 } = {
 	cash = Color3.fromHex("2EA552"),
 	luck = Color3.fromHex("17A589"),
 	digPower = Color3.fromHex("E0413A"),
-	speed = Color3.fromHex("F0A20F"),
 	backpack = Color3.fromHex("EE7A1E"),
 	bombDamage = Color3.fromHex("D81B60"),
 	instantClean = Color3.fromHex("1E88E5"),
@@ -846,7 +836,7 @@ local function buildPasses(parent: Instance)
 	end
 end
 
---- A row of Robux packs (cash or speed), CASH_PER_ROW to a row, headed `title` at
+--- A row of Robux packs, CASH_PER_ROW to a row, headed `title` at
 --- LayoutOrder `order`. `image(index)` gives each card's picture.
 local function buildPackRows(parent: Instance, order: number, title: string, packs: { ShopProducts.CashPack }, look: typeof(CASH_CARD), image: (number) -> string, dress: ((ImageLabel, number) -> ())?)
 	section(parent, order, title)
@@ -939,48 +929,6 @@ end
 local function buildCash(parent: Instance)
 	buildPackRows(parent, 2, "CASH", ShopProducts.CASH, CASH_CARD, function(index)
 		return Artwork.IMAGE.shopCash[index] or Artwork.IMAGE.cashBundle
-	end)
-end
-
--- Extra shoes piled in front of each Speed card's shoe, so the packs read as a ladder:
--- one shoe, a pair, a heap of three, a heap of four. Scale of the art frame, front last.
-local SPEED_PILES: { { { x: number, y: number, size: number, turn: number } } } = {
-	{},
-	{ { x = 0.32, y = 0.62, size = 0.72, turn = -8 } },
-	{ { x = 0.72, y = 0.5, size = 0.66, turn = 10 }, { x = 0.3, y = 0.66, size = 0.7, turn = -8 } },
-	{
-		{ x = 0.76, y = 0.44, size = 0.6, turn = 12 },
-		{ x = 0.2, y = 0.5, size = 0.58, turn = -14 },
-		{ x = 0.66, y = 0.7, size = 0.62, turn = 6 },
-		{ x = 0.32, y = 0.72, size = 0.66, turn = -6 },
-	},
-}
-
---- The four walk-speed packs (+10 to +60 walk), right under CASH, in blue with the speed badge's shoe.
-local function buildSpeed(parent: Instance)
-	buildPackRows(parent, 6, "WALK SPEED", ShopProducts.SPEED, SPEED_CARD, function()
-		return Artwork.IMAGE.speedShoe
-	end, function(art, index)
-		local pile = SPEED_PILES[index] or SPEED_PILES[#SPEED_PILES]
-		if #pile == 0 then
-			return
-		end
-		-- The main shoe shrinks and steps back up-right so the pile sits in front of it.
-		art.Size = UDim2.fromOffset(124, 124)
-		art.Position = UDim2.new(0.5, 16, 0, 0)
-		for order, shoe in pile do
-			local extra = Instance.new("ImageLabel")
-			extra.Name = `Shoe{order}`
-			extra.BackgroundTransparency = 1
-			extra.Image = Artwork.IMAGE.speedShoe
-			extra.ScaleType = Enum.ScaleType.Fit
-			extra.AnchorPoint = Vector2.new(0.5, 0.5)
-			extra.Position = UDim2.fromScale(shoe.x - 0.14, shoe.y)
-			extra.Size = UDim2.fromScale(shoe.size, shoe.size)
-			extra.Rotation = shoe.turn
-			extra.ZIndex = art.ZIndex + order
-			extra.Parent = art
-		end
 	end)
 end
 
@@ -1305,7 +1253,6 @@ local function buildPanel(): ScreenGui
 	buildLuck(body)
 	buildPasses(body)
 	buildCash(body)
-	buildSpeed(body)
 	buildCodes(body)
 
 	panelFrame = panel

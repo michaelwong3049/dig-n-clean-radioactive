@@ -66,9 +66,6 @@ end
 for _, pack in ShopProducts.CASH do
 	add({ id = pack.id, name = `{pack.label} Cash` })
 end
-for _, pack in ShopProducts.SPEED do
-	add({ id = pack.id, name = `{pack.label} Walk Speed` })
-end
 for _, pad in CrateShop.PADS do
 	for _, offer in pad.offers do
 		local productId = offer.productId
