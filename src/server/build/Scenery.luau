@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 81 -- camp walls follow the four-base row and the side bases out past it (2026-10-10)
+local BUILDER_VERSION = 82 -- left shoulder stays flush behind the leaderboards; side bases 8 nearer the middle (2026-10-10)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4300,6 +4300,10 @@ type CampWallLayer = {
 	recess: { number }?, -- CliffWall face set-backs; the outer layer stays flush so no gap opens behind the inner one
 }
 
+--- The stretch of the left (-z) shoulder the two leaderboards cover, plus a margin (see
+--- LeaderboardService BOARD_Z; Scenery cannot require a service, so keep the two in step).
+local BOARD_FLUSH_NEG = { -128, -87 }
+
 local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 	local camp = Plots.CAMP
 	local o, t = layer.offset, WALL_THICKNESS
@@ -4364,7 +4368,10 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 		local SHY = 0.1
 		if side < 0 then
 			local e = if layer.corridorPad == 0 then stageMinZ - SHY else corridorMinZ + OVERLAP
-			piece("ShoulderWallNeg", false, eastF + t / 2, -wingZF - t, e, "LeftSurface", { { e - 0.01, e } })
+			-- The leaderboards hang on this (left) shoulder (LeaderboardService BOARD_Z -98 and
+			-- -117, 15 wide, on x = CAMP.eastX): the face stays flush behind them so both sit
+			-- level against it, not one on a recessed run and one proud (2026-10-10, on request).
+			piece("ShoulderWallNeg", false, eastF + t / 2, -wingZF - t, e, "LeftSurface", { { e - 0.01, e }, BOARD_FLUSH_NEG })
 		else
 			local e = if layer.corridorPad == 0 then stageMaxZ + SHY else corridorMaxZ - OVERLAP
 			piece("ShoulderWallPos", false, eastF + t / 2, e, wingZF + t, "LeftSurface", { { e, e + 0.01 } })

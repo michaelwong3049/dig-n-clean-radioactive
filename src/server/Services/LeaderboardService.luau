@@ -59,6 +59,7 @@ local FLOOR_Y_FALLBACK = -1.5
 -- face 87) and the side bases' fronts (|z| 106): Cash on the left (-z), Speed on the right.
 -- Later again: the chest took the +z shoulder, so both boards hang together on the -z one
 -- (as they did on +z before), Cash nearer the mouth.
+-- Scenery BOARD_FLUSH_NEG keeps the wall flush behind this span; move the two together.
 local BOARD_Z = { -98, -117 }
 local OUT = Vector3.new(-1, 0, 0) -- the way the boards face, off the wall into the camp
 local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
