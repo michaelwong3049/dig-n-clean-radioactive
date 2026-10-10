@@ -183,8 +183,13 @@ local NUKE_PACK_ART = 196
 -- The prize tiles grow with RARITY, on request (2026-10-10): every prize of one rarity
 -- the same size (both Legendaries, both Mythics), the pack's lowest rarity smallest and
 -- its highest biggest, bottoms lined up. Sizes run evenly between these two.
-local PRIZE_SMALL = Vector2.new(84, 92)
-local PRIZE_BIG = Vector2.new(128, 132)
+-- Square, on request (2026-10-10).
+local PRIZE_SMALL = Vector2.new(92, 92)
+local PRIZE_BIG = Vector2.new(132, 132)
+-- The light rays behind each prize, in its rarity's colour, turning slowly.
+local PRIZE_RAYS_SPIN = TweenInfo.new(14, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1)
+-- The Anomaly's spectrum (label, frame, rays) turns once in this long.
+local PRIZE_SPECTRUM_SPIN = TweenInfo.new(Rarity.ANOMALY_CYCLE, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1)
 -- How far each prize tile's camera zooms in past ItemArt's fit. Kept under ItemArt's
 -- own 1.12 margin so every nuke stays wholly in its frame (on request: a stepped zoom
 -- up to x1.62 cropped the Kraken and the Fulgurite's lightning).
@@ -653,6 +658,25 @@ local function percent(p: number): string
 	return `{(string.format("%.1f", pct):gsub("%.0$", ""))}%`
 end
 
+--- Rarity.ANOMALY_SPECTRUM as one looping ColorSequence.
+local function spectrum(): ColorSequence
+	local stops = Rarity.ANOMALY_SPECTRUM
+	local keys = {}
+	for index, colour in stops do
+		table.insert(keys, ColorSequenceKeypoint.new((index - 1) / #stops, colour))
+	end
+	table.insert(keys, ColorSequenceKeypoint.new(1, stops[1]))
+	return ColorSequence.new(keys)
+end
+
+--- A spectrum gradient on `parent`, turning for ever (the Anomaly's colours).
+local function spinningSpectrum(parent: Instance)
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = spectrum()
+	gradient.Parent = parent
+	TweenService:Create(gradient, PRIZE_SPECTRUM_SPIN, { Rotation = 360 }):Play()
+end
+
 --- The NUKE PACK card: title across the top, the pack crate on the left, its prizes
 --- (most likely first) each in a frame of its rarity's colour with the odds in the
 --- corner, and one R$ button per bundle along the bottom, "xN" on its shoulder.
@@ -766,11 +790,15 @@ local function buildNukePack(parent: Instance)
 		tile.ZIndex = 13
 		tile.Parent = strip
 		round(tile, 8)
+		local anomaly = item.rarity == "Anomaly"
 		local frame = Instance.new("UIStroke")
 		frame.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		frame.Color = rarity.color
 		frame.Thickness = 4
 		frame.Parent = tile
+		if anomaly then
+			spinningSpectrum(frame)
+		end
 		-- A soft wash of the rarity's colour up from the floor of the tile.
 		local glow = Instance.new("Frame")
 		glow.Name = "Glow"
@@ -786,15 +814,41 @@ local function buildNukePack(parent: Instance)
 		fade.Transparency = NumberSequence.new(0.2, 1)
 		fade.Parent = glow
 
+		-- Light rays in the rarity's colour fanning out from behind the nuke, turning
+		-- slowly; clipped to the tile so they never spill onto the card.
+		local rayClip = Instance.new("Frame")
+		rayClip.Name = "RayClip"
+		rayClip.BackgroundTransparency = 1
+		rayClip.Size = UDim2.fromScale(1, 1)
+		rayClip.ClipsDescendants = true
+		rayClip.ZIndex = 14
+		rayClip.Parent = tile
+		local rays = Instance.new("ImageLabel")
+		rays.Name = "Rays"
+		rays.BackgroundTransparency = 1
+		rays.Image = Artwork.IMAGE.sunburst
+		rays.ImageColor3 = if anomaly then Color3.new(1, 1, 1) else rarity.color:Lerp(Color3.new(1, 1, 1), 0.25)
+		rays.ImageTransparency = 0.2
+		rays.ScaleType = Enum.ScaleType.Fit
+		rays.AnchorPoint = Vector2.new(0.5, 0.5)
+		rays.Position = UDim2.fromScale(0.5, 0.55)
+		rays.Size = UDim2.fromScale(1.7, 1.7)
+		rays.ZIndex = 14
+		rays.Parent = rayClip
+		if anomaly then
+			spinningSpectrum(rays)
+		end
+		TweenService:Create(rays, PRIZE_RAYS_SPIN, { Rotation = 360 }):Play()
+
 		local well = Instance.new("Frame")
 		well.Name = "Art"
 		well.BackgroundTransparency = 1
 		well.Position = UDim2.fromOffset(2, 2)
 		well.Size = UDim2.new(1, -4, 1, -4)
-		well.ZIndex = 14
+		well.ZIndex = 15
 		well.Parent = tile
 		local viewport = ItemArt.newViewport(well)
-		viewport.ZIndex = 14
+		viewport.ZIndex = 15
 		-- ItemArt frames at its own fixed FOV, so a narrower one here zooms the fit in.
 		local camera = viewport.CurrentCamera :: Camera
 		camera.FieldOfView /= PRIZE_ZOOM
@@ -809,18 +863,37 @@ local function buildNukePack(parent: Instance)
 		well:GetPropertyChangedSignal("AbsoluteSize"):Connect(paint)
 		task.defer(paint)
 
-		inked(tile, {
+		-- The rarity name sitting on the tile's top edge: big, heavy-outlined, white at the
+		-- top shading down into the rarity's colour (the Anomaly's whole spectrum, turning).
+		local label = inked(tile, {
 			Name = "Rarity",
-			Text = item.rarity,
-			Font = PANEL.headline,
-			TextSize = math.round(14 + 4 * grow),
-			TextColor3 = rarity.color:Lerp(Color3.new(1, 1, 1), 0.35),
+			Text = string.upper(item.rarity),
+			Font = Enum.Font.FredokaOne,
+			TextSize = math.round(17 + 5 * grow),
+			TextColor3 = Color3.new(1, 1, 1),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 0, 0, 2),
-			Size = UDim2.new(1, 8, 0, 20),
-			ZIndex = 16,
+			Position = UDim2.new(0.5, 0, 0, 1),
+			Size = UDim2.new(1, 16, 0, 26),
+			Rotation = -4,
+			ZIndex = 17,
 		})
+		local labelStroke = label:FindFirstChildOfClass("UIStroke")
+		if labelStroke then
+			labelStroke.Thickness = 3
+		end
+		if anomaly then
+			spinningSpectrum(label)
+		else
+			local shade = Instance.new("UIGradient")
+			shade.Rotation = 90
+			shade.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+				ColorSequenceKeypoint.new(0.45, rarity.color:Lerp(Color3.new(1, 1, 1), 0.3)),
+				ColorSequenceKeypoint.new(1, rarity.color),
+			})
+			shade.Parent = label
+		end
 		inked(tile, {
 			Name = "Odds",
 			Text = percent(prize.p),
@@ -830,7 +903,7 @@ local function buildNukePack(parent: Instance)
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -4, 1, -2),
 			Size = UDim2.new(1, -8, 0, math.round(22 + 8 * grow)),
-			ZIndex = 16,
+			ZIndex = 17,
 		})
 	end
 
