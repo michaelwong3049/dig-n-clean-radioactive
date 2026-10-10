@@ -48,7 +48,9 @@ GroupReward.CASH_MULT = 1.1
 -- 2026-10-10, on request ("move the chest on the wall left of stage 1"): against the
 -- east wall's left-hand shoulder as you face Stage 1 (-z), with the crate pads either
 -- side of it along the wall; the leaderboards hang on the right-hand shoulder.
-GroupReward.CHEST_POSITION = Vector3.new(83, -1.15, -128)
+-- Later 2026-10-10: 36 further along the wall (z -128 -> -164) to make room for the
+-- shop booths angled across the corner by Stage 1's mouth.
+GroupReward.CHEST_POSITION = Vector3.new(83, -1.15, -164)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.

@@ -71,7 +71,7 @@ local DROP_IN = Vector3.new(0, 4, 0)
 --- The SELL button lands you at Base Camp's Trader (2026-10-04, on request: "change
 --- shop tp name to sell and make it go to the trader"). The Trader is the green Sell
 --- booth in the shop row (Shops.buildSellBooth): land this far out from its centre on a
---- random side, facing it -- on a step pad or in the aisle beside it, inside the sell
+--- random open side (front or back), facing it -- just past a step pad, inside the sell
 --- radius (12), so the panel opens on arrival. Looked up only on a press, scoped to
 --- BaseCamp (Toxic Twilight has a Trader too). Falls back to the plaza anchor if the
 --- booth is not there.
@@ -81,9 +81,11 @@ local function traderCFrame(): CFrame
 	local trader = camp and camp:FindFirstChild("Trader")
 	local station = trader and trader:FindFirstChild("TraderStation")
 	if station and station:IsA("BasePart") then
+		-- Straight out of the booth's front or back (the station is built in the booth's
+		-- frame, so its LookVector runs through both step pads, whatever the booth's yaw).
 		local centre = station.Position + Vector3.new(0, 2, 0)
-		local angle = math.random(0, 3) * (math.pi / 2)
-		local at = centre + Vector3.new(math.sin(angle), 0, math.cos(angle)) * TRADER_LANDING
+		local out = station.CFrame.LookVector * (if math.random() < 0.5 then 1 else -1)
+		local at = centre + Vector3.new(out.X, 0, out.Z).Unit * TRADER_LANDING
 		return CFrame.lookAt(at, centre)
 	end
 	return ExposureService.baseCampCFrame()

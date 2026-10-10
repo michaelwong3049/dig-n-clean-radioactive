@@ -54,7 +54,7 @@ local MAX_SCORE = 2 ^ 53 -- OrderedDataStore takes integers; keep them exact
 -- z +/-9.5) from 2026-10-04; the east shoulder (x 96, z 104 / 123) before that.
 local WALL_X_FALLBACK = 96
 local FLOOR_Y_FALLBACK = -1.5
-local BOARD_Z = { 111, 130 }
+local BOARD_Z = { 140, 159 } -- 111/130 -> 140/159, past the corner booths (2026-10-10)
 local OUT = Vector3.new(-1, 0, 0) -- the way the boards face, off the wall into the camp
 local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
 local BOARD_H = 22.5 -- keep W:H at 2:3 so the canvas stays 800 x 1200

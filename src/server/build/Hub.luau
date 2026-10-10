@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 45 -- shop strip cut to the booth cluster, respawn ring on open ground (2026-10-10)
+local BUILDER_VERSION = 46 -- camp floor green again: no grey plaza, no shop strip (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -242,20 +242,11 @@ Hub.PLAZA_LIFT = 0.15
 --- PLAZA_LIFT, so nothing sinks into it.
 Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 
---- THE MIDDLE OF THE CAMP IS ONE GREY FLOOR, on request (2026-10-04: "connect square with
---- grey ... the middle should be primarily gray"). It used to be the plaza plus a 16-wide
---- gate path out to each pad, with grass between; now one rectangle paves everything the
---- six pads enclose -- out to the north/south fronts and the west row's outer edge,
---- snapped to the tile grid (x = -49 + 4k, z = -70 + 4k), so the pads' own front strips
---- (Hub.setPadFronts) run straight on from it. The grass stays round the edge: behind and
---- between the pads, along the walls, and the Camp -> Stage 1 strip (inGreenStrip wins).
----
---- Hand-placed, like SHOP_ZONE: move it by hand with Plots.CENTERS.
-local GATE_RECTS = {
-	-- 2026-10-09: the five-base row -- from the bases' fronts (x -1) to the green strip
-	-- (79), and along Z past the end pads' outer edges (|z| 180.5).
-	{ minX = -1, maxX = 79, minZ = -182, maxZ = 182 },
-}
+--- THE CAMP FLOOR IS GREEN AGAIN (2026-10-10, on request: "remove the grey checkerboard
+--- make it green again"). The grey path that paved the ground in front of the bases
+--- (GATE_RECTS, 2026-10-04 to -10) and the plaza rectangle itself are lawn now; only each
+--- base's own front strip (setPadFronts) is still laid as grey path. PLAZA stays the grid's
+--- origin and the slab under the camp.
 
 --- Each base's front strip (the washer / treadmill area in front of its raised deck),
 --- paved as the same grey path. Plots owns the pads, and Hub cannot require Plots (Plots
@@ -276,39 +267,11 @@ local function inGreenStrip(x: number): boolean
 	return x >= Hub.PLAZA.maxX - GREEN_STRIP_DEPTH
 end
 
---- A rectangle over the plaza covering the shop cluster — the three tool stalls,
---- the Outfitter and the Trader kiosk (build/Shops.luau, build/BaseCamp.luau) —
---- with a few studs of margin on every side. Hand-measured off their current
---- positions (Shops.luau's `at` values are themselves hand-placed now, not
---- derived — see that file's header) rather than computed live: there is no
---- single formula covering four freely-placed stalls plus a kiosk in a
---- different file, so this rectangle has to move by hand whenever the shop
---- cluster does, the same way BaseCamp.luau's Trader offset already does.
----
---- Moved 20 east (exactly 5 tiles, so the kerb lands on the same grid phase) with the
---- whole cluster, to centre it in the plaza's visible cream: the plaza's own
---- centre (x = 32, the old ring centre) is out of reach, since centring there would run the
---- cluster's east end onto the green strip at x = 75. maxX 65 leaves two cream tiles
---- before that strip. 2026-09-27: shifted 8 east (2 tiles) with the shops when they were
---- centred on the Trader, and made north-south symmetric; 73 still leaves half a tile.
---- 2026-10-03: the whole square moved 12 west (three tiles), away from Stage 1, on
---- request -- with Shops.luau's STALLS/OUTFITTER/PLAZA_MID and Hub.CAMP_ORIGIN.
---- 2026-10-04: shrunk to the compact booths (Shops BOOTHS) and the Trader in the SE corner,
---- on request ("everything is smaller ... more compact and closer").
---- Later 2026-10-04: a rectangle, 12 (three tiles) further east toward Stage 1 and 12 west
---- (minX now the plaza's own edge), on request. The booth rows pulled in to z +/-18.
---- 2026-10-09, the five-base row: a long strip down the middle of the open ground, parallel
---- to the bases' fronts, with a booth (and the Trader) opposite each gap between them
---- (Shops BOOTHS, booth row x 18). Every edge on a tile line.
---- 2026-10-10: shortened to the four booths clustered in front of the middle base
---- (z -44..44 of booth), on request ("put all the shop booths near together").
-local SHOP_ZONE = { minX = 7, maxX = 35, minZ = -50, maxZ = 50 }
-
---- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
---- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
---- floor, for plaza and apron tiles alike.
-function Hub.inShopFloor(x: number, z: number): boolean
-	return x >= SHOP_ZONE.minX and x <= SHOP_ZONE.maxX and z >= SHOP_ZONE.minZ and z <= SHOP_ZONE.maxZ
+--- THE SHOP SQUARE IS GONE (2026-10-10): the booths stand in pairs across the camp's
+--- corners by Stage 1 (Shops BOOTHS), straight on the lawn on their own stall floors. No
+--- tile is shop floor any more; the kerb/paver code below stays for the day one comes back.
+function Hub.inShopFloor(_x: number, _z: number): boolean
+	return false
 end
 
 --- Is the shop-floor tile at (x, z) on the square's outermost ring of tiles, and so
@@ -336,15 +299,7 @@ Hub.cellCentre = cellCentre
 --- Is the point (x, z) on the plaza floor -- the plaza rectangle, or one of its gate
 --- paths? A pure shape test with no grid in it; floorCover turns it into cells.
 local function insideFloor(x: number, z: number): boolean
-	local p = Hub.PLAZA
-	if x >= p.minX and x <= p.maxX and z >= p.minZ and z <= p.maxZ then
-		return true
-	end
-	for _, r in GATE_RECTS do
-		if x >= r.minX and x <= r.maxX and z >= r.minZ and z <= r.maxZ then
-			return true
-		end
-	end
+	-- Only the bases' front strips: the rest of the camp is lawn (see padFronts' header).
 	for _, r in padFronts do
 		if x >= r.minX and x <= r.maxX and z >= r.minZ and z <= r.maxZ then
 			return true
@@ -941,33 +896,6 @@ local function buildShopKerb(parent: Instance)
 	end
 end
 
---- THE GREY FLOOR'S END BORDERS, on request (2026-10-04: "add thin black borders for
---- the ends of the grey rectangle"): a 1-stud black line along the inside of each short
---- end of GATE_RECTS' rectangle -- the east end at the grass before Stage 1 and the west
---- end at the back pair of bases. The long north/south sides are already edged by the
---- bases' own borders. Flat paint a hair above the grey path, like the bases'
---- BaseBorder: not collidable, not queried.
-local END_BORDER_W = 1
-local function buildFloorEndBorders(parent: Instance)
-	local r = GATE_RECTS[1]
-	local top = Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.05
-	-- East end only since the five-base row (2026-10-09): the west end is the bases'
-	-- fronts now, already edged by each base's own border.
-	for _, x in { r.maxX - END_BORDER_W / 2 } do
-		local part = build(parent, CFrame.new(0, 0, 0), {
-			name = "FloorEndBorder",
-			pos = { x, top - CAP / 2, (r.minZ + r.maxZ) / 2 },
-			size = { END_BORDER_W, CAP, r.maxZ - r.minZ },
-			color = C.hazardBlack,
-			material = "Plastic",
-			canCollide = false,
-		})
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
-	end
-end
-
 local function buildPlaza(hub: Model)
 	local p = Hub.PLAZA
 
@@ -995,7 +923,6 @@ local function buildPlaza(hub: Model)
 	})
 	buildShopKerb(tiles)
 	tiles.Parent = hub
-	buildFloorEndBorders(hub)
 
 	-- NO RIM ON ANY SIDE ANY MORE. Three cream strips used to run along the north,
 	-- south and west edges, there for one reason: so the plaza edge read as an edge
@@ -1045,7 +972,7 @@ local function buildSpawns(hub: Model)
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
-		pos = { grate.X, Hub.PLAZA.topY + Hub.SHOP_FLOOR_LIFT + 0.5, grate.Z }, -- on the raised shop square
+		pos = { grate.X, Hub.PLAZA.topY + 0.5, grate.Z }, -- on the lawn
 		size = { 4, 1, 4 },
 		color = C.cyan,
 		material = "SmoothPlastic",

@@ -205,7 +205,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 86 -- smaller booths clustered in front of the middle base, green Sell booth (2026-10-10)
+local BUILDER_VERSION = 87 -- booths in two angled pairs across the corners by Stage 1, on the lawn (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -650,9 +650,9 @@ end
 --- Both builders lay every part as a local offset from what this returns, so this
 --- one CFrame is the whole of a shop's position AND its facing.
 local function facingOrigin(x: number, z: number, faceYaw: number?): CFrame
-	-- The shop square is raised above the plaza floor (Hub.SHOP_FLOOR_LIFT), so every
-	-- stall stands on that, not on the lawn's PLAZA.topY.
-	local topY = Hub.PLAZA.topY + Hub.SHOP_FLOOR_LIFT
+	-- Straight on the lawn (PLAZA.topY) since the shop square went (2026-10-10); each
+	-- booth lays its own stall floor.
+	local topY = Hub.PLAZA.topY
 	local dirX, dirZ = facingDirFor(x, z, faceYaw)
 	-- CFrame.lookAt aims local -Z (its LookVector) at the target; the shop fronts
 	-- are +Z, so aim -Z the opposite way down `dir` and +Z lands facing along it.
@@ -1896,38 +1896,37 @@ end
 --- tier rack, no Aura mannequins, no RackZone. The site camps (CampSite) keep their full
 --- racked stalls -- STALLS above is still their template.
 ---
---- ONE TIGHT ROW IN FRONT OF THE MIDDLE BASE (2026-10-10, on request: "make every shop
---- booth smaller and less long ... put all the shop booths near together"): four booths
---- side by side on Hub's shop strip, 8-stud aisles between them, facing the bases (-X) --
---- open front and back, so the Stage 1 side sells too. Left to right as you face Stage 1:
---- Aura, Upgrades (Magnet), Sell (SELL_BOOTH, built by BaseCamp as its Trader), Gear
---- (Detector). They were spread one per gap along the whole row the day before.
---- Move a booth here, move Hub's SHOP_ZONE with it.
+--- TWO PAIRS ACROSS THE CORNERS BY STAGE 1 (2026-10-10, on request: "split the shops into
+--- two on one side two on the other, position them ... against the corner of the stages",
+--- angled 45 degrees): where the east wall's shoulders end at Stage 1's mouth (x 96,
+--- |z| 92), each pair is set diagonally across the corner, side by side, facing out of it
+--- toward the middle of the camp. Left of the mouth as you face Stage 1 (-z): Upgrades
+--- (Magnet) in the corner, Aura beside it; right (+z): Sell (SELL_BOOTH) in the corner,
+--- Gear (Detector) beside it. Every footprint stays clear of the mouth (|z| > 92) and the
+--- wall (x < 96); the chest square (Config/GroupReward) and the leaderboards
+--- (LeaderboardService) sit further along the walls. Open front and back, as ever.
+--- Earlier the same day: one tight row in front of the middle base.
 --- 26 -> 16 wide (2026-10-10, on request), so a booth is about as wide as it is deep.
 local BOOTH_WIDTH = 16
---- The row's build origin on X: a booth's footprint runs from 4.9 in front of it to 12.9
---- behind (its step pads, mirrored about ISLAND_Z), so x 13.1..30.9, inside the strip's
---- kerbs (7..35).
-local BOOTH_ROW_X = 18
-local BOOTH_FACE = -90 -- fronts to world -X, at the bases
+local LEFT_FACE, RIGHT_FACE = -45, -135 -- fronts to (-x, +z) and (-x, -z): out of each corner
 local BOOTHS = {
 	-- The Magnet booth is the UPGRADES booth and the Detector booth the GEAR booth
 	-- (Config/Booths, 2026-10-09): same station ids, new names.
-	{ track = "Aura", at = { BOOTH_ROW_X, -36 }, faceYaw = BOOTH_FACE, color = C.shopOutfitter, label = "Aura Shop" },
-	{ track = "Magnet", at = { BOOTH_ROW_X, -12 }, faceYaw = BOOTH_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
-	{ track = "Detector", at = { BOOTH_ROW_X, 36 }, faceYaw = BOOTH_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
+	{ track = "Magnet", at = { 80, -102 }, faceYaw = LEFT_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
+	{ track = "Aura", at = { 66.5, -115.5 }, faceYaw = LEFT_FACE, color = C.shopOutfitter, label = "Aura Shop" },
+	{ track = "Detector", at = { 66.5, 115.5 }, faceYaw = RIGHT_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
 	-- No Hose Shop booth (2026-10-09, on request): hoses are bought on the Hoses pad beside
 	-- each base's tub (build/Plots ensureHosePad).
 }
 
 --- THE SELL BOOTH (2026-10-10, on request: "make sell booth look the same as others with a
 --- unique color, preferably green"): the same booth as the shops, in green, standing in
---- the row. It replaces Base Camp's four-sided hazmat kiosk. BaseCamp builds it (as its
+--- the right-hand corner pair. It replaces Base Camp's four-sided hazmat kiosk. BaseCamp builds it (as its
 --- `Trader` model, which WarpService's SELL button and World.verify's trader census look
 --- for) through Shops.buildSellBooth. Its counters carry no shop station; one invisible
 --- TraderStation in the middle opens the sell panel within SELL_RADIUS, which reaches past
 --- both step pads.
-local SELL_BOOTH = { track = "Sell", at = { BOOTH_ROW_X, 12 }, faceYaw = BOOTH_FACE, color = "3DBE5C", label = "Sell", sell = true }
+local SELL_BOOTH = { track = "Sell", at = { 80, 102 }, faceYaw = RIGHT_FACE, color = "3DBE5C", label = "Sell", sell = true }
 local SELL_RADIUS = 12
 
 --- The booth's step pad: a studded strip in `color` on the plaza just in front of the
