@@ -206,7 +206,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 94 -- camp Upgrades booth helper gone; no gear/mannequin displays; booths are the imported studded shop stand, each in its own colour (2026-10-10)
+local BUILDER_VERSION = 95 -- the booths line a street down the U-shaped camp's middle (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -1918,13 +1918,21 @@ end
 --- Earlier the same day: one tight row in front of the middle base.
 --- 26 -> 16 wide (2026-10-10, on request), so a booth is about as wide as it is deep.
 local BOOTH_WIDTH = 16
-local LEFT_FACE, RIGHT_FACE = -45, -135 -- fronts to (-x, +z) and (-x, -z): out of each corner
+--- A SHOP STREET DOWN THE MIDDLE OF THE U (2026-10-10, with the U-shaped camp: the side
+--- bases took the corners). The two pairs face each other across the walk from the middle
+--- base to Stage 1's mouth, the same sides as before -- Upgrades and Aura on the left
+--- (-z), Sell and Gear on the right (+z), the Upgrades and Sell booths nearer Stage 1.
+--- BOOTH_STREET_Z keeps them clear of the respawn ring (Hub.CAMP_ORIGIN, radius 16) and of
+--- the end row bases' fronts (|z| >= 47.5).
+local LEFT_FACE, RIGHT_FACE = 0, 180 -- fronts to +z and -z: into the street
+local BOOTH_STREET_Z = 28
+local BOOTH_NEAR_X, BOOTH_FAR_X = 66, 45 -- nearer Stage 1, nearer the middle base
 local BOOTHS = {
 	-- The Magnet booth is the UPGRADES booth and the Detector booth the GEAR booth
 	-- (Config/Booths, 2026-10-09): same station ids, new names.
-	{ track = "Magnet", at = { 80, -79 }, faceYaw = LEFT_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
-	{ track = "Aura", at = { 66.5, -92.5 }, faceYaw = LEFT_FACE, color = C.shopOutfitter, label = "Aura Shop" },
-	{ track = "Detector", at = { 66.5, 92.5 }, faceYaw = RIGHT_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
+	{ track = "Magnet", at = { BOOTH_NEAR_X, -BOOTH_STREET_Z }, faceYaw = LEFT_FACE, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
+	{ track = "Aura", at = { BOOTH_FAR_X, -BOOTH_STREET_Z }, faceYaw = LEFT_FACE, color = C.shopOutfitter, label = "Aura Shop" },
+	{ track = "Detector", at = { BOOTH_FAR_X, BOOTH_STREET_Z }, faceYaw = RIGHT_FACE, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
 	-- No Hose Shop booth (2026-10-09, on request): hoses are bought on the Hoses pad beside
 	-- each base's tub (build/Plots ensureHosePad).
 }
@@ -1936,7 +1944,7 @@ local BOOTHS = {
 --- for) through Shops.buildSellBooth. Its counters carry no shop station; one invisible
 --- TraderStation over the front step pad opens the sell panel within SELL_RADIUS -- the
 --- front only, since the booths went one-sided (2026-10-10).
-local SELL_BOOTH = { track = "Sell", at = { 80, 79 }, faceYaw = RIGHT_FACE, color = "3DBE5C", label = "Sell", sell = true }
+local SELL_BOOTH = { track = "Sell", at = { BOOTH_NEAR_X, BOOTH_STREET_Z }, faceYaw = RIGHT_FACE, color = "3DBE5C", label = "Sell", sell = true }
 local SELL_RADIUS = 7
 
 --- The booth's step pad: a studded strip in `color` on the plaza just in front of the

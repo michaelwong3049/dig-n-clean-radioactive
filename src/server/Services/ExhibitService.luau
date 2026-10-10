@@ -74,7 +74,8 @@ local ExhibitService = {}
 local PLOT_COUNT = 5 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
 -- The order players are handed plots: from the middle of the row out (2026-10-09, on
 -- request, when the bases went five in one row). Plots.CENTERS numbers 1-5 left to
--- right as you face Stage 1, so a small server gathers round the middle base.
+-- right as you face Stage 1 -- since the U (2026-10-10) 1 and 5 are the side bases and
+-- 2-4 the west-wall row -- so a small server gathers round the middle base.
 local FILL_ORDER = { 3, 2, 4, 1, 5 }
 -- Stand display motion: turn rate (radians/sec, ~1 turn per 25s) and bob height (studs).
 local STAND_HOVER = { rate = 0.25, amp = 0.12 }
