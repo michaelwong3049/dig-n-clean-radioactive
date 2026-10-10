@@ -206,7 +206,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 92 -- corner pairs 14 nearer Stage 1; booths are the imported studded shop stand, each in its own colour (2026-10-10)
+local BUILDER_VERSION = 93 -- no gear/mannequin displays; booths are the imported studded shop stand, each in its own colour (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -2021,104 +2021,9 @@ local function boardText(label: string): string
 	return if name then name .. "s" else label
 end
 
---- TWO OF THE SHOP'S GEAR STAND IN EACH BOOTH ON DISPLAY (2026-10-04, on request: "put
---- two models of the gear in the shop as display"): its cheapest rung and its dearest, the
---- span of what the booth sells. One on each half of the booth, the cheap one facing the
---- front stand and the dear one the back, so whichever side you walk up to shows you one
---- front-on. Look only: no prompt, no SellsTrack -- the stand's E is still the shop.
----
---- The tools stand on the floor on a low plinth (BOOTH_PLINTH_HEIGHT; they were up at
---- wall height first, and the user asked for them on the floor "but on something"), via
---- hangTierModel (the racks' own fitting, magnets seated poles-down). The
---- Aura shop shows two mannequins wearing their rung's aura instead (ShopThemes'
---- dressOutfitter), standing on the floor: their torsos already clear the wall.
-local BOOTH_DISPLAY_X = 3 -- each display's distance from the booth's centre line (6.5 -> 4 -> 3: inside the imported stall's posts)
-local BOOTH_PLINTH = 2.4 -- the plinth's width and depth
-local BOOTH_PLINTH_HEIGHT = 1
--- The racks' sizes read as specks from the plaza (a magnet came out ~1 stud), so a
--- booth tool is grown to this tall, or this wide, whichever is reached first.
-local BOOTH_DISPLAY_HEIGHT = 4.5
-local BOOTH_DISPLAY_WIDTH = 4
-local BOOTH_MANNEQUIN_SCALE = 1.2 -- the racks' 0.8 left only the head over the wall
-local function stallFor(track: string): StallSpec?
-	local stall: StallSpec? = nil
-	for _, row in STALLS do
-		if row.track == track then
-			stall = row
-		end
-	end
-	return stall
-end
-
-local function buildBoothDisplays(parent: Instance, origin: CFrame, boothId: string, color: string)
-	-- A booth selling two tracks (the Gear booth: detectors and magnets) shows the dearest
-	-- of each, one per side; a one-track booth its cheapest and dearest.
-	local sold = Booths.tracks(boothId)
-	local picks: { { track: string, tier: number } } = {}
-	if #sold >= 2 then
-		for i = 1, 2 do
-			local stall = stallFor(sold[i])
-			local tiers = stallTiers({ track = sold[i], hideTiers = if stall then stall.hideTiers else nil })
-			table.insert(picks, { track = sold[i], tier = tiers[#tiers] })
-		end
-	elseif #sold == 1 then
-		local stall = stallFor(sold[1])
-		local tiers = stallTiers({ track = sold[1], hideTiers = if stall then stall.hideTiers else nil })
-		picks = { { track = sold[1], tier = tiers[1] }, { track = sold[1], tier = tiers[#tiers] } }
-	end
-
-	local displays = Instance.new("Model")
-	displays.Name = "Displays"
-	displays.Parent = parent
-	for index, pick in picks do
-		local track, tier = pick.track, pick.tier
-		local stall = stallFor(track)
-		-- Both face the front since the booths went one-sided (2026-10-10): the cheap one
-		-- on the left half, the dear one on the right.
-		local frame = origin
-		local x = if index == 1 then -BOOTH_DISPLAY_X else BOOTH_DISPLAY_X
-		if track == "Aura" then
-			ShopThemes.dressOutfitter(displays, frame, { { x = x, tier = tier } }, BOOTH_MANNEQUIN_SCALE)
-			continue
-		end
-		build(displays, frame, {
-			name = "DisplayPlinth",
-			pos = { x, BOOTH_PLINTH_HEIGHT / 2, ISLAND_Z },
-			size = { BOOTH_PLINTH, BOOTH_PLINTH_HEIGHT, BOOTH_PLINTH },
-			color = BOOTH_FRAME,
-			material = "Plastic",
-			studs = true,
-		})
-		build(displays, frame, {
-			name = "DisplayPlinthTop",
-			pos = { x, BOOTH_PLINTH_HEIGHT + 0.05, ISLAND_Z },
-			size = { BOOTH_PLINTH + BOOTH_WALL_LIP * 2, 0.3, BOOTH_PLINTH + BOOTH_WALL_LIP * 2 },
-			color = color,
-			material = "Plastic",
-			studs = true,
-			canCollide = false,
-		})
-		-- hangTierModel stands its model on RACK_DROP_BASE at z = SHOPFRONT_Z; shift the
-		-- frame so that lands on the plinth top, on the island's centre line.
-		local deck = frame * CFrame.new(0, BOOTH_PLINTH_HEIGHT + 0.2 - RACK_DROP_BASE, ISLAND_Z - SHOPFRONT_Z)
-		local present = stall and stall.present
-		local hand = if present then deck * Kit.ang(0, present.yaw, 0) * Kit.ang(present.pitch, 0, 0) else nil
-		local gear = Instance.new("Model")
-		gear.Name = "Gear"
-		gear.Parent = displays
-		if hangTierModel(gear, deck, hand, x, track, tier, index - 1, true) == nil then
-			gear:Destroy()
-			continue
-		end
-		-- Grown about its base's centre, so it stays standing on the plinth. The pivot
-		-- is reset first: GetBoundingBox measures in the pivot's axes, and this one
-		-- came in tilted with the tool's HoldCFrame.
-		gear.WorldPivot = CFrame.new()
-		local box, size = gear:GetBoundingBox()
-		gear.WorldPivot = CFrame.new(box.Position - Vector3.new(0, size.Y / 2, 0))
-		gear:ScaleTo(math.min(BOOTH_DISPLAY_HEIGHT / size.Y, BOOTH_DISPLAY_WIDTH / math.max(size.X, size.Z)))
-	end
-end
+--- NO GEAR OR MANNEQUINS ON DISPLAY IN THE BOOTHS (2026-10-10, on request: "remove the
+--- gears and mannequins in the shop stands"). Each booth showed its cheapest and dearest
+--- rung on plinths (or Aura mannequins) from 2026-10-04.
 
 --- THE IMPORTED SHOP STAND (2026-10-10, on request: "i imported new shop stands, replace
 --- all the current shops with this, with their own unique color, also give them studded
@@ -2322,8 +2227,7 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 		buildRoofTop(m, origin, width, spec.color, spec.label)
 		buildNameBoard(m, origin, boardText(spec.label))
 	end
-	-- The Upgrades booth sells walk speed, not gear, and the Sell booth buys: nothing to
-	-- stand on their plinths.
+	-- The Sell booth's station: it buys, from the front.
 	if spec.sell then
 		local station = build(m, origin, {
 			name = "TraderStation",
@@ -2337,8 +2241,6 @@ local function buildBooth(parent: Instance, spec: BoothSpec, originOverride: CFr
 		})
 		station.CanQuery = false
 		station.CanTouch = false
-	elseif not Booths.sellsSpeed(spec.track) then
-		buildBoothDisplays(m, origin, spec.track, spec.color)
 	end
 
 	-- A studded pad in the shop's colour in front of the stand, rimmed in glowing Neon,
