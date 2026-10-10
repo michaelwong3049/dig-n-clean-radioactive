@@ -686,7 +686,7 @@ Gear.STAT_META = {
 		hidden = { haulPenalty = true, reduction = true, speedBonus = true },
 		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log", tip = "Radiation it blocks." },
 		tolerance = { label = "Tolerance", color = C.green, tip = "Radiation you can take before it hurts." },
-		capacity = { label = "Carry", color = C.yellow, tip = "Nukes you can carry." },
+		capacity = { label = "Backpack Size", color = C.yellow, tip = "Nukes you can carry." },
 		-- LAST, after Carry: it is the reward half of "carry more, move
 		-- slower" and reads as a bonus on top. `percent` prints it as "+3%" (ShopService).
 		speedBonus = { label = "Speed", color = C.orange, format = "percent", tip = "Extra walk speed." },
