@@ -71,12 +71,15 @@ export type Pad = {
 -- 2026-10-10, on request: moved with the chest onto the east wall's left-hand (-z)
 -- shoulder, the pads either side of it along the wall.
 -- Later 2026-10-10: into the middle with the chest, on the grey middle square.
-local CHEST_X = 66
-local CHEST_Z = 0
-local FLOOR_Y = -1.15
--- 18 -> 9 when the chest left for the east wall (2026-10-10): the two pads close up into
--- one pair, ~3 studs apart, on the middle square.
-local PAD_Z = 9
+-- Then (on request: "remove the crate pads that can be cost with regular money, put the
+-- robux crate pads on the left of the group chest"): Base Camp's cash pad is gone and the
+-- Robux pad stands beside the chest in the corner by Stage 1's mouth (Config/GroupReward
+-- CHEST_POSITION 85, 97), on its LEFT as you face it from the camp (-z, toward the mouth),
+-- PAD_Z off the chest so it clears the gold ring. On the bare lawn, like the chest.
+local CHEST_X = 85
+local CHEST_Z = 97
+local FLOOR_Y = -1.5
+local PAD_Z = 18
 
 -- Each pad is a stadium: a round end round each crate, joined down the middle.
 CrateShop.SPREAD = 3.3 -- pad centre to each crate's centre, along Z
@@ -125,19 +128,9 @@ end
 
 CrateShop.PADS = {
 	{
-		name = "CashCratePad",
-		title = "Crate Shop",
-		position = Vector3.new(CHEST_X, FLOOR_Y, CHEST_Z - PAD_Z),
-		facing = -Vector3.xAxis,
-		offers = {
-			{ crateId = "nuke1", cash = 75_000, offset = CrateShop.SPREAD },
-			{ crateId = "liquid3", cash = 40_000, offset = -CrateShop.SPREAD },
-		},
-	},
-	{
 		name = "RobuxCratePad",
 		title = "Premium Crates",
-		position = Vector3.new(CHEST_X, FLOOR_Y, CHEST_Z + PAD_Z),
+		position = Vector3.new(CHEST_X, FLOOR_Y, CHEST_Z - PAD_Z),
 		facing = -Vector3.xAxis,
 		offers = {
 			{ crateId = "nuke5", productId = 3716022009, offset = -CrateShop.SPREAD },
