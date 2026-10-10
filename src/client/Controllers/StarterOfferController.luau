@@ -43,24 +43,28 @@ local StarterOfferController = {}
 
 local PACK_KEY = "starter"
 
--- Smaller, on request (2026-10-07): 168 x 156 -> 140 x 128.
-local CARD_W = 140
+-- Smaller, on request (2026-10-07): 168 x 156 -> 140 x 128. A little bigger again
+-- (2026-10-10): 168 x 176, the extra height for the struck-out "was" price.
+local CARD_W = 168
 local CARD_H = Dock.STARTER_CARD_H
-local RAYS = 310
-local ART = 60
+local RAYS = 370
+local ART = 72
 -- The crate's centre, down from the card's top.
-local ART_Y = 66
+local ART_Y = 80
 -- The cash bundle and clover lean on the crate's sides (on request, 2026-10-07: they
 -- floated off at the card's edges): their centres this far out from the crate's, and
 -- this far below it.
-local SIDE_OUT = 30
-local SIDE_DROP = 14
-local BUNDLE = 42
-local CLOVER = 34
+local SIDE_OUT = 36
+local SIDE_DROP = 16
+local BUNDLE = 50
+local CLOVER = 40
 -- The pack's own picture (Config/Packs `image`) fills the space the crate, bundle and
 -- clover shared, between the title and the price.
-local PICTURE = 76
-local BUY_H = 28
+local PICTURE = 84
+local BUY_H = 30
+-- The struck-out "was" price (Config/Packs `wasPrice`), on a row just over the live one.
+local WAS_H = 20
+local ROBUX = utf8.char(0xE002)
 local CLOSE = 26
 -- Never smaller than this on a short screen, where the card must squeeze in above the
 -- right-edge tile column.
@@ -74,6 +78,8 @@ local COLOR = {
 	white = Color3.new(1, 1, 1),
 	gold = Color3.fromRGB(255, 214, 92),
 	cash = Color3.fromRGB(150, 255, 140),
+	was = Color3.new(1, 1, 1),
+	strike = Color3.fromHex("E5484D"),
 	close = Color3.fromHex("E5484D"),
 	closeHover = Color3.fromHex("FF6A6E"),
 }
@@ -455,13 +461,13 @@ function StarterOfferController.start()
 	local cardScale = Instance.new("UIScale")
 	cardScale.Parent = card
 
-	local title = label(card, "Title", string.upper(pack.name), 15, COLOR.white, 6)
-	title.Size = UDim2.new(1, -12, 0, 18)
+	local title = label(card, "Title", string.upper(pack.name), 18, COLOR.white, 6)
+	title.Size = UDim2.new(1, -12, 0, 21)
 	title.Position = UDim2.fromOffset(6, 6)
 
-	local once = label(card, "Once", "ONE TIME ONLY", 10, COLOR.cash, 6)
-	once.Size = UDim2.new(1, -12, 0, 11)
-	once.Position = UDim2.fromOffset(6, 24)
+	local once = label(card, "Once", "ONE TIME ONLY", 12, COLOR.cash, 6)
+	once.Size = UDim2.new(1, -12, 0, 13)
+	once.Position = UDim2.fromOffset(6, 27)
 
 	-- The pack's own picture (Config/Packs `image`) when it has one. Otherwise the crate,
 	-- still (on request), a cash bundle leaning on its left and a luck clover on its
@@ -529,6 +535,36 @@ function StarterOfferController.start()
 		buyEdge:Destroy()
 	end
 	buy.button.Interactable = false
+	-- "ONLY R$ 9": the live dashboard price with ONLY in front, re-read whenever the
+	-- button's own price text loads or changes.
+	local function only()
+		local text = buy.price.Text
+		if string.find(text, "%d") and not string.find(text, "^ONLY") then
+			buy.price.Text = `ONLY {text}`
+		end
+	end
+	buy.price:GetPropertyChangedSignal("Text"):Connect(only)
+	only()
+
+	-- The struck-out "was" price on its own row just over it, with a red slash through.
+	if pack.wasPrice then
+		local was = label(card, "Was", `{ROBUX} {pack.wasPrice}`, 19, COLOR.was, 6)
+		was.AutomaticSize = Enum.AutomaticSize.X
+		was.Size = UDim2.fromOffset(0, WAS_H)
+		was.AnchorPoint = Vector2.new(0.5, 1)
+		was.Position = UDim2.new(0.5, 0, 1, -4 - BUY_H)
+		local strike = Instance.new("Frame")
+		strike.Name = "Strike"
+		strike.BackgroundColor3 = COLOR.strike
+		strike.BorderSizePixel = 0
+		strike.AnchorPoint = Vector2.new(0.5, 0.5)
+		strike.Position = UDim2.fromScale(0.5, 0.5)
+		strike.Size = UDim2.new(1, 8, 0, 3)
+		strike.Rotation = -6
+		strike.ZIndex = 7
+		strike.Parent = was
+		stroke(strike, 1, true)
+	end
 
 	-- The offer opens the contents panel; the panel's R$ button is the one that buys.
 	card.Activated:Connect(function()

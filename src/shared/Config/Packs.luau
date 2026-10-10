@@ -14,8 +14,9 @@
 	clicks before the first grant lands, two devices). The player has paid by then, so
 	the server grants the pack again rather than eat the Robux.
 
-	The Robux prices live on the dashboard products (Starter 49, Pro 499); the Shop reads
-	them from there. Contents are named here once; the Shop card lists them from this.
+	The Robux prices live on the dashboard products (Starter 9, Pro 199); the Shop reads
+	them from there. `wasPrice` is only the struck-out "was" price the offer card shows
+	above the live one. Contents are named here once; the Shop card lists them from this.
 ]]
 
 local Packs = {}
@@ -32,6 +33,8 @@ export type Pack = {
 	-- One picture of the whole pack (tools/pack-art). With it, the offer card and the Shop
 	-- card show it in place of the best crate with a cash bundle and clover beside it.
 	image: string?,
+	-- A struck-out "was R$ N" over the live price on the offer card (sale look).
+	wasPrice: number?,
 }
 
 local PACKS: { Pack } = {
@@ -44,6 +47,7 @@ local PACKS: { Pack } = {
 		luckSeconds = 30 * 60,
 		cashBoostSeconds = 0,
 		image = "rbxassetid://136810529018998", -- cash, clover, Isotope + Field crates
+		wasPrice = 49,
 	},
 	{
 		key = "pro",

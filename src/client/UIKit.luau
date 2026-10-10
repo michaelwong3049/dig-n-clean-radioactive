@@ -987,9 +987,10 @@ end
 
 -- THE STARTER PACK CARD (StarterOfferController), hanging hard right under the corner
 -- row, DROP lower so its rays clear the corner tiles, above the right column. Smaller on
--- touch (TOUCH_FIT), on request (2026-10-06); smaller everywhere (2026-10-07).
+-- touch (TOUCH_FIT), on request (2026-10-06); smaller everywhere (2026-10-07); a little
+-- bigger again with a struck-out "was" price (2026-10-10).
 Dock.STARTER_DROP = 24
-Dock.STARTER_CARD_H = 128
+Dock.STARTER_CARD_H = 176
 Dock.STARTER_TOUCH_FIT = 0.7
 Dock.STARTER_TOP = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP + Dock.STARTER_DROP
 
