@@ -18,13 +18,14 @@
 
 	THE PRICE CLIMBS PRICE_GROWTH PER POINT OF WALK, forever (no cap, like the treadmill
 	had none). That is what keeps a lucky Legendary from making anyone permanently fast:
-	every point costs ~18% more than the last, so the walk a player can afford tracks the
-	cash their stage pays rather than running away from it. Roughly, from walk 30:
+	every point costs ~20% more than the last, so the walk a player can afford tracks the
+	cash their stage pays rather than running away from it. Roughly, from walk 30
+	(doubled and steepened 2026-10-10 on request, "make speed more expensive"):
 
-	      walk  45  ~$6K      (Stage 1-2 money)
-	      walk  70  ~$380K    (Stage 3-4, a Winch Coil)
-	      walk 100  ~$55M     (Twilight)
-	      walk 130  ~$7.6B    (Magma Hollow)
+	      walk  45  ~$15K     (Stage 1-2 money)
+	      walk  70  ~$1.5M    (Stage 3-4)
+	      walk 100  ~$350M    (Twilight)
+	      walk 130  ~$83B     (Magma Hollow)
 
 	BULK BUYS (on request, 2026-10-10: "options where you can buy +3, +10 speed"): the
 	panel's +3 and +10 cash buttons buy exactly that much walk, whatever the step. Each
@@ -64,8 +65,8 @@ WalkSpeed.ENDGAME_WALK = 100
 
 --- The price of the first purchase (walk 30 -> 31), and how much dearer each point of
 --- walk makes the next one.
-WalkSpeed.FIRST_PRICE = 500
-WalkSpeed.PRICE_GROWTH = 1.18
+WalkSpeed.FIRST_PRICE = 1000
+WalkSpeed.PRICE_GROWTH = 1.20
 
 --- Walk speed per purchase, by the deepest stage reached: STAGE_STEPS[stage]. Two
 --- stages a row, 1 to 6 over the twelve.
