@@ -3296,6 +3296,95 @@ function Station.start()
 	Net.get("StationResult").OnClientEvent:Connect(function(message)
 		toast(tostring(message))
 	end)
+
+	-- WALKING ONTO A BOOTH'S STEP PAD OPENS ITS SHOP (2026-10-10, on request: "when you
+	-- actually walk over the colored parts under shop stands ... the shop should show
+	-- up"). The pad is build/Shops' StepPad; its shop is the StationId on the booth's own
+	-- shop station (the Sell booth has none -- its trader already opens on approach).
+	-- EDGE-TRIGGERED: it opens on stepping on, so closing it with the X or E while still
+	-- standing there keeps it shut until you step off and back on. If the server's tick
+	-- has not put us in the shop yet, the step counts as a browse E (LOCKER_PRESS_GRACE).
+	local function padShopId(pad: BasePart): string?
+		local booth = pad.Parent
+		if booth == nil then
+			return nil
+		end
+		for _, d in booth:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute("StationKind") == "shop" then
+				local id = d:GetAttribute("StationId")
+				return if type(id) == "string" then id else nil
+			end
+		end
+		return nil
+	end
+	local PAD_MARGIN = 1 -- studs past the pad's edge that still count as on it
+	local PAD_HEIGHT = 8 -- how far above the pad the root part may be
+	local onPadId: string? = nil
+	-- The pads, gathered once per Shops folder rather than walking its thousands of
+	-- parts ten times a second; a rebuild (new folder or new booth) marks it stale.
+	local pads: { BasePart }? = nil
+	local padsFolder: Instance? = nil
+	task.spawn(function()
+		while true do
+			task.wait(0.1)
+			local character = Players.LocalPlayer.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local shops = Workspace:FindFirstChild("Shops")
+			if shops ~= padsFolder then
+				padsFolder = shops
+				pads = nil
+				if shops then
+					shops.DescendantAdded:Connect(function(d)
+						if d.Name == "StepPad" and shops == padsFolder then
+							pads = nil
+						end
+					end)
+				end
+			end
+			if pads == nil and shops then
+				local list = {}
+				for _, d in shops:GetDescendants() do
+					if d.Name == "StepPad" and d:IsA("BasePart") then
+						table.insert(list, d)
+					end
+				end
+				pads = list
+			end
+			local found: string? = nil
+			if root and root:IsA("BasePart") and pads then
+				for _, d in pads do
+					if d.Parent ~= nil then
+						local rel = d.CFrame:PointToObjectSpace(root.Position)
+						if
+							math.abs(rel.X) <= d.Size.X / 2 + PAD_MARGIN
+							and math.abs(rel.Z) <= d.Size.Z / 2 + PAD_MARGIN
+							and rel.Y >= -1
+							and rel.Y <= PAD_HEIGHT
+						then
+							found = padShopId(d)
+							if found then
+								break
+							end
+						end
+					end
+				end
+			end
+			if found ~= onPadId then
+				onPadId = found
+				if found then
+					if state.station == "shop" and state.stationId == found then
+						rackCard = nil
+						if dismissed then
+							dismissed = false
+							render()
+						end
+					else
+						browsePressedAt = os.clock()
+					end
+				end
+			end
+		end
+	end)
 end
 
 return Station
