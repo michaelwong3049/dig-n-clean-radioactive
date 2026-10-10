@@ -10,7 +10,8 @@
 	PLAN §8.1 is right that this is what makes a shared server worth having: without
 	it the other four people are scenery.
 
-	FIVE PLOTS, FIVE PLAYERS. MaxPlayers is set to 5 on the place so plots and players
+	SIX PLOTS, SIX PLAYERS (five until 2026-10-10, when the U's west row went to four).
+	MaxPlayers must be set to 6 on the place so plots and players
 	are 1:1 and there is no "sorry, full" case to design around. That is a place
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
@@ -220,12 +221,12 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 125 -- side bases 22 nearer the east wall (2026-10-10)
+local BUILDER_VERSION = 126 -- four bases in the west row, 8 further back; side bases out past them (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
 
-Plots.COUNT = 5
+Plots.COUNT = 6
 -- Every stand built per base, across all of its floors (Config/Floors): the ground
 -- floor's 12 plus UPPER_SLOTS on each floor above. Floors a plot's owner has not
 -- bought are built too, and hidden at runtime (Plots.setFloors).
@@ -244,6 +245,7 @@ Plots.DEFAULT_ACCENTS = {
 	"9B5DE5", -- purple
 	"FF5D8F", -- pink
 	"3FA7F5", -- blue
+	"F5C842", -- yellow (the sixth base, 2026-10-10)
 }
 assert(#Plots.DEFAULT_ACCENTS == Plots.COUNT, "one default accent per plot")
 -- Tubes in the Quarantine Locker rack (buildQuarantineLocker), one stored nuke each.
@@ -354,10 +356,14 @@ end
 local PAD_FRONT_REACH = -PAD_MIN_Z -- origin to front edge
 -- -1 -> 15 (2026-10-10, on request: "move the bases closer" to Stage 1, asked 18; 16 is
 -- the nearest move that keeps the fronts on Hub's grid with the same checker parity).
-local ROW_FRONT_X = 15
--- 2026-10-10, the U (from the user's sketch): the row is the middle three only; the two
--- end bases became SIDE pads (below).
-local ROW_Z = { -76, 0, 76 }
+-- 15 -> 7 (2026-10-10, on request: "push the 3 bases back a little by 8 studs"; two tiles,
+-- so the plaza's minX follows on the same grid phase and parity).
+local ROW_FRONT_X = 7
+-- 2026-10-10, the U (from the user's sketch): the row is the middle bases only; the two
+-- end bases became SIDE pads (below). Three, then FOUR the same day (on request: "put a
+-- 4th base amongst the 3 to even it out"), 70 apart (13-stud gaps) so the row stays
+-- centred on the middle square at z 0.
+local ROW_Z = { -105, -35, 35, 105 }
 
 local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
@@ -386,11 +392,12 @@ local ROW_X = ROW_FRONT_X - PAD_FRONT_REACH
 --- off the east wall's face, where the chest square stood -- the chest and crates went to
 --- the middle square, the leaderboards to the shoulders by Stage 1's mouth.
 local SIDE_X = 58
-local SIDE_FRONT_Z = 106
+-- 106 -> 136 when the row went to four (its outer edges at |z| 133.5).
+local SIDE_FRONT_Z = 136
 local SIDE_Z = SIDE_FRONT_Z + PAD_FRONT_REACH
 
 --- Numbered left to right as you stand at the row's fronts facing Stage 1: 1 is the -Z
---- side base, 2-4 the row (-Z to +Z), 5 the +Z side base. ExhibitService fills them from
+--- side base, 2-5 the row (-Z to +Z), 6 the +Z side base. ExhibitService fills them from
 --- the middle out (FILL_ORDER).
 Plots.CENTERS = {}
 table.insert(Plots.CENTERS, { x = SIDE_X, z = -SIDE_Z, facing = 180 })
