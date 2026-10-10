@@ -45,7 +45,10 @@ GroupReward.CASH_MULT = 1.1
 -- top, PLAZA.topY -1.5 + SHOP_FLOOR_LIFT 0.35.
 -- 2026-10-09, the five-base row: out in front of the middle base, near Stage 1's mouth
 -- (x 57, between the shop row and the green strip), still on its raised square.
-GroupReward.CHEST_POSITION = Vector3.new(57, -1.15, 0)
+-- 2026-10-10, on request ("move the chest on the wall left of stage 1"): against the
+-- east wall's left-hand shoulder as you face Stage 1 (-z), with the crate pads either
+-- side of it along the wall; the leaderboards hang on the right-hand shoulder.
+GroupReward.CHEST_POSITION = Vector3.new(83, -1.15, -128)
 -- Yaw. The imported model's front is its local -Z (the opposite of the part chest's),
 -- so +90 degrees is what turns that front to the camp (world -X). User flagged -90 as
 -- facing the wrong way.
