@@ -5,11 +5,11 @@
 	Each mastery counts one lifetime number and has three tiers, Bronze, Silver and
 	Gold. Reaching a tier sets that mastery's reward to the tier's value, and a higher
 	tier REPLACES the one under it: Gold Scrubber is x2 cash, not 1.25 x 1.5 x 2.
-	Two masteries paying the SAME kind (Bomber and Thief both pay walk speed) add their
-	tiers' values together: Gold in both is +12%.
+	Two masteries paying the SAME kind add their tiers' steps from base together (none
+	share one today; Mastery.value still adds them if they ever do).
 
 	NOTHING ABOUT A MASTERY IS STORED BUT ITS COUNTER. Every counter only ever goes up
-	(cleans, kills, lifetime cash, speed upgrades, the deepest stage, the index), so the
+	(cleans, kills, lifetime cash, the deepest stage, the index), so the
 	tier is read off it on demand (Shared/Mastery) and a tier once reached can never be
 	lost. Retuning a goal re-tiers everyone on their next read, with no migration.
 
@@ -44,7 +44,7 @@ export type Def = {
 	reward: string,
 	-- The reward at Bronze, Silver, Gold.
 	values: { number },
-	-- The panel's medal-well tint, so the ten rows tell apart at a glance.
+	-- The panel's medal-well tint, so the rows tell apart at a glance.
 	color: Color3,
 }
 
@@ -58,8 +58,8 @@ Masteries.TIER_COLORS = {
 --- What each reward is before any tier: the value Shared/Mastery.value falls back to.
 Masteries.BASE = {
 	cash = 1, -- x on every sale and every stand's income
+	bombDamage = 1, -- x on a dropped nuke's blast
 	walkSpeed = 0, -- + share of walk speed (0.02 = +2%); every mastery paying it ADDS
-	speedPrice = 1, -- x on the price of a walk-speed upgrade (Config/WalkSpeed.priceFor)
 	luck = 1, -- x on luck (the wash pad's roll and the merge crit)
 	capacity = 0, -- + bag slots
 	radDamage = 1, -- x on the health radiation takes (aura wear, aura failure, sickness)
@@ -85,21 +85,10 @@ Masteries.LIST = {
 		counts = "Players blown up",
 		source = "kills",
 		goals = { 10, 25, 50 },
-		reward = "walkSpeed",
-		values = { 0.02, 0.04, 0.06 },
+		-- Walk speed 2026-10-08 (#1150), back to bomb damage 2026-10-10 on request.
+		reward = "bombDamage",
+		values = { 1.15, 1.3, 1.5 },
 		color = Color3.fromRGB(229, 72, 77),
-	},
-	{
-		id = "runner",
-		name = "Runner",
-		-- Was "Speed trained" for x1.25-x2 treadmill Speed; the treadmill went
-		-- (2026-10-09), so it counts Upgrades booth purchases and cheapens the next ones.
-		counts = "Speed upgrades",
-		source = "speedUpgrades",
-		goals = { 10, 30, 60 },
-		reward = "speedPrice",
-		values = { 0.9, 0.8, 0.7 },
-		color = Color3.fromRGB(70, 160, 255),
 	},
 	{
 		id = "prospector",

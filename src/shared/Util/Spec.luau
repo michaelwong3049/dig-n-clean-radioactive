@@ -1297,8 +1297,10 @@ function Spec.run(): boolean
 		local thief = Mastery.get("thief") :: any
 		local bomber = Mastery.get("bomber") :: any
 		check("§mastery the Thief reward adds walk speed", math.abs(rich.walkMult - bare.walkMult * (1 + thief.values[3])) < 1e-9)
-		local both = { level = 1, gear = {}, perks = {}, stats = { kills = bomber.goals[3], bagsStolen = thief.goals[3] } }
-		check("§mastery Bomber and Thief walk speed add up", math.abs(Mastery.value(both, "walkSpeed") - (bomber.values[3] + thief.values[3])) < 1e-9)
+		local killer = { level = 1, gear = {}, perks = {}, stats = { kills = bomber.goals[3] } }
+		check("§mastery the Bomber reward multiplies bomb damage", math.abs(StatResolver.get(killer).bombDamageMult - bare.bombDamageMult * bomber.values[3]) < 1e-9)
+		check("§mastery Bomber pays no walk speed", Mastery.value(killer, "walkSpeed") == 0)
+		check("§mastery no mastery discounts walk speed (Runner gone)", Mastery.get("runner") == nil and (Masteries.BASE :: any).speedPrice == nil)
 		local collector = Mastery.get("collector") :: any
 		local all = {}
 		for _, item in Items.DEFS do
@@ -1318,7 +1320,7 @@ function Spec.run(): boolean
 		check("§mastery the Reactor discount lowers the merge fee", dearest ~= nil and Merge.fee(dearest.id, 0, 0.7) < Merge.fee(dearest.id, 0))
 		check("§mastery the Brewer can never brew faster than the spin lasts", Tuning.LIQUID_SPIN_COOLDOWN * (Mastery.get("brewer") :: any).values[3] > Tuning.LIQUID_SPIN_SECONDS)
 		check("§mastery reward text reads like a reward", Mastery.rewardText(scrub, 3) == "x2 cash" and Mastery.rewardText(thief, 3) == "+6% walk speed")
-		check("§mastery goals print short", Mastery.goalText(Mastery.get("tycoon") :: any, 1e9) == "$1B" and Mastery.goalText(Mastery.get("runner") :: any, 30) == "30")
+		check("§mastery goals print short", Mastery.goalText(Mastery.get("tycoon") :: any, 1e9) == "$1B" and Mastery.goalText(bomber, 25) == "25")
 	end
 
 	-- PLAN §9.2 / §5.1 — one resolver, perks folded in exactly once
@@ -1421,7 +1423,15 @@ function Spec.run(): boolean
 		end
 		check("§5.1 every point of walk makes the next purchase dearer", rising)
 		check("§5.1 the first purchase costs FIRST_PRICE", WalkSpeed.priceFor(0) == WalkSpeed.FIRST_PRICE)
-		check("§5.1 the Runner discount takes its share off", WalkSpeed.priceFor(40, 0.7) < WalkSpeed.priceFor(40))
+		-- THE BULK BUTTONS: +N walk costs N points' shares of a step purchase.
+		local sum3 = 0
+		for i = 0, 2 do
+			sum3 += WalkSpeed.FIRST_PRICE * WalkSpeed.PRICE_GROWTH ^ (40 + i)
+		end
+		check("§5.1 +3 at step 1 costs three single purchases", math.abs(WalkSpeed.bulkPriceFor(40, 3, 1) - sum3) / sum3 < 0.01)
+		check("§5.1 a bigger step makes each bulk point cheaper", WalkSpeed.bulkPriceFor(40, 10, 6) < WalkSpeed.bulkPriceFor(40, 10, 1))
+		check("§5.1 +10 costs more than +3", WalkSpeed.bulkPriceFor(40, 10, 2) > WalkSpeed.bulkPriceFor(40, 3, 2))
+		check("§5.1 the bulk buttons are +3 and +10", WalkSpeed.BULK[1] == 3 and WalkSpeed.BULK[2] == 10 and WalkSpeed.ROBUX_WALK == 10)
 		-- The price lands where each zone's cash is (Config/Gear's prices): bands wide
 		-- enough for a retune, narrow enough that speed cannot go free or out of reach.
 		for _, milestone in { { walk = 45, low = 2e3, high = 2e4 }, { walk = 70, low = 1e5, high = 2e6 }, { walk = 100, low = 1e7, high = 3e8 } } do

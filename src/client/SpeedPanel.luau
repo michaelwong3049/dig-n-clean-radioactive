@@ -12,7 +12,8 @@
 	  the card     the shoe, WALK SPEED "42 -> 45", the step chip, and how deep you
 	               have to go for the next bigger step.
 	  the buttons  green BUY $price (grey NEED $x when short) and the purple Robux
-	               button (WalkSpeed.PRODUCT_ID: one purchase at your step).
+	               button (WalkSpeed.PRODUCT_ID: a flat +10).
+	  the bulk row green +3 / +10 cash buttons (WalkSpeed.BULK): exactly that much walk.
 
 	Everything here is presentation. SpeedService re-derives the price, the step and
 	that you are at an Upgrades booth. The numbers come off SpeedState
@@ -58,6 +59,7 @@ SpeedPanel.WIDTH = 640
 local HEADER_H = 64
 local CARD_H = 200
 local BUTTONS_H = 64
+local BULK_H = 52
 local GAP = 12
 local WALLET_INSET = 44
 local SHOE = 150
@@ -143,7 +145,7 @@ export type Panel = {
 function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 	local root = frame(parent, "Speed")
 	root.LayoutOrder = layoutOrder
-	root.Size = UDim2.new(1, 0, 0, HEADER_H + GAP + CARD_H + GAP + BUTTONS_H)
+	root.Size = UDim2.new(1, 0, 0, HEADER_H + GAP + CARD_H + GAP + BUTTONS_H + GAP + BULK_H)
 	root.Visible = false
 
 	-- ── Header ─────────────────────────────────────────────────────────
@@ -265,30 +267,51 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 	buttons.Position = UDim2.fromOffset(0, y)
 	buttons.Size = UDim2.new(1, 0, 0, BUTTONS_H)
 
-	local buy = Instance.new("TextButton")
-	buy.Name = "Buy"
-	buy.AutoButtonColor = false
-	buy.BorderSizePixel = 0
-	buy.Font = SKIN.headline
-	buy.TextSize = 30
-	buy.TextColor3 = SKIN.text
+	-- A green studded cash button: BUY, and the bulk row's +3 / +10.
+	local function cashButton(host: Instance, name: string, textSize: number): (TextButton, UIStroke)
+		local button = Instance.new("TextButton")
+		button.Name = name
+		button.AutoButtonColor = false
+		button.BorderSizePixel = 0
+		button.Font = SKIN.headline
+		button.TextSize = textSize
+		button.TextColor3 = SKIN.text
+		button.Parent = host
+		corner(button, 12)
+		ink(button, 3)
+		local stroke = edge(button, SKIN.goEdge, 3)
+		local gloss = Instance.new("UIGradient")
+		gloss.Rotation = 90
+		gloss.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(205, 205, 205))
+		gloss.Parent = button
+		Studded.pattern(button, { radius = 12, tile = Studded.BUTTON_TILE, bands = { 0.28, 0.5, 0.58, 0.64 }, bandTransparency = 0.8, studTransparency = 0.35, glow = false })
+		return button, stroke
+	end
+
+	local buy, buyEdge = cashButton(buttons, "Buy", 30)
 	buy.Size = UDim2.new(0.68, -6, 1, 0)
-	buy.Parent = buttons
-	corner(buy, 12)
-	ink(buy, 3)
-	local buyEdge = edge(buy, SKIN.goEdge, 3)
-	local buyGloss = Instance.new("UIGradient")
-	buyGloss.Rotation = 90
-	buyGloss.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(205, 205, 205))
-	buyGloss.Parent = buy
-	Studded.pattern(buy, { radius = 12, tile = Studded.BUTTON_TILE, bands = { 0.28, 0.5, 0.58, 0.64 }, bandTransparency = 0.8, studTransparency = 0.35, glow = false })
 
 	local robux = RobuxButton.product(buttons, function()
 		return WalkSpeed.PRODUCT_ID
-	end, "+1 UPGRADE")
+	end, `+{WalkSpeed.ROBUX_WALK} SPEED`)
 	robux.button.AnchorPoint = Vector2.new(1, 0)
 	robux.button.Position = UDim2.fromScale(1, 0)
 	robux.button.Size = UDim2.new(0.32, -6, 1, 0)
+
+	-- ── The bulk row: +3 / +10 for cash ─────────────────────────────────
+	y += BUTTONS_H + GAP
+	local bulkRow = frame(root, "Bulk")
+	bulkRow.Position = UDim2.fromOffset(0, y)
+	bulkRow.Size = UDim2.new(1, 0, 0, BULK_H)
+	type Bulk = { amount: number, button: TextButton, edge: UIStroke, affordable: boolean }
+	local bulks: { Bulk } = {}
+	local count = #WalkSpeed.BULK
+	for i, amount in WalkSpeed.BULK do
+		local button, stroke = cashButton(bulkRow, `Bulk{amount}`, 24)
+		button.Size = UDim2.new(1 / count, -6 * (count - 1) / count, 1, 0)
+		button.Position = UDim2.new((i - 1) / count, 6 * (i - 1) / count, 0, 0)
+		table.insert(bulks, { amount = amount, button = button, edge = stroke, affordable = false })
+	end
 
 	-- ── Behaviour ───────────────────────────────────────────────────────
 	local lastState: any = nil
@@ -307,6 +330,11 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 			buy.Text = "LOADING"
 			buy.BackgroundColor3 = SKIN.off
 			affordable = false
+			for _, bulk in bulks do
+				bulk.button.Text = "LOADING"
+				bulk.button.BackgroundColor3 = SKIN.off
+				bulk.affordable = false
+			end
 			return
 		end
 		local step = tonumber(view.step) or 1
@@ -314,9 +342,6 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 		local after = view.walk + step
 		walkLine.Text = `{view.walk}  <font color="#5CFE01">\u{2192}</font>  <font color="#9FE3FF">{after}</font>`
 		stepChip.Text = `+{step} PER UPGRADE`
-		if robux.caption then
-			robux.caption.Text = `+{step} SPEED`
-		end
 
 		local deepest = tonumber(view.deepestStage) or 1
 		local stage, bigger = nextBiggerStep(deepest, step)
@@ -325,10 +350,6 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 			table.insert(lines, `Reach Stage {stage} for +{bigger} per upgrade.`)
 		else
 			table.insert(lines, "Deepest stage reached: the biggest upgrades there are.")
-		end
-		local discount = tonumber(view.discount) or 1
-		if discount < 1 then
-			table.insert(lines, `Runner mastery: -{math.floor((1 - discount) * 100 + 0.5)}% price.`)
 		end
 		hint.Text = table.concat(lines, "  ")
 
@@ -341,6 +362,15 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 			buy.Text = `NEED {money(price - cash)} MORE`
 			buy.BackgroundColor3 = SKIN.off
 			buyEdge.Color = SKIN.ink
+		end
+
+		local bulkPrices = if type(view.bulkPrices) == "table" then view.bulkPrices else {}
+		for i, bulk in bulks do
+			local bulkPrice = tonumber(bulkPrices[i]) or math.huge
+			bulk.affordable = cash >= bulkPrice
+			bulk.button.Text = if bulkPrice == math.huge then `+{bulk.amount} SPEED` else `+{bulk.amount} SPEED  {money(bulkPrice)}`
+			bulk.button.BackgroundColor3 = if bulk.affordable then SKIN.go else SKIN.off
+			bulk.edge.Color = if bulk.affordable then SKIN.goEdge else SKIN.ink
 		end
 	end
 
@@ -362,7 +392,27 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 		Net.get("SpeedBuy"):FireServer()
 	end)
 
-	-- A purchase, a deeper stage or a mastery tier moves the numbers between ticks.
+	for _, bulk in bulks do
+		bulk.button.MouseEnter:Connect(function()
+			if bulk.affordable then
+				bulk.button.BackgroundColor3 = Color3.fromHex("85FF01")
+			end
+		end)
+		bulk.button.MouseLeave:Connect(function()
+			if lastState then
+				paint(lastState)
+			end
+		end)
+		bulk.button.Activated:Connect(function()
+			if not bulk.affordable then
+				Sfx.play("denied")
+				return
+			end
+			Net.get("SpeedBuy"):FireServer(bulk.amount)
+		end)
+	end
+
+	-- A purchase or a deeper stage moves the numbers between ticks.
 	Speed.onChanged(function()
 		if lastState and root.Visible then
 			paint(lastState)

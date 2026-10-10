@@ -26,8 +26,13 @@
 	      walk 100  ~$55M     (Twilight)
 	      walk 130  ~$7.6B    (Magma Hollow)
 
-	The Runner mastery (Config/Masteries, reward "speedPrice") takes a share off every
-	price; `priceFor` takes that multiplier so the panel and the server agree.
+	BULK BUYS (on request, 2026-10-10: "options where you can buy +3, +10 speed"): the
+	panel's +3 and +10 cash buttons buy exactly that much walk, whatever the step. Each
+	point costs its share of the purchase it would have been part of, priceFor(walk) /
+	step, summed point by point (`bulkPriceFor`), so +N costs about what N points of
+	BUY presses would. The Robux button (PRODUCT_ID) is a flat +10 too.
+
+	The Runner mastery that took a share off every price is gone (2026-10-10, on request).
 
 	SAVES: `data.walkBought` is walk speed bought on top of START_WALK. A save from the
 	treadmill days carries lifetime `speedPoints` instead; DataService converts it once
@@ -66,10 +71,14 @@ WalkSpeed.PRICE_GROWTH = 1.18
 --- stages a row, 1 to 6 over the twelve.
 WalkSpeed.STAGE_STEPS = { 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 }
 
---- The Developer Product the panel's purple button sells: one purchase at the buyer's
---- current step, nothing spent. 0 = not set up yet, and the button reads SOON.
---- Creator Dashboard -> Monetization -> Developer Products: "Speed Upgrade".
+--- The fixed amounts the panel's bulk cash buttons buy (bulkPriceFor).
+WalkSpeed.BULK = { 3, 10 }
+
+--- The Developer Product the panel's purple button sells: ROBUX_WALK walk speed, flat,
+--- nothing spent. 0 = not set up yet, and the button reads SOON.
+--- Creator Dashboard -> Monetization -> Developer Products: "+10 Speed".
 WalkSpeed.PRODUCT_ID = 0
+WalkSpeed.ROBUX_WALK = 10
 
 --- Three significant figures: $1,530 rather than $1,527.70.
 local function roundNice(n: number): number
@@ -100,11 +109,25 @@ function WalkSpeed.stepFor(deepestStage: number?): number
 	return steps[stage]
 end
 
---- The price of the next purchase at `walkBought`, after the Runner mastery's
---- `discount` multiplier (1 = none).
-function WalkSpeed.priceFor(walkBought: number, discount: number?): number
-	local raw = WalkSpeed.FIRST_PRICE * WalkSpeed.PRICE_GROWTH ^ WalkSpeed.bought(walkBought)
-	return roundNice(raw * (discount or 1))
+local function rawPrice(walkBought: number): number
+	return WalkSpeed.FIRST_PRICE * WalkSpeed.PRICE_GROWTH ^ WalkSpeed.bought(walkBought)
+end
+
+--- The price of the next purchase (one step) at `walkBought`.
+function WalkSpeed.priceFor(walkBought: number): number
+	return roundNice(rawPrice(walkBought))
+end
+
+--- The price of exactly `amount` walk speed from `walkBought`, for a player whose step
+--- is `step`: each point priced as its share of a step purchase at that walk.
+function WalkSpeed.bulkPriceFor(walkBought: number, amount: number, step: number): number
+	local from = WalkSpeed.bought(walkBought)
+	local share = math.max(1, math.floor(step))
+	local total = 0
+	for i = 0, math.max(0, math.floor(amount)) - 1 do
+		total += rawPrice(from + i) / share
+	end
+	return roundNice(total)
 end
 
 --- "$25,000": a price as every sign, prompt and notice prints it. A million and up is

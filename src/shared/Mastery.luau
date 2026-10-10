@@ -79,7 +79,7 @@ end
 --- The reward `kind` this profile has earned: the highest reached tier's value of the
 --- mastery that pays it, or Masteries.BASE[kind]. A higher tier REPLACES the lower.
 --- When several masteries pay the same kind, each one's step away from base adds up
---- (Bomber + Thief walk speed).
+--- (no two share a kind today).
 function Mastery.value(profile: any, kind: string): number
 	local base = Masteries.BASE[kind]
 	base = if base ~= nil then base else 1
@@ -145,10 +145,10 @@ function Mastery.rewardText(def: Masteries.Def, tier: number): string
 	local x = "x" .. (string.gsub(string.format("%.2f", v), "%.?0+$", ""))
 	if kind == "cash" then
 		return `{x} cash`
+	elseif kind == "bombDamage" then
+		return `{x} bomb damage`
 	elseif kind == "walkSpeed" then
 		return `+{math.floor(v * 100 + 0.5)}% walk speed`
-	elseif kind == "speedPrice" then
-		return `-{percentOff(v)} speed upgrade price`
 	elseif kind == "luck" then
 		return `{x} luck`
 	elseif kind == "capacity" then

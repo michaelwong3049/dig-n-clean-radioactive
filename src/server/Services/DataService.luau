@@ -262,7 +262,7 @@ local TEMPLATE = {
 		dug = 0,
 		merges = 0,
 		bagsStolen = 0,
-		-- Speed purchases at the Upgrades booth, cash or Robux (SpeedService): the Runner mastery.
+		-- Speed purchases at the Upgrades booth, cash or Robux (SpeedService). Fed the Runner mastery until it went (2026-10-10).
 		speedUpgrades = 0,
 		-- Settings > Stats only (StatsService): seconds in game, bombs dropped
 		-- (BombService), deaths (ExposureService) and Legendary+ dug (DigService).
