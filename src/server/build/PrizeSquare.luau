@@ -44,10 +44,18 @@ local function lay(parent: Instance, rect: Hub.Rect, pair: { dark: string, light
 	Hub.tileRect(parent, rect, { topY = PrizeSquare.TOP_Y, dark = pair.dark, light = pair.light })
 end
 
+--- NOTHING TO LAY WHILE THE CHEST IS ON THE MIDDLE SQUARE (2026-10-10): Hub's grey middle
+--- square is its floor, at the same height (SHOP_FLOOR_LIFT), and a second square on top
+--- would z-fight. The model stays, empty, so World.verify and GroupRewardService still find it.
+local ON_MIDDLE_SQUARE = true
+
 --- The square, fully formed and UNPARENTED (Kit.swap's contract).
 function PrizeSquare.build(): Model
 	local model = Instance.new("Model")
 	model.Name = PrizeSquare.MODEL_NAME
+	if ON_MIDDLE_SQUARE then
+		return model
+	end
 
 	local c = GroupReward.CHEST_POSITION
 	local x0, x1 = c.X - PrizeSquare.HALF_X, c.X + PrizeSquare.HALF_X -- kerb included

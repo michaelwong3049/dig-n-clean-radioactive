@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 49 -- plaza is the U's open middle, |z| 102 (2026-10-10)
+local BUILDER_VERSION = 50 -- grey two-tone middle square under the booths and the chest (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -225,7 +225,9 @@ Hub.PLAZA = { minX = 15, maxX = 100, minZ = -102, maxZ = 102, thickness = 8, top
 --- The camp's datum: the blackout respawn ring (buildSpawns) circles it. On the open
 --- ground between the shop row and Stage 1, in front of the middle base (2026-10-10: the
 --- Trader is a booth in the shop row now, Shops SELL_BOOTH, so the ring no longer rings it).
-Hub.CAMP_ORIGIN = CFrame.new(55, -0.6, 0)
+--- 2026-10-10, the middle square: 17 west, so the ring's four points clear the chest's gold
+--- ring at x 66 and the booths at the square's ends.
+Hub.CAMP_ORIGIN = CFrame.new(38, -0.6, 0)
 
 --- THE PLAZA FLOOR IS THE PLAZA RECTANGLE. It was an octagon centred on the old plot
 --- ring (and a circle before that); with the bases squared round it, the straight edges
@@ -267,24 +269,12 @@ local function inGreenStrip(x: number): boolean
 	return x >= Hub.PLAZA.maxX - GREEN_STRIP_DEPTH
 end
 
---- THE SHOP SQUARE IS GONE (2026-10-10): the booths stand in pairs across the camp's
---- corners by Stage 1 (Shops BOOTHS), straight on the lawn on their own stall floors. No
---- tile is shop floor any more; the kerb/paver code below stays for the day one comes back.
-function Hub.inShopFloor(_x: number, _z: number): boolean
-	return false
-end
-
 --- Is the shop-floor tile at (x, z) on the square's outermost ring of tiles, and so
---- painted the kerb pair rather than the pavers? True when one tile's step in any
---- direction leaves SHOP_ZONE.
-local function inShopKerb(x: number, z: number): boolean
-	local t = Hub.TILE_SIZE
-	return not (
-		Hub.inShopFloor(x - t, z)
-		and Hub.inShopFloor(x + t, z)
-		and Hub.inShopFloor(x, z - t)
-		and Hub.inShopFloor(x, z + t)
-	)
+--- painted the kerb pair rather than the pavers? Never, since the middle square
+--- (2026-10-10): its rim is the lighter path pair instead, no kerb band. buildShopKerb
+--- stays for the day one comes back.
+local function inShopKerb(_x: number, _z: number): boolean
+	return false
 end
 
 --- The centre of the grid cell holding (x, z). Every zone test reads a cell's centre --
@@ -296,13 +286,41 @@ end
 -- Exported for build/CampSite, whose floors lie on this same grid and snap the same way.
 Hub.cellCentre = cellCentre
 
---- Is the point (x, z) on the plaza floor -- the plaza rectangle, or one of its gate
---- paths? A pure shape test with no grid in it; floorCover turns it into cells.
-local function insideFloor(_x: number, _z: number): boolean
-	-- Nothing: the whole camp is lawn (2026-10-10). The bases' front strips were the last
-	-- grey path, and showed round each FrontPath plate as a grey border; the plate is the
-	-- strip's floor now. padFronts is still handed over (setPadFronts), unused.
-	return false
+--- THE MIDDLE SQUARE (2026-10-10, from a reference the user sent: a blobby patch under the
+--- shops, a lighter rim round a darker middle, "but grey"). Two nested rounded rectangles
+--- (superellipses, MIDDLE.power) on the U's open middle, between the row's fronts and the
+--- green strip: the outer one is the rim in the lighter PATH pair, the inner one MIDDLE.rim
+--- in from it the darker PAVER pair. Both radii wobble a little with the bearing, each at
+--- its own phase, so the rim runs one to three tiles wide like the reference's.
+---
+--- PIXEL STEPS, ON PURPOSE: both tests read the CELL CENTRE, so a cell is wholly in or out
+--- and the rounded corners come out as tile stairs -- the reference's look -- with no
+--- half-cut cells. The booths stand at the two ends (Shops BOOTHS), the chest and the
+--- crate pads across the middle (Config/GroupReward, Config/CrateShop). The whole square
+--- stands Hub.SHOP_FLOOR_LIFT proud, rim and middle alike, so all of them stand level.
+local MIDDLE = { cx = 47, cz = 0, halfX = 29, halfZ = 76, rim = 8, power = 2.4 }
+local function inMiddle(x: number, z: number, inset: number, phase: number): boolean
+	local a, b = MIDDLE.halfX - inset, MIDDLE.halfZ - inset
+	local u, v = math.abs(x - MIDDLE.cx) / a, math.abs(z - MIDDLE.cz) / b
+	local bearing = math.atan2(z - MIDDLE.cz, x - MIDDLE.cx)
+	local reach = 1 + 0.02 * math.sin(5 * bearing + phase) + 0.015 * math.sin(11 * bearing + 2 * phase)
+	return u ^ MIDDLE.power + v ^ MIDDLE.power <= reach ^ MIDDLE.power
+end
+
+--- Is the point (x, z) on the plaza floor -- the middle square's outer edge (see MIDDLE)?
+--- Snapped to the cell, so floorCover only ever sees whole cells.
+local function insideFloor(x: number, z: number): boolean
+	local cx, cz = cellCentre(x, z)
+	return inMiddle(cx, cz, 0, 0.6)
+end
+-- Shops stands each booth on it at the floor's height.
+Hub.onMiddleFloor = insideFloor
+
+--- Is the tile at (x, z) the middle square's darker middle? Painted the KERB pair, the
+--- darkest grey, so it reads against the rim the way the reference's dark middle does.
+function Hub.inShopFloor(x: number, z: number): boolean
+	local cx, cz = cellCentre(x, z)
+	return inMiddle(cx, cz, MIDDLE.rim, 2.1)
 end
 
 --- How the plaza floor covers the cell centred at (cx, cz): "full", "none", or "split"
@@ -370,11 +388,10 @@ function Hub.groundPairAt(x: number, z: number): (string, string, number)
 		return PLAZA_DARK, PLAZA_LIGHT, 0
 	end
 	if not Hub.inShopFloor(cx, cz) then
-		return PATH_DARK, PATH_LIGHT, Hub.PLAZA_LIFT
+		return PATH_DARK, PATH_LIGHT, Hub.SHOP_FLOOR_LIFT -- the middle square's rim, level with its middle
 	end
-	-- The kerb ring is laid separately at half a tile (buildShopKerb); buildPlaza skips
-	-- those cells, so any other caller sees them as pavers.
-	return PAVER_DARK, PAVER_LIGHT, Hub.SHOP_FLOOR_LIFT
+	-- The middle square's dark middle (see MIDDLE): the kerb pair, for contrast with the rim.
+	return KERB_DARK, KERB_LIGHT, Hub.SHOP_FLOOR_LIFT
 end
 
 export type GroundSplit = {

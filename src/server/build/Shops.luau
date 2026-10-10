@@ -206,7 +206,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 95 -- the booths line a street down the U-shaped camp's middle (2026-10-10)
+local BUILDER_VERSION = 96 -- the booths stand at the two ends of the grey middle square (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -652,8 +652,9 @@ end
 --- one CFrame is the whole of a shop's position AND its facing.
 local function facingOrigin(x: number, z: number, faceYaw: number?): CFrame
 	-- Straight on the lawn (PLAZA.topY) since the shop square went (2026-10-10); each
-	-- booth lays its own stall floor.
-	local topY = Hub.PLAZA.topY
+	-- booth lays its own stall floor. On the middle square (Hub.onMiddleFloor, later that
+	-- day) it stands on the square's top instead.
+	local topY = Hub.PLAZA.topY + (if Hub.onMiddleFloor(x, z) then Hub.SHOP_FLOOR_LIFT else 0)
 	local dirX, dirZ = facingDirFor(x, z, faceYaw)
 	-- CFrame.lookAt aims local -Z (its LookVector) at the target; the shop fronts
 	-- are +Z, so aim -Z the opposite way down `dir` and +Z lands facing along it.
@@ -1922,11 +1923,12 @@ local BOOTH_WIDTH = 16
 --- bases took the corners). The two pairs face each other across the walk from the middle
 --- base to Stage 1's mouth, the same sides as before -- Upgrades and Aura on the left
 --- (-z), Sell and Gear on the right (+z), the Upgrades and Sell booths nearer Stage 1.
---- BOOTH_STREET_Z keeps them clear of the respawn ring (Hub.CAMP_ORIGIN, radius 16) and of
---- the end row bases' fronts (|z| >= 47.5).
-local LEFT_FACE, RIGHT_FACE = 0, 180 -- fronts to +z and -z: into the street
-local BOOTH_STREET_Z = 28
-local BOOTH_NEAR_X, BOOTH_FAR_X = 66, 45 -- nearer Stage 1, nearer the middle base
+--- AT THE ENDS OF THE MIDDLE SQUARE (later 2026-10-10, from the user's reference: a shop
+--- at each end of a paved patch, facing in): the pairs moved out to |z| 54 on the grey
+--- square (Hub MIDDLE, centred x 47), leaving its middle to the chest and the crate pads.
+local LEFT_FACE, RIGHT_FACE = 0, 180 -- fronts to +z and -z: into the square
+local BOOTH_STREET_Z = 54
+local BOOTH_NEAR_X, BOOTH_FAR_X = 57, 37 -- nearer Stage 1, nearer the middle base
 local BOOTHS = {
 	-- The Magnet booth is the UPGRADES booth and the Detector booth the GEAR booth
 	-- (Config/Booths, 2026-10-09): same station ids, new names.

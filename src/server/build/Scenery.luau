@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 79 -- camp walls follow the U-shaped camp, wider north and south (2026-10-10)
+local BUILDER_VERSION = 80 -- foliage clears the side bases moved up to the east wall (2026-10-10)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
