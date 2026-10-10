@@ -1528,7 +1528,10 @@ function Detector.start()
 		if processed then
 			return
 		end
-		if input.KeyCode == Enum.KeyCode.E then
+		-- A click or tap ANYWHERE pulls too, not just on the bar. `processed` already
+		-- filters out presses on GUI buttons (the bar's own HaulButton, the release X)
+		-- and the mobile thumbstick/jump, so this never double-yanks or steals them.
+		if input.KeyCode == Enum.KeyCode.E or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			pressPull()
 		elseif input.KeyCode == Enum.KeyCode.Q then
 			sendRelease()
