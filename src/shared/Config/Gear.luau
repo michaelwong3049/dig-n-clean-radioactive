@@ -741,6 +741,12 @@ end
 --- Cleaner tier N belongs to Stage N, so Base Camp sells 1-4, Toxic Twilight 5-8 and
 --- Magma Hollow 9-12 (Stage 12's rungs: Molten Serpent, Magma Magnet, Magma Cannon). The Detector ladder
 --- has fifteen rungs and is split evenly, 5/5/5.
+--- Tracks whose every rung is sold everywhere, no camp needed (2026-10-09, on request:
+--- "no requirements are needed for hoses like unlocking toxic twilight, if they can
+--- afford it it's usable"). `camp` still says which zone a hose belongs to (its art,
+--- its rarity word); ShopService just never locks one.
+Gear.CAMP_FREE = { Cleaner = true } :: { [string]: boolean }
+
 function Gear.campOf(track: string, index: number): string
 	return (Gear.tier(track, index) :: any).camp or "base"
 end

@@ -213,7 +213,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 119 -- treadmill removed: speed is bought at the Upgrades booth (2026-10-09)
+local BUILDER_VERSION = 120 -- cleansing station 4 toward the middle, Hoses pad beside it (2026-10-09)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -2577,6 +2577,97 @@ function Plots.removeTreadmill(plot: Instance)
 	end
 end
 
+-- ── The Hoses pad ────────────────────────────────────────────────────────────
+--
+-- WHERE HOSES ARE BOUGHT (2026-10-09, on request: "remove hose shop booth, instead make
+-- a pad to the right of the cleaning station"). Every hose shop (Base Camp's booth, the
+-- Twilight and Magma stalls) is gone; this studded pad on the fence side of the base's
+-- own tub is the only place left, and it sells every hose with no camp lock
+-- (Gear.CAMP_FREE). It is a shop station (StationKind "shop", StationId "Cleaner") with
+-- the stands' "ViewShop" prompt, so StationController opens the usual card row on its E,
+-- titled "Hoses" (Config/Booths). `OwnerOnly` makes it its base owner's alone, like the
+-- tub (StationService, client OwnStationPromptController).
+--
+-- PLACED OFF THE TUB'S DECK, NOT AT A PLOT COORDINATE: beside it toward the fence, at
+-- its entrance end. The deck's local +Z is the fence side on every pad, mirrored strip or not (buildCleansingStation turns the bay a
+-- quarter-turn, and a flipped strip turns it 180 more). So this one rule lands the pad in
+-- the gap the station left when it moved toward the middle (STATION_SHIFT), and the same
+-- rule fixes a place saved before the pad existed (ExhibitService calls it at boot).
+local HOSE_PAD = {
+	width = 3.6, -- across, toward the fence
+	length = 6, -- along the fence
+	gap = 0.5, -- between the tub's deck and the pad
+	radius = 4, -- the station circle: well inside the pad's own reach, off the tub's spot
+	rim = 0.3,
+}
+
+--- Build (or rebuild) plot model `plot`'s Hoses pad beside its cleansing station's deck.
+--- Returns the pad part, or nil if the plot has no station to stand it by.
+function Plots.ensureHosePad(plot: Instance): BasePart?
+	local station = plot:FindFirstChild("CleansingStation", true)
+	local deck = station and station:FindFirstChild("Deck")
+	if deck == nil or not deck:IsA("BasePart") then
+		return nil
+	end
+	local old = plot:FindFirstChild("HosePad", true)
+	if old then
+		old:Destroy()
+	end
+	local P = HOSE_PAD
+	local m = Instance.new("Model")
+	m.Name = "HosePad"
+	-- Deck-local: +Z toward the fence, Y up. The deck's top stands 0.15 over the strip's
+	-- floor (buildCleansingStation), so the floor is that far under it.
+	local floorY = deck.Position.Y + deck.Size.Y / 2 - 0.15
+	-- Along the fence, flush with the deck's ENTRANCE end: centred, the tub's tall back
+	-- panel hid it. Which end that is flips between the north and south rows, so it is
+	-- read off where the stands are (the entrance is the other way).
+	local along = 0
+	local stand = plot:FindFirstChild("Stand1", true)
+	if stand and stand:IsA("BasePart") then
+		local reach = deck.Size.X / 2 - P.length / 2
+		along = if deck.CFrame.RightVector:Dot(stand.Position - deck.Position) > 0 then -reach else reach
+	end
+	local center = deck.CFrame * CFrame.new(along, 0, deck.Size.Z / 2 + P.gap + P.width / 2)
+	local frame = CFrame.new(center.Position.X, floorY, center.Position.Z) * (deck.CFrame - deck.CFrame.Position)
+	local color = C.shopCleaner
+	local padPart = build(m, frame, {
+		name = "Pad",
+		pos = { 0, 0.1, 0 },
+		size = { P.length, 0.2, P.width },
+		color = color,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+		attributes = { StationKind = "shop", StationId = "Cleaner", Radius = P.radius, OwnerOnly = true },
+	})
+	for _, bar in {
+		{ 0, -P.width / 2, P.length + P.rim, P.rim },
+		{ 0, P.width / 2, P.length + P.rim, P.rim },
+		{ -P.length / 2, 0, P.rim, P.width },
+		{ P.length / 2, 0, P.rim, P.width },
+	} do
+		build(m, frame, {
+			name = "PadRim",
+			pos = { bar[1], 0.13, bar[2] },
+			size = { bar[3], 0.26, bar[4] },
+			color = color,
+			material = "Neon",
+			canCollide = false,
+		})
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ViewShop" -- StationController's BROWSE_PROMPT: E opens the card row
+	prompt.ActionText = "Browse"
+	prompt.ObjectText = "Hoses"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 8
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = padPart
+	m.Parent = station.Parent
+	return padPart
+end
+
 --- A plain grey guard rail down the LEFT and RIGHT long edges of the base, on
 --- request — posts and two horizontal rails bolted just inside the accent `Trim`.
 --- Its whole job is to read as an enclosure: the base already has a wall across the
@@ -3624,6 +3715,12 @@ end
 --- Where the cleansing station's tub stands, plot-local before STRIP_INSET (the +8 shift
 --- and the `cx, cz` in buildCleansingStation): the centre a mirrored strip turns it about.
 local STATION_CENTER = { x = 26, z = -32 }
+--- The station and its bottle slid this far toward the middle of the pad (2026-10-09,
+--- on request: "shift the cleaning station 4 studs to the left, closer to the nuke
+--- displays"), making room for the Hoses pad on its fence side (Plots.ensureHosePad).
+--- Applied in the strip's written space, before a mirrored strip's flip, so it is always
+--- toward the middle.
+local STATION_SHIFT = -4
 
 --- A frame that turns whatever is built through it 180 degrees about plot-local
 --- (x0, z0) and sets it down at (-x0, z0): the same machine on the opposite fence, still
@@ -3775,15 +3872,17 @@ local function buildPlot(parent: Instance, index: number)
 	-- the station swung the tank straight onto the bottle's table. Turned as one, the
 	-- bottle lands on the tub's other face and keeps the same reach to the wash spot.
 	local stripFlip = math.cos(math.rad(center.facing)) < 0
-	local stationAt, lockerAt, bottleAt = plusIn, minusIn, plusIn
+	local shift = CFrame.new(STATION_SHIFT, 0, 0)
+	local stationAt, lockerAt, bottleAt = plusIn * shift, minusIn, plusIn * shift
 	if stripFlip then
-		stationAt = flipAbout(STATION_CENTER.x - STRIP_INSET, STATION_CENTER.z) * plusIn
+		stationAt = flipAbout(STATION_CENTER.x - STRIP_INSET, STATION_CENTER.z) * plusIn * shift
 		lockerAt = flipAbout(LOCKER.x + STRIP_INSET, LOCKER.z) * minusIn
 		bottleAt = stationAt
 	end
 	buildCleansingStation(m, ground * stationAt, accent)
 	buildQuarantineLocker(m, origin * lockerAt, index)
 	buildFluidBottle(m, ground * bottleAt)
+	Plots.ensureHosePad(m)
 
 	buildBaseGlow(m, origin)
 

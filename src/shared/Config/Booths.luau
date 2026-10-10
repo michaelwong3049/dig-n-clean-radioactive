@@ -22,13 +22,17 @@ export type Booth = {
 	tracks: { string },
 	-- Sells walk speed (client/SpeedPanel) instead of gear.
 	speed: boolean?,
+	-- The shop panel's title, when it is not the track's own name.
+	title: string?,
 }
 
 Booths.BY_ID = {
-	Detector = { label = "Gear", tracks = { "Detector", "Magnet" } },
+	Detector = { label = "Gear", tracks = { "Detector", "Magnet" }, title = "Gear" },
 	Magnet = { label = "Upgrades", tracks = {}, speed = true },
 	Aura = { label = "Aura Shop", tracks = { "Aura" } },
-	Cleaner = { label = "Hose Shop", tracks = { "Cleaner" } },
+	-- No booth any more: the Hoses pad beside every base's tub (build/Plots ensureHosePad,
+	-- 2026-10-09). Every hose, no camp lock (Gear.CAMP_FREE).
+	Cleaner = { label = "Hoses", tracks = { "Cleaner" }, title = "Hoses" },
 } :: { [string]: Booth }
 
 --- The booth a shop StationId names, or nil.
@@ -62,6 +66,12 @@ end
 function Booths.sellsSpeed(stationId: any): boolean
 	local booth = Booths.get(stationId)
 	return booth ~= nil and booth.speed == true
+end
+
+--- The shop panel's title for this station: "Gear", "Hoses", or nil for the track name.
+function Booths.title(stationId: any): string?
+	local booth = Booths.get(stationId)
+	return if booth then booth.title else nil
 end
 
 --- What the booth's sign says: "Gear", "Upgrades", "Aura Shop".

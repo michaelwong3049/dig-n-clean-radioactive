@@ -2677,7 +2677,7 @@ local function render()
 		ui.shopAccent.BackgroundColor3 = accent
 		-- A one-track booth is titled by its track; the Gear booth by its own name, with
 		-- the tabs under it saying which track is showing.
-		local title = if #boothTracks > 1 then Booths.label(state.stationId, track) else track
+		local title = Booths.title(state.stationId) or track
 		ui.shopTitle.Text = title
 
 		local count = if tiers then #tiers else 0

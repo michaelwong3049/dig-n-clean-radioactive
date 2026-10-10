@@ -1900,6 +1900,9 @@ function ExhibitService.start()
 		local plot = plotModel(index)
 		if plot then
 			Plots.removeTreadmill(plot)
+			-- And every base gets its Hoses pad, placed off its tub's deck, whether or not
+			-- the saved place was built with one (Plots.ensureHosePad).
+			Plots.ensureHosePad(plot)
 		end
 	end
 

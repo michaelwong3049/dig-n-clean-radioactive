@@ -360,6 +360,10 @@ end
 --- Does the stall at `camp` sell `track`'s `tier` to this player: its own rungs, plus
 --- every rung of a camp the player has unlocked.
 local function sellsHere(data: any, track: string, tier: number, camp: string): boolean
+	-- Hoses need no camp at all (Gear.CAMP_FREE): every rung, at the base's Hoses pad.
+	if Gear.CAMP_FREE[track] then
+		return true
+	end
 	local sellsAt = Gear.campOf(track, tier)
 	return sellsAt == camp or campUnlocked(data, sellsAt)
 end
