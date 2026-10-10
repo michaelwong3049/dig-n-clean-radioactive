@@ -114,6 +114,9 @@ end
 local PANEL_W = 860
 -- The panel's tallest; a short screen gets less, and the body scrolls.
 local PANEL_H = 720
+-- The size the panel settles at once its open pop is done: a touch under full, so it
+-- sits slightly smaller on screen (on request, 2026-10-10; was 1).
+local PANEL_REST = 0.9
 local SERVER_BOOST_H = 132
 -- The Violet Aurora's purple, so the card reads as "the server event".
 local SERVER_BOOST_TINT = Color3.fromHex("7A3FC8")
@@ -1345,8 +1348,8 @@ function Shop.open()
 	end
 	panel.Visible = true
 	if panelScale then
-		panelScale.Scale = 0.85
-		TweenService:Create(panelScale, OPEN, { Scale = 1 }):Play()
+		panelScale.Scale = 0.85 * PANEL_REST
+		TweenService:Create(panelScale, OPEN, { Scale = PANEL_REST }):Play()
 	end
 end
 
