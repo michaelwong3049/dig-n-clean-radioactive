@@ -52,6 +52,9 @@ local FADE = TweenInfo.new(LIFETIME, Enum.EasingStyle.Quad, Enum.EasingDirection
 local PUSH_MIN, PUSH_MAX = 3, 6
 local LIFT_MIN, LIFT_MAX = 2, 4.5
 local SPIN = 8
+--- A piece going because its whole chunk popped (ItemCrust.BURST_ATTR) is thrown this
+--- much harder, so the chunk breaks apart instead of sloughing off like one more flake.
+local BURST_FLING = 1.8
 
 type Watch = { connections: { RBXScriptConnection } }
 
@@ -104,13 +107,16 @@ local function throw(part: BasePart)
 	piece.Massless = true
 	piece.Anchored = false
 	piece.Parent = Workspace
-	piece.AssemblyLinearVelocity = away.Unit * rng:NextNumber(PUSH_MIN, PUSH_MAX)
-		+ Vector3.new(0, rng:NextNumber(LIFT_MIN, LIFT_MAX), 0)
+	local burst = part:GetAttribute(ItemCrust.BURST_ATTR) == true
+	local fling = if burst then BURST_FLING else 1
+	piece.AssemblyLinearVelocity = (
+		away.Unit * rng:NextNumber(PUSH_MIN, PUSH_MAX) + Vector3.new(0, rng:NextNumber(LIFT_MIN, LIFT_MAX), 0)
+	) * fling
 	piece.AssemblyAngularVelocity = Vector3.new(
 		rng:NextNumber(-SPIN, SPIN),
 		rng:NextNumber(-SPIN, SPIN),
 		rng:NextNumber(-SPIN, SPIN)
-	)
+	) * fling
 
 	TweenService:Create(piece, FADE, { Transparency = 1 }):Play()
 	Debris:AddItem(piece, LIFETIME)

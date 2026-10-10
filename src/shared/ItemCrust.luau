@@ -142,6 +142,8 @@ local ROCK_ATTR = "CrustRock"
 --- Set true the moment a piece has come off. The client watches it to throw the
 --- falling copy; the server keeps the (now invisible) part until `shed` sweeps up.
 local SHED_ATTR = "CrustShed"
+-- Flagged with SHED_ATTR when the piece went because its WHOLE chunk popped (`shed`).
+local BURST_ATTR = "CrustBurst"
 --- How eroded a piece is (1 dry, 0 about to pop) and whether it is past the stream's
 --- potency. Written by the server (`erode`), eased and drawn by CrustController.
 local LEVEL_ATTR = "CrustLevel"
@@ -598,6 +600,9 @@ end
 function ItemCrust.shed(parts: { BasePart })
 	for _, part in parts do
 		if part.Parent and not part:GetAttribute(SHED_ATTR) then
+			-- Set BEFORE the shed flag, so it has replicated by the time a client reacts
+			-- to that: CrustController throws a burst piece harder than a lone flake.
+			part:SetAttribute(BURST_ATTR, true)
 			shedOne(part)
 		end
 	end
@@ -626,6 +631,7 @@ ItemCrust.GLOW_NAME = GLOW_NAME
 --- The tag on every crust part, and the attribute that flips when one comes off.
 ItemCrust.TAG = TAG
 ItemCrust.SHED_ATTR = SHED_ATTR
+ItemCrust.BURST_ATTR = BURST_ATTR
 ItemCrust.LEVEL_ATTR = LEVEL_ATTR
 ItemCrust.TOUGH_ATTR = TOUGH_ATTR
 

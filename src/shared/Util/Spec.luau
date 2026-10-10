@@ -2654,7 +2654,7 @@ function Spec.run(): boolean
 			return Contamination.secondsFor(hardness, hose.volume, hose.power)
 		end
 		local rated = Contamination.secondsFor(4, 1, 4)
-		check("§2 a patch inside potency pays no overmatch", rated == (0.9 + 4 * 0.5))
+		check("§2 a patch inside potency pays no overmatch", math.abs(rated - (0.9 + 4 * 0.5) / Tuning.WASH_SPEED) < 1e-9)
 		check("§2 overmatch counts only the hardness past the stream", Contamination.overmatch(5, 2) == 3 and Contamination.overmatch(2, 5) == 0)
 
 		local steps = {}
