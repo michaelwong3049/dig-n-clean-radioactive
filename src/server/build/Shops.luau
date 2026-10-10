@@ -205,7 +205,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 83 -- Detector booth = Gear, Magnet booth = Upgrades (Config/Booths, 2026-10-09)
+local BUILDER_VERSION = 84 -- Hose Shop booth removed: hoses are on each base's Hoses pad (2026-10-09)
 
 local C = Kit.C
 local build = Kit.build
@@ -1909,7 +1909,8 @@ local BOOTHS = {
 	{ track = "Magnet", at = { PLAZA_MID.x - BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopMagnet, label = Booths.label("Magnet", "Magnet Shop") },
 	{ track = "Detector", at = { PLAZA_MID.x + BOOTH_DX, BOOTH_ROW_Z }, faceYaw = 180, color = C.shopDetector, label = Booths.label("Detector", "Detector Shop") },
 	{ track = "Aura", at = { PLAZA_MID.x - BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = C.shopOutfitter, label = "Aura Shop" },
-	{ track = "Cleaner", at = { PLAZA_MID.x + BOOTH_DX, -BOOTH_ROW_Z }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop" },
+	-- No Hose Shop booth (2026-10-09, on request): hoses are bought on the Hoses pad beside
+	-- each base's tub (build/Plots ensureHosePad). Its SE corner stands open.
 }
 
 --- The Trader's kiosk in the middle (BaseCamp.buildHubTrader): its painted ground square's

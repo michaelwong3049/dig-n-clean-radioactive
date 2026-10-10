@@ -103,7 +103,9 @@ local function refresh()
 					footprint = if FOOTPRINT_KINDS[kind]
 						then { cframe = part.CFrame, half = part.Size / 2 }
 						else nil,
-					plot = if OWNER_ONLY_KINDS[kind] then ExhibitService.plotIndexOf(part) else nil,
+					-- A part can also ask for it itself: a base's Hoses pad is a "shop" (build/Plots
+					-- ensureHosePad) that only its owner may use.
+					plot = if OWNER_ONLY_KINDS[kind] or part:GetAttribute("OwnerOnly") == true then ExhibitService.plotIndexOf(part) else nil,
 				})
 			end
 		end
@@ -184,7 +186,7 @@ local function step(dt: number)
 		end
 
 		local kind, id, part, plot = StationService.at(root.Position)
-		-- Someone else's cleansing station is nowhere, the same way.
+		-- Someone else's cleansing station (or Hoses pad) is nowhere, the same way.
 		if not ExhibitService.ownsPlotStation(player, plot) then
 			kind, id, part = nil, nil, nil
 		end

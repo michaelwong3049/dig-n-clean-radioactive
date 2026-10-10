@@ -1,7 +1,7 @@
 --!strict
 --[[
-	OwnStationPromptController.luau — hides a base's "Wash" (cleansing station) prompt
-	from everyone but that base's owner. (The treadmill's "Upgrade" prompt it used to
+	OwnStationPromptController.luau — hides a base's "Wash" (cleansing station) and Hoses
+	pad prompts from everyone but that base's owner. (The treadmill's "Upgrade" prompt it used to
 	gate too is gone, with the treadmill.)
 
 	THE SERVER ALREADY REFUSES IT: StationService treats someone else's tub as no
@@ -19,7 +19,7 @@
 	our RespawnLocation (the plot's PlotSpawn) and Net PlotState. StreamingEnabled: the
 	plots stream in and out, so prompts are picked up as they arrive.
 
-	It also hangs a white "CLEANING" label over OUR tub only — a billboard in our own
+	It also hangs a white "CLEANING" label over OUR tub only (and "HOSES" over our pad) — a billboard in our own
 	PlayerGui, so nobody else ever sees it and we never see one over theirs. It hides
 	while our Wash prompt is off (the server holds it off for the length of a wash), so
 	it is not floating in the wash shot.
@@ -33,23 +33,29 @@ local Net = require(ReplicatedStorage.Shared.Net)
 
 local OwnStationPromptController = {}
 
---- prompt name -> the part it hangs off (build/Plots.buildCleansingStation).
-local GATED: { [string]: string } = { Wash = "Basin" }
+--- prompt name -> the part it hangs off: the tub's "Wash" (build/Plots.buildCleansingStation)
+--- and the Hoses pad's "ViewShop" (build/Plots.ensureHosePad). A booth stand's ViewShop
+--- hangs off a "Stand", so it is never caught here.
+local GATED: { [string]: string } = { Wash = "Basin", ViewShop = "Pad" }
 
 local myPlot: number? = nil
 local prompts: { [ProximityPrompt]: number } = {}
 
---- The "CLEANING" label over our own tub: studs wide/tall, and how far above the
---- Basin's centre (the tub floor) it floats.
-local LABEL_SIZE = UDim2.fromScale(14, 3)
-local LABEL_HEIGHT = 9
+--- The white labels over our own base's machines, one per gated prompt: "CLEANING"
+--- over the tub, "HOSES" over the Hoses pad. Studs wide/tall, and how far above the
+--- part's centre each floats.
+local LABELS: { [string]: { text: string, size: UDim2, height: number } } = {
+	Wash = { text = "CLEANING", size = UDim2.fromScale(14, 3), height = 9 },
+	ViewShop = { text = "HOSES", size = UDim2.fromScale(10, 2.4), height = 5 },
+}
 
-local label: BillboardGui? = nil
+local labels: { [string]: BillboardGui } = {}
 
-local function buildLabel(): BillboardGui
+local function buildLabel(promptName: string): BillboardGui
+	local look = LABELS[promptName]
 	local gui = Instance.new("BillboardGui")
-	gui.Name = "CleaningStationLabel"
-	gui.Size = LABEL_SIZE
+	gui.Name = if promptName == "Wash" then "CleaningStationLabel" else `{look.text}Label`
+	gui.Size = look.size
 	gui.LightInfluence = 0
 	gui.ResetOnSpawn = false
 	gui.Enabled = false
@@ -57,7 +63,7 @@ local function buildLabel(): BillboardGui
 	text.BackgroundTransparency = 1
 	text.Size = UDim2.fromScale(1, 1)
 	text.Font = Enum.Font.GothamBlack
-	text.Text = "CLEANING"
+	text.Text = look.text
 	text.TextScaled = true
 	text.TextColor3 = Color3.new(1, 1, 1)
 	text.TextStrokeTransparency = 1
@@ -70,31 +76,29 @@ local function buildLabel(): BillboardGui
 	return gui
 end
 
---- Point the label at our own tub's Basin (if it has streamed in), shown only while
---- its Wash prompt is on.
+--- Point each label at our own base's part (if it has streamed in), shown only while
+--- its prompt is on (the tub's goes off during a wash).
 local function refreshLabel()
-	local gui = label
-	if gui == nil then
-		return
-	end
-	local mine: ProximityPrompt? = nil
-	for prompt, plot in prompts do
-		if plot == myPlot then
-			mine = prompt
-			break
+	for promptName, gui in labels do
+		local mine: ProximityPrompt? = nil
+		for prompt, plot in prompts do
+			if plot == myPlot and prompt.Name == promptName then
+				mine = prompt
+				break
+			end
 		end
+		local part = mine and mine.Parent
+		if part and part:IsA("BasePart") then
+			gui.Adornee = part
+			-- StudsOffsetWorldSpace is in the ADORNEE's axes, and the Basin is a Cylinder
+			-- turned to stand up (Kit.R.cylUp), so its own Y points sideways: take world up
+			-- into its space or the label sits beside the tub at floor height.
+			gui.StudsOffsetWorldSpace = part.CFrame:VectorToObjectSpace(Vector3.new(0, LABELS[promptName].height, 0))
+		else
+			gui.Adornee = nil
+		end
+		gui.Enabled = mine ~= nil and gui.Adornee ~= nil and mine.Enabled
 	end
-	local basin = mine and mine.Parent
-	if basin and basin:IsA("BasePart") then
-		gui.Adornee = basin
-		-- StudsOffsetWorldSpace is in the ADORNEE's axes, and the Basin is a Cylinder
-		-- turned to stand up (Kit.R.cylUp), so its own Y points sideways: take world up
-		-- into its space or the label sits beside the tub at floor height.
-		gui.StudsOffsetWorldSpace = basin.CFrame:VectorToObjectSpace(Vector3.new(0, LABEL_HEIGHT, 0))
-	else
-		gui.Adornee = nil
-	end
-	gui.Enabled = mine ~= nil and gui.Adornee ~= nil and mine.Enabled
 end
 
 local function plotIndexOf(row: Instance, inst: Instance): number?
@@ -172,7 +176,9 @@ local function fromSpawn()
 end
 
 function OwnStationPromptController.start()
-	label = buildLabel()
+	for promptName in LABELS do
+		labels[promptName] = buildLabel(promptName)
+	end
 	Net.get("PlotState").OnClientEvent:Connect(onPlot)
 	fromSpawn()
 	Players.LocalPlayer:GetPropertyChangedSignal("RespawnLocation"):Connect(fromSpawn)

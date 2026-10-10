@@ -562,7 +562,12 @@ function World.verify(): (boolean, { string })
 	if shopRoot then
 		for _, d in Workspace:GetDescendants() do
 			if d:IsA("BasePart") and d:GetAttribute("StationKind") == "shop" and not d:IsDescendantOf(shopRoot) then
-				if campRoot and d:IsDescendantOf(campRoot) then
+				local plotsRoot = Workspace:FindFirstChild("Plots")
+				if plotsRoot and d:IsDescendantOf(plotsRoot) and d:GetAttribute("StationId") == "Cleaner" then
+					-- A base's Hoses pad (Plots.ensureHosePad): built and cleared with the
+					-- plots, and sells every hose with no camp (Gear.CAMP_FREE).
+					check(d:GetAttribute("OwnerOnly") == true, `{d:GetFullName()} is a Hoses pad that is not OwnerOnly`)
+				elseif campRoot and d:IsDescendantOf(campRoot) then
 					-- A camp's working stall (build/CampSite, via Shops.buildCampStall) is
 					-- built and cleared by CampSite.rebuild, so it is not a ghost -- but it
 					-- has to say which camp it sells for, and Config/Gear has to actually
