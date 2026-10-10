@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 46 -- camp floor green again: no grey plaza, no shop strip (2026-10-10)
+local BUILDER_VERSION = 47 -- no grey path under the bases' front strips either (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build
@@ -245,17 +245,13 @@ Hub.SHOP_FLOOR_LIFT = Hub.PLAZA_LIFT + 0.2
 --- THE CAMP FLOOR IS GREEN AGAIN (2026-10-10, on request: "remove the grey checkerboard
 --- make it green again"). The grey path that paved the ground in front of the bases
 --- (GATE_RECTS, 2026-10-04 to -10) and the plaza rectangle itself are lawn now; only each
---- base's own front strip (setPadFronts) is still laid as grey path. PLAZA stays the grid's
---- origin and the slab under the camp.
+--- base's own front strip was still laid as grey path until later that day (see
+--- insideFloor). PLAZA stays the grid's origin and the slab under the camp.
 
---- Each base's front strip (the washer / treadmill area in front of its raised deck),
---- paved as the same grey path. Plots owns the pads, and Hub cannot require Plots (Plots
---- requires Hub), so Plots hands the rectangles over at load (Plots.frontStripRect),
---- already snapped to this grid. Replaced, never appended, so a reload cannot double them.
-local padFronts: { { minX: number, maxX: number, minZ: number, maxZ: number } } = {}
-function Hub.setPadFronts(rects: { { minX: number, maxX: number, minZ: number, maxZ: number } })
-	padFronts = rects
-end
+--- Plots still hands over each base's front strip at load (Plots.frontStripRect). Nothing
+--- is paved there any more -- the strip's FrontPath plate is its floor -- so this keeps
+--- the call site working and ignores the rectangles.
+function Hub.setPadFronts(_rects: { { minX: number, maxX: number, minZ: number, maxZ: number } }) end
 
 --- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
 --- studs west from Stage 1's edge (x = PLAZA.maxX), at any z. It keeps the cream plaza
@@ -298,13 +294,10 @@ Hub.cellCentre = cellCentre
 
 --- Is the point (x, z) on the plaza floor -- the plaza rectangle, or one of its gate
 --- paths? A pure shape test with no grid in it; floorCover turns it into cells.
-local function insideFloor(x: number, z: number): boolean
-	-- Only the bases' front strips: the rest of the camp is lawn (see padFronts' header).
-	for _, r in padFronts do
-		if x >= r.minX and x <= r.maxX and z >= r.minZ and z <= r.maxZ then
-			return true
-		end
-	end
+local function insideFloor(_x: number, _z: number): boolean
+	-- Nothing: the whole camp is lawn (2026-10-10). The bases' front strips were the last
+	-- grey path, and showed round each FrontPath plate as a grey border; the plate is the
+	-- strip's floor now. padFronts is still handed over (setPadFronts), unused.
 	return false
 end
 

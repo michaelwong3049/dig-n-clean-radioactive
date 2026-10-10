@@ -102,7 +102,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 44 -- walls 12 shorter, stages 184 wide (2026-10-09)
+local BUILDER_VERSION = 45 -- stages 166 wide, one-sided booths (2026-10-10)
 
 local C = Kit.C
 local build = Kit.build

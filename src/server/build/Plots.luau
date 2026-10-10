@@ -220,7 +220,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 121 -- five bases in one row along the west wall, facing Stage 1 (2026-10-09)
+local BUILDER_VERSION = 122 -- no grey base border, front strip on the lawn (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -295,27 +295,9 @@ Plots.PAD = {
 --- grey path's (Hub.PLAZA_LIFT above the plaza).
 local STRIP_DROP = Plots.PAD.topY - (Hub.PLAZA.topY + Hub.PLAZA_LIFT)
 
---- THE BASE BORDER, on request (2026-10-04: "a darker grey border to indicate the
---- person's base"): a flat 2-stud band (half a tile, like the shop kerb) in Hub's kerb
---- grey, laid on the ground just outside the pad's whole footprint -- front strip and deck
---- alike -- so each base reads as its own plot on the grey camp floor. Its top sits a hair
---- above the grey path. Not collidable: it is paint you walk over.
-local BORDER_W = 2
-local BORDER_TOP = Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.05
-local function borderPiece(parent: Instance, origin: CFrame, x: number, z: number, sx: number, sz: number)
-	local part = build(parent, origin, {
-		name = "BaseBorder",
-		pos = { x, BORDER_TOP - Hub.TILE_CAP / 2, z },
-		size = { sx, Hub.TILE_CAP, sz },
-		color = Hub.BORDER_COLOR,
-		material = "Plastic",
-		canCollide = false,
-	})
-	part.CanQuery = false
-	part.CanTouch = false
-	part.CastShadow = false
-	return part
-end
+--- NO BASE BORDER (2026-10-10, on request: "remove the grey border still on the base").
+--- A 2-stud dark grey band lay on the ground round each pad from 2026-10-04; the camp
+--- floor is lawn again and the band read as leftover grey.
 
 --- THE FRONT PATH: one flat plate over the front strip, the whole width of the pad from
 --- its front edge to the deck, where the washer, the bottle and the treadmill stand. In
@@ -2800,9 +2782,6 @@ local function buildBackFence(parent: Instance, origin: CFrame)
 		})
 	end
 
-	-- The base border's back edge.
-	borderPiece(folder, origin, 0, pad.maxZ + BORDER_W / 2, pad.width + BORDER_W * 2, BORDER_W)
-
 	folder.Parent = parent
 end
 
@@ -3783,15 +3762,6 @@ local function buildPlot(parent: Instance, index: number)
 	-- and the deck-coloured plate over the front strip in front of the deck.
 	buildGalleryLanes(m, origin, nil, HAZARD_Z, laneStairs(1))
 	buildFrontPath(m, origin)
-
-	-- The base border's front and sides (the back is laid with the BackFence).
-	local border = Instance.new("Folder")
-	border.Name = "BaseBorder"
-	borderPiece(border, origin, 0, pad.minZ - BORDER_W / 2, pad.width + BORDER_W * 2, BORDER_W)
-	for _, side in { -1, 1 } do
-		borderPiece(border, origin, side * (HALF_W + BORDER_W / 2), (pad.minZ + pad.maxZ) / 2, BORDER_W, pad.depth)
-	end
-	border.Parent = m
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for
