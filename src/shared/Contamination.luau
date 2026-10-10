@@ -149,15 +149,16 @@ end
 --- they are within reach, so a better cleaner is felt as speed as well as access --
 --- and past the stream's `potency` the clock is divided by Tuning.WASH_POTENCY_FALLOFF
 --- again for every point of overmatch (see Tuning's header on it for the curve).
+--- Tuning.WASH_SPEED is a flat speed-up on top of all of it.
 function Contamination.secondsFor(hardness: number, scrubRate: number, potency: number): number
-	local base = (0.9 + hardness * 0.5) / math.max(scrubRate, 0.1)
+	local base = (0.9 + hardness * 0.5) / math.max(scrubRate, 0.1) / Tuning.WASH_SPEED
 	return base / Tuning.WASH_POTENCY_FALLOFF ^ Contamination.overmatch(hardness, potency)
 end
 
 --- How many plain-soak seconds one second of water ON A WEAK POINT is worth against
 --- this patch's `secondsFor` clock. Tuning.WASH_WEAK_MULT flat, times the overmatch
 --- penalty for up to Tuning.WASH_WEAK_PIERCE points of it given back -- so a chunk the
---- hose is rated for gets x3, and one it is over by a tier or more gets x12. Banked as a
+--- hose is rated for gets x4, and one it is over by a tier or more gets x16. Banked as a
 --- multiplier on dt rather than a second clock so a chunk worked half on and half off
 --- its blister still pops exactly when the seconds add up.
 function Contamination.weakGain(hardness: number, potency: number): number

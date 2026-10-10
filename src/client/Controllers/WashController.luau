@@ -377,7 +377,8 @@ local DEFAULT_LIQUID = "6FD5E8"
 -- mechanism, which on a 1.4-stud item meant every zone was always in range of every
 -- impact; this is the width of a gap between two chunks, and nothing more. See
 -- `patchAt`.
-local PATCH_REACH = 0.9
+-- 1.3 since the "a little easier" pass: a stream skimming a chunk's edge counts.
+local PATCH_REACH = 1.3
 -- THE AIM POINT IS PINNED TO THE TUB, and this is the fix for water crossing the
 -- base. The reach used to be a flat 60 studs: a shot that missed the item -- through
 -- the gap beside it, over it, out past the rim within the look clamp -- carried on
@@ -1386,6 +1387,21 @@ local reticleRing: UIStroke? = nil
 local reticleTicks: { { frame: Frame, dir: Vector2 } } = {}
 local reticleGap = RETICLE_GAP_IDLE
 
+-- ── The chunk pop ───────────────────────────────────────────────────
+-- A whole chunk coming off used to sound like one more flake. It is the beat the
+-- wash is built round, so it lands now: a heavier crack, a short kick of the lens,
+-- and the reticle's ticks thrown wide like a hitmarker. Pops in quick succession
+-- climb in pitch, so clearing a lump fast is heard as a streak.
+local POP_KICK_DECAY = 6 -- per second; the kick is gone in ~1/6 s
+local POP_KICK_ANGLE = math.rad(1.1)
+local POP_RETICLE_FLING = 12 -- px added to the tick gap, eased back by paintReticle
+local POP_COMBO_WINDOW = 3 -- seconds between pops that still count as a streak
+local POP_COMBO_STEP = 0.07 -- pitch added per pop in the streak
+local POP_COMBO_MAX = 6
+local popKick = 0
+local popCombo = 0
+local popAt = -math.huge
+
 local wipeConn: RBXScriptConnection? = nil
 local wipeClock = 0
 local wipeCovered = false
@@ -2217,7 +2233,16 @@ local function onRender(dt: number)
 		return
 	end
 
-	camera.CFrame = eye
+	-- The chunk-pop kick rides on the lens only: aim, nozzle and jet all still work off
+	-- the steady `eye`, so the shake never moves where the water goes.
+	if popKick > 0 then
+		local now = os.clock()
+		local swing = popKick * popKick * POP_KICK_ANGLE
+		camera.CFrame = eye * CFrame.Angles(swing * math.sin(now * 61), swing * math.cos(now * 47), 0)
+		popKick = math.max(0, popKick - dt * POP_KICK_DECAY)
+	else
+		camera.CFrame = eye
+	end
 	-- Kept well out in front, never on top of the lens. See the header: this is what
 	-- stops TransparencyController fighting the modifier `applyHidden` writes.
 	camera.Focus = CFrame.new(eye.Position + eye.LookVector * FOCUS_AHEAD)
@@ -2473,6 +2498,16 @@ end
 --- deferring that restore into an animation callback is exactly the kind of thing
 --- that strands one if the sweep is interrupted. `teardown` is idempotent, so simply
 --- calling it again a beat later is the cheapest insurance there is.
+--- A whole chunk just came off under the stream (not the last one: that is the reveal).
+local function chunkPopped()
+	local now = os.clock()
+	popCombo = if now - popAt <= POP_COMBO_WINDOW then math.min(popCombo + 1, POP_COMBO_MAX) else 0
+	popAt = now
+	Sfx.play("chunkPop", { speed = 1 + popCombo * POP_COMBO_STEP })
+	popKick = 1
+	reticleGap += POP_RETICLE_FLING
+end
+
 local function leave()
 	if not viewActive then
 		-- Nothing has been taken yet (or it has already been given back). No cut to
@@ -2500,6 +2535,11 @@ function Wash.start()
 		end
 
 		local fresh = state == nil
+		local before = if state and state.patches then #state.patches else 0
+		local after = if type(payload.patches) == "table" then #payload.patches else 0
+		if not fresh and viewActive and after > 0 and after < before then
+			chunkPopped()
+		end
 		state = payload
 		-- The loaded liquid can change mid-wash: run a canister dry and you drop back
 		-- to Plain Water, and both the spray and the wipe's edges have to say so.
