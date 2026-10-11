@@ -734,11 +734,12 @@ Stages.DEFS = {
 	-- 0.877 floor pair and its derived wall pair stay off the 255 clamp, so they wear the
 	-- shared StudChecker with no new colour maps (Kit.PAIR_MAPS).
 	--
-	-- DIG IS OFF for 15-16, the same way Stages 7-12 shipped: nothing in Config/Items stocks
-	-- them yet, so DigService spawns no signals there (it warns once) and the Index rail
+	-- DIG IS OFF for 16, the same way Stages 7-12 shipped: nothing in Config/Items stocks
+	-- it yet, so DigService spawns no signals there (it warns once) and the Index rail
 	-- hides them. The nukes come with the user's imported models; their `rarityTilt` is a
-	-- placeholder until then and gets re-fitted with them. Stages 13 and 14 are stocked
-	-- (batches 25/26, 7 nukes each, Rare to Anomaly).
+	-- placeholder until then and gets re-fitted with them. Stages 13-15 are stocked
+	-- (batches 27/26/25, 7 nukes each, Rare to Anomaly; batch 25 first went in as
+	-- Stage 13 before the user said it was The Fracture's set).
 	--
 	-- RADIATION CONTINUES FROM GROUND ZERO'S 600 at the same ~1.32x a stage, each field's
 	-- deepRads sized for an aura that doesn't exist yet (tolerances ~810/1080/1440/1910).
@@ -792,7 +793,7 @@ Stages.DEFS = {
 		stationDistance = 730,
 		fogColor = Color3.fromHex("2E5A68"),
 		fogEnd = 400,
-		rarityTilt = 1.8, -- placeholder, see Stage 13
+		rarityTilt = 1.9, -- same 7-nuke ladder as Stages 13-14, so the same tilt
 		center = { CENTER_X[15], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "17333D", -- abyssal teal

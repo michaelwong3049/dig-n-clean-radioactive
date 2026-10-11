@@ -1891,15 +1891,15 @@ Items.DEFS = {
 		baseValue = 4200000000,
 		model = "ImportedNuke",
 	},
-	-- Stage 13 (Starfall Crater), import-nuke-models-batch25. Values ~2.45x Stage 12
+	-- Stage 13 (Starfall Crater), import-nuke-models-batch27. Values ~2.45x Stage 12
 	-- per tier, the same step as 11 -> 12.
 	{
-		id = "meteorite_nuke",
-		name = "Meteorite Nuke",
-		flavor = "Fell out of the sky burning. The crust cracked; the core didn't.",
+		id = "fireball_nuke",
+		name = "Fireball Nuke",
+		flavor = "Came down burning and crusted over in its own slag.",
 		rarity = "Rare",
 		odds = 260, -- 1 in N per dig in a stocking stage
-		weight = 180,
+		weight = 200,
 		stages = { 13 },
 		appeal = "Researcher",
 		sets = {},
@@ -1907,12 +1907,12 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
-		id = "kintsugi_nuke",
-		name = "Kintsugi Nuke",
-		flavor = "Shattered on landing and mended in gold.",
+		id = "shooting_star_nuke",
+		name = "Shooting Star Nuke",
+		flavor = "Somebody wished on it. It landed anyway.",
 		rarity = "Epic",
 		odds = 3900, -- 1 in N per dig in a stocking stage
-		weight = 280,
+		weight = 240,
 		stages = { 13 },
 		appeal = "Collector",
 		sets = {},
@@ -1920,9 +1920,9 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
-		id = "starlight_nuke",
-		name = "Starlight Nuke",
-		flavor = "A crystal in its belly catches starlight and throws it back out.",
+		id = "frostfall_nuke",
+		name = "Frostfall Nuke",
+		flavor = "A comet's frozen heart, caged before it could melt.",
 		rarity = "Epic",
 		odds = 5600, -- 1 in N per dig in a stocking stage
 		weight = 260,
@@ -1934,22 +1934,22 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
-		id = "voidglass_nuke",
-		name = "Voidglass Nuke",
-		flavor = "Stacked in sections with nothing but the void between them.",
+		id = "reentry_nuke",
+		name = "Re-entry Nuke",
+		flavor = "Came in nose first. The heat shield is still glowing.",
 		rarity = "Legendary",
 		odds = 76000, -- 1 in N per dig in a stocking stage
-		weight = 320,
+		weight = 340,
 		stages = { 13 },
-		appeal = "Researcher",
+		appeal = "Gearhead",
 		sets = {},
 		baseValue = 181000000,
 		model = "ImportedNuke",
 	},
 	{
-		id = "comet_nuke",
-		name = "Comet Nuke",
-		flavor = "Comet ice that never melted. New crystals keep pushing through.",
+		id = "constellation_nuke",
+		name = "Constellation Nuke",
+		flavor = "Someone mapped the night sky onto it. The stars still move.",
 		rarity = "Legendary",
 		odds = 120000, -- 1 in N per dig in a stocking stage
 		weight = 300,
@@ -1960,9 +1960,9 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
-		id = "supernova_nuke",
-		name = "Supernova Nuke",
-		flavor = "Caught a split second after the star blew apart.",
+		id = "corona_nuke",
+		name = "Corona Nuke",
+		flavor = "A star small enough to hold, burning in a jar.",
 		rarity = "Mythic",
 		odds = 500000, -- 1 in N per dig in a stocking stage
 		weight = 400,
@@ -1974,9 +1974,9 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
-		id = "glitch_nuke",
-		name = "Glitch Nuke",
-		flavor = "Game Over wasn't the end. The world glitched and kept going.",
+		id = "starfall_nuke",
+		name = "Starfall Nuke",
+		flavor = "The thing that made the crater. Its meteors never stopped circling it.",
 		rarity = "Anomaly",
 		odds = 5000000, -- 1 in N per dig in a stocking stage
 		weight = 500,
@@ -2080,6 +2080,103 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 20800000000,
+		model = "ImportedNuke",
+	},
+	-- Stage 15 (The Fracture), import-nuke-models-batch25. First shipped as Stage 13
+	-- (#1247) until the user said this set is The Fracture's; values re-based to
+	-- ~2.45x Stage 14 per tier.
+	{
+		id = "meteorite_nuke",
+		name = "Meteorite Nuke",
+		flavor = "Fell out of the sky burning. The crust cracked; the core didn't.",
+		rarity = "Rare",
+		odds = 260, -- 1 in N per dig in a stocking stage
+		weight = 180,
+		stages = { 15 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 14700000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "kintsugi_nuke",
+		name = "Kintsugi Nuke",
+		flavor = "Shattered on landing and mended in gold.",
+		rarity = "Epic",
+		odds = 3900, -- 1 in N per dig in a stocking stage
+		weight = 280,
+		stages = { 15 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 82300000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "starlight_nuke",
+		name = "Starlight Nuke",
+		flavor = "A crystal in its belly catches starlight and throws it back out.",
+		rarity = "Epic",
+		odds = 5600, -- 1 in N per dig in a stocking stage
+		weight = 260,
+		stages = { 15 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 108500000,
+		sizeMult = 1.4, -- bigger
+		model = "ImportedNuke",
+	},
+	{
+		id = "voidglass_nuke",
+		name = "Voidglass Nuke",
+		flavor = "Stacked in sections with nothing but the void between them.",
+		rarity = "Legendary",
+		odds = 76000, -- 1 in N per dig in a stocking stage
+		weight = 320,
+		stages = { 15 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 1085000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "comet_nuke",
+		name = "Comet Nuke",
+		flavor = "Comet ice that never melted. New crystals keep pushing through.",
+		rarity = "Legendary",
+		odds = 120000, -- 1 in N per dig in a stocking stage
+		weight = 300,
+		stages = { 15 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 1590000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "supernova_nuke",
+		name = "Supernova Nuke",
+		flavor = "Caught a split second after the star blew apart.",
+		rarity = "Mythic",
+		odds = 500000, -- 1 in N per dig in a stocking stage
+		weight = 400,
+		sizeMult = 1.8, -- bigger
+		stages = { 15 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 6600000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "glitch_nuke",
+		name = "Glitch Nuke",
+		flavor = "Game Over wasn't the end. The world glitched and kept going.",
+		rarity = "Anomaly",
+		odds = 5000000, -- 1 in N per dig in a stocking stage
+		weight = 500,
+		sizeMult = 2.5, -- bigger
+		stages = { 15 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 51000000000,
 		model = "ImportedNuke",
 	},
 	{
