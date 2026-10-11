@@ -18,6 +18,11 @@
 	the player must be standing at an Upgrades booth (StationService), not mid-tutorial,
 	and able to pay.
 
+	MAX HEALTH is sold on the same panel (2026-10-10, on request): `data.healthBought`
+	points (Config/HealthUpgrade), +1 / +3 / +10 for cash on Net.HealthBuy and a purple
+	+10 (HealthUpgrade.PRODUCT_ID), under the same booth and tutorial checks.
+	ExposureService.maxHealthOf adds it on.
+
 	Robux: the panel's purple button is WalkSpeed.PRODUCT_ID (a flat +ROBUX_WALK walk),
 	granted through ProductService. The Shop's walk-speed packs were retired 2026-10-10.
 
@@ -32,6 +37,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tutorial = require(Shared.Config.Tutorial)
 local WalkSpeed = require(Shared.Config.WalkSpeed)
+local HealthUpgrade = require(Shared.Config.HealthUpgrade)
 local Booths = require(Shared.Config.Booths)
 local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
@@ -67,6 +73,15 @@ local function bulkPrices(bought: number, step: number): { number }
 	return prices
 end
 
+local function healthSnapshot(data: any)
+	local bought = HealthUpgrade.bought(data.healthBought)
+	local prices = {}
+	for i, amount in HealthUpgrade.BULK do
+		prices[i] = HealthUpgrade.priceFor(bought, amount)
+	end
+	return { bought = bought, bonus = HealthUpgrade.bonusFor(bought), prices = prices }
+end
+
 --- This player's speed, as the client renders it.
 local function snapshot(player: Player, data: any)
 	local stats = StatResolver.get(data)
@@ -91,6 +106,8 @@ local function snapshot(player: Player, data: any)
 		bulkPrices = bulkPrices(bought, WalkSpeed.stepFor(deepest)),
 		deepestStage = deepest,
 		upgrades = tonumber(data.stats and data.stats.speedUpgrades) or 0,
+		-- The max-health row: bought points, the HP they add, HealthUpgrade.BULK prices.
+		health = healthSnapshot(data),
 	}
 end
 
@@ -114,6 +131,26 @@ end
 --- conversion and /walk.
 local function addWalk(data: any, amount: number)
 	data.walkBought = WalkSpeed.bought(data.walkBought) + math.max(0, math.floor(amount))
+end
+
+--- The shared gate for both cash rows: the press cooldown, the tutorial, and standing
+--- at an Upgrades booth. Says why when it refuses (bar a cooldown double click).
+local function canBuyHere(player: Player): boolean
+	local now = os.clock()
+	if now - (lastBuy[player] or 0) < BUY_COOLDOWN then
+		return false
+	end
+	lastBuy[player] = now
+
+	if Tutorial.gated(player) then
+		noticeRemote:FireClient(player, "FINISH THE TUTORIAL FIRST")
+		return false
+	end
+	if StationService.kindOf(player) ~= "shop" or not Booths.sellsSpeed(StationService.idOf(player)) then
+		noticeRemote:FireClient(player, "WALK UP TO AN UPGRADES BOOTH", "info")
+		return false
+	end
+	return true
 end
 
 --- One purchase for cash: one step, or exactly `amount` walk (one of WalkSpeed.BULK).
@@ -148,18 +185,7 @@ local function onBuy(player: Player, amount: any)
 	if amount ~= nil and not table.find(WalkSpeed.BULK, amount) then
 		return
 	end
-	local now = os.clock()
-	if now - (lastBuy[player] or 0) < BUY_COOLDOWN then
-		return
-	end
-	lastBuy[player] = now
-
-	if Tutorial.gated(player) then
-		noticeRemote:FireClient(player, "FINISH THE TUTORIAL FIRST")
-		return
-	end
-	if StationService.kindOf(player) ~= "shop" or not Booths.sellsSpeed(StationService.idOf(player)) then
-		noticeRemote:FireClient(player, "WALK UP TO AN UPGRADES BOOTH", "info")
+	if not canBuyHere(player) then
 		return
 	end
 
@@ -168,6 +194,52 @@ local function onBuy(player: Player, amount: any)
 	if ok then
 		print(`[speed] {player.Name}: {message}`)
 	end
+end
+
+-- ── Max health ─────────────────────────────────────────────────────────
+
+--- `amount` points of max health for cash. Debit first, then the profile.
+function SpeedService.buyHealth(player: Player, amount: number): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	local price = HealthUpgrade.priceFor(data.healthBought, amount)
+	local paid, reason = EconomyService.spend(player, price)
+	if not paid then
+		return false, reason
+	end
+	data.healthBought = HealthUpgrade.bought(data.healthBought) + amount
+	push(player)
+	return true, `+{amount * HealthUpgrade.HP_PER_POINT} max health (paid {WalkSpeed.priceText(price)})`
+end
+
+--- Net.HealthBuy: the panel's health row, `amount` one of HealthUpgrade.BULK.
+local function onHealthBuy(player: Player, amount: any)
+	if not table.find(HealthUpgrade.BULK, amount) then
+		return
+	end
+	if not canBuyHere(player) then
+		return
+	end
+	local ok, message = SpeedService.buyHealth(player, amount)
+	noticeRemote:FireClient(player, string.upper(message), if ok then "success" else "error")
+	if ok then
+		print(`[health] {player.Name}: {message}`)
+	end
+end
+
+--- HealthUpgrade.PRODUCT_ID: a flat ROBUX_POINTS, inside ProductService's receipt step.
+local function grantRobuxHealth(player: Player, data: any)
+	local points = HealthUpgrade.ROBUX_POINTS
+	data.healthBought = HealthUpgrade.bought(data.healthBought) + points
+	task.defer(function()
+		if player.Parent == nil then
+			return
+		end
+		push(player)
+		noticeRemote:FireClient(player, `+{points * HealthUpgrade.HP_PER_POINT} MAX HEALTH`, "success")
+	end)
 end
 
 --- A purchase bought with Robux (WalkSpeed.PRODUCT_ID): a flat ROBUX_WALK, nothing
@@ -229,10 +301,12 @@ function SpeedService.init()
 	-- In init, not start: ProductService.start() switches ProcessReceipt on, and a
 	-- receipt landing before a product was registered would be bounced.
 	ProductService.register(WalkSpeed.PRODUCT_ID, grantRobuxUpgrade)
+	ProductService.register(HealthUpgrade.PRODUCT_ID, grantRobuxHealth)
 end
 
 function SpeedService.start()
 	Net.get("SpeedBuy").OnServerEvent:Connect(onBuy)
+	Net.get("HealthBuy").OnServerEvent:Connect(onHealthBuy)
 	Net.get("WalkCap").OnServerEvent:Connect(onWalkCap)
 
 	DataService.onLoaded(function(player)

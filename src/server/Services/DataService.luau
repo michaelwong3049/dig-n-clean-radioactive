@@ -168,6 +168,10 @@ local TEMPLATE = {
 	-- must never come back into this template.
 	walkBought = 0,
 
+	-- MAX HEALTH BOUGHT at the Upgrades booth, in points (Config/HealthUpgrade:
+	-- HP_PER_POINT each), on top of the aura's (ExposureService.maxHealthOf).
+	healthBought = 0,
+
 	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
 	-- they have never picked one, which renders the same neutral grey as an unclaimed
 	-- plot until they choose in the Settings GUI. NOT per-plot: plots are assigned per

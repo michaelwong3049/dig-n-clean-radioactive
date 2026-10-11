@@ -298,7 +298,10 @@ local REMOTES: { [string]: string } = {
 	-- The BUY button on the Upgrades booth's speed panel (client/SpeedPanel): "one more
 	-- purchase of walk speed". No payload: the server prices it from the save and checks
 	-- the player is standing at an Upgrades booth (Config/Booths).
-	SpeedBuy = "RemoteEvent", -- client -> server, no payload
+	SpeedBuy = "RemoteEvent", -- client -> server, optional amount (WalkSpeed.BULK)
+	-- The same panel's max-health row (Config/HealthUpgrade): an amount, one of
+	-- HealthUpgrade.BULK. Priced and checked by SpeedService the same way.
+	HealthBuy = "RemoteEvent", -- client -> server, amount
 
 	-- Nuke models on demand (Services/ModelCacheService, Shared/ItemModels). The
 	-- templates live in ServerStorage so nobody downloads all 10k parts at join; a

@@ -3,27 +3,29 @@
 	SpeedPanel.luau — the Upgrades booth's walk-speed panel, drawn inside
 	StationController's panel (the booth that used to be the Magnet Shop; Config/Booths).
 
-	Walk speed is bought here now that the treadmill is gone (Config/WalkSpeed). One
-	press of BUY adds a step of walk speed for one price; the step grows with the deepest
-	stage you have reached, the price with the walk you have bought.
+	Walk speed is bought here now that the treadmill is gone (Config/WalkSpeed), and
+	max health beside it (Config/HealthUpgrade, 2026-10-10). Each is ONE ROW (on request,
+	"make the speed purchases in one row, like 1 3 10 then robux"): green +1 / +3 / +10
+	cash buttons, each "+N" over its price (grey when short), then the purple Robux +10.
+	Speed's depth step makes every point cheaper deeper down (WalkSpeed.bulkPriceFor).
 
 	TOP TO BOTTOM:
-	  the header   UPGRADES, what it is for, and the wallet.
-	  the card     the shoe, WALK SPEED "42 -> 45", the step chip, and how deep you
-	               have to go for the next bigger step.
-	  the buttons  green BUY $price (grey NEED $x when short) and the purple Robux
-	               button (WalkSpeed.PRODUCT_ID: a flat +10).
-	  the bulk row green +3 / +10 cash buttons (WalkSpeed.BULK): exactly that much walk.
+	  the header      UPGRADES, what it is for, and the wallet.
+	  speed card      the shoe, WALK SPEED, the depth chip, the next cheaper stage.
+	  speed row       +1 / +3 / +10 / Robux (WalkSpeed.PRODUCT_ID) on Net.SpeedBuy.
+	  health card     the heart, MAX HEALTH (the HUD's), HP per point, bought so far.
+	  health row      +1 / +3 / +10 / Robux (HealthUpgrade.PRODUCT_ID) on Net.HealthBuy.
 
 	Everything here is presentation. SpeedService re-derives the price, the step and
 	that you are at an Upgrades booth. The numbers come off SpeedState
-	(SpeedController.view), the wallet off StationState.
+	(SpeedController.view), the wallet off StationState, max health off the HUD.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local WalkSpeed = require(Shared.Config.WalkSpeed)
+local HealthUpgrade = require(Shared.Config.HealthUpgrade)
 local Mastery = require(Shared.Mastery)
 local Net = require(Shared.Net)
 
@@ -33,6 +35,7 @@ local HudArtwork = require(script.Parent.HudArtwork)
 local RobuxButton = require(script.Parent.RobuxButton)
 local Sfx = require(script.Parent.Sfx)
 local Speed = require(script.Parent.Controllers.SpeedController)
+local Hud = require(script.Parent.Controllers.HudController)
 
 local SpeedPanel = {}
 
@@ -57,12 +60,12 @@ local SKIN = {
 SpeedPanel.WIDTH = 640
 
 local HEADER_H = 64
-local CARD_H = 200
-local BUTTONS_H = 64
-local BULK_H = 52
-local GAP = 12
+local CARD_H = 130
+local ROW_H = 58
+local GAP = 10
+local SECTION_GAP = 16
 local WALLET_INSET = 44
-local SHOE = 150
+local ICON = 96
 
 local function ink(node: TextLabel | TextButton, thickness: number?)
 	local stroke = Instance.new("UIStroke")
@@ -145,7 +148,7 @@ export type Panel = {
 function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 	local root = frame(parent, "Speed")
 	root.LayoutOrder = layoutOrder
-	root.Size = UDim2.new(1, 0, 0, HEADER_H + GAP + CARD_H + GAP + BUTTONS_H + GAP + BULK_H)
+	root.Size = UDim2.new(1, 0, 0, HEADER_H + GAP + 2 * (CARD_H + GAP + ROW_H) + SECTION_GAP)
 	root.Visible = false
 
 	-- ── Header ─────────────────────────────────────────────────────────
@@ -171,7 +174,7 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 		size = UDim2.fromOffset(380, 16),
 		textSize = 14,
 		color = Color3.fromHex("DDF3FF"),
-		text = "Buy walk speed. Go deeper for bigger upgrades.",
+		text = "Walk speed and max health. Go deeper for cheaper speed.",
 		ink = false,
 	})
 	text(header, {
@@ -194,128 +197,160 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 		xAlign = Enum.TextXAlignment.Right,
 	})
 
-	-- ── The card ───────────────────────────────────────────────────────
+	-- ── A card + its row of buttons, once for speed and once for health ───
 	local y = HEADER_H + GAP
-	local card = frame(root, "Card", SKIN.card)
-	card.Position = UDim2.fromOffset(0, y)
-	card.Size = UDim2.new(1, 0, 0, CARD_H)
-	card.ClipsDescendants = true
-	corner(card, 14)
-	edge(card, SKIN.ink, 3)
-	local cardFill = Instance.new("UIGradient")
-	cardFill.Rotation = 90
-	cardFill.Color = ColorSequence.new(Color3.fromHex("2A3A4C"), Color3.fromHex("1C232B"))
-	cardFill.Parent = card
 
-	local rays = Instance.new("ImageLabel")
-	rays.Name = "Rays"
-	rays.BackgroundTransparency = 1
-	rays.Image = HudArtwork.IMAGE.sunburst
-	rays.ImageTransparency = 0.7
-	rays.ScaleType = Enum.ScaleType.Fit
-	rays.AnchorPoint = Vector2.new(0.5, 0.5)
-	rays.Position = UDim2.new(0, 24 + SHOE / 2, 0.5, 0)
-	rays.Size = UDim2.fromOffset(SHOE * 2, SHOE * 2)
-	rays.Parent = card
-	local shoe = Instance.new("ImageLabel")
-	shoe.Name = "Shoe"
-	shoe.BackgroundTransparency = 1
-	shoe.Image = HudArtwork.IMAGE.speedShoe
-	shoe.ScaleType = Enum.ScaleType.Fit
-	shoe.AnchorPoint = Vector2.new(0, 0.5)
-	shoe.Position = UDim2.new(0, 24, 0.5, 0)
-	shoe.Size = UDim2.fromOffset(SHOE, SHOE)
-	shoe.Parent = card
+	-- One stat's card: the icon on rays, a caption, the big value, a chip and a hint.
+	type Card = { value: TextLabel, chip: TextLabel, hint: TextLabel }
+	local function statCard(name: string, image: string, caption: string, top: Color3, bottom: Color3): Card
+		local card = frame(root, name, SKIN.card)
+		card.Position = UDim2.fromOffset(0, y)
+		card.Size = UDim2.new(1, 0, 0, CARD_H)
+		card.ClipsDescendants = true
+		corner(card, 14)
+		edge(card, SKIN.ink, 3)
+		local cardFill = Instance.new("UIGradient")
+		cardFill.Rotation = 90
+		cardFill.Color = ColorSequence.new(top, bottom)
+		cardFill.Parent = card
 
-	local textLeft = 24 + SHOE + 28
-	text(card, {
-		name = "Caption",
-		position = UDim2.fromOffset(textLeft, 22),
-		size = UDim2.new(1, -textLeft - 16, 0, 20),
-		textSize = 18,
-		color = SKIN.dim,
-		text = "WALK SPEED",
-	})
-	local walkLine = text(card, {
-		name = "Walk",
-		position = UDim2.fromOffset(textLeft, 44),
-		size = UDim2.new(1, -textLeft - 16, 0, 64),
-		textSize = 58,
-	})
-	walkLine.RichText = true
-	local stepChip = text(card, {
-		name = "Step",
-		position = UDim2.fromOffset(textLeft, 116),
-		size = UDim2.new(1, -textLeft - 16, 0, 26),
-		textSize = 24,
-		color = SKIN.go,
-	})
-	local hint = text(card, {
-		name = "Hint",
-		position = UDim2.fromOffset(textLeft, 148),
-		size = UDim2.new(1, -textLeft - 16, 0, 36),
-		textSize = 15,
-		color = SKIN.dim,
-		wrapped = true,
-		ink = false,
-	})
-	hint.TextYAlignment = Enum.TextYAlignment.Top
+		local rays = Instance.new("ImageLabel")
+		rays.Name = "Rays"
+		rays.BackgroundTransparency = 1
+		rays.Image = HudArtwork.IMAGE.sunburst
+		rays.ImageTransparency = 0.7
+		rays.ScaleType = Enum.ScaleType.Fit
+		rays.AnchorPoint = Vector2.new(0.5, 0.5)
+		rays.Position = UDim2.new(0, 20 + ICON / 2, 0.5, 0)
+		rays.Size = UDim2.fromOffset(ICON * 2, ICON * 2)
+		rays.Parent = card
+		local icon = Instance.new("ImageLabel")
+		icon.Name = "Icon"
+		icon.BackgroundTransparency = 1
+		icon.Image = image
+		icon.ScaleType = Enum.ScaleType.Fit
+		icon.AnchorPoint = Vector2.new(0, 0.5)
+		icon.Position = UDim2.new(0, 20, 0.5, 0)
+		icon.Size = UDim2.fromOffset(ICON, ICON)
+		icon.Parent = card
 
-	-- ── The buttons ────────────────────────────────────────────────────
-	y += CARD_H + GAP
-	local buttons = frame(root, "Buttons")
-	buttons.Position = UDim2.fromOffset(0, y)
-	buttons.Size = UDim2.new(1, 0, 0, BUTTONS_H)
+		local textLeft = 20 + ICON + 24
+		text(card, {
+			name = "Caption",
+			position = UDim2.fromOffset(textLeft, 12),
+			size = UDim2.new(1, -textLeft - 16, 0, 18),
+			textSize = 16,
+			color = SKIN.dim,
+			text = caption,
+		})
+		local value = text(card, {
+			name = "Value",
+			position = UDim2.fromOffset(textLeft, 30),
+			size = UDim2.new(1, -textLeft - 16, 0, 46),
+			textSize = 42,
+		})
+		value.RichText = true
+		local chip = text(card, {
+			name = "Chip",
+			position = UDim2.fromOffset(textLeft, 80),
+			size = UDim2.new(1, -textLeft - 16, 0, 20),
+			textSize = 18,
+			color = SKIN.go,
+		})
+		local hint = text(card, {
+			name = "Hint",
+			position = UDim2.fromOffset(textLeft, 104),
+			size = UDim2.new(1, -textLeft - 16, 0, 18),
+			textSize = 14,
+			color = SKIN.dim,
+			wrapped = true,
+			ink = false,
+		})
+		hint.TextYAlignment = Enum.TextYAlignment.Top
+		y += CARD_H + GAP
+		return { value = value, chip = chip, hint = hint }
+	end
 
-	-- A green studded cash button: BUY, and the bulk row's +3 / +10.
-	local function cashButton(host: Instance, name: string, textSize: number): (TextButton, UIStroke)
+	-- A green studded cash button: "+N" over its price.
+	type Cash = { amount: number, button: TextButton, edge: UIStroke, price: TextLabel, affordable: boolean }
+	local function cashButton(host: Instance, amount: number): Cash
 		local button = Instance.new("TextButton")
-		button.Name = name
+		button.Name = `Buy{amount}`
 		button.AutoButtonColor = false
 		button.BorderSizePixel = 0
-		button.Font = SKIN.headline
-		button.TextSize = textSize
-		button.TextColor3 = SKIN.text
+		button.Text = ""
 		button.Parent = host
 		corner(button, 12)
-		ink(button, 3)
 		local stroke = edge(button, SKIN.goEdge, 3)
 		local gloss = Instance.new("UIGradient")
 		gloss.Rotation = 90
 		gloss.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(205, 205, 205))
 		gloss.Parent = button
 		Studded.pattern(button, { radius = 12, tile = Studded.BUTTON_TILE, bands = { 0.28, 0.5, 0.58, 0.64 }, bandTransparency = 0.8, studTransparency = 0.35, glow = false })
-		return button, stroke
+		local label = text(button, {
+			name = "Amount",
+			position = UDim2.fromOffset(4, 4),
+			size = UDim2.new(1, -8, 0, 28),
+			textSize = 26,
+			xAlign = Enum.TextXAlignment.Center,
+			text = `+{amount}`,
+		})
+		label.ZIndex = 3
+		local price = text(button, {
+			name = "Price",
+			position = UDim2.fromOffset(4, 32),
+			size = UDim2.new(1, -8, 0, 20),
+			textSize = 17,
+			xAlign = Enum.TextXAlignment.Center,
+		})
+		price.ZIndex = 3
+		return { amount = amount, button = button, edge = stroke, price = price, affordable = false }
 	end
 
-	local buy, buyEdge = cashButton(buttons, "Buy", 30)
-	buy.Size = UDim2.new(0.68, -6, 1, 0)
+	-- One row: the cash buttons, then the purple Robux button, all one width.
+	local function buyRow(name: string, amounts: { number }, getProduct: () -> number, robuxCaption: string): { Cash }
+		local row = frame(root, name)
+		row.Position = UDim2.fromOffset(0, y)
+		row.Size = UDim2.new(1, 0, 0, ROW_H)
+		local count = #amounts + 1
+		local function place(node: GuiObject, i: number)
+			node.AnchorPoint = Vector2.zero
+			node.Size = UDim2.new(1 / count, -GAP * (count - 1) / count, 1, 0)
+			node.Position = UDim2.new((i - 1) / count, GAP * (i - 1) / count, 0, 0)
+		end
+		local cash: { Cash } = {}
+		for i, amount in amounts do
+			local entry = cashButton(row, amount)
+			place(entry.button, i)
+			table.insert(cash, entry)
+		end
+		local robux = RobuxButton.product(row, getProduct, robuxCaption)
+		place(robux.button, count)
+		y += ROW_H + SECTION_GAP
+		return cash
+	end
 
-	local robux = RobuxButton.product(buttons, function()
+	local speedCard = statCard("SpeedCard", HudArtwork.IMAGE.speedShoe, "WALK SPEED", Color3.fromHex("2A3A4C"), Color3.fromHex("1C232B"))
+	local speedButtons = buyRow("SpeedRow", WalkSpeed.BULK, function()
 		return WalkSpeed.PRODUCT_ID
 	end, `+{WalkSpeed.ROBUX_WALK} SPEED`)
-	robux.button.AnchorPoint = Vector2.new(1, 0)
-	robux.button.Position = UDim2.fromScale(1, 0)
-	robux.button.Size = UDim2.new(0.32, -6, 1, 0)
-
-	-- ── The bulk row: +3 / +10 for cash ─────────────────────────────────
-	y += BUTTONS_H + GAP
-	local bulkRow = frame(root, "Bulk")
-	bulkRow.Position = UDim2.fromOffset(0, y)
-	bulkRow.Size = UDim2.new(1, 0, 0, BULK_H)
-	type Bulk = { amount: number, button: TextButton, edge: UIStroke, affordable: boolean }
-	local bulks: { Bulk } = {}
-	local count = #WalkSpeed.BULK
-	for i, amount in WalkSpeed.BULK do
-		local button, stroke = cashButton(bulkRow, `Bulk{amount}`, 24)
-		button.Size = UDim2.new(1 / count, -6 * (count - 1) / count, 1, 0)
-		button.Position = UDim2.new((i - 1) / count, 6 * (i - 1) / count, 0, 0)
-		table.insert(bulks, { amount = amount, button = button, edge = stroke, affordable = false })
-	end
+	local healthCard = statCard("HealthCard", HudArtwork.IMAGE.healthHeart, "MAX HEALTH", Color3.fromHex("4C2A30"), Color3.fromHex("2B1C1F"))
+	local healthButtons = buyRow("HealthRow", HealthUpgrade.BULK, function()
+		return HealthUpgrade.PRODUCT_ID
+	end, `+{HealthUpgrade.ROBUX_POINTS * HealthUpgrade.HP_PER_POINT} HEALTH`)
 
 	-- ── Behaviour ───────────────────────────────────────────────────────
 	local lastState: any = nil
-	local affordable = false
+
+	local function paintButtons(buttons: { Cash }, prices: { any }, cash: number)
+		for i, entry in buttons do
+			local price = tonumber(prices[i]) or math.huge
+			entry.affordable = cash >= price
+			entry.price.Text = if price == math.huge then "..." else money(price)
+			entry.button.BackgroundColor3 = if entry.affordable then SKIN.go else SKIN.off
+			entry.edge.Color = if entry.affordable then SKIN.goEdge else SKIN.ink
+		end
+	end
 
 	local function paint(state: any)
 		lastState = state
@@ -324,98 +359,69 @@ function SpeedPanel.new(parent: Instance, layoutOrder: number): Panel
 
 		local view = Speed.view()
 		if view == nil or type(view.walk) ~= "number" then
-			walkLine.Text = "..."
-			stepChip.Text = ""
-			hint.Text = ""
-			buy.Text = "LOADING"
-			buy.BackgroundColor3 = SKIN.off
-			affordable = false
-			for _, bulk in bulks do
-				bulk.button.Text = "LOADING"
-				bulk.button.BackgroundColor3 = SKIN.off
-				bulk.affordable = false
+			for _, card in { speedCard, healthCard } do
+				card.value.Text = "..."
+				card.chip.Text = ""
+				card.hint.Text = ""
 			end
+			paintButtons(speedButtons, {}, cash)
+			paintButtons(healthButtons, {}, cash)
 			return
 		end
-		local step = tonumber(view.step) or 1
-		local price = tonumber(view.price) or 0
-		local after = view.walk + step
-		walkLine.Text = `{view.walk}  <font color="#5CFE01">\u{2192}</font>  <font color="#9FE3FF">{after}</font>`
-		stepChip.Text = `+{step} PER UPGRADE`
 
+		-- Speed: the walk, and how much cheaper the depth makes each point.
+		local step = tonumber(view.step) or 1
+		speedCard.value.Text = `<font color="#9FE3FF">{view.walk}</font>`
+		speedCard.chip.Text = if step > 1 then `DEPTH BONUS: {step}x CHEAPER` else "+1 WALK SPEED PER POINT"
 		local deepest = tonumber(view.deepestStage) or 1
 		local stage, bigger = nextBiggerStep(deepest, step)
-		local lines = {}
-		if stage and bigger then
-			table.insert(lines, `Reach Stage {stage} for +{bigger} per upgrade.`)
-		else
-			table.insert(lines, "Deepest stage reached: the biggest upgrades there are.")
-		end
-		hint.Text = table.concat(lines, "  ")
+		speedCard.hint.Text = if stage and bigger
+			then `Reach Stage {stage} and speed gets {bigger}x cheaper.`
+			else "Deepest stage reached: the cheapest speed there is."
+		paintButtons(speedButtons, if type(view.bulkPrices) == "table" then view.bulkPrices else {}, cash)
 
-		affordable = cash >= price
-		if affordable then
-			buy.Text = `BUY  {money(price)}`
-			buy.BackgroundColor3 = SKIN.go
-			buyEdge.Color = SKIN.goEdge
-		else
-			buy.Text = `NEED {money(price - cash)} MORE`
-			buy.BackgroundColor3 = SKIN.off
-			buyEdge.Color = SKIN.ink
-		end
-
-		local bulkPrices = if type(view.bulkPrices) == "table" then view.bulkPrices else {}
-		for i, bulk in bulks do
-			local bulkPrice = tonumber(bulkPrices[i]) or math.huge
-			bulk.affordable = cash >= bulkPrice
-			bulk.button.Text = if bulkPrice == math.huge then `+{bulk.amount} SPEED` else `+{bulk.amount} SPEED  {money(bulkPrice)}`
-			bulk.button.BackgroundColor3 = if bulk.affordable then SKIN.go else SKIN.off
-			bulk.edge.Color = if bulk.affordable then SKIN.goEdge else SKIN.ink
-		end
+		-- Health: the max health you walk around with now, and what you have bought.
+		local health = if type(view.health) == "table" then view.health else {}
+		healthCard.value.Text = `<font color="#FF6B6B">{math.floor(Hud.vitals().maxHealth + 0.5)}</font>`
+		healthCard.chip.Text = `+{HealthUpgrade.HP_PER_POINT} MAX HEALTH PER POINT`
+		healthCard.hint.Text = `+{tonumber(health.bonus) or 0} bought so far. The 2x Health pass doubles it.`
+		paintButtons(healthButtons, if type(health.prices) == "table" then health.prices else {}, cash)
 	end
 
-	buy.MouseEnter:Connect(function()
-		if affordable then
-			buy.BackgroundColor3 = Color3.fromHex("85FF01")
+	local function wire(buttons: { Cash }, remote: string)
+		for _, entry in buttons do
+			entry.button.MouseEnter:Connect(function()
+				if entry.affordable then
+					entry.button.BackgroundColor3 = Color3.fromHex("85FF01")
+				end
+			end)
+			entry.button.MouseLeave:Connect(function()
+				if lastState then
+					paint(lastState)
+				end
+			end)
+			entry.button.Activated:Connect(function()
+				if not entry.affordable then
+					Sfx.play("denied")
+					return
+				end
+				Net.get(remote):FireServer(entry.amount)
+			end)
 		end
-	end)
-	buy.MouseLeave:Connect(function()
-		if lastState then
-			paint(lastState)
-		end
-	end)
-	buy.Activated:Connect(function()
-		if not affordable then
-			Sfx.play("denied")
-			return
-		end
-		Net.get("SpeedBuy"):FireServer()
-	end)
-
-	for _, bulk in bulks do
-		bulk.button.MouseEnter:Connect(function()
-			if bulk.affordable then
-				bulk.button.BackgroundColor3 = Color3.fromHex("85FF01")
-			end
-		end)
-		bulk.button.MouseLeave:Connect(function()
-			if lastState then
-				paint(lastState)
-			end
-		end)
-		bulk.button.Activated:Connect(function()
-			if not bulk.affordable then
-				Sfx.play("denied")
-				return
-			end
-			Net.get("SpeedBuy"):FireServer(bulk.amount)
-		end)
 	end
+	wire(speedButtons, "SpeedBuy")
+	wire(healthButtons, "HealthBuy")
 
-	-- A purchase or a deeper stage moves the numbers between ticks.
+	-- A purchase or a deeper stage moves the numbers between ticks. Max health reaches
+	-- the HUD on ExposureService's next tick, so a push paints once more after it.
 	Speed.onChanged(function()
 		if lastState and root.Visible then
 			paint(lastState)
+			task.delay(0.6, function()
+				if lastState and root.Visible then
+					paint(lastState)
+				end
+			end)
 		end
 	end)
 
