@@ -75,6 +75,9 @@ ToolTiers.Detector = {
 	{ name = "Leyline Tap", scale = 1.00, body = Color3.fromHex("2E86DE"), accent = Color3.fromHex("1B3A5C"), material = Enum.Material.Metal, glow = Color3.fromHex("6EC8FF") },
 	{ name = "Null Compass", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal, glow = Color3.fromHex("A57BFF") },
 	{ name = "Prime Meridian", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal, glow = Color3.fromHex("FFE39A") },
+	-- Rift Outpost's two, imported (Assets/Tools/Detector/T16-T17): slate + ember, black + gold.
+	{ name = "Fault Splitter", scale = 1.00, body = Color3.fromHex("2A3138"), accent = Color3.fromHex("FF6A1A"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9A3C") },
+	{ name = "Rift Sovereign", scale = 1.00, body = Color3.fromHex("16141C"), accent = Color3.fromHex("E8C468"), material = Enum.Material.Metal, glow = Color3.fromHex("FF5F6D") },
 } :: { TierLook }
 
 -- The magnet starts deliberately tiny (PLAN: the base tier is a toy horseshoe), so
@@ -97,6 +100,9 @@ ToolTiers.Magnet = {
 	{ name = "Omega Magnet", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal, glow = Color3.fromHex("FFE9A0") },
 	-- Magma Hollow's Stage 12 rung, imported (Assets/Tools/Magnet/T12).
 	{ name = "Magma Magnet", scale = 1.00, body = Color3.fromHex("2C2624"), accent = Color3.fromHex("FF6A1A"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9A3C") },
+	-- Rift Outpost's two, imported (Assets/Tools/Magnet/T13-T14): banded sandstone poles, rift-orange core.
+	{ name = "Fault Magnet", scale = 1.00, body = Color3.fromHex("C8955A"), accent = Color3.fromHex("FF5A1A"), material = Enum.Material.Metal, glow = Color3.fromHex("FF7A2E") },
+	{ name = "Tectonic Magnet", scale = 1.00, body = Color3.fromHex("B87A44"), accent = Color3.fromHex("FF5A1A"), material = Enum.Material.Metal, glow = Color3.fromHex("4FC3F7") },
 } :: { TierLook }
 
 -- THE ONLY TRACK WHOSE ROWS ARE ACTUALLY READ AT RUNTIME. The note above this table
@@ -146,6 +152,8 @@ ToolTiers.Cleaner = {
 	{ name = "Celestial Deluge", scale = 1.00, body = Color3.fromHex("D8B84A"), accent = Color3.fromHex("FFF4D0"), material = Enum.Material.Metal, glow = Color3.fromHex("FFF0A0") },
 	-- Magma Hollow's Stage 12 rung, imported (Assets/HoseModels/T13): basalt drum, lava line.
 	{ name = "Magma Cannon", scale = 1.00, body = Color3.fromHex("2C2624"), accent = Color3.fromHex("FF6A1A"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9A3C") },
+	-- Rift Outpost's, imported (Assets/HoseModels/T14): black chassis, gold trim, violet seams.
+	{ name = "Riftwalker", scale = 1.00, body = Color3.fromHex("16141C"), accent = Color3.fromHex("E8C468"), material = Enum.Material.Metal, glow = Color3.fromHex("B388FF") },
 } :: { TierLook }
 
 function ToolTiers.get(track: string, tier: number): TierLook

@@ -1918,16 +1918,19 @@ function Spec.run(): boolean
 			base = { "Rust Bucket", "Bent Coil", "Scrap Sweeper", "Surplus Geiger", "Pulse Array" },
 			twilight = { "Isotope Scanner", "Resonance Mapper", "Deep Core Array", "The Oracle", "Vein Whisperer" },
 			magma = { "Aurora Rake", "Strata Lance", "Leyline Tap", "Null Compass", "Prime Meridian" },
+			rift = { "Fault Splitter", "Rift Sovereign" },
 		},
 		Magnet = {
 			base = { "Horseshoe Magnet", "Salvage Magnet", "Electromagnet", "Winch Coil" },
 			twilight = { "Rail Coil", "Singularity Coil", "Lattice Magnet", "Solar Magnet" },
 			magma = { "Void Magnet", "Nebula Magnet", "Omega Magnet", "Magma Magnet" },
+			rift = { "Fault Magnet", "Tectonic Magnet" },
 		},
 		Cleaner = {
 			base = { "Garden Hose", "Patched Fire Hose", "Pressure Lance", "Chem Injector" },
 			twilight = { "Ion Cannon", "Plasma Lance", "Singularity Nozzle", "Cryo Nova" },
 			magma = { "Solar Forge", "Quantum Rift", "Celestial Deluge", "Magma Cannon" },
+			rift = { "Riftwalker" },
 		},
 		Aura = {
 			base = { "None", "Static Veil", "Lead Halo", "Ion Shroud" },
