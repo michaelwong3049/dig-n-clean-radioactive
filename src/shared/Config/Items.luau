@@ -1987,6 +1987,101 @@ Items.DEFS = {
 		baseValue = 8500000000,
 		model = "ImportedNuke",
 	},
+	-- Stage 14 (Gravity Wells), import-nuke-models-batch26. Values ~2.45x Stage 13
+	-- per tier.
+	{
+		id = "ballast_nuke",
+		name = "Ballast Nuke",
+		flavor = "Bolted plate on plate so the gravity can't throw it.",
+		rarity = "Rare",
+		odds = 260, -- 1 in N per dig in a stocking stage
+		weight = 320,
+		stages = { 14 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 6000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "spaghettified_nuke",
+		name = "Spaghettified Nuke",
+		flavor = "Got too close to something heavy. Now it's long.",
+		rarity = "Epic",
+		odds = 3900, -- 1 in N per dig in a stocking stage
+		weight = 260,
+		stages = { 14 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 33600000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "hover_nuke",
+		name = "Hover Nuke",
+		flavor = "Its sections float apart on their own field.",
+		rarity = "Epic",
+		odds = 5600, -- 1 in N per dig in a stocking stage
+		weight = 240,
+		stages = { 14 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 44300000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "orbit_nuke",
+		name = "Orbit Nuke",
+		flavor = "Heavy enough to keep three moons.",
+		rarity = "Legendary",
+		odds = 76000, -- 1 in N per dig in a stocking stage
+		weight = 340,
+		stages = { 14 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 443000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "pulsar_nuke",
+		name = "Pulsar Nuke",
+		flavor = "A neutron star in a cage, sweeping its beams round.",
+		rarity = "Legendary",
+		odds = 120000, -- 1 in N per dig in a stocking stage
+		weight = 420,
+		stages = { 14 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 650000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "galaxy_nuke",
+		name = "Galaxy Nuke",
+		flavor = "A whole spiral galaxy wound round the casing.",
+		rarity = "Mythic",
+		odds = 500000, -- 1 in N per dig in a stocking stage
+		weight = 400,
+		sizeMult = 1.8, -- bigger
+		stages = { 14 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 2700000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "gravity_well_nuke",
+		name = "Gravity Well Nuke",
+		flavor = "Everything nearby is falling into it, slowly.",
+		rarity = "Anomaly",
+		odds = 5000000, -- 1 in N per dig in a stocking stage
+		weight = 500,
+		sizeMult = 2.5, -- bigger
+		stages = { 14 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 20800000000,
+		model = "ImportedNuke",
+	},
 	{
 		id = "canister_nuke",
 		name = "Canister Nuke",

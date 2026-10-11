@@ -84,6 +84,7 @@ DailyRewards.FLOOR_RATE = {
 	[11] = 5_000_000,
 	[12] = 16_000_000,
 	[13] = 40_000_000,
+	[14] = 100_000_000,
 } :: { [number]: number }
 
 local function clampStage(stage: number): number
