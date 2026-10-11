@@ -31,7 +31,7 @@ HealthUpgrade.BULK = { 1, 3, 10 }
 --- The Developer Product the purple button sells: ROBUX_POINTS points, flat. 0 = not
 --- set up yet, and the button reads SOON.
 --- Creator Dashboard -> Monetization -> Developer Products: "+10 Health".
-HealthUpgrade.PRODUCT_ID = 0
+HealthUpgrade.PRODUCT_ID = 3717856627
 HealthUpgrade.ROBUX_POINTS = 10
 
 local function roundNice(n: number): number
