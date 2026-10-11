@@ -218,10 +218,11 @@ local ToolFX = require(Shared.ToolFX)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
+local ImportedStation = require(script.Parent.ImportedStation)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 127 -- side bases 8 nearer the middle (2026-10-10)
+local BUILDER_VERSION = 128 -- imported cleaning station tub (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -1560,6 +1561,67 @@ function Plots.setPlotAccent(plot: Instance?, color: Color3?)
 	end
 end
 
+--- THE IMPORTED TUB, on request: ServerStorage.StationTemplates.CleaningStation (place-
+--- only, like the forge's -- see build/ImportedStation), an octagon tub round a pedestal
+--- rack with a panelled back wall and a sign board. At `scale` its lip is as wide as the
+--- parts tub's rim, and its back wall stands further back than the old gantry did, so
+--- WashService's WASH_BACK_ROOM still holds. `rackTop` (above the pad top) is where the
+--- parts tub's WashRack top sat: the pedestal is stretched up to it, so an item sits
+--- exactly as high as it always has.
+local TUB_IMPORT = { template = "CleaningStation", scale = 2, rackTop = 2.825 }
+
+--- Place the imported tub over the basin centre, or nil when the place has no template
+--- (buildCleansingStation then builds its own parts tub). Its `water` becomes a
+--- recolourable Part named `Water`, so Plots.setTubFluid fills it with the owner's
+--- fluid exactly as it does the parts tub's; its `platform_inset` becomes `WashRack`;
+--- its sign board is the bay's accent (Plots.setPlotAccent) in place of the old lamp.
+local function buildImportedTub(parent: Instance, origin: CFrame, cx: number, cz: number, accent: string): Model?
+	local template = ImportedStation.template(TUB_IMPORT.template)
+	if template == nil then
+		return nil
+	end
+	local T = Plots.PAD.topY
+	-- The import's back wall is on its +Z side, where the bay's own back is, so it is not
+	-- turned: the extra half turn cancels the one ImportedStation.place applies. Its foot
+	-- stands on the deck's top (T + 0.15).
+	local seat = origin * CFrame.new(cx, T + 0.15, cz)
+	local look = ImportedStation.place(template, parent, seat * CFrame.Angles(0, math.pi, 0), TUB_IMPORT.scale, "basin_plinth")
+	look.Name = "Tub"
+	ImportedStation.paint(look, {
+		water = { color = Liquids.get(Liquids.WATER).color, transparency = 0.25 },
+		sign_board = { color = accent },
+	})
+
+	local water = look:FindFirstChild("water", true)
+	if water and water:IsA("BasePart") then
+		water.Name = "Water"
+		-- Not solid, like the parts tub's: a player who jumps in stands on the floor.
+		water.CanCollide = false
+	end
+	local sign = look:FindFirstChild("sign_board", true)
+	if sign and sign:IsA("BasePart") then
+		sign:SetAttribute("Accent", true)
+	end
+
+	-- Lift the rack to the old rack height and stretch the pedestal under it.
+	local inset = look:FindFirstChild("platform_inset", true)
+	local top = look:FindFirstChild("platform_top", true)
+	local post = look:FindFirstChild("pedestal", true)
+	if inset and inset:IsA("BasePart") and top and top:IsA("BasePart") and post and post:IsA("BasePart") then
+		local want = (origin * CFrame.new(0, T + TUB_IMPORT.rackTop, 0)).Position.Y
+		local lift = want - (inset.Position.Y + inset.Size.Y / 2)
+		inset.CFrame += Vector3.new(0, lift, 0)
+		top.CFrame += Vector3.new(0, lift, 0)
+		post.Size += Vector3.new(0, lift, 0)
+		post.CFrame += Vector3.new(0, lift / 2, 0)
+		-- Straight under the station, where WashService looks for it (beside WashStand,
+		-- not searched for).
+		inset.Name = "WashRack"
+		inset.Parent = parent
+	end
+	return look
+end
+
 --- The cleansing station — replaces the camp's old central Decon Station and
 --- Decon Shower with one combined stop on EVERY base, per the request. A single
 --- part carries BOTH `StationKind = "decon"` (freezes carried items' decay
@@ -1670,6 +1732,9 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	local floorTop, wallTop = T + 0.65, T + 1.8
 	local wallMid, wallH = (T + 0.15 + wallTop) / 2, wallTop - (T + 0.15)
 	local tubInner = TUB_SHELL.apothem - TUB_SHELL.wall / 2
+	-- The water line the ripples ride. The parts tub fills to it; the imported tub's own
+	-- water mesh comes out at the same height (TUB_IMPORT).
+	local waterTop = T + 1.45
 	local basin = build(m, origin, {
 		name = "Basin",
 		pos = { cx, T + 0.55, cz },
@@ -1682,112 +1747,124 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		attributes = { StationKind = "decon", Shower = true, Radius = 9 },
 	})
 
-	polygonRing(m, origin, {
-		name = "TubWall",
-		sides = TUB_SHELL.sides,
-		cx = cx,
-		cz = cz,
-		apothem = TUB_SHELL.apothem,
-		thickness = TUB_SHELL.wall,
-		y = wallMid,
-		height = wallH,
-		color = TUB_WALL,
-		studs = true,
-	})
-	-- The lining: pale studded panels on every inside face, floor to lip, so what you
-	-- look down into is a pool and not the back of the outside wall.
-	polygonRing(m, origin, {
-		name = "TubLiner",
-		sides = TUB_SHELL.sides,
-		cx = cx,
-		cz = cz,
-		apothem = tubInner - 0.05,
-		thickness = 0.1,
-		y = (floorTop + wallTop) / 2,
-		height = wallTop - floorTop,
-		color = TUB_TILE,
-		studs = true,
-		canCollide = false,
-	})
-	-- A round studded pillar on every outside corner, deck to lip, so the octagon's
-	-- corners read as posts the walls are set between rather than as two boxes meeting.
-	for i = 0, TUB_SHELL.sides - 1 do
-		local vx, vz = ringVertex(TUB_SHELL.sides, cx, cz, TUB_SHELL.apothem + TUB_SHELL.wall / 2, i)
-		build(m, origin, {
-			name = "TubPillar",
-			pos = { vx, wallMid, vz },
-			size = { wallH, 0.7, 0.7 },
-			color = TUB_POST,
-			material = "Plastic",
-			studs = true,
-			shape = "Cylinder",
-			rot = Kit.R.cylUp,
-		})
+	-- THE IMPORTED TUB WHEN THE PLACE HAS IT (TUB_IMPORT); every `look == nil` block
+	-- below is the parts tub it replaces. Basin stays the dock either way -- the
+	-- attributes, the Wash prompt and the owner's label all hang off it -- but the
+	-- import draws the tub, so Basin goes invisible and out of the way.
+	local look = buildImportedTub(m, origin, cx, cz, accent)
+	if look then
+		basin.Transparency = 1
+		basin.CanCollide = false
+		basin.CanQuery = false
 	end
 
-	-- A wide flat rim lip capping the walls -- eight studded bars, tops at T+2.3, a shade
-	-- under the old rims' T+2.6 so the stream still clears them from the player's side
-	-- and the item still sits proud of them. Flush with the lining inside, a little proud
-	-- of the walls outside.
-	local RIM_APOTHEM = 3.7
-	polygonRing(m, origin, {
-		name = "TubRim",
-		sides = TUB_SHELL.sides,
-		cx = cx,
-		cz = cz,
-		apothem = RIM_APOTHEM,
-		thickness = 1.0,
-		y = T + 2.05,
-		height = 0.5,
-		color = TUB_TOP,
-		studs = true,
-		canCollide = false,
-	})
-	-- Flat bolt heads on the lip's corners. FLAT ON PURPOSE: the crusted lump sits on the
-	-- rack only half a stud above the lip, and slides up to 1.2 toward the player, so a
-	-- rounded cap here would be the first thing a big roll grazed (crust-fills-the-wash-bay).
-	for i = 0, TUB_SHELL.sides - 1 do
-		local vx, vz = ringVertex(TUB_SHELL.sides, cx, cz, RIM_APOTHEM, i)
+	if look == nil then
+		polygonRing(m, origin, {
+			name = "TubWall",
+			sides = TUB_SHELL.sides,
+			cx = cx,
+			cz = cz,
+			apothem = TUB_SHELL.apothem,
+			thickness = TUB_SHELL.wall,
+			y = wallMid,
+			height = wallH,
+			color = TUB_WALL,
+			studs = true,
+		})
+		-- The lining: pale studded panels on every inside face, floor to lip, so what you
+		-- look down into is a pool and not the back of the outside wall.
+		polygonRing(m, origin, {
+			name = "TubLiner",
+			sides = TUB_SHELL.sides,
+			cx = cx,
+			cz = cz,
+			apothem = tubInner - 0.05,
+			thickness = 0.1,
+			y = (floorTop + wallTop) / 2,
+			height = wallTop - floorTop,
+			color = TUB_TILE,
+			studs = true,
+			canCollide = false,
+		})
+		-- A round studded pillar on every outside corner, deck to lip, so the octagon's
+		-- corners read as posts the walls are set between rather than as two boxes meeting.
+		for i = 0, TUB_SHELL.sides - 1 do
+			local vx, vz = ringVertex(TUB_SHELL.sides, cx, cz, TUB_SHELL.apothem + TUB_SHELL.wall / 2, i)
+			build(m, origin, {
+				name = "TubPillar",
+				pos = { vx, wallMid, vz },
+				size = { wallH, 0.7, 0.7 },
+				color = TUB_POST,
+				material = "Plastic",
+				studs = true,
+				shape = "Cylinder",
+				rot = Kit.R.cylUp,
+			})
+		end
+
+		-- A wide flat rim lip capping the walls -- eight studded bars, tops at T+2.3, a shade
+		-- under the old rims' T+2.6 so the stream still clears them from the player's side
+		-- and the item still sits proud of them. Flush with the lining inside, a little proud
+		-- of the walls outside.
+		local RIM_APOTHEM = 3.7
+		polygonRing(m, origin, {
+			name = "TubRim",
+			sides = TUB_SHELL.sides,
+			cx = cx,
+			cz = cz,
+			apothem = RIM_APOTHEM,
+			thickness = 1.0,
+			y = T + 2.05,
+			height = 0.5,
+			color = TUB_TOP,
+			studs = true,
+			canCollide = false,
+		})
+		-- Flat bolt heads on the lip's corners. FLAT ON PURPOSE: the crusted lump sits on the
+		-- rack only half a stud above the lip, and slides up to 1.2 toward the player, so a
+		-- rounded cap here would be the first thing a big roll grazed (crust-fills-the-wash-bay).
+		for i = 0, TUB_SHELL.sides - 1 do
+			local vx, vz = ringVertex(TUB_SHELL.sides, cx, cz, RIM_APOTHEM, i)
+			build(m, origin, {
+				name = "TubBolt",
+				pos = { vx, T + 2.375, vz },
+				size = { 0.15, 0.45, 0.45 },
+				color = FIT,
+				material = "Metal",
+				shape = "Cylinder",
+				rot = Kit.R.cylUp,
+				canCollide = false,
+			})
+		end
+
+		-- The water: a translucent round body filling the well to two-thirds, with a fainter
+		-- sheen disc on top -- one flat glass slab reads as a lid, two layers reads as depth.
+		-- Wide enough that its edge is buried in the walls, so no dry corner shows. Not
+		-- solid: a player who jumps in stands on the floor, not on the surface.
 		build(m, origin, {
-			name = "TubBolt",
-			pos = { vx, T + 2.375, vz },
-			size = { 0.15, 0.45, 0.45 },
-			color = FIT,
-			material = "Metal",
+			name = "Water",
+			pos = { cx, (floorTop + waterTop) / 2, cz },
+			size = { waterTop - floorTop, 6.9, 6.9 },
+			color = C.cyan,
+			material = "Glass",
+			transparency = 0.3,
 			shape = "Cylinder",
 			rot = Kit.R.cylUp,
 			canCollide = false,
 		})
+		local sheen = build(m, origin, {
+			name = "WaterSheen",
+			pos = { cx, waterTop + 0.03, cz },
+			size = { 0.06, 6.9, 6.9 },
+			color = C.glass,
+			material = "SmoothPlastic",
+			transparency = 0.55,
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			canCollide = false,
+		})
+		sheen.Reflectance = 0.05
 	end
-
-	-- The water: a translucent round body filling the well to two-thirds, with a fainter
-	-- sheen disc on top -- one flat glass slab reads as a lid, two layers reads as depth.
-	-- Wide enough that its edge is buried in the walls, so no dry corner shows. Not
-	-- solid: a player who jumps in stands on the floor, not on the surface.
-	local waterTop = T + 1.45
-	build(m, origin, {
-		name = "Water",
-		pos = { cx, (floorTop + waterTop) / 2, cz },
-		size = { waterTop - floorTop, 6.9, 6.9 },
-		color = C.cyan,
-		material = "Glass",
-		transparency = 0.3,
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		canCollide = false,
-	})
-	local sheen = build(m, origin, {
-		name = "WaterSheen",
-		pos = { cx, waterTop + 0.03, cz },
-		size = { 0.06, 6.9, 6.9 },
-		color = C.glass,
-		material = "SmoothPlastic",
-		transparency = 0.55,
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		canCollide = false,
-	})
-	sheen.Reflectance = 0.05
 
 	-- Rings spreading across the surface, drawn on a SurfaceGui lying just over the water
 	-- (StationMotionController). A GUI rather than parts because a ring is an outline, and
@@ -1803,44 +1880,46 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	surface.Parent = ripples
 	Kit.motion(ripples, { kind = "ripples" })
 
-	-- A grated drain in the floor, off to one side of the rack's post, just visible under
-	-- the water, so the tub has an outfall and is not a sealed tank.
-	local drainX, drainZ = cx - 1.8, cz + 1.4
-	build(m, origin, { name = "Drain", pos = { drainX, floorTop + 0.03, drainZ }, size = { 0.06, 1.1, 1.1 }, color = LINER, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
-	for _, r in { Kit.R.cylAlongX, CYL_ALONG_Z } do
-		build(m, origin, { name = "DrainBar", pos = { drainX, floorTop + 0.08, drainZ }, size = { 1.0, 0.1, 0.1 }, color = FIT, material = "Metal", shape = "Cylinder", rot = r, canCollide = false })
-	end
+	if look == nil then
+		-- A grated drain in the floor, off to one side of the rack's post, just visible under
+		-- the water, so the tub has an outfall and is not a sealed tank.
+		local drainX, drainZ = cx - 1.8, cz + 1.4
+		build(m, origin, { name = "Drain", pos = { drainX, floorTop + 0.03, drainZ }, size = { 0.06, 1.1, 1.1 }, color = LINER, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+		for _, r in { Kit.R.cylAlongX, CYL_ALONG_Z } do
+			build(m, origin, { name = "DrainBar", pos = { drainX, floorTop + 0.08, drainZ }, size = { 1.0, 0.1, 0.1 }, color = FIT, material = "Metal", shape = "Cylinder", rot = r, canCollide = false })
+		end
 
-	-- ── The item rack and the three shot anchors ──────────────
-	-- WashRack lifts the item clear of the rim so water from the side reaches it. It
-	-- used to sit on the solid block's top; with the tub hollow it stands on a studded
-	-- post up out of the water, under a metal collar. The three anchors are UNCHANGED
-	-- from the previous bay -- WashService seats the item on the rack, plants the player
-	-- a step forward of WashSpot, and WashController falls back to WashCam for the frame
-	-- a respawn leaves the head missing. Framing is judged by looking, so these stay
-	-- anchors, not numbers.
-	local collarY = T + 2.525
-	build(m, origin, {
-		name = "RackPost",
-		pos = { cx, (floorTop + collarY - 0.05) / 2, cz },
-		size = { collarY - 0.05 - floorTop, 1.0, 1.0 },
-		color = TUB_POST,
-		material = "Plastic",
-		studs = true,
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		canCollide = false,
-	})
-	build(m, origin, { name = "RackCollar", pos = { cx, collarY, cz }, size = { 0.1, 1.9, 1.9 }, color = FIT, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
-	build(m, origin, {
-		name = "WashRack",
-		pos = { cx, T + 2.7, cz },
-		size = { 2.8, 0.25, 2.8 },
-		color = FACE,
-		material = "Plastic",
-		studs = true,
-		canCollide = false,
-	})
+		-- ── The item rack and the three shot anchors ──────────────
+		-- WashRack lifts the item clear of the rim so water from the side reaches it. It
+		-- used to sit on the solid block's top; with the tub hollow it stands on a studded
+		-- post up out of the water, under a metal collar. The three anchors are UNCHANGED
+		-- from the previous bay -- WashService seats the item on the rack, plants the player
+		-- a step forward of WashSpot, and WashController falls back to WashCam for the frame
+		-- a respawn leaves the head missing. Framing is judged by looking, so these stay
+		-- anchors, not numbers.
+		local collarY = T + 2.525
+		build(m, origin, {
+			name = "RackPost",
+			pos = { cx, (floorTop + collarY - 0.05) / 2, cz },
+			size = { collarY - 0.05 - floorTop, 1.0, 1.0 },
+			color = TUB_POST,
+			material = "Plastic",
+			studs = true,
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			canCollide = false,
+		})
+		build(m, origin, { name = "RackCollar", pos = { cx, collarY, cz }, size = { 0.1, 1.9, 1.9 }, color = FIT, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+		build(m, origin, {
+			name = "WashRack",
+			pos = { cx, T + 2.7, cz },
+			size = { 2.8, 0.25, 2.8 },
+			color = FACE,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
 
 	local stand = build(m, origin, {
 		name = "WashStand",
@@ -1899,39 +1978,43 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = basin
 
-	-- ── The gantry + back wall, one structure ─────────────────
-	-- Two heavy studded posts on the +X (back) side, a panelled wall filling the gap
-	-- between them so the bay backs onto something solid, and a boxed header across the
-	-- top. The FRONT of the tub is left open -- nothing between the player and the basin
-	-- -- so the frame looms behind the wash rather than caging it.
-	--
-	-- NOTHING REACHES OVER THE TUB ANY MORE. There used to be an arm cantilevered
-	-- forward off this header to the tub centre, braced with a gusset at each post, and
-	-- its only job was carrying the shower head. The head is gone (see the tub's water
-	-- below) and the arm went with it -- not merely because it was orphaned, but because
-	-- it had the head's own defect: its underside sits 2.2 studs over WashStand and the
-	-- crust on seven of the fourteen authored items reaches higher than that, the
-	-- tallest of them standing 1.2 studs proud of the beam's TOP. Everything overhead is
-	-- now behind the tub's back rim, where the widest crust measured still clears it by
-	-- most of a stud.
+	-- The parts gantry's header height and its posts' line, read by the sign below too.
 	local GANTRY_TOP = T + 6.2
 	local POST_Z = -28.2 -- authored; plot x ~= 29.8, just behind the tub's far rim
-	for _, ax in { 14, 22 } do
-		build(m, origin, { name = "GantryFoot", pos = { ax, T + 0.35, POST_Z }, size = { 1.4, 0.5, 1.4 }, color = FACE, material = "Plastic", studs = true })
-		build(m, origin, {
-			name = "GantryPost",
-			pos = { ax, (T + 0.15 + GANTRY_TOP) * 0.5, POST_Z },
-			size = { 1.1, GANTRY_TOP - (T + 0.15), 1.1 },
-			color = BODY,
-			material = "Plastic",
-			studs = true,
-		})
+
+	if look == nil then
+		-- ── The gantry + back wall, one structure ─────────────────
+		-- Two heavy studded posts on the +X (back) side, a panelled wall filling the gap
+		-- between them so the bay backs onto something solid, and a boxed header across the
+		-- top. The FRONT of the tub is left open -- nothing between the player and the basin
+		-- -- so the frame looms behind the wash rather than caging it.
+		--
+		-- NOTHING REACHES OVER THE TUB ANY MORE. There used to be an arm cantilevered
+		-- forward off this header to the tub centre, braced with a gusset at each post, and
+		-- its only job was carrying the shower head. The head is gone (see the tub's water
+		-- below) and the arm went with it -- not merely because it was orphaned, but because
+		-- it had the head's own defect: its underside sits 2.2 studs over WashStand and the
+		-- crust on seven of the fourteen authored items reaches higher than that, the
+		-- tallest of them standing 1.2 studs proud of the beam's TOP. Everything overhead is
+		-- now behind the tub's back rim, where the widest crust measured still clears it by
+		-- most of a stud.
+		for _, ax in { 14, 22 } do
+			build(m, origin, { name = "GantryFoot", pos = { ax, T + 0.35, POST_Z }, size = { 1.4, 0.5, 1.4 }, color = FACE, material = "Plastic", studs = true })
+			build(m, origin, {
+				name = "GantryPost",
+				pos = { ax, (T + 0.15 + GANTRY_TOP) * 0.5, POST_Z },
+				size = { 1.1, GANTRY_TOP - (T + 0.15), 1.1 },
+				color = BODY,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+		-- The wall between the posts: a base course and a lighter upper course.
+		build(m, origin, { name = "SplashWall", pos = { 18, T + 1.6, POST_Z }, size = { 7.6, 3.0, 0.7 }, color = BODY, material = "Plastic", studs = true })
+		build(m, origin, { name = "SplashWall", pos = { 18, T + 4.4, POST_Z }, size = { 7.6, 2.4, 0.5 }, color = FACE, material = "Plastic", studs = true })
+		-- A boxed header across the post tops, capping the wall and carrying the sign.
+		build(m, origin, { name = "GantryBeam", pos = { 18, GANTRY_TOP, POST_Z }, size = { 9.0, 1.0, 1.2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 	end
-	-- The wall between the posts: a base course and a lighter upper course.
-	build(m, origin, { name = "SplashWall", pos = { 18, T + 1.6, POST_Z }, size = { 7.6, 3.0, 0.7 }, color = BODY, material = "Plastic", studs = true })
-	build(m, origin, { name = "SplashWall", pos = { 18, T + 4.4, POST_Z }, size = { 7.6, 2.4, 0.5 }, color = FACE, material = "Plastic", studs = true })
-	-- A boxed header across the post tops, capping the wall and carrying the sign.
-	build(m, origin, { name = "GantryBeam", pos = { 18, GANTRY_TOP, POST_Z }, size = { 9.0, 1.0, 1.2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 
 	-- ── The tub's own water ───────────────────────────────────
 	-- THERE IS NO SHOWER HEAD ANY MORE, and that is a measurement rather than a taste.
@@ -1991,26 +2074,28 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	})
 	churn.Parent = churnHost
 
-	-- The station sign rides the gantry header (the back wall itself is built up in the
-	-- gantry section above). The accent lamp is a ball on the header end with a soft
-	-- PointLight -- the one coloured light on the plot, kept low; `Accent` tags the ball
-	-- and Plots.setPlotAccent repaints it and the light from `data.plotColor`.
-	-- No floating title over it: the station's prompt names it up close.
-	build(m, origin, { name = "SignHost", pos = { 18, GANTRY_TOP + 0.7, POST_Z }, size = { 9.0, 0.4, 1.0 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	if look == nil then
+		-- The station sign rides the gantry header (the back wall itself is built up in the
+		-- gantry section above). The accent lamp is a ball on the header end with a soft
+		-- PointLight -- the one coloured light on the plot, kept low; `Accent` tags the ball
+		-- and Plots.setPlotAccent repaints it and the light from `data.plotColor`.
+		-- No floating title over it: the station's prompt names it up close.
+		build(m, origin, { name = "SignHost", pos = { 18, GANTRY_TOP + 0.7, POST_Z }, size = { 9.0, 0.4, 1.0 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 
-	local lamp = build(m, origin, {
-		name = "Lamp",
-		pos = { cx + 4.4, GANTRY_TOP, POST_Z },
-		size = { 0.7, 0.7, 0.7 },
-		color = accent,
-		material = "SmoothPlastic",
-		shape = "Ball",
-		canCollide = false,
-		attributes = { Accent = true },
-	})
-	-- No shadows: a small accent glow on the header has nothing to throw them onto
-	-- that the sun has not already shaded, and shadow casting is a PointLight's cost.
-	light(lamp, accent, 14, 0.9, false)
+		local lamp = build(m, origin, {
+			name = "Lamp",
+			pos = { cx + 4.4, GANTRY_TOP, POST_Z },
+			size = { 0.7, 0.7, 0.7 },
+			color = accent,
+			material = "SmoothPlastic",
+			shape = "Ball",
+			canCollide = false,
+			attributes = { Accent = true },
+		})
+		-- No shadows: a small accent glow on the header has nothing to throw them onto
+		-- that the sun has not already shaded, and shadow casting is a PointLight's cost.
+		light(lamp, accent, 14, 0.9, false)
+	end
 
 	buildHoseRig(m, origin, cx, cz)
 
