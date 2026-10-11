@@ -341,7 +341,12 @@ end
 --
 -- 30 -> 27 WITH THE 10%-NARROWER PASS (2026-10-10: FOOTPRINT_Z 184 -> 166, area x0.902;
 -- 27.07 rounded down).
-Tuning.SIGNALS_PER_STAGE = 27
+-- 27 -> 36 ON REQUEST (2026-10-10: "increase detector spots in each stage"). A third
+-- more everywhere, still under the 40 the 2026-10-03 pass cut from: the starting
+-- detector walks ~1.65s between contacts in Stage 1 (was ~2.2s), a maxed one ~0.45s
+-- (was ~0.60s; Spec wants >= 0.4). Per-dig odds untouched, loot NOT re-weighted -- the field just holds
+-- a third more jackpots at once.
+Tuning.SIGNALS_PER_STAGE = 36
 -- THE FIELD RESHUFFLE (on request, 2026-10-05). Every this-many seconds every ordinary
 -- signal goes stale, and a stale one is reburied somewhere else the moment nobody can
 -- see it: no aura up (lit or fading), outside every detector radius, no magnet on it,
