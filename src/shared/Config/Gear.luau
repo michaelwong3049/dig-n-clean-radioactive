@@ -186,6 +186,12 @@ Gear.Detector = {
 	{ name = "Leyline Tap", price = 32000000000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "magma" },
 	{ name = "Null Compass", price = 150000000000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "magma" },
 	{ name = "Prime Meridian", price = 600000000000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "magma" },
+	-- RIFT OUTPOST'S TWO, the user's imports (2026-10-11, tools/studio-migrations/
+	-- import-rift-gear.luau, Assets/Tools/Detector/T16-T17). Same kit as the Magma five.
+	-- Radius keeps its +1 a rung (42 is 3.8x the Rust Bucket, under Spec's 4x guard), luck
+	-- its +0.30, depth its ~+6, price a x4 stride.
+	{ name = "Fault Splitter", price = 2400000000000, radius = 41, luck = 4.60, depth = 82, clarity = 3, blurb = "Wedges the ground open along the fault and reads what falls out.", camp = "rift" },
+	{ name = "Rift Sovereign", price = 9600000000000, radius = 42, luck = 4.90, depth = 88, clarity = 3, blurb = "The valley answers to it. So does everything buried in it.", camp = "rift" },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
@@ -252,7 +258,15 @@ Gear.Magnet = {
 	-- 12 meets Ground Zero's soilHardness 12, so the Omega's one-over haul there finally
 	-- has a rung that matches it. pullSpeed keeps the ~x1.22 climb, draw creeps the last
 	-- step under the 0.75 drag, price keeps the x6 stride off the Omega.
-	{ name = "Magma Magnet", price = 520000000000, pullSpeed = 13.4, draw = 0.749, maxGrip = 12, blurb = "The last magnet. The ground melts loose around the haul.", camp = "magma" },
+	{ name = "Magma Magnet", price = 520000000000, pullSpeed = 13.4, draw = 0.749, maxGrip = 12, blurb = "The ground melts loose around the haul.", camp = "magma" },
+	-- RIFT OUTPOST'S TWO, the user's imports (2026-10-11, import-rift-gear.luau,
+	-- Assets/Tools/Magnet/T13-T14). Two rungs for four stages, so each grips TWO stages'
+	-- soil: the Fault Magnet 14 (Stages 13-14), the Tectonic Magnet 16 (15-16). pullSpeed
+	-- climbs only ~x1.1 a rung: Spec's heaviest-deep-haul floor (2s at 4 clicks/sec with
+	-- the best magnet) caps the top at ~16.9, and ~x1.22 put it at 1.7s. draw creeps the
+	-- last steps under the 0.75 drag, price x6.
+	{ name = "Fault Magnet", price = 3100000000000, pullSpeed = 15.0, draw = 0.7493, maxGrip = 14, blurb = "Splits the ground in two and keeps the half with the haul in it.", camp = "rift" },
+	{ name = "Tectonic Magnet", price = 19000000000000, pullSpeed = 16.5, draw = 0.7496, maxGrip = 16, blurb = "The last magnet. Whole plates of the valley shift toward it.", camp = "rift" },
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -331,7 +345,12 @@ Gear.Cleaner = {
 	-- (tools/studio-migrations/import-magma-hose.luau, Assets/HoseModels/T13). power 13
 	-- meets a Stage 12 Anomaly's crust (Tuning's hardness note), one over the Deluge;
 	-- volume keeps the ~x1.25 climb, price ~x4.5 off the Deluge.
-	{ name = "Magma Cannon", price = 370000000000, power = 13, volume = 13.7, blurb = "The last hose. Spits liquid fire. The crust just slides off.", camp = "magma" },
+	{ name = "Magma Cannon", price = 370000000000, power = 13, volume = 13.7, blurb = "Spits liquid fire. The crust just slides off.", camp = "magma" },
+	-- RIFT OUTPOST'S ONE, the user's import (2026-10-11, import-rift-gear.luau,
+	-- Assets/HoseModels/T14 via Hose.ART_SLOTS). power 15 meets a Stage 14 Anomaly's crust
+	-- (7 + CRUST_STAGE_BONUS 8); a liquid's +2 carries it to Stage 16's. volume ~x1.25,
+	-- price ~x4.5.
+	{ name = "Riftwalker", price = 1700000000000, power = 15, volume = 17.1, blurb = "The last hose. Fires through the rift and hits the crust from both sides.", camp = "rift" },
 }
 
 -- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -748,7 +767,8 @@ end
 --- FOUR STAGES PER ZONE (2026-10-03): each camp sells its zone's rungs. Aura, Magnet and
 --- Cleaner tier N belongs to Stage N, so Base Camp sells 1-4, Toxic Twilight 5-8 and
 --- Magma Hollow 9-12 (Stage 12's rungs: Molten Serpent, Magma Magnet, Magma Cannon). The Detector ladder
---- has fifteen rungs and is split evenly, 5/5/5.
+--- has fifteen rungs and is split evenly, 5/5/5. Rift Outpost (2026-10-11) sells the user's imports:
+--- detectors 16-17, magnets 13-14 and hose 13; its auras are still to come.
 --- Tracks whose every rung is sold everywhere, no camp needed (2026-10-09, on request:
 --- "no requirements are needed for hoses like unlocking toxic twilight, if they can
 --- afford it it's usable"). `camp` still says which zone a hose belongs to (its art,
