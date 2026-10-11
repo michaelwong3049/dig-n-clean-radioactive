@@ -2568,6 +2568,158 @@ ItemFx.DEFS = {
 		},
 		glint = { parts = { "Body", "NoseDome", "TailSection" }, period = 4.0, sweep = 0.8, color = Color3.fromHex("FFFFFF"), strength = 1.2 },
 	},
+
+	-- ── STAGE 13: STARFALL CRATER ────────────────────────────────────────────
+
+	-- Meteorite Nuke. A charred rock split round a molten waist: the core band and
+	-- the cracks smoulder, embers drift off the core and the top still smokes.
+	meteorite_nuke = {
+		finish = {
+			{ parts = { "GlowCore" }, material = "Neon", color = Color3.fromHex("FF7A1A") },
+			{ parts = { "FractureLine" }, material = "Neon", color = Color3.fromHex("FFB03A") },
+		},
+		light = { part = "GlowCore", color = Color3.fromHex("FF8A2A"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "GlowCore", preset = "ember", color = Color3.fromHex("FF8A2A"), rate = 4 },
+			{ part = "UpperShell", preset = "smoke", color = Color3.fromHex("4A4248"), rate = 2 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "GlowCore", "FractureLine" }, light = true, period = 2.6, min = 0.4 },
+		},
+	},
+
+	-- Kintsugi Nuke. White porcelain mended in gold: the glint runs along the gold
+	-- seams and throws star flares off them, and a few gold motes hang in the air.
+	kintsugi_nuke = {
+		finish = {
+			{ parts = { "GoldSeam", "GoldBridge", "GoldFin", "Fuze" }, tint = GOLD_TINT, reflectance = 0.2 },
+		},
+		particles = {
+			{ part = "Shell", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 2 },
+		},
+		glint = {
+			parts = { "GoldSeam", "GoldBridge", "GoldFin" },
+			period = 4.0,
+			sweep = 0.9,
+			color = GLINT_GOLD,
+			strength = 2.6,
+			stars = 5,
+		},
+	},
+
+	-- Starlight Nuke. A glass prism set in the shell's waist turns like a lighthouse
+	-- lens, sweeping its three light beams round, and glitters as it goes.
+	starlight_nuke = {
+		finish = {
+			{ parts = { "CrystalPrism", "PrismCapTop", "PrismCapBottom" }, material = "Glass", color = Color3.fromHex("BFEFFF"), transparency = 0.2 },
+			{ parts = { "PrismEdge", "CapEdgeTop", "CapEdgeBottom", "NosePrism" }, material = "Neon", color = Color3.fromHex("E8FAFF") },
+			{ parts = { "Beam" }, material = "Neon", color = Color3.fromHex("6AB8FF"), transparency = 0.45 },
+		},
+		light = { part = "CrystalPrism", color = Color3.fromHex("9AD8FF"), brightness = 1.8, range = 1.2 },
+		particles = {
+			{ part = "CrystalPrism", preset = "sparkle", color = Color3.fromHex("DDF6FF"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "CrystalPrism", "PrismCap*", "PrismEdge", "CapEdge*", "Beam" }, pivot = "UpperShell", axis = "Y", rpm = 6 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Beam" }, light = true, period = 2.4, min = 0.5 },
+			{ kind = "glitter", parts = { "PrismEdge", "CapEdge*", "NosePrism" }, period = 1.4, duration = 0.25 },
+		},
+	},
+
+	-- Voidglass Nuke. Three sections with the void showing between them: the seams
+	-- glow violet-white, the halos breathe, glass shards orbit the waist and motes
+	-- are drawn in toward the gaps.
+	voidglass_nuke = {
+		finish = {
+			{ parts = { "VoidSeam" }, material = "Neon", color = Color3.fromHex("EAD8FF") },
+			{ parts = { "VoidHalo" }, material = "Neon", color = Color3.fromHex("9A5AFF"), transparency = 0.55 },
+			{ parts = { "Fracture", "RimHigh", "RimLow", "FinEdge" }, material = "Neon", color = Color3.fromHex("B07AFF") },
+			{ parts = { "ShardGlass" }, material = "Glass", color = Color3.fromHex("C8A8FF"), transparency = 0.25 },
+			{ parts = { "ShardEdge", "NoseShardPrism", "NoseShardTip" }, material = "Neon", color = Color3.fromHex("D8BFFF") },
+		},
+		light = { part = "VoidSeam2", color = Color3.fromHex("A070FF"), brightness = 1.8, range = 1.3 },
+		particles = {
+			{ part = "VoidHalo2", preset = "shrinkMotes", color = Color3.fromHex("D8BFFF"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "ShardGlass", "ShardEdge" }, pivot = "SectionShell2", axis = "Y", mode = "bob", amp = 0.06, period = 3.0, rpm = 8 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "VoidSeam", "VoidHalo" }, light = true, period = 2.2, min = 0.4 },
+			{ kind = "smoulder", parts = { "Fracture", "RimHigh", "RimLow", "FinEdge" }, period = 3.0, min = 0.4 },
+			{ kind = "glitter", parts = { "ShardEdge", "NoseShardPrism", "NoseShardTip" }, period = 1.6, duration = 0.25 },
+		},
+	},
+
+	-- Comet Nuke. A faceted shell of comet ice: the facets catch the light, new
+	-- crystals glitter where they push through, the seams glow cold and the nose
+	-- sheds vapour like a comet's tail.
+	comet_nuke = {
+		finish = {
+			{ parts = { "FacetShell" }, material = "Glass", color = Color3.fromHex("A8DCFF"), transparency = 0.15 },
+			{ parts = { "FacetSeam", "RingSeam" }, material = "Neon", color = Color3.fromHex("CFF4FF"), transparency = 0.3 },
+			{ parts = { "GrowShard*", "NoseShardPrism", "NoseShardTip" }, material = "Neon", color = Color3.fromHex("E8FBFF") },
+		},
+		light = { part = "FacetShell", color = Color3.fromHex("9AE0FF"), brightness = 1.6, range = 1.2 },
+		particles = {
+			{ part = "NoseShardTip", preset = "steam", color = Color3.fromHex("E0F6FF"), rate = 3 },
+			{ part = "FacetShell", preset = "sparkle", color = Color3.fromHex("DDF6FF"), rate = 3 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "FacetSeam", "RingSeam" }, light = true, period = 3.0, min = 0.5 },
+			{ kind = "glitter", parts = { "GrowShard*", "NoseShardPrism", "NoseShardTip" }, period = 1.4, duration = 0.25 },
+		},
+		glint = { parts = { "FacetShell" }, period = 3.6, sweep = 0.7, color = Color3.fromHex("E8FAFF"), strength = 2.0, stars = 4 },
+	},
+
+	-- Supernova Nuke. A white-hot core with its flare bursting out through the
+	-- shell, the shell's shards blown loose and orbiting in two rings, and a shock
+	-- ring off the core on every beat.
+	supernova_nuke = {
+		finish = {
+			{ parts = { "Core" }, material = "Neon", color = Color3.fromHex("FFF4D8") },
+			{ parts = { "CoreFlare" }, material = "Neon", color = Color3.fromHex("FF8A2A"), transparency = 0.2 },
+		},
+		light = { part = "Core", color = Color3.fromHex("FFC86A"), brightness = 2.4, range = 1.5 },
+		particles = {
+			{ part = "Core", preset = "ember", color = Color3.fromHex("FFB03A"), rate = 6 },
+			{ part = "Core", preset = "sparkle", color = Color3.fromHex("FFF0C8"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "Shard2*" }, pivot = "Core", axis = "Y", rpm = 6 },
+			{ parts = { "Shard3*" }, pivot = "Core", axis = "Y", rpm = -5 },
+			{ parts = { "Shard4*" }, pivot = "Core", axis = "Y", mode = "bob", amp = 0.06, period = 2.4, rpm = 3 },
+			{ parts = { "CoreFlare" }, pivot = "Core", axis = "Y", rpm = -10 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "Core", "CoreFlare" }, light = true, period = 1.6, min = 0.5 },
+		},
+		ping = { part = "Core", color = Color3.fromHex("FFD88A"), period = 1.6 },
+	},
+
+	-- Glitch Nuke. Stacked slabs that won't stay lined up: each one jerks out of
+	-- place now and then, the cyan and magenta edges flicker out of step and the
+	-- stray pixels blink on and off.
+	glitch_nuke = {
+		finish = {
+			{ parts = { "CyanEdge", "Pixel" }, material = "Neon", color = Color3.fromHex("22F0FF") },
+			{ parts = { "MagentaEdge" }, material = "Neon", color = Color3.fromHex("FF2AD8") },
+		},
+		light = { part = "SlabShell3", color = Color3.fromHex("C86AFF"), brightness = 1.8, range = 1.3 },
+		spins = {
+			{ parts = { "SlabShell2", "CyanEdge2", "MagentaEdge2" }, pivot = "SlabShell2", axis = "Y", mode = "twitch", deg = 14, period = 2.2, duration = 0.12 },
+			{ parts = { "SlabShell3", "CyanEdge3", "MagentaEdge3" }, pivot = "SlabShell3", axis = "Y", mode = "twitch", deg = -18, period = 2.8, duration = 0.1 },
+			{ parts = { "SlabShell4", "CyanEdge4", "MagentaEdge4", "Pixel1" }, pivot = "SlabShell4", axis = "Y", mode = "twitch", deg = 12, period = 1.9, duration = 0.12 },
+			{ parts = { "SlabShell5", "CyanEdge5", "MagentaEdge5", "Pixel2" }, pivot = "SlabShell5", axis = "Y", mode = "twitch", deg = -16, period = 2.5, duration = 0.1 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "CyanEdge", "MagentaEdge" }, light = true, period = 0.15, min = 0.3, perPart = true },
+			{ kind = "blink", parts = { "Pixel" }, period = 0.9, duty = 0.5, min = 0, mode = "transparency", stagger = true },
+		},
+	},
+
 	-- ── STAGE 10: TOXIC CRYSTAL CAVES ────────────────────────────────────────
 
 	-- Canister Nuke. A rusted drum leaking ooze: the leak and its drips hold a

@@ -1891,6 +1891,102 @@ Items.DEFS = {
 		baseValue = 4200000000,
 		model = "ImportedNuke",
 	},
+	-- Stage 13 (Starfall Crater), import-nuke-models-batch25. Values ~2.45x Stage 12
+	-- per tier, the same step as 11 -> 12.
+	{
+		id = "meteorite_nuke",
+		name = "Meteorite Nuke",
+		flavor = "Fell out of the sky burning. The crust cracked; the core didn't.",
+		rarity = "Rare",
+		odds = 260, -- 1 in N per dig in a stocking stage
+		weight = 180,
+		stages = { 13 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 2450000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "kintsugi_nuke",
+		name = "Kintsugi Nuke",
+		flavor = "Shattered on landing and mended in gold.",
+		rarity = "Epic",
+		odds = 3900, -- 1 in N per dig in a stocking stage
+		weight = 280,
+		stages = { 13 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 13700000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "starlight_nuke",
+		name = "Starlight Nuke",
+		flavor = "A crystal in its belly catches starlight and throws it back out.",
+		rarity = "Epic",
+		odds = 5600, -- 1 in N per dig in a stocking stage
+		weight = 260,
+		stages = { 13 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 18100000,
+		sizeMult = 1.4, -- bigger
+		model = "ImportedNuke",
+	},
+	{
+		id = "voidglass_nuke",
+		name = "Voidglass Nuke",
+		flavor = "Stacked in sections with nothing but the void between them.",
+		rarity = "Legendary",
+		odds = 76000, -- 1 in N per dig in a stocking stage
+		weight = 320,
+		stages = { 13 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 181000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "comet_nuke",
+		name = "Comet Nuke",
+		flavor = "Comet ice that never melted. New crystals keep pushing through.",
+		rarity = "Legendary",
+		odds = 120000, -- 1 in N per dig in a stocking stage
+		weight = 300,
+		stages = { 13 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 265000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "supernova_nuke",
+		name = "Supernova Nuke",
+		flavor = "Caught a split second after the star blew apart.",
+		rarity = "Mythic",
+		odds = 500000, -- 1 in N per dig in a stocking stage
+		weight = 400,
+		sizeMult = 1.8, -- bigger
+		stages = { 13 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 1100000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "glitch_nuke",
+		name = "Glitch Nuke",
+		flavor = "Game Over wasn't the end. The world glitched and kept going.",
+		rarity = "Anomaly",
+		odds = 5000000, -- 1 in N per dig in a stocking stage
+		weight = 500,
+		sizeMult = 2.5, -- bigger
+		stages = { 13 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 8500000000,
+		model = "ImportedNuke",
+	},
 	{
 		id = "canister_nuke",
 		name = "Canister Nuke",
