@@ -734,10 +734,11 @@ Stages.DEFS = {
 	-- 0.877 floor pair and its derived wall pair stay off the 255 clamp, so they wear the
 	-- shared StudChecker with no new colour maps (Kit.PAIR_MAPS).
 	--
-	-- DIG IS OFF for now, the same way Stages 7-12 shipped: nothing in Config/Items stocks
-	-- 13-16 yet, so DigService spawns no signals there (it warns once) and the Index rail
-	-- hides them. The nukes come with the user's imported models; `rarityTilt` is a
-	-- placeholder until then and gets re-fitted with them.
+	-- DIG IS OFF for 14-16, the same way Stages 7-12 shipped: nothing in Config/Items stocks
+	-- them yet, so DigService spawns no signals there (it warns once) and the Index rail
+	-- hides them. The nukes come with the user's imported models; their `rarityTilt` is a
+	-- placeholder until then and gets re-fitted with them. Stage 13 is stocked (batch 25,
+	-- 7 nukes, Rare to Anomaly).
 	--
 	-- RADIATION CONTINUES FROM GROUND ZERO'S 600 at the same ~1.32x a stage, each field's
 	-- deepRads sized for an aura that doesn't exist yet (tolerances ~810/1080/1440/1910).
@@ -753,7 +754,7 @@ Stages.DEFS = {
 		stationDistance = 150, -- Rift Outpost's cleansing station, just back through the mouth; est., not walked
 		fogColor = Color3.fromHex("3A4270"),
 		fogEnd = 400,
-		rarityTilt = 1.8, -- placeholder: Ground Zero's, until 13-16 are stocked
+		rarityTilt = 1.9, -- ~2% Mythic+ at baseline luck, Ground Zero's share (7 nukes vs its 9)
 		-- West edge = the Rift Outpost exit.
 		center = { CENTER_X[13], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
