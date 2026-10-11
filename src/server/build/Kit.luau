@@ -551,10 +551,11 @@ function Kit.liquidFx(parent: Instance, cf: CFrame, sizeX: number, sizeZ: number
 end
 
 export type Motion = {
-	kind: string, -- "spin" | "sway" | "ripples" | "screen" (StationMotionController)
+	kind: string, -- "spin" | "sway" | "ripples" | "screen" | "drift" (StationMotionController)
 	axis: string?, -- "X" | "Y" | "Z", the pivot's OWN axis to turn about (spin, sway)
 	rate: number?, -- spin: radians per second. sway: how fast the wander changes.
-	amp: number?, -- sway: the widest swing either side of rest, in radians
+	amp: number?, -- sway: the widest swing either side of rest, in radians. drift: studs
+	range: number?, -- studs from the camera it animates within (default the controller's NEAR)
 }
 
 --- Mark `target` as something StationMotionController animates. A Model turns about
@@ -571,6 +572,9 @@ function Kit.motion(target: Instance, motion: Motion)
 	end
 	if motion.amp then
 		target:SetAttribute("MotionAmp", motion.amp)
+	end
+	if motion.range then
+		target:SetAttribute("MotionRange", motion.range)
 	end
 	CollectionService:AddTag(target, Kit.MOTION_TAG)
 end
