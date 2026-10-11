@@ -2720,6 +2720,154 @@ ItemFx.DEFS = {
 		},
 	},
 
+	-- ── STAGE 14: GRAVITY WELLS ──────────────────────────────────────────────
+
+	-- Ballast Nuke. Plate bolted on plate: the plate edges charge violet one after
+	-- another, bottom to top, and the brass weight tag catches the light.
+	ballast_nuke = {
+		finish = {
+			{ parts = { "PlateEdge" }, material = "Neon", color = Color3.fromHex("9A6AFF") },
+		},
+		light = { part = "BallastPlate2", color = Color3.fromHex("9A6AFF"), brightness = 1.2, range = 1.0 },
+		anims = {
+			{ kind = "blink", parts = { "PlateEdge" }, light = true, period = 1.8, duty = 0.4, min = 0.25, stagger = true },
+		},
+		glint = { parts = { "WeightTag", "Shackle", "ShackleBase" }, period = 4.0, sweep = 0.8, color = GLINT_GOLD, strength = 2.2, stars = 2 },
+	},
+
+	-- Spaghettified Nuke. Stretched thin by something heavy: the stress cracks glow
+	-- hot pink, the warped bands slide along the shell out of step, and motes are
+	-- drawn in toward it.
+	spaghettified_nuke = {
+		finish = {
+			{ parts = { "StressCrack" }, material = "Neon", color = Color3.fromHex("FF4AC8") },
+			{ parts = { "WarpedBand" }, material = "Neon", color = Color3.fromHex("C8A8FF"), transparency = 0.2 },
+		},
+		light = { part = "StretchedShell", color = Color3.fromHex("FF5AD0"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "StretchedShell", preset = "shrinkMotes", color = Color3.fromHex("FFB0E8"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "WarpedBand1" }, pivot = "WarpedBand1", axis = "Y", mode = "bob", amp = 0.8, period = 2.2, phase = 0 },
+			{ parts = { "WarpedBand2" }, pivot = "WarpedBand2", axis = "Y", mode = "bob", amp = 0.8, period = 2.2, phase = 0.33 },
+			{ parts = { "WarpedBand3" }, pivot = "WarpedBand3", axis = "Y", mode = "bob", amp = 0.8, period = 2.2, phase = 0.66 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "StressCrack" }, light = true, period = 2.2, min = 0.4 },
+		},
+	},
+
+	-- Hover Nuke. Four sections held apart by their own fields: the outer three
+	-- float up and down out of step round the second, the field discs turn and
+	-- pulse between them. SegmentShell2 (the primary) stays put: the controller
+	-- needs one part no group moves to hold every pivot against.
+	hover_nuke = {
+		finish = {
+			{ parts = { "FieldDisc" }, material = "Neon", color = Color3.fromHex("9A6AFF"), transparency = 0.35 },
+			{ parts = { "FieldRing", "FieldPad" }, material = "Neon", color = Color3.fromHex("C8A8FF") },
+		},
+		light = { part = "FieldDisc2", color = Color3.fromHex("9A6AFF"), brightness = 1.6, range = 1.1 },
+		spins = {
+			{ parts = { "SegmentShell1", "SegmentLip1", "FloatFin", "FieldPad" }, pivot = "SegmentShell1", axis = "Y", mode = "bob", amp = 0.15, period = 2.6, phase = 0 },
+			{ parts = { "SegmentShell3", "SegmentLip3" }, pivot = "SegmentShell3", axis = "Y", mode = "bob", amp = 0.2, period = 2.6, phase = 0.5 },
+			{ parts = { "SegmentShell4" }, pivot = "SegmentShell4", axis = "Y", mode = "bob", amp = 0.15, period = 2.6, phase = 0.75 },
+			{ parts = { "FieldDisc", "FieldRing" }, pivot = "SegmentShell2", axis = "Y", rpm = 10 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "FieldDisc", "FieldRing", "FieldPad" }, light = true, period = 2.6, min = 0.4 },
+		},
+	},
+
+	-- Orbit Nuke. A banded planet keeping three moons: each moon rides its own
+	-- tilted track round the shell, at its own speed, and the nose light blinks.
+	-- Each track turns rigidly with its moon, so the moon never leaves its ring.
+	orbit_nuke = {
+		finish = {
+			{ parts = { "OrbitTrack" }, material = "Neon", color = Color3.fromHex("9AC8FF"), transparency = 0.55 },
+			{ parts = { "MoonRing", "NoseLight" }, material = "Neon", color = Color3.fromHex("BFE0FF") },
+		},
+		light = { part = "NoseLight", color = Color3.fromHex("9AC8FF"), brightness = 1.4, range = 1.0 },
+		spins = {
+			{ parts = { "Moon1", "OrbitTrack1" }, pivot = "Shell", axis = "Y", rpm = 9 },
+			{ parts = { "Moon2", "OrbitTrack2" }, pivot = "Shell", axis = "Y", rpm = -6 },
+			{ parts = { "Moon3", "MoonRing", "OrbitTrack3" }, pivot = "Shell", axis = "Y", rpm = 4 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "NoseLight" }, light = true, period = 1.6, duty = 0.3, min = 0.3 },
+			{ kind = "pulse", parts = { "OrbitTrack" }, period = 3.0, min = 0.5 },
+		},
+	},
+
+	-- Pulsar Nuke. A neutron star in a cage, spinning fast: its two beams sweep
+	-- round like a lighthouse, it flashes on every turn and the field loops whirl
+	-- with it.
+	pulsar_nuke = {
+		finish = {
+			{ parts = { "NeutronStar" }, material = "Neon", color = Color3.fromHex("EAF4FF") },
+			{ parts = { "Beam" }, material = "Neon", color = Color3.fromHex("6AB8FF"), transparency = 0.45 },
+			{ parts = { "FieldLoop" }, material = "Neon", color = Color3.fromHex("5A7AFF"), transparency = 0.4 },
+		},
+		light = { part = "NeutronStar", color = Color3.fromHex("9AC8FF"), brightness = 2.2, range = 1.4 },
+		particles = {
+			{ part = "NeutronStar", preset = "sparkle", color = Color3.fromHex("DDF0FF"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "NeutronStar", "Beam", "FieldLoop" }, pivot = "NeutronStar", axis = "Y", rpm = 40 },
+		},
+		anims = {
+			{ kind = "flash", parts = { "NeutronStar", "Beam" }, light = true, period = 0.75, min = 0.35 },
+		},
+		ping = { part = "NeutronStar", color = Color3.fromHex("9AC8FF"), period = 1.5 },
+	},
+
+	-- Galaxy Nuke. Three spiral arms of stars wound round a dark shell: the arms
+	-- turn slowly, stars glitter along them and the nose lens glows.
+	galaxy_nuke = {
+		finish = {
+			{ parts = { "SpiralArm" }, material = "Neon", color = Color3.fromHex("7AD8FF"), transparency = 0.15 },
+			{ parts = { "NoseLens" }, material = "Neon", color = Color3.fromHex("FFF2D8") },
+		},
+		light = { part = "Shell", color = Color3.fromHex("8AC8FF"), brightness = 1.8, range = 1.3 },
+		particles = {
+			{ part = "Shell", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 5 },
+			{ part = "Shell", preset = "drift", color = Color3.fromHex("B48CFF"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "SpiralArm" }, pivot = "Shell", axis = "Y", rpm = 5 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "SpiralArm" }, light = true, period = 3.0, min = 0.5 },
+			{ kind = "pulse", parts = { "NoseLens" }, period = 2.0, min = 0.5 },
+		},
+	},
+
+	-- Gravity Well Nuke. A dense core in a double gimbal over a funnel in space:
+	-- the gimbals turn against each other, the well's rings light up one after
+	-- another from the rim inward, debris spirals down it and motes fall in.
+	gravity_well_nuke = {
+		finish = {
+			{ parts = { "CoreEquator", "CoreLatitude", "GimbalGlow", "GravityTether" }, material = "Neon", color = Color3.fromHex("9A6AFF") },
+			{ parts = { "Node", "FuzeGlow", "WellPoint" }, material = "Neon", color = Color3.fromHex("E8DCFF") },
+			{ parts = { "WellRing" }, material = "Neon", color = Color3.fromHex("7A50FF"), transparency = 0.3 },
+			{ parts = { "WellLine" }, material = "Neon", color = Color3.fromHex("6A48D8"), transparency = 0.65 },
+			{ parts = { "InfallTrail" }, material = "Neon", color = Color3.fromHex("B48CFF"), transparency = 0.4 },
+		},
+		light = { part = "WellPoint", color = Color3.fromHex("9A6AFF"), brightness = 2.2, range = 1.4 },
+		particles = {
+			{ part = "WellPoint", preset = "shrinkMotes", color = Color3.fromHex("D8C8FF"), rate = 6 },
+		},
+		spins = {
+			{ parts = { "Gimbal1", "GimbalGlow1", "Node1*" }, pivot = "DenseCore", axis = "Y", rpm = 10 },
+			{ parts = { "Gimbal2", "GimbalGlow2", "Node2*" }, pivot = "DenseCore", axis = "Y", rpm = -7 },
+			{ parts = { "InfallDebris", "InfallTrail" }, pivot = "WellPoint", axis = "Y", rpm = 8 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "WellRing" }, period = 2.0, duty = 0.35, min = 0.3, stagger = true },
+			{ kind = "heartbeat", parts = { "CoreEquator", "CoreLatitude", "WellPoint", "GravityTether" }, light = true, period = 1.8, min = 0.5 },
+			{ kind = "pulse", parts = { "GimbalGlow", "Node" }, period = 2.4, min = 0.5 },
+		},
+	},
+
 	-- ── STAGE 10: TOXIC CRYSTAL CAVES ────────────────────────────────────────
 
 	-- Canister Nuke. A rusted drum leaking ooze: the leak and its drips hold a
