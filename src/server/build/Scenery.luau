@@ -791,8 +791,8 @@ local THEME: { [number]: StageTheme } = {
 	-- broad, some mid, the rest spills), so this number is now "how many pools" and
 	-- NOT "how much ooze" -- the lake alone covers more ground than a third of the
 	-- old 26 did. Retune the ladder there, not just this number.
-	-- TWO DEAD TREES, together in one far corner (scatterStage4Trees), and the lake's
-	-- partner pool beside it (scatterOozePools) -- both on request, 2026-10-04.
+	-- TWO DEAD TREES on opposite walls, spread along the field (scatterStage4Trees),
+	-- and the lake's partner pool beside it (scatterOozePools) -- 2026-10-04/10-10.
 	[4] = { props = 18, pools = 5, kind = "barriers", scatter = true, signs = 0, trees = 2 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
@@ -2683,12 +2683,17 @@ local function scatterStage4Trees(folder: Instance, origin: CFrame, count: numbe
 	if count <= 0 then
 		return
 	end
+	-- SPREAD, NOT PAIRED (on request, 2026-10-10): each tree after the first swaps
+	-- to the other wall and steps a long way west, so they share the field's length
+	-- instead of standing together in one corner.
 	local side = if rng:NextNumber() < 0.5 then -1 else 1
 	local x = hx - rng:NextNumber(16, 24)
+	local step = (2 * hx - 40) / math.max(1, count - 1)
 	for _ = 1, count do
 		local z = side * (hz - rng:NextNumber(14, 22))
 		deadTree(folder, origin, x, z, rng, STAGE4_TREE_WITHER)
-		x -= rng:NextNumber(16, 22)
+		x -= step * rng:NextNumber(0.8, 0.95)
+		side = -side
 	end
 end
 
@@ -3074,10 +3079,10 @@ local function scatterOozePools(
 	hz: number,
 	ooze: { bright: string, deep: string, glow: string }
 ): (number, number, number)
-	-- Every pool sits in the LEFT half as you walk in (the -Z side), on request
-	-- (2026-10-04, "move the pools in ooze marsh to the left"): the lake against the
-	-- -Z wall, the rest dealt over z in [zLo, zHi] instead of the full width.
-	local zLo, zHi = -hz, 0
+	-- The lake (and its partner) still sit against the -Z wall, but the rest are
+	-- dealt over the FULL width again, on request (2026-10-10, "spread out
+	-- decorations better in stage 4"): the left-half-only deal left the +Z half bare.
+	local zLo, zHi = -hz, hz
 	-- The lake: one per field.
 	local lakeR = rng:NextNumber(26, 33)
 	local lakeX = rng:NextNumber(-hx * 0.3, hx * 0.45)
@@ -3117,12 +3122,14 @@ local function scatterOozePools(
 	local mateR = table.remove(sizes, big)
 	local mateDir = if lakeX > 0 then -1 else 1
 	local mateX = math.clamp(lakeX + mateDir * (lakeR + mateR + rng:NextNumber(4, 8)), -hx + mateR, hx - mateR)
-	local mateZ = math.clamp(lakeZ + rng:NextNumber(-0.4, 0.4) * lakeR, zLo + mateR, zHi - mateR)
+	local mateZ = math.clamp(lakeZ + rng:NextNumber(-0.4, 0.4) * lakeR, zLo + mateR, -mateR)
 	oozePool(folder, origin, mateX, mateZ, mateR, rng, ooze, hx, hz)
 	rest -= 1
 
 	local cols = math.ceil(math.sqrt(rest * (2 * hx / (zHi - zLo))))
-	local rows = math.ceil(rest / cols)
+	-- At least two rows, so a full-width deal cannot collapse into one strip
+	-- down the middle (three pools over a 138-wide field gave rows = 1).
+	local rows = math.max(2, math.ceil(rest / cols))
 
 	-- COLUMN COUNTS ARE ASSIGNED, NOT ROLLED -- found live, on report ("space them out
 	-- more evenly"). The previous build shuffled one flat bag over all `cols * rows`
