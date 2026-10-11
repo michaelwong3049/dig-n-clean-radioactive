@@ -2569,7 +2569,172 @@ ItemFx.DEFS = {
 		glint = { parts = { "Body", "NoseDome", "TailSection" }, period = 4.0, sweep = 0.8, color = Color3.fromHex("FFFFFF"), strength = 1.2 },
 	},
 
-	-- ── STAGE 13: STARFALL CRATER ────────────────────────────────────────────
+	-- ── STAGE 13: STARFALL CRATER (batch 27) ─────────────────────────────────
+
+	-- Fireball Nuke. A shell crusted in charred rock with magma showing through the
+	-- waist: the core and the fin edges smoulder, embers spit off and smoke rises.
+	fireball_nuke = {
+		finish = {
+			{ parts = { "MagmaCore" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "FinHeatEdge" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+		},
+		light = { part = "MagmaCore", color = Color3.fromHex("FF7A2A"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "MagmaCore", preset = "ember", color = Color3.fromHex("FF8A2A"), rate = 5 },
+			{ part = "Fuze", preset = "smoke", color = Color3.fromHex("3A3430"), rate = 2 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "MagmaCore", "FinHeatEdge" }, light = true, period = 2.4, min = 0.4 },
+		},
+	},
+
+	-- Shooting Star Nuke. A navy rocket with a gold star on its nose and one in its
+	-- porthole: both stars pulse, the comet tail behind it flickers and sheds
+	-- sparkles, and a glint runs down the gold bands.
+	shooting_star_nuke = {
+		finish = {
+			{ parts = { "NoseStar", "StarWindow" }, material = "Neon", color = Color3.fromHex("FFD86A") },
+			{ parts = { "NoseStarCore", "CometTailCore" }, material = "Neon", color = Color3.fromHex("FFF6DC") },
+			{ parts = { "CometTail", "CometWisp" }, material = "Neon", color = Color3.fromHex("FFB04A"), transparency = 0.35 },
+		},
+		light = { part = "NoseStar", color = Color3.fromHex("FFD88A"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "CometTail", preset = "sparkle", color = Color3.fromHex("FFE8A8"), rate = 4 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "NoseStar", "NoseStarCore", "StarWindow" }, light = true, period = 1.8, min = 0.5 },
+			{ kind = "flicker", parts = { "CometTail", "CometWisp", "CometTailCore" }, period = 0.2, min = 0.55, perPart = true },
+		},
+		glint = { parts = { "GoldBand", "FinTip", "StarWindowFrame", "TailCap" }, period = 4.0, sweep = 0.8, color = GLINT_GOLD, strength = 2.2, stars = 3 },
+	},
+
+	-- Frostfall Nuke. A comet's icy heart caged in steel ribs: the core glows cold
+	-- through the cage, the ice on the nose catches the light, the fin glows
+	-- breathe and the tail sheds frost vapour.
+	frostfall_nuke = {
+		finish = {
+			{ parts = { "CometCore" }, material = "Neon", color = Color3.fromHex("6AE4FF") },
+			{ parts = { "FinGlow" }, material = "Neon", color = Color3.fromHex("8AEFFF") },
+			{ parts = { "NoseIce*", "NoseShard*", "IceStreamer" }, material = "Glass", color = Color3.fromHex("CFF4FF"), transparency = 0.2 },
+		},
+		light = { part = "CometCore", color = Color3.fromHex("7ADFFF"), brightness = 1.7, range = 1.2 },
+		particles = {
+			{ part = "TailCap", preset = "steam", color = Color3.fromHex("E0F6FF"), rate = 3, direction = "Bottom" },
+			{ part = "CometCore", preset = "sparkle", color = Color3.fromHex("DDF6FF"), rate = 3 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "CometCore", "FinGlow" }, light = true, period = 2.8, min = 0.45 },
+		},
+		glint = { parts = { "NoseIce*", "NoseShard*", "IceStreamer", "FrostBand" }, period = 3.6, sweep = 0.7, color = Color3.fromHex("E8FAFF"), strength = 2.0, stars = 4 },
+	},
+
+	-- Re-entry Nuke. Came down nose first through the atmosphere: the heat shield
+	-- still flickers white-orange, the bow shock in front of it turns and pulses,
+	-- the fin glows smoulder, and the charred tile body trails smoke and embers.
+	reentry_nuke = {
+		finish = {
+			{ parts = { "HeatCore" }, material = "Neon", color = Color3.fromHex("FFF0D0") },
+			{ parts = { "HeatShield" }, material = "Neon", color = Color3.fromHex("FF9A3A") },
+			{ parts = { "BowShock" }, material = "Neon", color = Color3.fromHex("FF7A2A"), transparency = 0.45 },
+			{ parts = { "FinGlow" }, material = "Neon", color = Color3.fromHex("FF6A2A") },
+		},
+		light = { part = "HeatShield", color = Color3.fromHex("FF9A4A"), brightness = 1.9, range = 1.3 },
+		particles = {
+			{ part = "HeatShield", preset = "ember", color = Color3.fromHex("FFB04A"), rate = 6 },
+			{ part = "TailCap", preset = "smoke", color = Color3.fromHex("3A3430"), rate = 3, direction = "Bottom" },
+		},
+		spins = {
+			{ parts = { "BowShock" }, pivot = "HeatCore", axis = "Y", rpm = 14 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "HeatShield", "HeatCore" }, light = true, period = 0.18, min = 0.6 },
+			{ kind = "pulse", parts = { "BowShock" }, period = 1.2, min = 0.4 },
+			{ kind = "smoulder", parts = { "FinGlow" }, period = 2.6, min = 0.35 },
+		},
+	},
+
+	-- Constellation Nuke. A night-sky shell mapped with constellations: the stars
+	-- glitter one by one, the lines between them breathe, the nebula band drifts
+	-- through its colours and two star orbits turn round the waist.
+	constellation_nuke = {
+		finish = {
+			{ parts = { "ConstStar", "BandStar", "OrbitStar*", "FinStar", "StarFinial" }, material = "Neon", color = Color3.fromHex("EAF0FF") },
+			{ parts = { "ConstLine" }, material = "Neon", color = Color3.fromHex("8AA8FF"), transparency = 0.35 },
+			{ parts = { "OrbitTrack" }, material = "Neon", color = Color3.fromHex("7A98FF"), transparency = 0.55 },
+			{ parts = { "NebulaBand" }, material = "Neon", color = Color3.fromHex("7A4AFF") },
+		},
+		light = { part = "NebulaBand", color = Color3.fromHex("8A6AFF"), brightness = 1.6, range = 1.2 },
+		particles = {
+			{ part = "NebulaBand", preset = "sparkle", color = Color3.fromHex("DDE6FF"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "OrbitTrack1", "OrbitStar1*" }, pivot = "NebulaBand", axis = "Y", rpm = 7 },
+			{ parts = { "OrbitTrack2", "OrbitStar2*" }, pivot = "NebulaBand", axis = "Y", rpm = -5 },
+		},
+		anims = {
+			{ kind = "colorCycle", parts = { "NebulaBand" }, period = 6.0, colors = { Color3.fromHex("7A4AFF"), Color3.fromHex("3A7AFF"), Color3.fromHex("C84AFF") } },
+			{ kind = "pulse", parts = { "ConstLine", "OrbitTrack" }, light = true, period = 3.2, min = 0.4 },
+			{ kind = "glitter", parts = { "ConstStar", "BandStar", "OrbitStar*", "FinStar", "StarFinial" }, period = 1.6, duration = 0.25 },
+		},
+	},
+
+	-- Corona Nuke. A captive star burns in the shell's waist: its core beats white
+	-- hot and throws a ring of light, the corona and its spikes turn round it, two
+	-- halo rings orbit in opposite directions and the heat seams smoulder.
+	corona_nuke = {
+		finish = {
+			{ parts = { "StarCore" }, material = "Neon", color = Color3.fromHex("FFF4D8") },
+			{ parts = { "Corona", "LightSpike" }, material = "Neon", color = Color3.fromHex("FFC24A"), transparency = 0.15 },
+			{ parts = { "HaloRingA" }, material = "Neon", color = Color3.fromHex("FF7A2A"), transparency = 0.3 },
+			{ parts = { "HaloRingB" }, material = "Neon", color = Color3.fromHex("FFC24A"), transparency = 0.3 },
+			{ parts = { "HeatSeam", "UpperRim", "LowerRim" }, material = "Neon", color = Color3.fromHex("FF7A2A") },
+		},
+		light = { part = "StarCore", color = Color3.fromHex("FFC86A"), brightness = 2.2, range = 1.5 },
+		particles = {
+			{ part = "StarCore", preset = "ember", color = Color3.fromHex("FFB03A"), rate = 5 },
+			{ part = "StarCore", preset = "sparkle", color = Color3.fromHex("FFF0C8"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "Corona", "LightSpike" }, pivot = "StarCore", axis = "Y", rpm = 8 },
+			{ parts = { "HaloRingA" }, pivot = "StarCore", axis = "Y", rpm = 12 },
+			{ parts = { "HaloRingB" }, pivot = "StarCore", axis = "Y", rpm = -9 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "StarCore", "Corona", "LightSpike" }, light = true, period = 1.6, min = 0.5 },
+			{ kind = "smoulder", parts = { "HeatSeam", "UpperRim", "LowerRim" }, period = 2.8, min = 0.35 },
+		},
+		ping = { part = "StarCore", color = Color3.fromHex("FFD88A"), period = 1.6 },
+	},
+
+	-- Starfall Nuke. The crater's namesake: a great gold-edged star set round the
+	-- shell, turning slowly, its point gems glittering, a crystal star on the nose,
+	-- and five burning meteor fragments circling it with their trails behind.
+	starfall_nuke = {
+		finish = {
+			{ parts = { "HeartGlow", "PointGem" }, material = "Neon", color = Color3.fromHex("FFF4D8") },
+			{ parts = { "StarOutline", "FacetRidge" }, material = "Neon", color = Color3.fromHex("FFD86A") },
+			{ parts = { "CrystalStarNose" }, material = "Glass", color = Color3.fromHex("FFF0B8"), transparency = 0.15 },
+			{ parts = { "FragTrail" }, material = "Neon", color = Color3.fromHex("FF7A2A"), transparency = 0.3 },
+		},
+		light = { part = "HeartGlow", color = Color3.fromHex("FFD88A"), brightness = 2.4, range = 1.6 },
+		particles = {
+			{ part = "HeartGlow", preset = "sparkle", color = Color3.fromHex("FFF0C8"), rate = 5 },
+			{ part = "MeteorFrag1", preset = "ember", color = Color3.fromHex("FF8A2A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "StarBody", "StarOutline", "FacetRidge", "PointGem" }, pivot = "Shell", axis = "Y", rpm = 3 },
+			{ parts = { "MeteorFrag", "FragTrail" }, pivot = "Shell", axis = "Y", rpm = -10 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "HeartGlow" }, light = true, period = 1.8, min = 0.5 },
+			{ kind = "pulse", parts = { "StarOutline", "FacetRidge" }, period = 2.6, min = 0.5 },
+			{ kind = "flicker", parts = { "FragTrail" }, period = 0.2, min = 0.5, perPart = true },
+			{ kind = "glitter", parts = { "PointGem", "CrystalStarNose" }, period = 1.4, duration = 0.25 },
+		},
+		ping = { part = "HeartGlow", color = Color3.fromHex("FFE08A"), period = 1.8 },
+	},
+
+	-- ── STAGE 15: THE FRACTURE (batch 25, first shipped as Stage 13) ─────────
 
 	-- Meteorite Nuke. A charred rock split round a molten waist: the core band and
 	-- the cracks smoulder, embers drift off the core and the top still smokes.
