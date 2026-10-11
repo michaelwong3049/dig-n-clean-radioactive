@@ -222,7 +222,7 @@ local ImportedStation = require(script.Parent.ImportedStation)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 128 -- imported cleaning station tub (2026-10-10)
+local BUILDER_VERSION = 129 -- quarantine locker dropped onto the strip (2026-10-10)
 
 local C = Kit.C
 local build, light = Kit.build, Kit.light
@@ -3914,9 +3914,11 @@ local function buildPlot(parent: Instance, index: number)
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.
 	-- Fully invisible: there is no physical checkpoint pad any more, just the spawn
 	-- point itself at the same spot the pad used to mark.
-	-- The front strip (spawn, washer, bottle, treadmill) is built through `ground`, the
-	-- same frame dropped to the grey path's height; the locker stands behind the hazard
-	-- line, on the deck, so it keeps `origin`.
+	-- The front strip (spawn, washer, bottle) is built through `ground`, the same frame
+	-- dropped to the grey path's height; the locker stood behind the hazard line, on the
+	-- deck, so it kept `origin` — until it slid down to z -35 (off the deck, DECK_MIN_Z)
+	-- and hovered 1.5 over the bare apron. It drops to the apron's top (no path under it,
+	-- so not STRIP_DROP, and not STRIP_FORWARD either).
 	-- STRIP_FORWARD: the strip's machines and spawn are written for the old -43 front and
 	-- built 4 further out, the middle of the 8 the strip gained.
 	local ground = origin * CFrame.new(0, -STRIP_DROP, -STRIP_FORWARD)
@@ -3961,7 +3963,7 @@ local function buildPlot(parent: Instance, index: number)
 		bottleAt = stationAt
 	end
 	buildCleansingStation(m, ground * stationAt, accent)
-	buildQuarantineLocker(m, origin * lockerAt, index)
+	buildQuarantineLocker(m, origin * CFrame.new(0, Hub.PLAZA.topY - pad.topY, 0) * lockerAt, index)
 	buildFluidBottle(m, ground * bottleAt)
 	Plots.ensureHosePad(m)
 
