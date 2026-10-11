@@ -2885,6 +2885,171 @@ ItemFx.DEFS = {
 		},
 	},
 
+	-- ── STAGE 16: EVENT HORIZON (batch 28) ───────────────────────────────────
+
+	-- Dark Matter Nuke. Three dark orbs sit in sockets round the shell: the violet
+	-- veins pulse, the orbs drift up and down in their sockets out of step, and
+	-- motes are drawn in toward the shell.
+	dark_matter_nuke = {
+		finish = {
+			{ parts = { "Vein" }, material = "Neon", color = Color3.fromHex("9A5AFF") },
+			{ parts = { "DarkOrb" }, material = "Glass", color = Color3.fromHex("1A0F2A"), reflectance = 0.3 },
+		},
+		light = { part = "Shell", color = Color3.fromHex("8A4AFF"), brightness = 1.2, range = 1.0 },
+		particles = {
+			{ part = "Shell", preset = "shrinkMotes", color = Color3.fromHex("C8A8FF"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "DarkOrb1" }, pivot = "DarkOrb1", axis = "Y", mode = "bob", amp = 0.15, period = 2.6, phase = 0 },
+			{ parts = { "DarkOrb2" }, pivot = "DarkOrb2", axis = "Y", mode = "bob", amp = 0.15, period = 2.6, phase = 0.33 },
+			{ parts = { "DarkOrb3" }, pivot = "DarkOrb3", axis = "Y", mode = "bob", amp = 0.15, period = 2.6, phase = 0.66 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Vein" }, light = true, period = 2.4, min = 0.3 },
+		},
+	},
+
+	-- Accretion Nuke. Wrapped in its own accretion disk: the rings glow white-hot
+	-- inside and red at the rim, a wave of light runs through them ring by ring,
+	-- and the hot inner glow sheds embers.
+	accretion_nuke = {
+		finish = {
+			{ parts = { "InnerGlow" }, material = "Neon", color = Color3.fromHex("FFF0D8") },
+			{ parts = { "AccretionBand1", "AccretionBand2", "AccretionBand3" }, material = "Neon", color = Color3.fromHex("FFD89A") },
+			{ parts = { "AccretionBand4", "AccretionBand5", "AccretionBand6" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+			{ parts = { "AccretionBand7", "AccretionBand8", "AccretionBand9" }, material = "Neon", color = Color3.fromHex("D8381A") },
+		},
+		light = { part = "InnerGlow", color = Color3.fromHex("FFB06A"), brightness = 1.6, range = 1.2 },
+		particles = {
+			{ part = "InnerGlow", preset = "ember", color = Color3.fromHex("FFB04A"), rate = 4 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "AccretionBand" }, period = 2.0, duty = 0.35, min = 0.45, stagger = true },
+			{ kind = "smoulder", parts = { "InnerGlow" }, light = true, period = 2.4, min = 0.5 },
+		},
+	},
+
+	-- Photon Nuke. Caught inside a cage of light paths: the whole cage turns, the
+	-- photons riding it glitter, and the fuze light and the waist band pulse.
+	photon_nuke = {
+		finish = {
+			{ parts = { "Photon", "FuzeLight" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+			{ parts = { "LightPath" }, material = "Neon", color = Color3.fromHex("FFE8A8"), transparency = 0.45 },
+			{ parts = { "GlowBand" }, material = "Neon", color = Color3.fromHex("FFC86A") },
+		},
+		light = { part = "GlowBand", color = Color3.fromHex("FFE0A0"), brightness = 1.6, range = 1.3 },
+		particles = {
+			{ part = "Shell", preset = "sparkle", color = Color3.fromHex("FFF6DC"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "LightPath", "Photon" }, pivot = "Shell", axis = "Y", rpm = 6 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "GlowBand", "FuzeLight", "LightPath" }, light = true, period = 2.2, min = 0.45 },
+			{ kind = "glitter", parts = { "Photon" }, period = 1.2, duration = 0.25 },
+		},
+	},
+
+	-- Wormhole Nuke. The bottom half has phased half out of this universe: it
+	-- fades in and out, the portal ring at the waist glows with a film across it,
+	-- its three arcs turn round it and the phase lines flash down the tail.
+	wormhole_nuke = {
+		finish = {
+			{ parts = { "PhasedShell", "PhasedFin" }, material = "Glass", color = Color3.fromHex("6AD8FF"), transparency = 0.35 },
+			{ parts = { "WormholeRing" }, material = "Neon", color = Color3.fromHex("3A8AFF") },
+			{ parts = { "WormholeInner", "PortalArc" }, material = "Neon", color = Color3.fromHex("BFF0FF") },
+			{ parts = { "EventFilm" }, material = "Neon", color = Color3.fromHex("8AE0FF"), transparency = 0.5 },
+			{ parts = { "PhaseLine" }, material = "Neon", color = Color3.fromHex("DDF8FF") },
+		},
+		light = { part = "WormholeInner", color = Color3.fromHex("7ACFFF"), brightness = 1.8, range = 1.3 },
+		particles = {
+			{ part = "WormholeRing", preset = "shrinkMotes", color = Color3.fromHex("BFEFFF"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "PortalArc" }, pivot = "WormholeRing", axis = "Y", rpm = 10 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "WormholeRing", "WormholeInner", "EventFilm" }, light = true, period = 2.0, min = 0.45 },
+			{ kind = "pulse", parts = { "PhasedShell", "PhasedFin" }, period = 3.4, min = 0.3, mode = "transparency" },
+			{ kind = "blink", parts = { "PhaseLine" }, period = 1.2, duty = 0.3, min = 0.2, stagger = true },
+		},
+	},
+
+	-- Time Dilation Nuke. A clock set into the shell that can't keep time: the
+	-- minute hand races, the hour hand ticks backwards, the two gear rings turn
+	-- against each other and the drift marks chase round the shell.
+	time_dilation_nuke = {
+		finish = {
+			{ parts = { "DriftMark", "HourTick" }, material = "Neon", color = Color3.fromHex("6AD8FF") },
+			{ parts = { "ClockFace" }, material = "Neon", color = Color3.fromHex("E8F0F4"), transparency = 0.1 },
+		},
+		light = { part = "ClockFace", color = Color3.fromHex("8AD8FF"), brightness = 1.4, range = 1.1 },
+		spins = {
+			-- The clock face looks out along (-1.06, 0, -1.84) in the template; the
+			-- meshes carry no rotation, so that is HandPin-local too.
+			{ parts = { "MinuteHand" }, pivot = "HandPin", axisVector = Vector3.new(-1.06, 0, -1.84), rpm = 15 },
+			{ parts = { "HourHand" }, pivot = "HandPin", axisVector = Vector3.new(-1.06, 0, -1.84), mode = "tick", rpm = -4, steps = 12 },
+			{ parts = { "GearBand1", "GearTooth1*" }, pivot = "Shell", axis = "Y", rpm = 5 },
+			{ parts = { "GearBand2", "GearTooth2*" }, pivot = "Shell", axis = "Y", rpm = -5 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "DriftMark" }, light = true, period = 2.4, duty = 0.3, min = 0.2, stagger = true },
+			{ kind = "pulse", parts = { "HourTick" }, period = 1.0, min = 0.4 },
+		},
+		glint = { parts = { "ClockBezel", "Crown", "CrownStem" }, period = 4.0, sweep = 0.8, color = GLINT_GOLD, strength = 2.2, stars = 2 },
+	},
+
+	-- Quasar Nuke. A white-hot core inside a spinning disk, firing two jets out of
+	-- the nose: the core beats and throws a ring of light, the disk turns fast,
+	-- the jets flicker and spray sparks.
+	quasar_nuke = {
+		finish = {
+			{ parts = { "QuasarCore", "JetCore" }, material = "Neon", color = Color3.fromHex("F4FBFF") },
+			{ parts = { "HotDisk" }, material = "Neon", color = Color3.fromHex("FF7A2A") },
+			{ parts = { "Jet" }, material = "Neon", color = Color3.fromHex("6AC8FF"), transparency = 0.35 },
+		},
+		light = { part = "QuasarCore", color = Color3.fromHex("BFE6FF"), brightness = 2.2, range = 1.5 },
+		particles = {
+			{ part = "JetCore1", preset = "sparkle", color = Color3.fromHex("DDF6FF"), rate = 5 },
+			{ part = "HotDisk1", preset = "ember", color = Color3.fromHex("FF9A4A"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "HotDisk" }, pivot = "QuasarCore", axis = "Y", rpm = 20 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "QuasarCore" }, light = true, period = 1.4, min = 0.5 },
+			{ kind = "flicker", parts = { "Jet", "JetCore" }, period = 0.12, min = 0.55, perPart = true },
+			{ kind = "smoulder", parts = { "HotDisk" }, period = 2.0, min = 0.5 },
+		},
+		ping = { part = "QuasarCore", color = Color3.fromHex("CFEFFF"), period = 1.4 },
+	},
+
+	-- Event Horizon Nuke. A nuke caught at the edge of a black hole, stretched and
+	-- circling it: the whole bomb orbits the hole, the photon ring and lens arcs
+	-- glow, a wave runs inward through the accretion disk and motes fall in.
+	event_horizon_nuke = {
+		finish = {
+			{ parts = { "EventHorizon" }, material = "SmoothPlastic", color = Color3.fromHex("000000") },
+			{ parts = { "PhotonRing", "LensArc" }, material = "Neon", color = Color3.fromHex("FFE8C0") },
+			{ parts = { "AccretionBand1", "AccretionBand2", "AccretionBand3" }, material = "Neon", color = Color3.fromHex("FFE0A8") },
+			{ parts = { "AccretionBand4", "AccretionBand5", "AccretionBand6", "AccretionBand7" }, material = "Neon", color = Color3.fromHex("FF9A3A") },
+			{ parts = { "AccretionBand8", "AccretionBand9", "AccretionBand10" }, material = "Neon", color = Color3.fromHex("E04A1A") },
+			{ parts = { "StretchStreak" }, material = "Neon", color = Color3.fromHex("FFB06A"), transparency = 0.4 },
+		},
+		light = { part = "PhotonRing", color = Color3.fromHex("FFC88A"), brightness = 2.4, range = 1.6 },
+		particles = {
+			{ part = "EventHorizon", preset = "shrinkMotes", color = Color3.fromHex("FFE0B0"), rate = 6 },
+		},
+		spins = {
+			{ parts = { "Shell", "Band", "Fin", "Fuze", "StretchStreak" }, pivot = "EventHorizon", axis = "Y", rpm = 4 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "PhotonRing", "LensArc" }, light = true, period = 2.6, min = 0.6 },
+			{ kind = "blink", parts = { "AccretionBand" }, period = 2.4, duty = 0.35, min = 0.5, stagger = true },
+			{ kind = "flicker", parts = { "StretchStreak" }, period = 0.2, min = 0.4, perPart = true },
+		},
+	},
+
 	-- ── STAGE 14: GRAVITY WELLS ──────────────────────────────────────────────
 
 	-- Ballast Nuke. Plate bolted on plate: the plate edges charge violet one after
