@@ -2179,6 +2179,102 @@ Items.DEFS = {
 		baseValue = 51000000000,
 		model = "ImportedNuke",
 	},
+	-- Stage 16 (Event Horizon), import-nuke-models-batch28. Values ~2.45x Stage 15
+	-- per tier.
+	{
+		id = "dark_matter_nuke",
+		name = "Dark Matter Nuke",
+		flavor = "Heavier than it looks. Nobody can see what's in the orbs.",
+		rarity = "Rare",
+		odds = 260, -- 1 in N per dig in a stocking stage
+		weight = 340,
+		stages = { 16 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 36000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "accretion_nuke",
+		name = "Accretion Nuke",
+		flavor = "Spun up its own disk of burning debris on the way in.",
+		rarity = "Epic",
+		odds = 3900, -- 1 in N per dig in a stocking stage
+		weight = 280,
+		stages = { 16 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 201600000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "photon_nuke",
+		name = "Photon Nuke",
+		flavor = "Light can't get out, so it goes round and round instead.",
+		rarity = "Epic",
+		odds = 5600, -- 1 in N per dig in a stocking stage
+		weight = 220,
+		stages = { 16 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 265800000,
+		sizeMult = 1.4, -- bigger
+		model = "ImportedNuke",
+	},
+	{
+		id = "wormhole_nuke",
+		name = "Wormhole Nuke",
+		flavor = "Half of it is somewhere else right now.",
+		rarity = "Legendary",
+		odds = 76000, -- 1 in N per dig in a stocking stage
+		weight = 300,
+		stages = { 16 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 2660000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "time_dilation_nuke",
+		name = "Time Dilation Nuke",
+		flavor = "Its clock runs fast, then backwards. It has never once been on time.",
+		rarity = "Legendary",
+		odds = 120000, -- 1 in N per dig in a stocking stage
+		weight = 360,
+		stages = { 16 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 3900000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "quasar_nuke",
+		name = "Quasar Nuke",
+		flavor = "Brighter than a galaxy and pointed straight up.",
+		rarity = "Mythic",
+		odds = 500000, -- 1 in N per dig in a stocking stage
+		weight = 400,
+		sizeMult = 1.8, -- bigger
+		stages = { 16 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 16200000000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "event_horizon_nuke",
+		name = "Event Horizon Nuke",
+		flavor = "The last thing you dig before nothing comes back out.",
+		rarity = "Anomaly",
+		odds = 5000000, -- 1 in N per dig in a stocking stage
+		weight = 500,
+		sizeMult = 2.5, -- bigger
+		stages = { 16 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 125000000000,
+		model = "ImportedNuke",
+	},
 	{
 		id = "canister_nuke",
 		name = "Canister Nuke",
