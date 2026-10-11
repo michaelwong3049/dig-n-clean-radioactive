@@ -20,8 +20,8 @@
 	    mushrooms growing round it.
 	  * THE PICNIC — a checked blanket somebody left in a hurry: a basket with the lid
 	    up, plates, a knocked-over cup, apples rolled off, and a gas mask.
-	  * TWO SUNFLOWER PATCHES — one bright and upright in the west, one drooped, brown
-	    and snapped in the east. The same flower at both ends of the field.
+	  * A SUNFLOWER PATCH — drooped, brown and snapped in the east (the bright one by
+	    camp was removed 2026-10-10).
 	  * THE FLOWERS — wildflower clumps across the whole field, one colour per clump,
 	    wilting with the ground: fresh and upright in the west, faded and drooping in
 	    the middle, dead stems and fallen petals in the east.
@@ -961,7 +961,7 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	-- The landmarks, most particular about their spot first. South of the lane: the
 	-- picnic near camp, the tree at the middle where the green gives out, the dead
 	-- sunflowers near the far seam. North of it, between the lane and the creek: the
-	-- live sunflowers near camp and the log by the drying stretch.
+	-- log by the drying stretch.
 	local lane = K.LANE_HALF + 6
 	local treeAt = place(taken, 8, rng, fx(0.44), fx(0.56), f.minZ + 10, -lane - 4)
 	if treeAt then
@@ -979,10 +979,8 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	if logAt then
 		fallenLog(folder, logAt, groundY, rng)
 	end
-	local liveAt = place(taken, 7, rng, fx(0.07), fx(0.33), lane, f.maxZ - 6)
-	if liveAt then
-		sunflowerPatch(folder, "Sunflowers", liveAt, 2, 0, 0.12, groundY, rng) -- 4 -> 2, minimal-decor pass
-	end
+	-- The live sunflower patch near camp came out on request (2026-10-10, "remove
+	-- the sunflowers in the beginning of stage 1"); the dead patch at the far seam stays.
 
 	-- THE FLOWERS last, into whatever ground the rest left -- off their OWN seed, so
 	-- trimming a bush or snag (which shifts this rng through `place`) cannot empty or
