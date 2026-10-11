@@ -10,6 +10,10 @@
 	           needle, which a pressure gauge that never twitches reads as a sticker.
 	  ripples  rings spreading across a SurfaceGui laid over the tub's water.
 	  screen   the stride-pulse bars on a treadmill console's readout.
+	  drift    a Model floating about its rest pose: a slow wander of `amp` studs on
+	           every axis plus a lean of a few degrees -- Event Horizon's singularity.
+	           Big sky scenery, so it may carry `MotionRange` to animate from further
+	           than NEAR.
 
 	THIS FILE IS THE ONLY THING THAT MOVES THEM, AND IT ONLY EVER MOVES THEM HERE. Every
 	part is anchored and server-built; the server never touches their CFrames and nothing
@@ -90,6 +94,7 @@ type Entry = {
 	axis: Vector3,
 	rate: number,
 	amp: number,
+	range: number,
 	seed: number,
 	angle: number,
 	-- hover: where the bob is in its cycle. Advances only while the entry animates,
@@ -146,6 +151,7 @@ local function register(target: Instance)
 		axis = AXES[if type(axisName) == "string" then axisName else "Y"] or Vector3.yAxis,
 		rate = (target:GetAttribute("MotionRate") :: number?) or 1,
 		amp = amp,
+		range = (target:GetAttribute("MotionRange") :: number?) or NEAR,
 		seed = rng:NextNumber(0, 1000),
 		angle = angle or rng:NextNumber(0, math.pi * 2),
 		phase = phase or rng:NextNumber(0, math.pi * 2),
@@ -178,7 +184,7 @@ local function resort()
 			if distance <= hover.range then
 				table.insert(hovers, { entry = entry, distance = distance })
 			end
-		elseif distance <= NEAR then
+		elseif distance <= entry.range then
 			table.insert(active, entry)
 		end
 	end
@@ -300,6 +306,14 @@ local function step(dt: number)
 			end
 		elseif kind == "screen" then
 			pulse(entry, now)
+		elseif kind == "drift" then
+			-- Smooth noise per axis, recomputed from home each frame, so it wanders
+			-- without ever walking off. The lean is a few degrees, from the same noise.
+			local t = now * entry.rate
+			local s = entry.seed
+			local offset = Vector3.new(math.noise(t, s), math.noise(t, s + 31), math.noise(t, s + 67)) * (entry.amp * 1.8)
+			local lean = CFrame.Angles(math.noise(t * 0.7, s + 101) * 0.12, 0, math.noise(t * 0.7, s + 137) * 0.12);
+			(entry.target :: PVInstance):PivotTo(CFrame.new(offset) * entry.home * lean)
 		end
 	end
 end

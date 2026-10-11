@@ -11,7 +11,8 @@
 	  * THE SINGULARITY — high over the lane near the east end: a black sphere inside a
 	    tilted accretion disc of the stage's coral `ooze` (two rings of short arcs, hot
 	    inside, cooler out), a thin pale photon ring hugging the sphere, and one big light.
-	    High enough that nothing of it is ever in the walk.
+	    High enough that nothing of it is ever in the walk. It drifts: a slow float and
+	    lean about where it was built (Kit.motion "drift", StationMotionController).
 	  * THE SHADOW — under it, the ground itself going black in rings.
 	  * SPAGHETTI — rocks pulled long and thin, hanging off the ground along lines that
 	    all point at the singularity, smaller and higher the closer they are.
@@ -26,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local K = require(script.Parent.BiomeKit)
+local Kit = require(script.Parent.Kit)
 
 local EventHorizon = {}
 
@@ -39,6 +41,11 @@ local HOLE_RADIUS = 14
 local DISC_INNER, DISC_OUTER = 20, 32
 local ARCS_INNER, ARCS_OUTER = 28, 40
 local DISC_TILT = 14
+--- The drift: studs it wanders either side of rest, how fast, and from how far away
+--- it still moves (it hangs over the whole field, so further than a base's machines).
+local DRIFT_AMP = 3
+local DRIFT_RATE = 0.12
+local DRIFT_RANGE = 450
 
 local SHADOW_RINGS = 4
 local SPAGHETTI_LINES = 6
@@ -106,6 +113,10 @@ local function singularity(parent: Instance, at: Vector3, palette: Palette): Mod
 		accel = Vector3.zero,
 		light = 1,
 	})
+	-- Streams in whole, so the controller never moves half of it.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	model.WorldPivot = centre
+	Kit.motion(model, { kind = "drift", amp = DRIFT_AMP, rate = DRIFT_RATE, range = DRIFT_RANGE })
 	model.Parent = parent
 	return model
 end
