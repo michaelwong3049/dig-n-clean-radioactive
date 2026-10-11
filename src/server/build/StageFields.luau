@@ -43,7 +43,7 @@ local Kit = require(script.Parent.Kit)
 
 local StageFields = {}
 local BUILDER_SOURCE = "src/server/build/StageFields.luau"
-local BUILDER_VERSION = 6 -- every stage 166 wide (2026-10-10)
+local BUILDER_VERSION = 7 -- Stages 13-16, the Rift Valley (2026-10-11)
 
 --- The deepest an item is ever buried. The plate has to be thicker than this or a
 --- haul in progress is visible poking out of the underside of the world.

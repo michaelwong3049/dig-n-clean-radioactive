@@ -456,7 +456,7 @@ Tuning.WASH_WEAK_RESPAWN = 1
 -- (power 8-12, Config/Gear.Cleaner) crust to be rated for: a Stage 11 Legendary is a
 -- 10 (Quantum Rift), a Stage 12 Anomaly a 13 (one over Celestial Deluge, a liquid's
 -- +2 covers it). Stages missing here add 0.
-Tuning.CRUST_STAGE_BONUS = { [7] = 1, [8] = 2, [9] = 3, [10] = 4, [11] = 5, [12] = 6 }
+Tuning.CRUST_STAGE_BONUS = { [7] = 1, [8] = 2, [9] = 3, [10] = 4, [11] = 5, [12] = 6, [13] = 7, [14] = 8, [15] = 9, [16] = 10 }
 
 -- ── Home-turf Common ease (DigService: `required`) ─────────────────────
 --

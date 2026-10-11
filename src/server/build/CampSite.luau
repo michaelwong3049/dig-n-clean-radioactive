@@ -101,7 +101,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 46 -- Gear north, Aura south of the kiosk; no Upgrades booth (2026-10-10)
+local BUILDER_VERSION = 47 -- Rift Outpost opens onto Stage 13; Zone 5 coming soon past Stage 16 (2026-10-11)
 
 local C = Kit.C
 local build = Kit.build

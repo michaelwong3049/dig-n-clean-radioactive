@@ -1,9 +1,10 @@
 --!strict
 --[[
-	BiomeKit.luau — the shared parts and placement helpers for the far biomes, Stages 7-12.
+	BiomeKit.luau — the shared parts and placement helpers for the far biomes, Stages 7-16.
 
 	    used by build/CinderField, CobaltShelf, GlassBarrens, CrystalCaves, BloodrockRift
-	    and GroundZero, each called from build/Scenery's buildStageScenery -- and by
+	    and GroundZero (Stages 7-12), StarfallCrater, GravityWells, TheFracture and
+	    EventHorizon (Stages 13-16), each called from build/Scenery's buildStageScenery -- and by
 	    Stage 3's build/WasteDump, which keeps the same rules minus the glow
 
 	Every one of those six fields keeps build/Scenery's two standing rules for anything
