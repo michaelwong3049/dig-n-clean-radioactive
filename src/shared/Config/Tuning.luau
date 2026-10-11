@@ -653,9 +653,9 @@ Tuning.RANGE_SWEEP_COMET = 0.9 -- radians of rim left glowing behind the arm
 -- Stardust lands, and short enough that a spin is always nearly ready when you get
 -- home. `charges` still limits how much value one good spin can be turned into.
 Tuning.LIQUID_SPIN_COOLDOWN = 5 * 60 -- seconds between spins, per player (5 minutes)
--- BREWS BANK UP, on request: one brew is banked every LIQUID_SPIN_COOLDOWN (online or
--- off) and saved, so a player who comes back after a while can roll several in a row.
--- Capped so a day away is not a few hundred rolls; once full, the clock stops.
+-- BREWS BANK UP, on request: one brew is banked every LIQUID_SPIN_COOLDOWN of in-game
+-- playtime (offline time no longer counts) and saved, so a long session banks several
+-- to roll in a row. Capped; once full, the clock stops.
 Tuning.BREW_MAX_STORED = 24 -- two hours' worth at 5 minutes
 Tuning.BREW_START_STORED = 1 -- a brand-new player's first brew is ready
 -- Skip Brew Timer: a Developer Product that ends the brew cooldown now (LiquidService).

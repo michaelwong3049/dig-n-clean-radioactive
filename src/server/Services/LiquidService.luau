@@ -15,8 +15,8 @@
 
 	FREE, AND BREWS BANK UP. One brew is banked every Tuning.LIQUID_SPIN_COOLDOWN, per
 	player, up to Tuning.BREW_MAX_STORED, and the bank is saved (`brewsStored` /
-	`brewClockAt`), so brews keep stacking while you dig or are offline and you can roll
-	them back to back. There is no fee. With none banked, the panel's BREW button counts
+	`brewClockAt`), so brews keep stacking while you dig and you can roll them back to
+	back. Only time in game counts -- offline time is skipped (see accrue). There is no fee. With none banked, the panel's BREW button counts
 	down to the next one, so the answer to "why won't it spin" is on the button.
 
 	ONLY THE OWNER USES THEIR OWN BOTTLE. The bottle wears its owner's fluid, so a
@@ -142,13 +142,26 @@ local function cooldownFor(data: any): number
 end
 
 --- Bank every brew that has filled since the clock last moved, and return how many are
---- banked. Lazy, off os.time(), so offline time counts the same as online time. While
---- the bank is full the clock is pinned to now, so spending one starts a full wait
---- rather than handing back a brew that "filled" while there was no room for it.
+--- banked. Lazy, off os.time(). While the bank is full the clock is pinned to now, so
+--- spending one starts a full wait rather than handing back a brew that "filled" while
+--- there was no room for it.
+---
+--- IN-GAME TIME ONLY, on request: brews used to stack while you were offline. The push
+--- tick calls this ten times a second for everyone in game, stamping `brewSeenAt`, so
+--- a gap longer than BREW_AWAY_GRACE since the last stamp is time spent away (offline,
+--- server hopping, a crashed server). The clock slides forward by that gap, which
+--- freezes the current brew's progress across it instead of counting it.
+local BREW_AWAY_GRACE = 60 -- seconds
 local function accrue(data: any): number
 	local now = os.time()
 	local stored = tonumber(data.brewsStored) or 0
 	local clock = tonumber(data.brewClockAt) or 0
+	local seen = tonumber(data.brewSeenAt) or 0
+	if seen > 0 and clock > 0 and now - seen > BREW_AWAY_GRACE then
+		clock = math.min(clock + (now - seen), now)
+		data.brewClockAt = clock
+	end
+	data.brewSeenAt = now
 	if stored >= Tuning.BREW_MAX_STORED or clock <= 0 or clock > now then
 		data.brewsStored = math.min(stored, Tuning.BREW_MAX_STORED)
 		data.brewClockAt = now
