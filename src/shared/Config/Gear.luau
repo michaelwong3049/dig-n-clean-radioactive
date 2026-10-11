@@ -457,7 +457,14 @@ Gear.Aura = {
 	-- one-minute raid); now it has a rung. Fitted like the rest: reduction so the meter
 	-- takes ~13 min at Stage 12's far edge (100 / (600 * 0.00021) = 794s), tolerance just
 	-- over its deepRads, price on the ladder's widening stride (x5.5 off the Vortex).
-	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 46, haulPenalty = 0.015, speedBonus = 0.22, blurb = "The last aura. It coils round you and drinks the heat.", camp = "magma" },
+	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 46, haulPenalty = 0.015, speedBonus = 0.22, blurb = "It coils round you and drinks the heat.", camp = "magma" },
+	-- ZONE 4, THE RIFT VALLEY: tiers 13-14 for Stages 13-14, sold at Rift Outpost (picked
+	-- 2026-10-11 from eight cosmic mockups, Shared/AuraLook's accretion / comets). Fitted
+	-- like the Serpent: reduction so the meter takes ~13 min at the own stage's far edge
+	-- (1 - 100 / (deepRads * 794)), tolerance just over deepRads, price on the x5.5 stride.
+	-- Stages 15-16 are still rated past the end of the ladder.
+	{ name = "Accretion Disk", price = 3700000000000, reduction = 0.999843, tolerance = 810.0, capacity = 52, haulPenalty = 0.012, speedBonus = 0.24, blurb = "A spinning disk of falling light. The rads fall in with it.", camp = "rift" },
+	{ name = "Comet Ring", price = 20000000000000, reduction = 0.999882, tolerance = 1080.0, capacity = 58, haulPenalty = 0.01, speedBonus = 0.26, blurb = "Three comets keep their orbit round you. Nothing gets past the tails.", camp = "rift" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
