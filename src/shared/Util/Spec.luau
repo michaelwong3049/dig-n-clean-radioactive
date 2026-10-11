@@ -817,9 +817,13 @@ function Spec.run(): boolean
 			check(`§zone ...and Stage {stageId} has no dead zone on top`, Z.DEAD_ZONE[stageId] == nil)
 		end
 		-- The last stage of every zone ends in a dead zone (Tuning.ZONE_SURVIVAL.DEAD_ZONE):
-		-- the stage's own aura fails out there, and only there.
+		-- the stage's own aura fails out there, and only there. A RAID stage (Ground Zero,
+		-- the end of Zone 3) fails its own aura everywhere instead, pinned just above.
 		check("§zone the old Stage 6 dead zone is gone", Z.DEAD_ZONE[6] == nil)
 		for _, stageId in Stages.CAMP_AFTER do
+			if Z.RAID[stageId] then
+				continue
+			end
 			local dz = Z.DEAD_ZONE[stageId]
 			local rated = Stages.get(stageId).ratedAuraTier
 			local mid = Radiation.zoneSurvival(stageId, 0.6, rated)
@@ -863,15 +867,32 @@ function Spec.run(): boolean
 			check("§zone ...and overgeared wear is never failing", not readingAt(6, 8, 0, 1).failing)
 			check("§zone an aura three tiers above the stage's rating takes no aura damage", Radiation.zoneSurvival(3, 1, 6) == math.huge)
 		end
-		-- Stage 12 has its own rung since the Molten Serpent (2026-10-03), so it is no longer
-		-- rated past the ladder: the top aura is Stage 12's rated one, and the Vortex is one
-		-- under there. The rated/under checks above cover both.
+		-- Stage 12 has its own rung since the Molten Serpent (2026-10-03): the top aura is
+		-- Stage 12's rated one, and the Vortex is one under there. The rated/under checks
+		-- above cover both. Stages 13-16 (the Rift Valley, 2026-10-11) are rated past the
+		-- ladder until the Zone 4 auras land: the top aura must still be SOME stage's own,
+		-- every stage past it rated one higher than the last, and the first of them on the
+		-- `lastAura` row for the top aura rather than way under.
 		local top = Gear.maxTier("Aura")
 		local last = #Stages.DEFS
-		check(
-			string.format("§zone the strongest aura (%s) is Stage %d's own", Gear.tier("Aura", top).name, last),
-			Stages.get(last).ratedAuraTier == top
-		)
+		local topStage = 0
+		local pastOk = true
+		for stageId = 1, last do
+			local rated = Stages.get(stageId).ratedAuraTier
+			if rated == top then
+				topStage = stageId
+			elseif rated > top and rated ~= Stages.get(stageId - 1).ratedAuraTier + 1 then
+				pastOk = false
+			end
+		end
+		check(string.format("§zone the strongest aura (%s) is some stage's own (Stage %d)", Gear.tier("Aura", top).name, topStage), topStage > 0)
+		check("§zone stages rated past the top aura climb one tier each", pastOk)
+		if topStage < last then
+			check(
+				string.format("§zone the top aura is on the lastAura row one stage past its own (Stage %d)", topStage + 1),
+				Radiation.zoneCase(topStage + 1, top) == "lastAura"
+			)
+		end
 	end
 
 	-- PLAN §3.4 — a rated aura means you can work, not just survive. Entrance,
@@ -1927,11 +1948,17 @@ function Spec.run(): boolean
 		end
 	end
 	-- And each zone's last stage is covered by a rung its own camp sells: a player
-	-- standing in Stage 4 or 8 can buy that stage's aura without walking past it.
-	for _, stageId in Stages.CAMP_AFTER do
+	-- standing in Stage 4, 8 or 12 can buy that stage's aura without walking past it.
+	-- Zone N's camp is Base Camp for the first zone, else the site camp in the gap
+	-- before it (Camps.sites() runs west to east). A zone whose gear isn't in yet (the
+	-- Rift Valley) is rated past the top aura and has nothing to check.
+	local sites = Camps.sites()
+	for zone, stageId in Stages.CAMP_AFTER do
 		local rated = Stages.get(stageId).ratedAuraTier
-		local zoneCamp = if stageId == Stages.CAMP_AFTER[1] then Camps.BASE else "twilight"
-		check(`§zones Stage {stageId}'s own aura is sold before its gate ({zoneCamp})`, Gear.campOf("Aura", rated) == zoneCamp)
+		if rated <= Gear.maxTier("Aura") then
+			local zoneCamp = if zone == 1 then Camps.BASE else sites[zone - 1].key
+			check(`§zones Stage {stageId}'s own aura is sold before its gate ({zoneCamp})`, Gear.campOf("Aura", rated) == zoneCamp)
+		end
 	end
 
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the

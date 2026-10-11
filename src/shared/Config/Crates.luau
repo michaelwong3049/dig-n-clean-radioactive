@@ -403,6 +403,11 @@ Crates.STAGE_VARIANT_WEIGHTS = {
 	[10] = { 0, 0, 8, 60, 32 },
 	[11] = { 0, 0, 3, 58, 39 },
 	[12] = { 0, 0, 0, 55, 45 },
+	-- Zone 4 (Stages 13-16): Fusion keeps climbing past Cobalt.
+	[13] = { 0, 0, 0, 50, 50 },
+	[14] = { 0, 0, 0, 45, 55 },
+	[15] = { 0, 0, 0, 40, 60 },
+	[16] = { 0, 0, 0, 35, 65 },
 } :: { [number]: { number } }
 
 function Crates.get(id: string): CrateDef

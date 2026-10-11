@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 82 -- left shoulder stays flush behind the leaderboards; side bases 8 nearer the middle (2026-10-10)
+local BUILDER_VERSION = 83 -- Stages 13-16, the Rift Valley, out of Rift Outpost (2026-10-11)
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -823,6 +823,11 @@ local THEME: { [number]: StageTheme } = {
 	[10] = { props = 0, pools = 0, kind = "crystal", scatter = true },
 	[11] = { props = 0, pools = 0, kind = "rift", scatter = true },
 	[12] = { props = 0, pools = 0, kind = "hypocentre", scatter = true },
+	-- Zone 4, the Rift Valley (2026-10-11): same as 7-12, every count in the stage's module.
+	[13] = { props = 0, pools = 0, kind = "starfall", scatter = true },
+	[14] = { props = 0, pools = 0, kind = "wells", scatter = true },
+	[15] = { props = 0, pools = 0, kind = "fracture", scatter = true },
+	[16] = { props = 0, pools = 0, kind = "horizon", scatter = true },
 }
 
 --- The far biomes' builders, by stage id. Each takes (folder, id, groundY) and runs
@@ -834,6 +839,11 @@ local FAR_BIOMES: { [number]: { build: (Instance, number, number) -> () } } = {
 	[10] = CrystalCaves,
 	[11] = BloodrockRift,
 	[12] = GroundZero,
+	-- Required here, not as top-level locals: this file is at Luau's 200-local limit.
+	[13] = require(script.Parent.StarfallCrater),
+	[14] = require(script.Parent.GravityWells),
+	[15] = require(script.Parent.TheFracture),
+	[16] = require(script.Parent.EventHorizon),
 }
 
 --- ── The radioactive drum ─────────────────────────────────────────────────────

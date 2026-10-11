@@ -275,7 +275,7 @@ end
 -- module, so it can't be read from there; Spec checks the two agree).
 local STAGE1_WEST_X = 100
 local CAMP_GAP = 2 * 165
-Stages.CAMP_AFTER = { 4, 8 }
+Stages.CAMP_AFTER = { 4, 8, 12 }
 local CENTER_X: { [number]: number } = {}
 do
 	local gapAfter: { [number]: boolean } = {}
@@ -283,7 +283,7 @@ do
 		gapAfter[id] = true
 	end
 	local x = STAGE1_WEST_X
-	for id = 1, 12 do
+	for id = 1, 16 do
 		local len = NEAR_X[id] or FAR_X
 		CENTER_X[id] = x + len / 2
 		x += len
@@ -718,12 +718,103 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("FFB27A"),
 		fogEnd = 400,
 		rarityTilt = 1.8, -- ~5% Mythic+ at the stage's own detector (economy pacing pass; was 6.6)
-		-- The chain's east end (x = 4050; 4378 before the map-shrink pass), closed by build/Scenery's end wall.
+		-- Zone 3's east end (x = 4050; 4378 before the map-shrink pass); Rift Outpost stands off it.
 		center = { CENTER_X[12], 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "FF6A1A", -- molten orange
 		material = "Glass",
 		ooze = { bright = "FFE04A", deep = "7A2A05", glow = "FFE04A" },
+		built = true,
+	},
+	-- ── STAGES 13-16: ZONE 4, THE RIFT VALLEY ──────────────────────────────────────
+	-- The fourth run of four, opening east out of Rift Outpost's mouth (Camps' RIFT_EXIT_X)
+	-- at the far-stage pitch, on request (2026-10-11). The void palette the camp set up:
+	-- near-black ground, each field lit by one colour of the Anomaly spectrum in its
+	-- `ooze` (gold, violet, cyan, coral). Every ground colour is dark enough that its
+	-- 0.877 floor pair and its derived wall pair stay off the 255 clamp, so they wear the
+	-- shared StudChecker with no new colour maps (Kit.PAIR_MAPS).
+	--
+	-- DIG IS OFF for now, the same way Stages 7-12 shipped: nothing in Config/Items stocks
+	-- 13-16 yet, so DigService spawns no signals there (it warns once) and the Index rail
+	-- hides them. The nukes come with the user's imported models; `rarityTilt` is a
+	-- placeholder until then and gets re-fitted with them.
+	--
+	-- RADIATION CONTINUES FROM GROUND ZERO'S 600 at the same ~1.32x a stage, each field's
+	-- deepRads sized for an aura that doesn't exist yet (tolerances ~810/1080/1440/1910).
+	-- Until the Zone 4 gear lands, the Molten Serpent is one under Stage 13 (the
+	-- `lastAura` row, Radiation.zoneCase) and way under 14-16: walkable as a raid, not a farm.
+	{
+		id = 13,
+		name = "Starfall Crater",
+		baseRads = 610,
+		deepRads = 800,
+		soilHardness = 13,
+		ratedAuraTier = 13,
+		stationDistance = 150, -- Rift Outpost's cleansing station, just back through the mouth; est., not walked
+		fogColor = Color3.fromHex("3A4270"),
+		fogEnd = 400,
+		rarityTilt = 1.8, -- placeholder: Ground Zero's, until 13-16 are stocked
+		-- West edge = the Rift Outpost exit.
+		center = { CENTER_X[13], 0 },
+		size = { FAR_X, FOOTPRINT_Z },
+		color = "232A4D", -- midnight blue
+		material = "Slate",
+		ooze = { bright = "FFC371", deep = "5A3A10", glow = "FFC371" }, -- starfire gold
+		built = true,
+	},
+	{
+		id = 14,
+		name = "Gravity Wells",
+		baseRads = 810,
+		deepRads = 1070,
+		soilHardness = 14,
+		ratedAuraTier = 14,
+		stationDistance = 440,
+		fogColor = Color3.fromHex("4A3A78"),
+		fogEnd = 400,
+		rarityTilt = 1.8, -- placeholder, see Stage 13
+		center = { CENTER_X[14], 0 },
+		size = { FAR_X, FOOTPRINT_Z },
+		color = "2E2350", -- deep violet
+		material = "Glass",
+		ooze = { bright = "B388FF", deep = "2A1660", glow = "B388FF" },
+		built = true,
+	},
+	{
+		id = 15,
+		name = "The Fracture",
+		baseRads = 1080,
+		deepRads = 1430,
+		soilHardness = 15,
+		ratedAuraTier = 15,
+		stationDistance = 730,
+		fogColor = Color3.fromHex("2E5A68"),
+		fogEnd = 400,
+		rarityTilt = 1.8, -- placeholder, see Stage 13
+		center = { CENTER_X[15], 0 },
+		size = { FAR_X, FOOTPRINT_Z },
+		color = "17333D", -- abyssal teal
+		material = "Slate",
+		ooze = { bright = "4FC3F7", deep = "0A3A52", glow = "4FC3F7" },
+		built = true,
+	},
+	{
+		id = 16,
+		name = "Event Horizon",
+		baseRads = 1440,
+		deepRads = 1900,
+		soilHardness = 16,
+		ratedAuraTier = 16,
+		stationDistance = 1020,
+		fogColor = Color3.fromHex("3A2030"),
+		fogEnd = 400,
+		rarityTilt = 1.8, -- placeholder, see Stage 13
+		-- The chain's east end; the Zone 5 coming-soon camp stands off it (Config/Camps).
+		center = { CENTER_X[16], 0 },
+		size = { FAR_X, FOOTPRINT_Z },
+		color = "16131F", -- the black at the edge of everything
+		material = "Glass",
+		ooze = { bright = "FF5F6D", deep = "5A0E1A", glow = "FF5F6D" }, -- accretion coral
 		built = true,
 	},
 } :: { StageDef }

@@ -110,8 +110,9 @@ end
 
 local TWILIGHT_X, TWILIGHT_CLIP_X, TWILIGHT_EXIT_X = siteAfter(4)
 local MAGMA_X, MAGMA_CLIP_X, MAGMA_EXIT_X = siteAfter(8)
---- Zone 4 sits past the chain's last stage, so nothing opens out of its east side yet.
-local RIFT_X, RIFT_CLIP_X = siteAfter(12)
+local RIFT_X, RIFT_CLIP_X, RIFT_EXIT_X = siteAfter(12)
+--- Zone 5 sits past the chain's last stage, so nothing opens out of its east side yet.
+local ZONE5_X, ZONE5_CLIP_X = siteAfter(16)
 
 Camps.BASE = "base"
 
@@ -257,14 +258,14 @@ Camps.DEFS = {
 			roofs = { "FF5F6D", "4FC3F7" },
 			accent = "4FC3F7",
 		},
-		-- ZONE 4, ON REQUEST (2026-10-06): the void camp past Ground Zero, built and seen but
-		-- not entered until Stages 13+ exist. Near-black void rock, starlit pale paths, and
-		-- the Anomaly spectrum (Rarity.ANOMALY_SPECTRUM) on the awnings. No exitX: walled
-		-- shut on the east.
+		-- ZONE 4, ON REQUEST (2026-10-06): the void camp past Ground Zero. Near-black void
+		-- rock, starlit pale paths, and the Anomaly spectrum (Rarity.ANOMALY_SPECTRUM) on the
+		-- awnings. Opened up 2026-10-11 with Stages 13-16 (the Rift Valley) out of its east
+		-- mouth. No Zone 4 gear yet, so its four stalls stand as shells until it comes.
 		center = { RIFT_X, 0 },
 		radius = 190,
 		clipX = RIFT_CLIP_X,
-		comingSoon = true,
+		exitX = RIFT_EXIT_X,
 		-- Every pair is a 0.877 two-tone (dark = light x 0.877 per channel), so the
 		-- shared StudChecker material covers them all with no new colour maps.
 		palette = {
@@ -283,6 +284,49 @@ Camps.DEFS = {
 			bush = "B388FF",
 			bushDark = "9D77E0",
 			awnings = { "FF5F6D", "FFC371", "4FC3F7", "B388FF" },
+		},
+	},
+	{
+		id = 5,
+		key = "zone5",
+		name = "Zone 5",
+		blurb = "Past the Event Horizon, at the end of Stage 16",
+		card = {
+			skyTop = "0C0612",
+			skyBottom = "3A2448",
+			wall = "1E1226",
+			wallCap = "E8C468",
+			lawn = "2E1B3E",
+			path = "DCCDEA",
+			roofs = { "E8C468", "B388FF" },
+			accent = "E8C468",
+		},
+		-- ZONE 5 COMING SOON (2026-10-11): the next camp's formation past the Event Horizon,
+		-- built and seen but not entered, the way Rift Outpost stood before Stages 13-16.
+		-- Plum lawn, black cliffs, a gold rim. `key` is a placeholder: nothing can reach it,
+		-- so it is in no save yet and can still be renamed when Zone 5 gets its theme.
+		center = { ZONE5_X, 0 },
+		radius = 190,
+		clipX = ZONE5_CLIP_X,
+		comingSoon = true,
+		-- Every pair is a 0.877 two-tone (dark = light x 0.877 per channel), so the
+		-- shared StudChecker material covers them all with no new colour maps.
+		palette = {
+			groundDark = "281836", -- plum lawn
+			groundLight = "2E1B3E",
+			lipDark = "CBAC5B", -- gold rim over the wall crown
+			lipLight = "E8C468",
+			wallDark = "1A1021", -- black cliff
+			wallLight = "1E1226",
+			pathDark = "C1B4CD", -- pale lilac plaza and paths
+			pathLight = "DCCDEA",
+			paverDark = "35243F",
+			paverLight = "3D2948",
+			kerb = "E8C468",
+			deck = "35243F",
+			bush = "E8C468",
+			bushDark = "CBAC5B",
+			awnings = { "E8C468", "B388FF", "FF5F6D", "4FC3F7" },
 		},
 	},
 } :: { CampDef }
