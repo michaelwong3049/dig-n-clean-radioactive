@@ -47,6 +47,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local HealthUpgrade = require(Shared.Config.HealthUpgrade)
 local Stages = require(Shared.Config.Stages)
 local Radiation = require(Shared.Radiation)
 local Decay = require(Shared.Decay)
@@ -186,12 +187,16 @@ local function finite(n: number): number
 	return if n == math.huge or n ~= n then INFINITE else n
 end
 
---- Max health grows with the equipped aura tier (Tuning.maxHealthFor), x2 with the
---- 2x Health pass (StatResolver healthMult).
+--- Max health grows with the equipped aura tier (Tuning.maxHealthFor) and the health
+--- bought at the Upgrades booth (Config/HealthUpgrade), x2 with the 2x Health pass
+--- (StatResolver healthMult).
 local function maxHealthOf(player: Player): number
 	local data = DataService.data(player)
 	local base = Tuning.maxHealthFor(data and data.gear and data.gear.aura)
-	return if data then base * StatResolver.get(data).healthMult else base
+	if data == nil then
+		return base
+	end
+	return (base + HealthUpgrade.bonusFor(data.healthBought)) * StatResolver.get(data).healthMult
 end
 
 local function stateFor(player: Player): State

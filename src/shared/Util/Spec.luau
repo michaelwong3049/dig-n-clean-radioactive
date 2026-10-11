@@ -1431,7 +1431,8 @@ function Spec.run(): boolean
 		check("§5.1 +3 at step 1 costs three single purchases", math.abs(WalkSpeed.bulkPriceFor(40, 3, 1) - sum3) / sum3 < 0.01)
 		check("§5.1 a bigger step makes each bulk point cheaper", WalkSpeed.bulkPriceFor(40, 10, 6) < WalkSpeed.bulkPriceFor(40, 10, 1))
 		check("§5.1 +10 costs more than +3", WalkSpeed.bulkPriceFor(40, 10, 2) > WalkSpeed.bulkPriceFor(40, 3, 2))
-		check("§5.1 the bulk buttons are +3 and +10", WalkSpeed.BULK[1] == 3 and WalkSpeed.BULK[2] == 10 and WalkSpeed.ROBUX_WALK == 10)
+		check("§5.1 the cash buttons are +1, +3 and +10", WalkSpeed.BULK[1] == 1 and WalkSpeed.BULK[2] == 3 and WalkSpeed.BULK[3] == 10 and WalkSpeed.ROBUX_WALK == 10)
+		check("§5.1 +1 at step 1 costs one purchase", WalkSpeed.bulkPriceFor(40, 1, 1) == WalkSpeed.priceFor(40))
 		-- The price lands where each zone's cash is (Config/Gear's prices): bands wide
 		-- enough for a retune, narrow enough that speed cannot go free or out of reach.
 		for _, milestone in { { walk = 45, low = 2e3, high = 2e4 }, { walk = 70, low = 1e5, high = 2e6 }, { walk = 100, low = 1e7, high = 6e8 } } do

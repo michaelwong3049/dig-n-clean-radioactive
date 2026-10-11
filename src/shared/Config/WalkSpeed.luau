@@ -27,8 +27,9 @@
 	      walk 100  ~$350M    (Twilight)
 	      walk 130  ~$83B     (Magma Hollow)
 
-	BULK BUYS (on request, 2026-10-10: "options where you can buy +3, +10 speed"): the
-	panel's +3 and +10 cash buttons buy exactly that much walk, whatever the step. Each
+	BULK BUYS (on request, 2026-10-10: "options where you can buy +3, +10 speed"; then
+	"make the speed purchases in one row, like 1 3 10 then robux"): the panel's +1 / +3
+	/ +10 cash buttons buy exactly that much walk, whatever the step. Each
 	point costs its share of the purchase it would have been part of, priceFor(walk) /
 	step, summed point by point (`bulkPriceFor`), so +N costs about what N points of
 	BUY presses would. The Robux button (PRODUCT_ID) is a flat +10 too.
@@ -72,8 +73,10 @@ WalkSpeed.PRICE_GROWTH = 1.20
 --- stages a row, 1 to 6 over the twelve.
 WalkSpeed.STAGE_STEPS = { 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6 }
 
---- The fixed amounts the panel's bulk cash buttons buy (bulkPriceFor).
-WalkSpeed.BULK = { 3, 10 }
+--- The panel's cash buttons, one row: exactly that much walk each (bulkPriceFor).
+--- +1 is the old one-step BUY at Stages 1-2; deeper, every point is `step` times
+--- cheaper instead of one press buying `step` points.
+WalkSpeed.BULK = { 1, 3, 10 }
 
 --- The Developer Product the panel's purple button sells: ROBUX_WALK walk speed, flat,
 --- nothing spent. 0 would mean not set up, and the button would read SOON.
