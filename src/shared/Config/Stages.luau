@@ -742,8 +742,9 @@ Stages.DEFS = {
 	--
 	-- RADIATION CONTINUES FROM GROUND ZERO'S 600 at the same ~1.32x a stage, each field's
 	-- deepRads sized for an aura that doesn't exist yet (tolerances ~810/1080/1440/1910).
-	-- Until the Zone 4 gear lands, the Molten Serpent is one under Stage 13 (the
-	-- `lastAura` row, Radiation.zoneCase) and way under 14-16: walkable as a raid, not a farm.
+	-- Stages 13 and 14 have their own auras (the Accretion Disk and the Comet Ring,
+	-- 2026-10-11); 15-16 are still rated past the ladder: the Comet Ring is one under
+	-- Stage 15 (the `lastAura` row, Radiation.zoneCase) and way under 16.
 	{
 		id = 13,
 		name = "Starfall Crater",

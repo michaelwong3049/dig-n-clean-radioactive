@@ -24,6 +24,11 @@
 	the Crimson Vortex. (Dusk Corona, the sun halo, was cut and the rest slid down.) Each is a set of moving curves (CURVE_FORMS),
 	since unlike the atom and helix they change shape as they move.
 
+	TIERS 13-14 ARE THE RIFT VALLEY'S, sold at Rift Outpost, picked from a round of
+	eight cosmic shapes (2026-10-11): the Accretion Disk (option 2, a tilted disk of
+	rings round the waist with a jet above and below) and the Comet Ring (option 7,
+	three comets on tilted orbits trailing fading tails).
+
 	TIERS 11-12 ARE STAGES 11 AND 12'S, sold at the same shop, picked from a later round
 	of nine: Seraph (the wings grown up, feathered, under a halo) and the Crimson Vortex
 	(the "Prism Vortex" spiral in the "Supernova" red instead of a rainbow).
@@ -64,7 +69,7 @@ export type Look = {
 	--- "atom": `rings` tilted rings round the chest. "helix": the Nimbus's own shape,
 	--- two strands spiralling feet to head (see HELIX); `rings` is unused. The rest are
 	--- Toxic Twilight's four, each a set of moving curves (see CURVE_FORMS).
-	form: "atom" | "helix" | "aurora" | "torus" | "wings" | "seraph" | "vortex" | "serpent",
+	form: "atom" | "helix" | "aurora" | "torus" | "wings" | "seraph" | "vortex" | "serpent" | "accretion" | "comets",
 	color: Color3,
 	rings: number, -- 1..3
 	electrons: number, -- per ring (per strand, for the helix)
@@ -153,6 +158,19 @@ AuraLook.TIERS = {
 	{
 		form = "serpent", color = Color3.fromRGB(255, 112, 26), rings = 3, electrons = 5, width = 0.40, transparency = 0, speed = 5.4, core = true,
 		sparkle = { dust = 30, shed = 17, embers = 40, burst = 68 },
+	},
+	-- Stage 13's, Rift Outpost's first rung (option 2 of eight cosmic mockups): a tilted
+	-- accretion disk round the waist, inner rings fastest, a jet above and below. Violet.
+	{
+		form = "accretion", color = Color3.fromRGB(179, 136, 255), rings = 3, electrons = 10, width = 0.42, transparency = 0, speed = 5.6, core = true,
+		sparkle = { dust = 32, shed = 18, embers = 42, burst = 72 },
+	},
+	-- Stage 14's (option 7): three comets on tilted orbits, each trailing a tail that
+	-- fades behind it. Hot rose, off the Vortex's red and the Serpent's orange (the
+	-- mockup's paler coral washed out in daylight).
+	{
+		form = "comets", color = Color3.fromRGB(255, 72, 128), rings = 3, electrons = 3, width = 0.44, transparency = 0, speed = 5.8, core = true,
+		sparkle = { dust = 34, shed = 19, embers = 44, burst = 76 },
 	},
 } :: { Look }
 
@@ -509,6 +527,105 @@ local function serpentForm(): CurveForm
 	}
 end
 
+--- A point on a circle of `radius` round the chest at angle `u`, laid flat then tipped
+--- `tiltX` about the forward axis and `tiltZ` about the side one, and turned `yaw` about
+--- the vertical.
+local function tiltedPoint(radius: number, u: number, y: number, tiltX: number, tiltZ: number, yaw: number): Vector3
+	local x, z = math.cos(u) * radius, math.sin(u) * radius
+	local y1, z1 = -z * math.sin(tiltX), z * math.cos(tiltX)
+	local x2, y2 = x * math.cos(tiltZ) - y1 * math.sin(tiltZ), x * math.sin(tiltZ) + y1 * math.cos(tiltZ)
+	return Vector3.new(x2 * math.cos(yaw) - z1 * math.sin(yaw), y + y2, x2 * math.sin(yaw) + z1 * math.cos(yaw))
+end
+
+--- 7. ACCRETION DISK: five rings in one disk round the waist, tipped forward and back
+--- only (never sideways, so the usual camera, behind and above, never sees it edge-on),
+--- two sparks a ring with the inner rings orbiting fastest; a twisting jet climbs from
+--- over the head and another drops from the waist to the feet.
+local DISK_Y = -0.4
+local DISK_RINGS = 5
+local DISK_TILT_X, DISK_TILT_Z = 0.45, 0
+local function diskRadius(ring: number): number
+	return 1.6 + (ring - 1) * 0.55
+end
+local function diskPoint(ring: number): (number, number) -> Vector3
+	return function(s: number, t: number): Vector3
+		return tiltedPoint(diskRadius(ring), s * TAU, DISK_Y, DISK_TILT_X, DISK_TILT_Z, 0)
+	end
+end
+local function jetPoint(from: number, to: number): (number, number) -> Vector3
+	return function(s: number, t: number): Vector3
+		local spin = s * 10 - t * 8
+		return Vector3.new(0.1 * math.sin(spin), from + s * (to - from), 0.1 * math.cos(spin))
+	end
+end
+local function accretionForm(): CurveForm
+	local curves: { Curve } = {}
+	for ring = 1, DISK_RINGS do
+		table.insert(curves, { beams = 12, closed = true, width = 1.25 - 0.15 * ring, fade = 0.08 * (ring - 1), point = diskPoint(ring) })
+	end
+	table.insert(curves, { beams = 10, closed = false, width = 0.7, fade = 0, point = jetPoint(2.2, 4.4) })
+	table.insert(curves, { beams = 8, closed = false, width = 0.6, fade = 0.2, point = jetPoint(-1.2, AuraLook.FEET + 0.1) })
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(DISK_RINGS * 2)
+			for ring = 1, DISK_RINGS do
+				local speed = 2.2 / (1 + 0.6 * (ring - 1))
+				for e = 0, 1 do
+					local u = t * speed + e * math.pi + ring
+					table.insert(out, tiltedPoint(diskRadius(ring), u, DISK_Y, DISK_TILT_X, DISK_TILT_Z, 0))
+				end
+			end
+			return out
+		end,
+		reach = 4.4,
+	}
+end
+
+--- 8. COMET RING: three comets on their own tilted orbits round the chest, at their own
+--- speeds and directions. Each tail trails 2.4 radians behind its head in three pieces,
+--- thinner and fainter toward the end, over a faint line of the whole orbit.
+local COMETS = {
+	{ radius = 2.6, tiltX = 0.5, tiltZ = 0.2, speed = 1.4 },
+	{ radius = 3.0, tiltX = -0.7, tiltZ = 0.6, speed = -1.1 },
+	{ radius = 3.3, tiltX = 1.3, tiltZ = -0.4, speed = 0.9 },
+}
+local COMET_TAIL = 2.4
+local COMET_PIECES = 3
+local function cometHead(comet: number, t: number): number
+	return t * COMETS[comet].speed + comet * 2
+end
+local function cometTail(comet: number, piece: number): (number, number) -> Vector3
+	local c = COMETS[comet]
+	local back = if c.speed > 0 then -1 else 1
+	return function(s: number, t: number): Vector3
+		local along = (piece - 1 + s) / COMET_PIECES
+		return tiltedPoint(c.radius, cometHead(comet, t) + back * along * COMET_TAIL, 0, c.tiltX, c.tiltZ, 0)
+	end
+end
+local function cometsForm(): CurveForm
+	local curves: { Curve } = {}
+	for comet, c in COMETS do
+		for piece = 1, COMET_PIECES do
+			table.insert(curves, { beams = 4, closed = false, width = 2.8 - 0.6 * piece, fade = 0.25 * (piece - 1), point = cometTail(comet, piece) })
+		end
+		table.insert(curves, { beams = 10, closed = true, width = 0.35, fade = 0.6, point = function(s: number, _t: number): Vector3
+			return tiltedPoint(c.radius, s * TAU, 0, c.tiltX, c.tiltZ, 0)
+		end })
+	end
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(#COMETS)
+			for comet, c in COMETS do
+				table.insert(out, tiltedPoint(c.radius, cometHead(comet, t), 0, c.tiltX, c.tiltZ, 0))
+			end
+			return out
+		end,
+		reach = 3.4,
+	}
+end
+
 local CURVE_FORMS: { [string]: CurveForm } = {
 	aurora = auroraForm(),
 	torus = torusForm(),
@@ -516,6 +633,8 @@ local CURVE_FORMS: { [string]: CurveForm } = {
 	seraph = seraphForm(),
 	vortex = vortexForm(),
 	serpent = serpentForm(),
+	accretion = accretionForm(),
+	comets = cometsForm(),
 }
 
 --- The moving curves for `look`, or nil for the atom and the helix.
