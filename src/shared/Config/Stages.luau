@@ -740,9 +740,10 @@ Stages.DEFS = {
 	--
 	-- RADIATION CONTINUES FROM GROUND ZERO'S 600 at the same ~1.32x a stage, each field's
 	-- deepRads sized for an aura that doesn't exist yet (tolerances ~810/1080/1440/1910).
-	-- Stages 13 and 14 have their own auras (the Accretion Disk and the Comet Ring,
-	-- 2026-10-11); 15-16 are still rated past the ladder: the Comet Ring is one under
-	-- Stage 15 (the `lastAura` row, Radiation.zoneCase) and way under 16.
+	-- TWO AURAS FOR FOUR STAGES (2026-10-11, on request: "only two auras is fine"): the
+	-- Accretion Disk is rated for 13 and 14, the Comet Ring for 15 and 16, each 1.8x the
+	-- rung under it (Config/Gear). Stage 16 is a raid for the Comet Ring
+	-- (Tuning.ZONE_SURVIVAL.RAID): the end of the valley is hard to survive in anything.
 	{
 		id = 13,
 		name = "Starfall Crater",
@@ -768,7 +769,7 @@ Stages.DEFS = {
 		baseRads = 810,
 		deepRads = 1070,
 		soilHardness = 14,
-		ratedAuraTier = 14,
+		ratedAuraTier = 13, -- the Accretion Disk's second stage (two auras for the Rift)
 		stationDistance = 440,
 		fogColor = Color3.fromHex("4A3A78"),
 		fogEnd = 400,
@@ -786,7 +787,7 @@ Stages.DEFS = {
 		baseRads = 1080,
 		deepRads = 1430,
 		soilHardness = 15,
-		ratedAuraTier = 15,
+		ratedAuraTier = 14, -- the Comet Ring
 		stationDistance = 730,
 		fogColor = Color3.fromHex("2E5A68"),
 		fogEnd = 400,
@@ -804,7 +805,7 @@ Stages.DEFS = {
 		baseRads = 1440,
 		deepRads = 1900,
 		soilHardness = 16,
-		ratedAuraTier = 16,
+		ratedAuraTier = 14, -- the Comet Ring, as a raid (Tuning.ZONE_SURVIVAL.RAID)
 		stationDistance = 1020,
 		fogColor = Color3.fromHex("3A2030"),
 		fogEnd = 400,

@@ -132,6 +132,12 @@ Tuning.ZONE_SURVIVAL = {
 	-- way in. Same +20s at the entrance; one tier under is now ~10s at BREAK and ~3s at
 	-- the far edge, so walking deeper visibly bites.
 	late = { rated = { 480, 240, 75 }, under = { 20, 2, 1 }, grace = { 20, 8, 2 } }, -- stages 6-12
+	-- THE RIFT VALLEY (stages RIFT_FROM_STAGE on): two auras cover four stages, so the
+	-- rated aura lasts a little longer here, on request ("make them last a little longer
+	-- in later stages"): 10m at the entrance, 5m at BREAK, 1.5m at the far edge (late is
+	-- 8m / 4m / 75s). One tier under is the same as `late`.
+	RIFT_FROM_STAGE = 13,
+	rift = { rated = { 600, 300, 90 }, under = { 20, 2, 1 }, grace = { 20, 8, 2 } },
 	wayUnder = 1,
 	lastAura = { 75, 60, 45 },
 	-- Flat seconds added to every UNDER and WAY-UNDER time, on request ("20 more seconds
@@ -164,6 +170,11 @@ Tuning.ZONE_SURVIVAL = {
 	-- still buys time.
 	RAID = {
 		[12] = { 180, 90, 40 },
+		-- EVENT HORIZON, the end of the Rift (2026-10-11, "make it hard to survive in the
+		-- last stage"): the Comet Ring fails everywhere, harder than Ground Zero -- 2.5m at
+		-- the entrance, 75s at 60%, 35s at the far edge. Kept above the Accretion Disk one
+		-- under it (70s / 40s / 33s), so the Ring still buys time.
+		[16] = { 150, 75, 35 },
 	},
 	-- DEAD ZONES: stageId -> the back of that stage, where even the stage's own aura
 	-- fails. From `from` on, the time a bar lasts falls geometrically from whatever the

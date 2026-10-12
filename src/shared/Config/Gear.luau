@@ -458,13 +458,16 @@ Gear.Aura = {
 	-- takes ~13 min at Stage 12's far edge (100 / (600 * 0.00021) = 794s), tolerance just
 	-- over its deepRads, price on the ladder's widening stride (x5.5 off the Vortex).
 	{ name = "Molten Serpent", price = 680000000000, reduction = 0.99979, tolerance = 610.0, capacity = 46, haulPenalty = 0.015, speedBonus = 0.22, blurb = "It coils round you and drinks the heat.", camp = "magma" },
-	-- ZONE 4, THE RIFT VALLEY: tiers 13-14 for Stages 13-14, sold at Rift Outpost (picked
-	-- 2026-10-11 from eight cosmic mockups, Shared/AuraLook's accretion / comets). Fitted
-	-- like the Serpent: reduction so the meter takes ~13 min at the own stage's far edge
-	-- (1 - 100 / (deepRads * 794)), tolerance just over deepRads, price on the x5.5 stride.
-	-- Stages 15-16 are still rated past the end of the ladder.
-	{ name = "Accretion Disk", price = 3700000000000, reduction = 0.999843, tolerance = 810.0, capacity = 52, haulPenalty = 0.012, speedBonus = 0.24, blurb = "A spinning disk of falling light. The rads fall in with it.", camp = "rift" },
-	{ name = "Comet Ring", price = 20000000000000, reduction = 0.999882, tolerance = 1080.0, capacity = 58, haulPenalty = 0.01, speedBonus = 0.26, blurb = "Three comets keep their orbit round you. Nothing gets past the tails.", camp = "rift" },
+	-- ZONE 4, THE RIFT VALLEY: tiers 13-14, sold at Rift Outpost (picked 2026-10-11 from
+	-- eight cosmic mockups, Shared/AuraLook's accretion / comets). TWO AURAS FOR FOUR
+	-- STAGES, on request: the Accretion Disk is rated for Stages 13-14, the Comet Ring for
+	-- 15-16 (16 as a raid). Each is 1.8x the rung under it ("make the new auras 1.8x
+	-- stronger"): the rads it lets through are the last rung's / 1.8 and its tolerance
+	-- x1.8. That lands the meter at ~13 min at the far edge of the deeper of its two
+	-- stages (100 / (1070 * 0.000117) = 801s; 100 / (1900 * 0.0000648) = 812s), the same
+	-- fit as every rung below. Price on the x5.5 stride.
+	{ name = "Accretion Disk", price = 3700000000000, reduction = 0.999883, tolerance = 1098.0, capacity = 52, haulPenalty = 0.012, speedBonus = 0.24, blurb = "A spinning disk of falling light. The rads fall in with it.", camp = "rift" },
+	{ name = "Comet Ring", price = 20000000000000, reduction = 0.9999352, tolerance = 1976.0, capacity = 58, haulPenalty = 0.01, speedBonus = 0.26, blurb = "Three comets keep their orbit round you. Nothing gets past the tails.", camp = "rift" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
