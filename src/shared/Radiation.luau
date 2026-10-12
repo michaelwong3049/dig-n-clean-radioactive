@@ -118,7 +118,7 @@ local function curveSurvival(stageId: number, depthFrac: number, auraTier: numbe
 	elseif case == "raid" then
 		return along(Z.RAID[stageId], depthFrac)
 	end
-	local band = if stageId >= Z.HARSH_FROM_STAGE then Z.late else Z.early
+	local band = if stageId >= Z.RIFT_FROM_STAGE then Z.rift elseif stageId >= Z.HARSH_FROM_STAGE then Z.late else Z.early
 	if case == "over" then
 		local tiersOver = auraTier - Stages.get(stageId).ratedAuraTier
 		return along(band.rated, depthFrac) * Z.OVER[tiersOver]

@@ -869,10 +869,10 @@ function Spec.run(): boolean
 		end
 		-- Stage 12 has its own rung since the Molten Serpent (2026-10-03): the top aura is
 		-- Stage 12's rated one, and the Vortex is one under there. The rated/under checks
-		-- above cover both. Stages 13-16 (the Rift Valley, 2026-10-11) are rated past the
-		-- ladder until the Zone 4 auras land: the top aura must still be SOME stage's own,
-		-- every stage past it rated one higher than the last, and the first of them on the
-		-- `lastAura` row for the top aura rather than way under.
+		-- above cover both. If a zone's stages are ever rated past the ladder again (the
+		-- Rift Valley was, 2026-10-11, until its two auras landed): the top aura must still
+		-- be SOME stage's own, every stage past it rated one higher than the last, and the
+		-- first of them on the `lastAura` row for the top aura rather than way under.
 		local top = Gear.maxTier("Aura")
 		local last = #Stages.DEFS
 		local topStage = 0
@@ -887,6 +887,28 @@ function Spec.run(): boolean
 		end
 		check(string.format("§zone the strongest aura (%s) is some stage's own (Stage %d)", Gear.tier("Aura", top).name, topStage), topStage > 0)
 		check("§zone stages rated past the top aura climb one tier each", pastOk)
+		-- THE RIFT: two auras for four stages, each 1.8x the rung under it, the last
+		-- stage a raid (on request, 2026-10-11).
+		check(
+			"§zone the Rift's auras are rated two stages each (13-14 Accretion Disk, 15-16 Comet Ring)",
+			Stages.get(13).ratedAuraTier == 13 and Stages.get(14).ratedAuraTier == 13 and Stages.get(15).ratedAuraTier == 14 and Stages.get(16).ratedAuraTier == 14
+		)
+		do
+			local strong = true
+			for tier = 13, 14 do
+				local this, under = Gear.tier("Aura", tier), Gear.tier("Aura", tier - 1)
+				local leak = (1 - under.reduction) / (1 - this.reduction)
+				if math.abs(leak - 1.8) > 0.02 or math.abs(this.tolerance / under.tolerance - 1.8) > 0.02 then
+					strong = false
+				end
+			end
+			check("§zone each Rift aura is 1.8x the rung under it (rads let through / 1.8, tolerance x1.8)", strong)
+		end
+		check("§zone Event Horizon (Stage 16) is a raid, harder than Ground Zero", Z.RAID[16] ~= nil and Z.RAID[16][1] < Z.RAID[12][1] and Z.RAID[16][3] < Z.RAID[12][3])
+		check(
+			"§zone a Rift aura lasts longer in its own stage than a Stage 6-12 one",
+			Radiation.zoneSurvival(14, 0.6, 13) > Radiation.zoneSurvival(10, 0.6, 10) and Radiation.zoneSurvival(15, 1, 14) > Radiation.zoneSurvival(10, 1, 10)
+		)
 		if topStage < last then
 			check(
 				string.format("§zone the top aura is on the lastAura row one stage past its own (Stage %d)", topStage + 1),
