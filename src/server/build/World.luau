@@ -55,6 +55,7 @@ local CrateShopPads = require(script.Parent.CrateShopPads)
 local GroupRewardChest = require(script.Parent.GroupRewardChest)
 local PrizeSquare = require(script.Parent.PrizeSquare)
 local Scenery = require(script.Parent.Scenery)
+local NukeRarityShowcase = require(script.Parent.NukeRarityShowcase)
 local Daylight = require(script.Parent.Daylight)
 
 local World = {}
@@ -79,6 +80,7 @@ function World.rebuild()
 	CrateShopPads.rebuild()
 	GroupRewardChest.rebuild()
 	Scenery.rebuild()
+	NukeRarityShowcase.rebuild()
 	Daylight.apply()
 
 	local elapsed = (os.clock() - started) * 1000
